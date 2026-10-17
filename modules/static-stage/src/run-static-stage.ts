@@ -14,6 +14,7 @@ import { collectInstructionFindings } from './collect-instruction-findings';
 import { collectSourceFacts } from './collect-source-facts';
 import { collectTestFindings } from './collect-test-findings';
 import { isGlobMatch } from './is-glob-match';
+import { isReleaseChange } from './is-release-change';
 import { loadBaseIndex } from './load-base-index';
 import { parsePackageManifest } from './parse-package-manifest';
 import { parseSource } from './parse-source';
@@ -39,7 +40,11 @@ export interface StaticStageResult {
   findings: ModelFinding[];
   signals: RiskSignals;
   isSync: boolean;
+  isRelease: boolean;
   files: AnalyzedFile[];
+
+  // the folder of each package manifest at the head, with `.` for the root
+  packageDirs: string[];
 }
 
 // reads the changed files at the head commit, walks each one once, and cuts the facts down to the
@@ -197,7 +202,9 @@ export async function runStaticStage(options: RunStaticStageOptions): Promise<St
       pastEscapes: options.pastEscapes,
     }),
     isSync,
+    isRelease: isReleaseChange(change.files, baseTexts, headTexts),
     files: changed,
+    packageDirs: manifestPaths.map((path) => dirname(path)).toSorted(),
   };
 }
 

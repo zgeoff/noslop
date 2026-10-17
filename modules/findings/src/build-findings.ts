@@ -6,7 +6,7 @@ import type {
   ReviewConfig,
 } from '@noslop/contract';
 import { CRITERION_SEVERITY, TITLE_MAX_LENGTH, findingSchema } from '@noslop/contract';
-import { isGlobMatch } from '@noslop/static-stage';
+import { buildChangedLines, isGlobMatch } from '@noslop/static-stage';
 import { buildFindingID } from './build-finding-id';
 import { normalizeTitle } from './normalize-title';
 
@@ -131,35 +131,28 @@ function isInHunks(file: ChangedFile, startLine: number, endLine: number): boole
   );
 }
 
-// a changed line is one the change added; with deletions counted, the head line where a deleted line
-// sat counts as well
+// the static stage's own reading of the changed lines, so a finding and a direct finding anchor to
+// the same head line for each deletion
 function isOnChangedLine(
   file: ChangedFile,
   startLine: number,
   endLine: number,
   withDeletions: boolean,
 ): boolean {
-  for (const hunk of file.hunks) {
-    let cursor = hunk.newStart;
+  const lines = buildChangedLines(file);
+  const changed = withDeletions ? lines.touched : lines.added;
 
-    for (const line of hunk.lines) {
-      if (line.newLine !== null) {
-        cursor = line.newLine;
-      }
-
-      const isChanged = line.kind === 'added' || (withDeletions && line.kind === 'deleted');
-
-      if (isChanged && cursor >= startLine && cursor <= endLine) {
-        return true;
-      }
+  for (let line = startLine; line <= endLine; line += 1) {
+    if (changed.has(line)) {
+      return true;
     }
   }
 
   return false;
 }
 
-// 2 findings are one defect when their anchors overlap and their titles match, or when one lens
-// reports one criterion twice on overlapping lines; the merged finding keeps the higher severity
+// 2 findings are one defect when their anchors overlap and their titles match; the merged finding
+// keeps the higher severity
 function mergeDuplicates(findings: readonly Finding[]): Finding[] {
   const merged: Finding[] = [];
 
@@ -188,9 +181,5 @@ function isSameDefect(left: Finding, right: Finding): boolean {
     left.anchor.startLine <= right.anchor.endLine &&
     right.anchor.startLine <= left.anchor.endLine;
 
-  return (
-    overlaps &&
-    (normalizeTitle(left.title) === normalizeTitle(right.title) ||
-      (left.lens === right.lens && left.criterion === right.criterion))
-  );
+  return overlaps && normalizeTitle(left.title) === normalizeTitle(right.title);
 }

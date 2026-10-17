@@ -277,3 +277,102 @@ test('it marks the risk class whose paths hold the anchor', () => {
 
   expect(result.findings.map((finding) => finding.riskClass)).toStrictEqual(['auth']);
 });
+
+test('it keeps 2 taste findings on one line that cite different rules', () => {
+  const result = buildFindings({
+    raw: [
+      {
+        lens: 'naming-shape-and-comments',
+        callID: 'C',
+        finding: {
+          title: 'Name the helper for what it returns',
+          body: 'The name hides the value the helper returns.',
+          anchor: { path: 'src/a.ts', startLine: 1, endLine: 1 },
+          secondLocation: null,
+          severity: 'P2',
+          criterion: 'taste-rule',
+          rule: 'Names say what they return',
+          verdict: 'CONFIRMED',
+          unverifiedFact: null,
+          missingChange: false,
+          fix: null,
+        },
+      },
+      {
+        lens: 'naming-shape-and-comments',
+        callID: 'C',
+        finding: {
+          title: 'Move the helper below its caller',
+          body: 'The helper sits above the export that calls it.',
+          anchor: { path: 'src/a.ts', startLine: 1, endLine: 1 },
+          secondLocation: null,
+          severity: 'P2',
+          criterion: 'taste-rule',
+          rule: 'Helpers follow the export',
+          verdict: 'CONFIRMED',
+          unverifiedFact: null,
+          missingChange: false,
+          fix: null,
+        },
+      },
+    ],
+    files: [buildMockChangedFile()],
+    ruleNames: ['Names say what they return', 'Helpers follow the export'],
+    riskClasses: [],
+    config: BUILT_IN_DEFAULTS,
+  });
+
+  expect(result.findings.map((finding) => finding.rule)).toStrictEqual([
+    'Names say what they return',
+    'Helpers follow the export',
+  ]);
+});
+
+test('it anchors a deleted line to the head line after it, as the static stage does', () => {
+  const file = buildMockChangedFile({
+    hunks: [
+      {
+        oldStart: 1,
+        oldLines: 3,
+        newStart: 1,
+        newLines: 2,
+        lines: [
+          { kind: 'context', text: 'const a = 1;', oldLine: 1, newLine: 1 },
+          { kind: 'deleted', text: 'await rollback();', oldLine: 2, newLine: null },
+          { kind: 'context', text: 'const c = 3;', oldLine: 3, newLine: 2 },
+        ],
+      },
+    ],
+  });
+
+  const result = buildFindings({
+    raw: [
+      {
+        lens: 'failure-handling-and-observability',
+        callID: 'A',
+        finding: {
+          title: 'Restore the rollback on a failed write',
+          body: 'The change deletes the rollback, so a failed write leaves the partial state.',
+          anchor: { path: 'src/a.ts', startLine: 2, endLine: 2 },
+          secondLocation: null,
+          severity: 'P1',
+          criterion: 'data-loss',
+          rule: null,
+          verdict: 'CONFIRMED',
+          unverifiedFact: null,
+          missingChange: false,
+          fix: null,
+        },
+      },
+    ],
+    files: [file],
+    ruleNames: [],
+    riskClasses: [],
+    config: BUILT_IN_DEFAULTS,
+  });
+
+  expect([result.findings.map((finding) => finding.anchor), result.dropped]).toStrictEqual([
+    [{ path: 'src/a.ts', startLine: 2, endLine: 2 }],
+    [],
+  ]);
+});

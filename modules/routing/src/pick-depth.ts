@@ -33,7 +33,9 @@ export function pickDepth(input: RouteInput): Depth {
   const hasRiskSlice =
     input.slices.security.length > 0 ||
     input.slices.migrations.length > 0 ||
-    input.slices.writes.length >= thresholds.concurrencyMinWrites;
+    input.slices.writes.length >= thresholds.concurrencyMinWrites ||
+    input.slices.writes.some((write) => write.eventsBeside.length > 0) ||
+    (input.slices.writes.length > 0 && input.slices.events.length > 0);
 
   if (
     !hasRiskSlice &&

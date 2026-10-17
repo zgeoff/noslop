@@ -14,6 +14,7 @@ test('it runs a small code change at Light in one call', () => {
     config: BUILT_IN_DEFAULTS,
     linkedIssue: null,
     isSync: false,
+    isRelease: false,
     isPush: false,
     packageDirs: ['.'],
   });
@@ -64,6 +65,7 @@ test('it fires each lens whose slice holds an entry and groups them by the defau
     config: BUILT_IN_DEFAULTS,
     linkedIssue: 'Add the port.',
     isSync: false,
+    isRelease: false,
     isPush: false,
     packageDirs: ['.'],
   });
@@ -105,6 +107,7 @@ test('it runs a marked risk class at Deep with the lenses it forces and call A s
     config: BUILT_IN_DEFAULTS,
     linkedIssue: null,
     isSync: false,
+    isRelease: false,
     isPush: false,
     packageDirs: ['.'],
   });
@@ -154,6 +157,7 @@ test('it keeps a lens the config turns off unless a risk class forces it', () =>
     },
     linkedIssue: null,
     isSync: false,
+    isRelease: false,
     isPush: false,
     packageDirs: ['.'],
   });
@@ -180,6 +184,7 @@ test('it routes a change of prose alone to the documentation and instructions le
     config: BUILT_IN_DEFAULTS,
     linkedIssue: 'Write the guide.',
     isSync: false,
+    isRelease: false,
     isPush: false,
     packageDirs: ['.'],
   });
@@ -190,17 +195,17 @@ test('it routes a change of prose alone to the documentation and instructions le
   ]);
 });
 
-test.each<[string, boolean, string, SpecialChange]>([
-  ['a sync', true, 'vendor/shared.ts', 'sync'],
-  ['a release bump', false, 'package.json', 'release'],
-])('it runs no lens on %s', (_label, isSync, path, special) => {
+test.each<{ isSync: boolean; isRelease: boolean; path: string; special: SpecialChange }>([
+  { isSync: true, isRelease: false, path: 'vendor/shared.ts', special: 'sync' },
+  { isSync: false, isRelease: true, path: 'package.json', special: 'release' },
+])('it runs no lens on a $special change', (row) => {
   const route = buildRoute({
     change: {
       base: 'a'.repeat(40),
       head: 'b'.repeat(40),
       files: [
         buildMockChangedFile({
-          path,
+          path: row.path,
           kind: 'config',
           hunks: [
             {
@@ -222,12 +227,13 @@ test.each<[string, boolean, string, SpecialChange]>([
     signals: buildMockRiskSignals(),
     config: BUILT_IN_DEFAULTS,
     linkedIssue: null,
-    isSync,
+    isSync: row.isSync,
+    isRelease: row.isRelease,
     isPush: false,
     packageDirs: ['.'],
   });
 
-  expect([route.special, route.lenses, route.calls]).toStrictEqual([special, [], []]);
+  expect([route.special, route.lenses, route.calls]).toStrictEqual([row.special, [], []]);
 });
 
 test('it marks a direct push and routes it like any change', () => {
@@ -243,6 +249,7 @@ test('it marks a direct push and routes it like any change', () => {
     config: BUILT_IN_DEFAULTS,
     linkedIssue: null,
     isSync: false,
+    isRelease: false,
     isPush: true,
     packageDirs: ['.'],
   });
@@ -277,6 +284,7 @@ test('it runs a lens with a model of its own in a call of its own, at its own ef
     },
     linkedIssue: null,
     isSync: false,
+    isRelease: false,
     isPush: false,
     packageDirs: ['.'],
   });
@@ -311,6 +319,7 @@ test('it runs each call once per chunk of a large change', () => {
     config: BUILT_IN_DEFAULTS,
     linkedIssue: null,
     isSync: false,
+    isRelease: false,
     isPush: false,
     packageDirs: ['.', 'apps/web', 'modules/core'],
   });
@@ -320,5 +329,59 @@ test('it runs each call once per chunk of a large change', () => {
   ).toStrictEqual([
     ['A#1', ['apps/web/src/a.ts']],
     ['A#2', ['modules/core/src/b.ts']],
+  ]);
+});
+
+test('it runs the documentation lens on a one-line edit to a doc', () => {
+  const route = buildRoute({
+    change: {
+      base: 'a'.repeat(40),
+      head: 'b'.repeat(40),
+      files: [buildMockChangedFile({ path: 'docs/guide.md', kind: 'prose' })],
+      excluded: [],
+    },
+    slices: buildMockSlices({ prose: [{ path: 'docs/guide.md', changedLines: 1, isNew: false }] }),
+    signals: buildMockRiskSignals(),
+    config: BUILT_IN_DEFAULTS,
+    linkedIssue: null,
+    isSync: false,
+    isRelease: false,
+    isPush: false,
+    packageDirs: ['.'],
+  });
+
+  expect([route.special, route.lenses]).toStrictEqual(['docs-only', ['documentation']]);
+});
+
+test('it keeps a small change with one write and an event out of Light', () => {
+  const route = buildRoute({
+    change: {
+      base: 'a'.repeat(40),
+      head: 'b'.repeat(40),
+      files: [buildMockChangedFile()],
+      excluded: [],
+    },
+    slices: buildMockSlices({
+      writes: [
+        {
+          location: { path: 'src/a.ts', startLine: 1, endLine: 1 },
+          call: 'writeFile',
+          inTransaction: false,
+          eventsBeside: ['emit'],
+        },
+      ],
+    }),
+    signals: buildMockRiskSignals(),
+    config: BUILT_IN_DEFAULTS,
+    linkedIssue: null,
+    isSync: false,
+    isRelease: false,
+    isPush: false,
+    packageDirs: ['.'],
+  });
+
+  expect([route.depth, route.lenses]).toStrictEqual([
+    'standard',
+    ['correctness', 'concurrency-and-data-integrity'],
   ]);
 });

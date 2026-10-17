@@ -8,6 +8,7 @@ export interface RouteInput {
   config: ReviewConfig;
   linkedIssue: string | null;
   isSync: boolean;
+  isRelease: boolean;
 
   // a review of a push to the default branch, with no pull request to hold its findings
   isPush: boolean;

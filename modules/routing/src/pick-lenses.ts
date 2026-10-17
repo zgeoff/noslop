@@ -57,7 +57,14 @@ export function pickLenses(input: RouteInput, special: SpecialChange | null): Le
   const candidates =
     special === null || special === 'direct-push' ? LENS_IDS : SPECIAL_LENSES[special];
 
-  const fired = new Set(candidates.filter((lens) => TRIGGERS[lens](input)));
+  // a docs-only change runs the documentation lens on any prose it changes, whatever its size
+  const fired = new Set(
+    candidates.filter(
+      (lens) =>
+        TRIGGERS[lens](input) ||
+        (special === 'docs-only' && lens === 'documentation' && input.slices.prose.length > 0),
+    ),
+  );
 
   if (special === null || special === 'direct-push') {
     for (const lens of forced) {
