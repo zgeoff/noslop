@@ -91,6 +91,12 @@ export const reviewConfigSchema = z.strictObject({
   infra: z.array(z.string().min(1)),
   synced: z.array(z.string().min(1)),
   breakingMarkers: z.array(z.string().min(1)),
+
+  // the published downstream maximum of each named input, which a schema bound must not pass
+  limits: z.record(z.string(), z.number()),
+
+  // the paths whose change needs a version bump in the package that owns them
+  versionBump: z.array(z.string().min(1)),
   report: z.array(z.string().min(1)),
   reporters: z.record(z.string(), reporterOptionsSchema),
 });

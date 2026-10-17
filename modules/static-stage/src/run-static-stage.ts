@@ -1,0 +1,280 @@
+import { basename, dirname, join } from 'node:path';
+import type { ModelFinding, ReviewConfig } from '@noslop/contract';
+import type { Runner } from '@noslop/runner';
+import type { AnalyzedFile, PackageManifest } from './analyzed-file';
+import { buildChangedLines } from './build-changed-lines';
+import { buildEdgeSlice } from './build-edge-slice';
+import { buildFileSlices } from './build-file-slices';
+import { buildFunctionSlices } from './build-function-slices';
+import { buildReuseSlice } from './build-reuse-slice';
+import { buildRiskSignals } from './build-risk-signals';
+import type { ConsumerManifest } from './collect-change-findings';
+import { collectChangeFindings } from './collect-change-findings';
+import { collectInstructionFindings } from './collect-instruction-findings';
+import { collectSourceFacts } from './collect-source-facts';
+import { collectTestFindings } from './collect-test-findings';
+import { isGlobMatch } from './is-glob-match';
+import { loadBaseIndex } from './load-base-index';
+import { parsePackageManifest } from './parse-package-manifest';
+import { parseSource } from './parse-source';
+import { pickFileKind } from './pick-file-kind';
+import { readFilesAtCommit } from './read-files-at-commit';
+import type { Change, ChangedFile, RiskSignals, Slices } from './types';
+
+export interface RunStaticStageOptions {
+  runner: Runner;
+  repoDir: string;
+  change: Change;
+  config: ReviewConfig;
+  title: string;
+  body: string;
+  linkedIssue: string | null;
+  cacheDir: string | null;
+  pastEscapes: readonly string[];
+  readConsumerFile?: (repo: string, path: string) => Promise<string | null>;
+}
+
+export interface StaticStageResult {
+  slices: Slices;
+  findings: ModelFinding[];
+  signals: RiskSignals;
+  isSync: boolean;
+  files: AnalyzedFile[];
+}
+
+// reads the changed files at the head commit, walks each one once, and cuts the facts down to the
+// slices, the direct findings and the risk signals; every read goes through git at a pinned commit,
+// so the stage never depends on the state of a working tree
+export async function runStaticStage(options: RunStaticStageOptions): Promise<StaticStageResult> {
+  const change = options.change;
+
+  const headPaths = await readTreePaths(options, change.head);
+
+  const known = new Set(headPaths);
+  const changedPaths = new Set(change.files.map((file) => file.path));
+
+  const contextPaths = collectContextPaths(change.files, headPaths, options.config).filter(
+    (path) => !changedPaths.has(path),
+  );
+
+  const manifestPaths = headPaths.filter(
+    (path) => basename(path) === 'package.json' && !path.includes('node_modules/'),
+  );
+
+  const readable = change.files
+    .filter((file) => file.status !== 'deleted' && !file.binary)
+    .map((file) => file.path);
+
+  const headTexts = await readFilesAtCommit(options.runner, options.repoDir, change.head, [
+    ...new Set([...readable, ...contextPaths, ...manifestPaths]),
+  ]);
+
+  const baseManifestPaths = change.files
+    .filter((file) => basename(file.path) === 'package.json' && file.status !== 'added')
+    .map((file) => file.oldPath ?? file.path);
+
+  const baseTexts = await readFilesAtCommit(
+    options.runner,
+    options.repoDir,
+    change.base,
+    baseManifestPaths,
+  );
+
+  const changed = change.files.map((file) =>
+    buildAnalyzedFile(file, headTexts.get(file.path) ?? null, false, options.config),
+  );
+
+  const context = contextPaths
+    .filter((path) => known.has(path))
+    .map((path) =>
+      buildAnalyzedFile(
+        buildContextFile(path, options.config),
+        headTexts.get(path) ?? null,
+        true,
+        options.config,
+      ),
+    );
+
+  const manifests = manifestPaths.flatMap((path) => {
+    const manifest = parsePackageManifest(path, headTexts.get(path) ?? '');
+
+    return manifest === null ? [] : [manifest];
+  });
+
+  const baseManifests = new Map<string, PackageManifest>();
+
+  for (const file of change.files) {
+    const basePath = file.oldPath ?? file.path;
+    const manifest = parsePackageManifest(basePath, baseTexts.get(basePath) ?? '');
+
+    if (manifest !== null) {
+      baseManifests.set(file.path, manifest);
+    }
+  }
+
+  const functionSlices = buildFunctionSlices(changed);
+  const fileSlices = buildFileSlices(changed, headPaths, options.config);
+  const hasNewFunction = functionSlices.functions.some((entry) => entry.isNew);
+
+  const index = hasNewFunction
+    ? await loadBaseIndex({
+        runner: options.runner,
+        repoDir: options.repoDir,
+        base: change.base,
+        config: options.config,
+        cacheDir: options.cacheDir,
+      })
+    : [];
+
+  const slices: Slices = {
+    functions: functionSlices.functions,
+    reuse: buildReuseSlice(functionSlices.functions, changed, index, options.config.thresholds),
+    guards: functionSlices.guards,
+    throws: functionSlices.throws,
+    writes: functionSlices.writes,
+    security: fileSlices.security,
+    edges: buildEdgeSlice({ files: changed, manifests, config: options.config }),
+    config: fileSlices.config,
+    tests: fileSlices.tests,
+    instructions: fileSlices.instructions,
+    prose: fileSlices.prose,
+    comments: fileSlices.comments,
+    interfaces: fileSlices.interfaces,
+    migrations: fileSlices.migrations,
+    events: functionSlices.events,
+  };
+
+  const isSync =
+    change.files.length > 0 &&
+    change.files.every((file) => isGlobMatch(file.path, options.config.synced));
+
+  const all = [...changed, ...context];
+
+  const consumerManifests = await readConsumerManifests(options);
+
+  const findings = [
+    ...collectTestFindings(all, slices.security, options.body),
+    ...collectInstructionFindings(all, slices.instructions),
+    ...collectChangeFindings({
+      files: all,
+      manifests,
+      baseManifests,
+      consumerManifests,
+      config: options.config,
+      linkedIssue: options.linkedIssue,
+      isSync,
+    }),
+  ];
+
+  return {
+    slices,
+    findings,
+    signals: buildRiskSignals({
+      change,
+      slices,
+      manifests,
+      config: options.config,
+      title: options.title,
+      body: options.body,
+      pastEscapes: options.pastEscapes,
+    }),
+    isSync,
+    files: changed,
+  };
+}
+
+async function readTreePaths(options: RunStaticStageOptions, commit: string): Promise<string[]> {
+  const result = await options.runner.run(['git', 'ls-tree', '-r', '--name-only', '-z', commit], {
+    cwd: options.repoDir,
+  });
+
+  if (result.exitCode !== 0) {
+    throw new Error(`git ls-tree failed: ${result.stderr.trim()}`);
+  }
+
+  return result.stdout.split('\0').filter((path) => path !== '');
+}
+
+// the unchanged files a check reads beside the change: the test file beside each changed source, and
+// every instruction file an agent loads beside a changed one
+function collectContextPaths(
+  files: readonly ChangedFile[],
+  headPaths: readonly string[],
+  config: ReviewConfig,
+): string[] {
+  const paths = new Set<string>();
+
+  const instructions = headPaths.filter((path) => isGlobMatch(path, config.instructions));
+
+  for (const file of files) {
+    if (file.kind === 'code') {
+      const stem = basename(file.path).replace(
+        /\.(?<extension>[cm]?[jt]sx?)$/u,
+        '.test.$<extension>',
+      );
+
+      paths.add(join(dirname(file.path), stem));
+    }
+
+    if (file.kind === 'instructions') {
+      for (const path of instructions) {
+        paths.add(path);
+      }
+    }
+  }
+
+  return [...paths];
+}
+
+function buildContextFile(path: string, config: ReviewConfig): ChangedFile {
+  return {
+    path,
+    oldPath: path,
+    status: 'modified',
+    binary: false,
+    kind: pickFileKind(path, config),
+    hunks: [],
+    addedLines: 0,
+    deletedLines: 0,
+  };
+}
+
+function buildAnalyzedFile(
+  file: ChangedFile,
+  text: string | null,
+  isContext: boolean,
+  config: ReviewConfig,
+): AnalyzedFile {
+  const parsed = text === null ? null : parseSource(file.path, text);
+
+  return {
+    file,
+    isContext,
+    text,
+    parsed,
+    analysis: parsed === null ? null : collectSourceFacts(parsed, config.stack),
+    lines: buildChangedLines(file),
+  };
+}
+
+async function readConsumerManifests(options: RunStaticStageOptions): Promise<ConsumerManifest[]> {
+  const reader = options.readConsumerFile;
+
+  if (reader === undefined) {
+    return [];
+  }
+
+  const manifests: ConsumerManifest[] = [];
+
+  for (const consumer of options.config.consumers) {
+    const text = await reader(consumer.repo, consumer.path);
+
+    const manifest = text === null ? null : parsePackageManifest(consumer.path, text);
+
+    if (manifest !== null) {
+      manifests.push({ repo: consumer.repo, path: consumer.path, manifest });
+    }
+  }
+
+  return manifests;
+}

@@ -1,0 +1,77 @@
+import type { ReviewConfig } from '@noslop/contract';
+import type { Runner } from '@noslop/runner';
+import { isGlobMatch } from './is-glob-match';
+import { parseDiff } from './parse-diff';
+import { pickFileKind } from './pick-file-kind';
+import type { Change, ChangedFile } from './types';
+
+export interface ReadChangeOptions {
+  runner: Runner;
+  repoDir: string;
+  base: string;
+  head: string;
+  config: ReviewConfig;
+}
+
+// reads the change between 2 commits through git, resolving each ref to its full commit so every line
+// reference cites a pinned commit; the files the config marks generated, lockfiles among them, are
+// left out of the change and listed apart
+export async function readChange(options: ReadChangeOptions): Promise<Change> {
+  const base = await resolveCommit(options, options.base);
+  const head = await resolveCommit(options, options.head);
+
+  const diff = await runGit(options, [
+    '-c',
+    'core.quotePath=false',
+    'diff',
+    '--no-color',
+    '--no-ext-diff',
+    '--no-prefix',
+    '--find-renames',
+    '--unified=3',
+    base,
+    head,
+  ]);
+
+  const files: ChangedFile[] = [];
+  const excluded: string[] = [];
+
+  for (const parsed of parseDiff(diff)) {
+    if (isGlobMatch(parsed.path, options.config.generated)) {
+      excluded.push(parsed.path);
+      continue;
+    }
+
+    const lines = parsed.hunks.flatMap((hunk) => hunk.lines);
+
+    files.push({
+      ...parsed,
+      kind: pickFileKind(parsed.path, options.config),
+      addedLines: lines.filter((line) => line.kind === 'added').length,
+      deletedLines: lines.filter((line) => line.kind === 'deleted').length,
+    });
+  }
+
+  return { base, head, files, excluded };
+}
+
+async function resolveCommit(options: ReadChangeOptions, ref: string): Promise<string> {
+  const sha = await runGit(options, [
+    'rev-parse',
+    '--verify',
+    '--end-of-options',
+    `${ref}^{commit}`,
+  ]);
+
+  return sha.trim();
+}
+
+async function runGit(options: ReadChangeOptions, args: readonly string[]): Promise<string> {
+  const result = await options.runner.run(['git', ...args], { cwd: options.repoDir });
+
+  if (result.exitCode !== 0) {
+    throw new Error(`git ${args.join(' ')} failed: ${result.stderr.trim()}`);
+  }
+
+  return result.stdout;
+}

@@ -121,6 +121,8 @@ export const BUILT_IN_DEFAULTS: ReviewConfig = {
   ],
   synced: [],
   breakingMarkers: ['!:', 'BREAKING CHANGE'],
+  limits: {},
+  versionBump: [],
   report: ['json'],
   reporters: {},
 };

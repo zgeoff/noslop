@@ -1,0 +1,23 @@
+{
+  "name": "@noslop/static-stage",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@noslop/contract": "workspace:*",
+    "@noslop/runner": "workspace:*",
+    "oxc-parser": "catalog:",
+    "ts-pattern": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@noslop/config": "workspace:*",
+    "@noslop/testing": "workspace:*"
+  }
+}
