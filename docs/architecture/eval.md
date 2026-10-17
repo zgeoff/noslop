@@ -37,11 +37,10 @@ A case holds the path to a local clone of the repo, the base and head commits of
 title and body, the labelled findings, and the escapes. A labelled finding holds its anchor, title,
 severity, the lens it belongs to when one fits, and its label: `true-positive`, `false-positive` or
 `disputed`. An escape holds the defect, whether the diff showed it, and its anchor and lens when
-they are known. Before a run, the harness resolves each labelled path to the file that the path
-names at the head, because a reviewer that ran in a checkout folder records the path with that
-folder's prefix, and a short path leaves out leading folders. A path that matches no file, or that
-matches more than one, stays as the corpus wrote it. The harness resolves each recorded finding's
-path the same way before it scores, so a recorded path that matched its label still matches.
+they are known. Before a run, the harness checks that each labelled path names a file at the case's
+head, and it stops with the case and the paths when one does not, because a label on a missing file
+can never match. A case whose clone or head it cannot read skips the check, and the replay records
+that case as failed.
 
 ## A run
 
