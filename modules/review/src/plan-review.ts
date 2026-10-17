@@ -3,7 +3,6 @@ import type { Route, RouteInput } from '@noslop/routing';
 import { buildRoute } from '@noslop/routing';
 import type { StaticStageResult } from '@noslop/static-stage';
 import { readChange, runStaticStage } from '@noslop/static-stage';
-import { isLargeChange } from './is-large-change';
 import type { RunReviewOptions } from './run-review';
 
 export type PlanReviewOptions = Pick<
@@ -72,25 +71,18 @@ export async function planReview(options: PlanReviewOptions): Promise<ReviewPlan
 
   const route = buildRoute(routeInput, options.depth ?? null);
 
-  return { change, stage, routeInput, route, maxCalls: countMaxCalls(route, change, options) };
+  return { change, stage, routeInput, route, maxCalls: countMaxCalls(route, options) };
 }
 
-// the merge pass can follow any calls; Standard can add the verify call of a step-up, and Deep adds
-// the verify call and, on a change large enough for one, the gap sweep
-function countMaxCalls(route: Route, change: Change, options: PlanReviewOptions): number {
+// the merge pass can follow any calls, and Standard and Deep can add the verify call, Standard on a
+// step-up
+function countMaxCalls(route: Route, options: PlanReviewOptions): number {
   if (route.calls.length === 0) {
     return 0;
   }
 
   const merge = options.config.mergePass.enabled ? 1 : 0;
+  const verify = route.depth === 'light' ? 0 : 1;
 
-  if (route.depth === 'light') {
-    return route.calls.length + merge;
-  }
-
-  if (route.depth === 'standard') {
-    return route.calls.length + 1 + merge;
-  }
-
-  return route.calls.length + merge + (isLargeChange(change, options.config.thresholds) ? 2 : 1);
+  return route.calls.length + verify + merge;
 }

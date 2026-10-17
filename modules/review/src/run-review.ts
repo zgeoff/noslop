@@ -18,9 +18,7 @@ import { buildFindings } from '@noslop/findings';
 import type { PlannedCall, Route } from '@noslop/routing';
 import type { Runner } from '@noslop/runner';
 import type { StaticStageResult } from '@noslop/static-stage';
-import { buildGapTask } from './build-gap-task';
 import { buildVerifyTask } from './build-verify-task';
-import { isLargeChange } from './is-large-change';
 import { planReview } from './plan-review';
 import { runMergePass } from './run-merge-pass';
 import type { CallBatch, CallBatchInput } from './run-planned-calls';
@@ -144,9 +142,9 @@ interface CallPasses {
   batches: CallBatch[];
 }
 
-// one call per fired lens group; Deep then adds one verify call over the merged findings and at most
-// one gap sweep, and a confirmed P1 at Standard steps the review up to Deep by running only that verify
-// call on the findings it has; a route with no calls runs none, and needs no worktree
+// one call per fired lens group; Deep then adds one verify call over the merged findings, and a
+// confirmed P1 at Standard steps the review up to Deep by running that verify call on the findings it
+// has; a route with no calls runs none, and needs no worktree
 async function runCallPasses(ctx: PassContext): Promise<CallPasses> {
   if (ctx.route.calls.length === 0) {
     return { depth: ctx.route.depth, steppedUpFrom: null, batches: [] };
@@ -158,13 +156,13 @@ async function runCallPasses(ctx: PassContext): Promise<CallPasses> {
     const first = await runBatch(ctx, ctx.route.calls, ctx.route.depth, null);
 
     if (ctx.route.depth === 'deep') {
-      const batches = await runDeepPasses(ctx, first, true);
+      const batches = await runDeepPasses(ctx, first);
 
       return { depth: 'deep', steppedUpFrom: null, batches };
     }
 
     if (ctx.route.depth === 'standard' && hasConfirmedP1(buildAssembled(ctx, [first]))) {
-      const batches = await runDeepPasses(ctx, first, false);
+      const batches = await runDeepPasses(ctx, first);
 
       return { depth: 'deep', steppedUpFrom: 'standard', batches };
     }
@@ -269,36 +267,18 @@ function hasConfirmedP1(assembled: AssembledFindings): boolean {
 }
 
 const VERIFY_CALL = 'verify';
-const GAP_CALL = 'gap';
 const MERGE_CALL = 'merge';
 
 // the verify call re-derives every model finding of the first pass, after the merge, and its findings
-// replace them; a failed verify call keeps them; the gap sweep then runs once on a large change when
-// no blocking finding survives: a P1, a security finding or a risk-class finding
-async function runDeepPasses(
-  ctx: PassContext,
-  first: CallBatch,
-  sweepGaps: boolean,
-): Promise<CallBatch[]> {
+// replace them; a failed verify call keeps them
+async function runDeepPasses(ctx: PassContext, first: CallBatch): Promise<CallBatch[]> {
   const merged = buildAssembled(ctx, [first]).findings.filter(
     (finding) => finding.lens !== 'static',
   );
 
   const verified = await runVerifyCall(ctx, merged);
 
-  const batches = buildVerifiedBatches(first, verified);
-
-  if (!sweepGaps || !shouldSweepGaps(ctx, batches)) {
-    return batches;
-  }
-
-  const known = buildAssembled(ctx, batches).findings;
-
-  const gap = await runBatch(ctx, [buildPassCall(ctx, GAP_CALL, ctx.route.lenses)], 'deep', () =>
-    buildGapTask(known),
-  );
-
-  return [...batches, gap];
+  return buildVerifiedBatches(first, verified);
 }
 
 // the first pass's records stay for their cost; its findings give way to the verified ones, unless
@@ -328,17 +308,6 @@ function runVerifyCall(ctx: PassContext, findings: readonly Finding[]): Promise<
   return runBatch(ctx, [buildPassCall(ctx, VERIFY_CALL, lenses)], 'deep', () =>
     buildVerifyTask(findings),
   );
-}
-
-function shouldSweepGaps(ctx: PassContext, batches: readonly CallBatch[]): boolean {
-  const isLarge = isLargeChange(ctx.change, ctx.options.config.thresholds);
-
-  const hasBlocking = buildAssembled(ctx, batches).findings.some(
-    (finding) =>
-      finding.severity === 'P1' || finding.lens === 'security' || finding.riskClass !== undefined,
-  );
-
-  return isLarge && !hasBlocking;
 }
 
 // a pass call runs at Deep's effort on the adapter's model, with the longest timeout of the calls the

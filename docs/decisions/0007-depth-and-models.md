@@ -24,10 +24,9 @@ A change is Deep when any of these holds:
 5. It hits a consumer edge in another repo.
 
 Every other change is Standard. Deep adds 1 verify call, which re-derives every finding from the
-code after the findings merge, and at most 1 gap sweep call, which looks for what the other findings
-miss on a change of 5 or more files or 200 or more lines. A confirmed P1 at Standard steps the
-review up to Deep once, by running only the verify call on the findings it has. At every depth, each
-call reads the whole change.
+code after the findings merge. A confirmed P1 at Standard steps the review up to Deep once, by
+running only the verify call on the findings it has. At every depth, each call reads the whole
+change.
 
 At every depth, a review with 2 or more model findings ends with 1 merge pass call on a cheap model.
 The call groups the findings that report one defect, and the review keeps one finding of each group
@@ -47,6 +46,9 @@ in each file. The config can turn the pass off.
 - **A model rates the risk.** It costs a call and can rate the same change differently.
 - **Chunks of 150 changed lines by file or package.** A lens then sees part of the change, and the
   calls multiply: 93 calls on one corpus change, for no measured gain in recall.
+- **A gap sweep at Deep.** One call with every fired lens and the findings so far, asking for what
+  they miss. On 6 corpus cases forced to Deep, it added 6 calls and 3.5M input tokens and found no
+  labelled defect that the first pass missed.
 
 ## Consequences
 
@@ -63,3 +65,5 @@ in each file. The config can turn the pass off.
   Deep.
 - 2026-10-18: added the merge pass at every depth. Lenses word one defect differently, and a title
   rule cannot tell a reworded repeat from 2 defects whose titles differ by one word.
+- 2026-10-18: removed the gap sweep. On the thin eval it found no labelled defect that the first
+  pass missed, at 6 calls and 3.5M input tokens over 6 cases.

@@ -78,8 +78,6 @@ export const BUILT_IN_DEFAULTS: ReviewConfig = {
     docsMinLines: 100,
     complexityMin: 5,
     deepMinPackages: 3,
-    gapSweepMinFiles: 5,
-    gapSweepMinLines: 200,
     commentDensityMax: 120,
     concurrencyMinWrites: 2,
     reuseShortlistSize: 5,

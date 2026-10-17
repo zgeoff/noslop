@@ -31,8 +31,6 @@ export const thresholdsSchema = z.strictObject({
   docsMinLines: z.int().nonnegative(),
   complexityMin: z.int().positive(),
   deepMinPackages: z.int().positive(),
-  gapSweepMinFiles: z.int().positive(),
-  gapSweepMinLines: z.int().positive(),
   commentDensityMax: z.int().nonnegative(),
   concurrencyMinWrites: z.int().positive(),
   reuseShortlistSize: z.int().positive(),

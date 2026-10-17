@@ -1032,7 +1032,7 @@ test('it keeps the Deep findings when the verify call fails twice', async () => 
   ]).toStrictEqual(['deep', ['Keep the session lifetime short'], ['verify']]);
 });
 
-test('it sweeps a large Deep change for gaps when no blocking finding survives', async () => {
+test('it runs only the group calls on a large Deep change that holds no finding', async () => {
   const ctx = await setupTest();
 
   const files = Object.fromEntries(
@@ -1050,7 +1050,6 @@ test('it sweeps a large Deep change for gaps when no blocking finding survives',
   const stub = buildStubAdapter({
     A: [{ findings: { correctness: [] } }],
     B: [{ findings: { security: [] } }],
-    gap: [{ findings: { correctness: [], security: [] } }],
   });
 
   await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
@@ -1079,6 +1078,5 @@ test('it sweeps a large Deep change for gaps when no blocking finding survives',
   expect(run.result.calls.map((call) => [call.id, call.lenses, call.status])).toStrictEqual([
     ['A', ['correctness'], 'ok'],
     ['B', ['security'], 'ok'],
-    ['gap', ['correctness', 'security'], 'ok'],
   ]);
 });

@@ -15,7 +15,7 @@ async function setupTest() {
   return { dir, runner: createRunner() };
 }
 
-test('it counts the gap sweep, and no merge pass the config turns off, in the most calls of a large Deep change', async () => {
+test('it counts no merge pass in the most calls when the config turns it off', async () => {
   const ctx = await setupTest();
 
   const files = Object.fromEntries(
@@ -44,7 +44,7 @@ test('it counts the gap sweep, and no merge pass the config turns off, in the mo
     pastEscapes: [],
   });
 
-  expect([plan.route.depth, plan.route.calls.length, plan.maxCalls]).toStrictEqual(['deep', 2, 4]);
+  expect([plan.route.depth, plan.route.calls.length, plan.maxCalls]).toStrictEqual(['deep', 2, 3]);
 });
 
 test('it plans the depth and the calls of a change with no model call', async () => {
