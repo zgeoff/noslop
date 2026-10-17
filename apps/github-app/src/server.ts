@@ -22,6 +22,7 @@ const queue = createJobQueue(
     runAppJob(event, {
       runner,
       cliPath: join(import.meta.dir, '..', '..', 'cli', 'src', 'cli.ts'),
+      bunConfigPath: join(import.meta.dir, '..', '..', '..', 'bunfig.toml'),
       reposDir: env.reposDir,
       appID: env.appID,
       privateKey: env.privateKey,

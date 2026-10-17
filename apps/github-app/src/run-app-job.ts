@@ -9,6 +9,9 @@ export interface AppJobOptions {
   // the noslop CLI's entry file, which the job runs with Bun
   cliPath: string;
 
+  // the Bun config the CLI runs under, so Bun never loads a reviewed repo's bunfig and its preloads
+  bunConfigPath: string;
+
   // the folder that holds a clone of each repo the App reviews
   reposDir: string;
   appID: number;
@@ -28,10 +31,12 @@ export async function runAppJob(event: AppEvent, options: AppJobOptions): Promis
     NOSLOP_GITHUB_APP_INSTALLATION_ID: String(event.installationID),
   };
 
+  const cli = ['bun', `--config=${options.bunConfigPath}`, options.cliPath];
+
   if (event.kind === 'check') {
     await runChecked(
       options.runner,
-      ['bun', options.cliPath, 'check', '--pr', String(event.number), '--repo', repo],
+      [...cli, 'check', '--pr', String(event.number), '--repo', repo],
       {
         cwd: options.reposDir,
         env: cliEnv,
@@ -63,19 +68,16 @@ export async function runAppJob(event: AppEvent, options: AppJobOptions): Promis
     { cwd: clone, env: gitEnv },
   );
 
+  // the review reads its config from the clone's files, so they follow the default branch
   await runChecked(
     options.runner,
-    [
-      'bun',
-      options.cliPath,
-      'review',
-      '--pr',
-      String(event.number),
-      '--repo',
-      repo,
-      '--report',
-      'github',
-    ],
+    ['git', 'checkout', '--quiet', '--force', '--detach', 'origin/HEAD'],
+    { cwd: clone, env: gitEnv },
+  );
+
+  await runChecked(
+    options.runner,
+    [...cli, 'review', '--pr', String(event.number), '--repo', repo, '--report', 'github'],
     { cwd: clone, env: { ...cliEnv, ...gitEnv } },
   );
 }
@@ -88,9 +90,9 @@ async function runChecked(
   const result = await runner.run(argv, options);
 
   if (result.exitCode !== 0) {
-    throw new Error(
-      `${argv.slice(0, 3).join(' ')} exited ${result.exitCode}: ${result.stderr.trim()}`,
-    );
+    const command = argv.filter((arg) => !arg.startsWith('--config=')).slice(0, 3);
+
+    throw new Error(`${command.join(' ')} exited ${result.exitCode}: ${result.stderr.trim()}`);
   }
 }
 

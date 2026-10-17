@@ -8,9 +8,9 @@ export interface JobQueue {
   waitForIdle: () => Promise<void>;
 }
 
-// runs the jobs of one pull request one at a time, in the order they came, so 2 reviews of one pull
-// request never post at once; the jobs of different pull requests run side by side, and a failed job
-// is logged and leaves the next one to run
+// runs the jobs of one repo one at a time, in the order they came, because they share the repo's
+// clone and 2 reviews of one pull request must never post at once; the jobs of different repos run
+// side by side, and a failed job is logged and leaves the next one to run
 export function createJobQueue(
   runJob: (event: AppEvent) => Promise<void>,
   logger: Logger,
@@ -30,7 +30,7 @@ export function createJobQueue(
 
   return {
     enqueue: (event) => {
-      const key = `${event.owner}/${event.repo}#${event.number}`;
+      const key = `${event.owner}/${event.repo}`;
       const previous = tails.get(key) ?? Promise.resolve();
 
       tails.set(key, runAfter(previous, event, key));

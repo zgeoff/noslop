@@ -12,6 +12,9 @@ export interface AppEvent {
 
 const REVIEW_ACTIONS = new Set(['opened', 'synchronize', 'reopened', 'ready_for_review']);
 
+// an edit or a deletion can change a disposition as much as a new comment can
+const COMMENT_ACTIONS = new Set(['created', 'edited', 'deleted']);
+
 const ownerSchema = z.looseObject({ login: z.string() });
 
 const payloadSchema = z.looseObject({
@@ -24,15 +27,17 @@ const payloadSchema = z.looseObject({
 });
 
 // a delivery as an App event, or null for one the App leaves be: another event, a draft, a comment
-// on an issue that is no pull request, or a comment a bot wrote, the App's own included
+// on an issue that is no pull request, or a comment a bot wrote, the App's own included; a pull
+// request a bot opened or pushed is reviewed, since agents open most of them
 export function parseAppEvent(name: string, payload: unknown): AppEvent | null {
   const parsed = payloadSchema.safeParse(payload);
 
-  if (!parsed.success || parsed.data.sender.type === 'Bot') {
+  if (!parsed.success) {
     return null;
   }
 
   const data = parsed.data;
+  const isPersonComment = data.sender.type !== 'Bot' && COMMENT_ACTIONS.has(data.action);
 
   const base = {
     owner: data.repository.owner.login,
@@ -47,13 +52,11 @@ export function parseAppEvent(name: string, payload: unknown): AppEvent | null {
   }
 
   if (name === 'pull_request_review_comment' && data.pull_request !== undefined) {
-    return data.action === 'created'
-      ? { kind: 'check', number: data.pull_request.number, ...base }
-      : null;
+    return isPersonComment ? { kind: 'check', number: data.pull_request.number, ...base } : null;
   }
 
   if (name === 'issue_comment' && data.issue?.pull_request !== undefined) {
-    return data.action === 'created' ? { kind: 'check', number: data.issue.number, ...base } : null;
+    return isPersonComment ? { kind: 'check', number: data.issue.number, ...base } : null;
   }
 
   return null;

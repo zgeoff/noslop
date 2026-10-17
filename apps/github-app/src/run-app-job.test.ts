@@ -19,7 +19,8 @@ test('it clones the repo, fetches the pull request and reviews it through the Ap
   const stub = buildStubRunner([
     { argv: ['git', 'clone'], result: {} },
     { argv: ['git', 'fetch'], result: {} },
-    { argv: ['bun', 'cli.ts', 'review'], result: {} },
+    { argv: ['git', 'checkout'], result: {} },
+    { argv: ['bun', '--config=/app/bunfig.toml', 'cli.ts', 'review'], result: {} },
   ]);
 
   await runAppJob(
@@ -27,6 +28,7 @@ test('it clones the repo, fetches the pull request and reviews it through the Ap
     {
       runner: stub.runner,
       cliPath: 'cli.ts',
+      bunConfigPath: '/app/bunfig.toml',
       reposDir: ctx.dir,
       appID: 1,
       privateKey: 'app-key',
@@ -43,14 +45,26 @@ test('it clones the repo, fetches the pull request and reviews it through the Ap
       join(ctx.dir, 'example', 'app'),
     ],
     ['git', 'fetch', '--quiet', 'origin', 'pull/5/head'],
-    ['bun', 'cli.ts', 'review', '--pr', '5', '--repo', 'example/app', '--report', 'github'],
+    ['git', 'checkout', '--quiet', '--force', '--detach', 'origin/HEAD'],
+    [
+      'bun',
+      '--config=/app/bunfig.toml',
+      'cli.ts',
+      'review',
+      '--pr',
+      '5',
+      '--repo',
+      'example/app',
+      '--report',
+      'github',
+    ],
   ]);
 
   expect(stub.runs.map((run) => run.argv.join(' '))).toSatisfyAll(
     (line: string) => !line.includes('ghs_token') && !line.includes('app-key'),
   );
 
-  expect(stub.runs[2]?.options.env).toMatchObject({
+  expect(stub.runs[3]?.options.env).toMatchObject({
     NOSLOP_GITHUB_APP_ID: '1',
     NOSLOP_GITHUB_APP_PRIVATE_KEY: 'app-key',
     NOSLOP_GITHUB_APP_INSTALLATION_ID: '7',
@@ -59,7 +73,7 @@ test('it clones the repo, fetches the pull request and reviews it through the Ap
   });
 });
 
-test('it fetches into the clone it made before', async () => {
+test('it fetches into the clone it made before and checks out the default branch', async () => {
   const ctx = await setupTest();
 
   await mkdir(join(ctx.dir, 'example', 'app', '.git'), { recursive: true });
@@ -67,7 +81,8 @@ test('it fetches into the clone it made before', async () => {
   const stub = buildStubRunner([
     { argv: ['git', 'fetch'], result: {} },
     { argv: ['git', 'fetch'], result: {} },
-    { argv: ['bun', 'cli.ts', 'review'], result: {} },
+    { argv: ['git', 'checkout'], result: {} },
+    { argv: ['bun'], result: {} },
   ]);
 
   await runAppJob(
@@ -75,6 +90,7 @@ test('it fetches into the clone it made before', async () => {
     {
       runner: stub.runner,
       cliPath: 'cli.ts',
+      bunConfigPath: '/app/bunfig.toml',
       reposDir: ctx.dir,
       appID: 1,
       privateKey: 'app-key',
@@ -85,20 +101,22 @@ test('it fetches into the clone it made before', async () => {
   expect(stub.runs.map((run) => run.argv.slice(0, 2))).toStrictEqual([
     ['git', 'fetch'],
     ['git', 'fetch'],
-    ['bun', 'cli.ts'],
+    ['git', 'checkout'],
+    ['bun', '--config=/app/bunfig.toml'],
   ]);
 });
 
 test('it sets the check again with no clone after a reply', async () => {
   const ctx = await setupTest();
 
-  const stub = buildStubRunner([{ argv: ['bun', 'cli.ts', 'check'], result: {} }]);
+  const stub = buildStubRunner([{ argv: ['bun'], result: {} }]);
 
   await runAppJob(
     { kind: 'check', owner: 'example', repo: 'app', number: 5, installationID: 7 },
     {
       runner: stub.runner,
       cliPath: 'cli.ts',
+      bunConfigPath: '/app/bunfig.toml',
       reposDir: ctx.dir,
       appID: 1,
       privateKey: 'app-key',
@@ -107,7 +125,7 @@ test('it sets the check again with no clone after a reply', async () => {
   );
 
   expect(stub.runs.map((run) => run.argv)).toStrictEqual([
-    ['bun', 'cli.ts', 'check', '--pr', '5', '--repo', 'example/app'],
+    ['bun', '--config=/app/bunfig.toml', 'cli.ts', 'check', '--pr', '5', '--repo', 'example/app'],
   ]);
 });
 
@@ -117,10 +135,8 @@ test('it fails the job when the review exits non-zero', async () => {
   const stub = buildStubRunner([
     { argv: ['git', 'clone'], result: {} },
     { argv: ['git', 'fetch'], result: {} },
-    {
-      argv: ['bun', 'cli.ts', 'review'],
-      result: { exitCode: 1, stderr: 'noslop: the call failed\n' },
-    },
+    { argv: ['git', 'checkout'], result: {} },
+    { argv: ['bun'], result: { exitCode: 1, stderr: 'noslop: the call failed\n' } },
   ]);
 
   expect(
@@ -129,6 +145,7 @@ test('it fails the job when the review exits non-zero', async () => {
       {
         runner: stub.runner,
         cliPath: 'cli.ts',
+        bunConfigPath: '/app/bunfig.toml',
         reposDir: ctx.dir,
         appID: 1,
         privateKey: 'app-key',

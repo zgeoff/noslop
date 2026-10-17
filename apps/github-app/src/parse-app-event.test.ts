@@ -25,6 +25,30 @@ test('it sets the check again after a reply in a finding thread', () => {
   ).toStrictEqual({ kind: 'check', owner: 'example', repo: 'app', number: 5, installationID: 7 });
 });
 
+test('it reviews a pull request that a bot opened', () => {
+  expect(
+    parseAppEvent('pull_request', {
+      action: 'opened',
+      installation: { id: 7 },
+      repository: { name: 'app', owner: { login: 'example' } },
+      sender: { type: 'Bot' },
+      pull_request: { number: 5, draft: false },
+    }),
+  ).toStrictEqual({ kind: 'review', owner: 'example', repo: 'app', number: 5, installationID: 7 });
+});
+
+test.each([['edited'], ['deleted']])('it sets the check again after a reply is %s', (action) => {
+  expect(
+    parseAppEvent('pull_request_review_comment', {
+      action,
+      installation: { id: 7 },
+      repository: { name: 'app', owner: { login: 'example' } },
+      sender: { type: 'User' },
+      pull_request: { number: 5 },
+    }),
+  ).toStrictEqual({ kind: 'check', owner: 'example', repo: 'app', number: 5, installationID: 7 });
+});
+
 test('it sets the check again after a comment on a pull request', () => {
   expect(
     parseAppEvent('issue_comment', {

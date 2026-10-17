@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 import { configure, defaultTextFormatter } from '@logtape/logtape';
 import { createCLIContext } from './create-cli-context';
+import { removeGitHubKeys } from './remove-github-keys';
 import { runCLI } from './run-cli';
 
 // logs go to stderr, so stdout holds only a command's output; --verbose lowers the level to debug
@@ -21,5 +22,5 @@ await configure({
 
 process.exitCode = await runCLI(
   argv.filter((arg) => arg !== '--verbose'),
-  createCLIContext(Bun.env),
+  createCLIContext(removeGitHubKeys(process.env)),
 );
