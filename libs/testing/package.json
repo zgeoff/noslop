@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@noslop/contract": "workspace:*",
     "@noslop/runner": "workspace:*",
     "zod": "catalog:"
   }

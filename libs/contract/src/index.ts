@@ -8,5 +8,6 @@ export * from './lens-id';
 export * from './review-config';
 export * from './review-result';
 export * from './severity';
+export type * from './slices';
 export type * from './types';
 export * from './verdict';

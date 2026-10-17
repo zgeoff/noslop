@@ -64,6 +64,7 @@
       "name": "@noslop/testing",
       "version": "0.0.0",
       "dependencies": {
+        "@noslop/contract": "workspace:*",
         "@noslop/runner": "workspace:*",
         "zod": "catalog:",
       },
@@ -93,6 +94,19 @@
       "dependencies": {
         "@noslop/contract": "workspace:*",
         "@noslop/static-stage": "workspace:*",
+      },
+    },
+    "modules/routing": {
+      "name": "@noslop/routing",
+      "version": "0.0.0",
+      "dependencies": {
+        "@noslop/contract": "workspace:*",
+        "@noslop/lenses": "workspace:*",
+        "@noslop/static-stage": "workspace:*",
+      },
+      "devDependencies": {
+        "@noslop/config": "workspace:*",
+        "@noslop/testing": "workspace:*",
       },
     },
     "modules/static-stage": {
@@ -223,6 +237,8 @@
     "@noslop/eval": ["@noslop/eval@workspace:modules/eval"],
 
     "@noslop/lenses": ["@noslop/lenses@workspace:modules/lenses"],
+
+    "@noslop/routing": ["@noslop/routing@workspace:modules/routing"],
 
     "@noslop/runner": ["@noslop/runner@workspace:libs/runner"],
 
