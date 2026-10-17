@@ -70,3 +70,10 @@ export interface DispositionSource {
   id: string;
   readDispositions: (review: ReviewRef, ctx: ReporterContext) => Promise<Disposition[]>;
 }
+
+// one taste rule: its name holds the label of its file and its heading, so 2 files can each hold a
+// rule under one heading
+export interface Rule {
+  name: string;
+  body: string;
+}

@@ -1,12 +1,12 @@
-export interface Rule {
+export interface RuleSection {
   name: string;
   body: string;
 }
 
 // each level-2 or level-3 heading names one rule, and the lines up to the next such heading are its
 // body; a heading inside a fenced code block is example text, not a rule
-export function parseRulesFile(markdown: string): Rule[] {
-  const rules: Rule[] = [];
+export function parseRulesFile(markdown: string): RuleSection[] {
+  const rules: RuleSection[] = [];
   let current: { name: string; lines: string[] } | null = null;
   let fence: string | null = null;
 

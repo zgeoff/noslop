@@ -44,16 +44,17 @@ The merged config is validated once, after the merge, because a single file is o
 config. A key the schema does not know fails the load, with the dotted path of the key, so a typo
 never passes as an empty setting.
 
-The `rules` value resolves against the file that names it, as `extends` does, so a parent in a
-shared config repo can name a rules file that sits beside it. The module reads the rules file and
-parses it into named rules.
+The `rules` value is one path, or a list whose entries are paths or objects with a `path` and a
+`skip` list of headings. Each path resolves against the file that names it, as `extends` does, so a
+parent in a shared config repo can name a rules file that sits beside it. The module reads each
+file, parses it into named rules, and drops the sections whose headings the entry skips.
 
 ## What a review records
 
-The config module hashes the merged config together with the rules text, and the review result holds
-that hash. Two reviews with the same hash ran under the same settings and rules, so the
-[findings store](./store.md) and the [eval harness](./eval.md) can compare their findings. The
-module also keeps the source of every leaf key, as a path or a `github:` location, and
+The config module hashes the merged config together with the text of every rules file, and the
+review result holds that hash. Two reviews with the same hash ran under the same settings and rules,
+so the [findings store](./store.md) and the [eval harness](./eval.md) can compare their findings.
+The module also keeps the source of every leaf key, as a path or a `github:` location, and
 `noslop config` prints the merged config with the source of each key and the chain it came from.
 
 ## The built-in defaults

@@ -9,10 +9,24 @@ config repo can hand the same three to several repos.
 
 ## The rules file
 
-The rules file is Markdown, named by the config's `rules` key. Each level-2 or level-3 heading names
-one rule, and the lines up to the next such heading are its body. A heading inside a code block is
-example text, so a rule can show a Markdown example without splitting itself in two. Text before the
-first heading belongs to no rule.
+The rules file is Markdown, named by the config's `rules` key, which names one file or a list of
+them. Each level-2 or level-3 heading names one rule, and the lines up to the next such heading are
+its body. A heading inside a code block is example text, so a rule can show a Markdown example
+without splitting itself in two. Text before the first heading belongs to no rule.
+
+A rule's name is its file's label, then a colon, then its heading, such as
+`.claude/skills/testing/SKILL.md: Loops`. The label is the path as the config wrote it, so 2 files
+in a list can each hold a rule under one heading. A list entry can skip headings, so a skill serves
+as a rules file unchanged: its sections on how to load it, or its index of rules, hold no rule.
+
+```json
+{
+  "rules": [
+    { "path": ".claude/skills/code-style/SKILL.md", "skip": ["Key rules", "Loading the skill"] },
+    ".claude/skills/testing/SKILL.md"
+  ]
+}
+```
 
 ```markdown
 ## Context goes last
@@ -22,10 +36,10 @@ first heading belongs to no rule.
 ```
 
 A call whose lenses read the rules file carries every rule, each under its name, and
-[the lenses](./lenses.md) covers which lenses read it. A taste finding names one rule by its
-heading, and Assemble drops a taste finding whose rule the file does not hold, as
-[findings](./findings.md) describes. A repo with no rules file gets a prompt that tells the lenses
-to report no taste finding, so the taste lenses still check generic concerns.
+[the lenses](./lenses.md) covers which lenses read it. A taste finding names one rule by its full
+name, and Assemble drops a taste finding whose rule no file holds, as [findings](./findings.md)
+describes. A repo with no rules file gets a prompt that tells the lenses to report no taste finding,
+so the taste lenses still check generic concerns.
 
 ## Stack patterns
 

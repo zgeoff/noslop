@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
-import { join } from 'node:path';
-import type { ReviewConfig } from '@noslop/contract';
+import { basename, isAbsolute, join, normalize } from 'node:path';
+import type { ReviewConfig, Rule, RulesFile } from '@noslop/contract';
 import { reviewConfigSchema } from '@noslop/contract';
 import { BUILT_IN_DEFAULTS } from './built-in-defaults';
 import { formatConfigLocation } from './format-config-location';
@@ -8,7 +8,6 @@ import type { ConfigLayer } from './merge-config-layers';
 import { mergeConfigLayers } from './merge-config-layers';
 import type { ConfigLocation } from './parse-config-location';
 import { parseConfigLocation } from './parse-config-location';
-import type { Rule } from './parse-rules-file';
 import { parseRulesFile } from './parse-rules-file';
 
 export type GithubLocation = Extract<ConfigLocation, { kind: 'github' }>;
@@ -61,20 +60,19 @@ export async function loadConfig(options: LoadConfigOptions): Promise<LoadedConf
   }
 
   const config = parsed.data;
-  const rulesText = config.rules === null ? null : await readRulesFile(config.rules, options);
+  const sources = config.rules === null ? null : await readRulesSources(config.rules, options);
+  const hash = createHash('sha256').update(JSON.stringify(config));
 
-  const hash = createHash('sha256')
-    .update(JSON.stringify(config))
-    .update(rulesText ?? '')
-    .digest('hex')
-    .slice(0, 16);
+  for (const source of sources ?? []) {
+    hash.update(`\n${source.label}\n${source.text}`);
+  }
 
   return {
     config,
     sources: merged.sources,
     chain: files.map((file) => formatConfigLocation(file.location)),
-    rules: rulesText === null ? null : parseRulesFile(rulesText),
-    hash,
+    rules: sources === null ? null : sources.flatMap((source) => buildRules(source)),
+    hash: hash.digest('hex').slice(0, 16),
   };
 }
 
@@ -115,10 +113,8 @@ async function readChain(options: LoadConfigOptions): Promise<ChainFile[]> {
 
     delete value['extends'];
 
-    if (typeof value['rules'] === 'string') {
-      value['rules'] = formatConfigLocation(
-        parseConfigLocation(value['rules'], location, CONFIG_FILE),
-      );
+    if (value['rules'] !== undefined && value['rules'] !== null) {
+      value['rules'] = resolveRulesFiles(value['rules'], location);
     }
 
     chain.unshift({ location, value });
@@ -154,19 +150,78 @@ function parseConfigFile(text: string, label: string): Record<string, unknown> {
   return { ...value };
 }
 
-async function readRulesFile(rules: string, options: LoadConfigOptions): Promise<string> {
-  // the chain has resolved a local rules path against the file that names it already
-  const location: ConfigLocation = rules.startsWith('github:')
-    ? parseConfigLocation(rules, { kind: 'local', path: rules }, CONFIG_FILE)
-    : { kind: 'local', path: rules };
+// a config file writes one path or a list of paths and rules files; each path resolves against the
+// file that names it, and keeps the path as written for its label; a shape the schema refuses passes
+// through for the schema to report
+function resolveRulesFiles(raw: unknown, from: ConfigLocation): unknown[] {
+  return (Array.isArray(raw) ? raw : [raw]).map((entry: unknown) => resolveRulesFile(entry, from));
+}
 
-  const text = await readLocation(location, options);
-
-  if (text === null) {
-    throw new Error(`the rules file ${rules} does not exist`);
+function resolveRulesFile(entry: unknown, from: ConfigLocation): unknown {
+  if (typeof entry === 'string') {
+    return resolveRulesFile({ path: entry }, from);
   }
 
-  return text;
+  if (typeof entry !== 'object' || entry === null) {
+    return entry;
+  }
+
+  const path: unknown = Reflect.get(entry, 'path');
+
+  if (typeof path !== 'string') {
+    return entry;
+  }
+
+  return {
+    label: buildRulesLabel(path),
+    ...entry,
+    path: formatConfigLocation(parseConfigLocation(path, from, CONFIG_FILE)),
+  };
+}
+
+// a label reaches prompts, rule names and finding IDs, so an absolute path gives only its file name,
+// which keeps a machine's folders out of them
+function buildRulesLabel(path: string): string {
+  if (path.startsWith('github:')) {
+    return path;
+  }
+
+  return isAbsolute(path) ? basename(path) : normalize(path);
+}
+
+interface RulesSource {
+  label: string;
+  text: string;
+  skip: readonly string[];
+}
+
+function readRulesSources(
+  files: readonly RulesFile[],
+  options: LoadConfigOptions,
+): Promise<RulesSource[]> {
+  return Promise.all(
+    files.map(async (file) => {
+      // the chain has resolved each path against the file that names it already
+      const location: ConfigLocation = file.path.startsWith('github:')
+        ? parseConfigLocation(file.path, { kind: 'local', path: file.path }, CONFIG_FILE)
+        : { kind: 'local', path: file.path };
+
+      const text = await readLocation(location, options);
+
+      if (text === null) {
+        throw new Error(`the rules file ${file.path} does not exist`);
+      }
+
+      return { label: file.label ?? file.path, text, skip: file.skip ?? [] };
+    }),
+  );
+}
+
+// a skipped heading names a section that holds no rule, such as how to load a skill
+function buildRules(source: RulesSource): Rule[] {
+  return parseRulesFile(source.text)
+    .filter((section) => !source.skip.includes(section.name))
+    .map((section) => ({ name: `${source.label}: ${section.name}`, body: section.body }));
 }
 
 async function readLocation(

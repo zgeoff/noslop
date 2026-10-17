@@ -81,9 +81,22 @@ export const reporterOptionsSchema = z.strictObject({
 
 export type ReporterOptions = z.infer<typeof reporterOptionsSchema>;
 
+// one rules file: the skipped headings name sections that hold no rule, and the label prefixes the
+// name of each rule the file holds; the label is the path as a config file wrote it unless that file
+// names one
+export const rulesFileSchema = z.strictObject({
+  path: z.string().min(1),
+  label: z.string().min(1).optional(),
+  skip: z.array(z.string().min(1)).optional(),
+});
+
+export type RulesFile = z.infer<typeof rulesFileSchema>;
+
 // the merged config: every key holds a value once the built-in defaults sit under the repo's file
 export const reviewConfigSchema = z.strictObject({
-  rules: z.string().min(1).nullable(),
+  // a config file writes one path, or a list of paths and rules files; the load resolves each path
+  // and keeps the list
+  rules: z.array(rulesFileSchema).min(1).nullable(),
   adapter: z.string().min(1).nullable(),
   adapters: z.record(z.string(), adapterOptionsSchema),
 

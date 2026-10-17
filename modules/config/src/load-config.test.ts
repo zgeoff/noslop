@@ -80,10 +80,13 @@ test('it reads a parent from a github config repo through the remote reader', as
   });
 
   expect(loaded.config.thresholds.lightMaxLines).toBe(90);
-  expect(loaded.config.rules).toBe('github:example/noslop-config/patterns.md@v1');
+
+  expect(loaded.config.rules).toStrictEqual([
+    { label: 'patterns.md', path: 'github:example/noslop-config/patterns.md@v1' },
+  ]);
 
   expect(loaded.rules).toStrictEqual([
-    { name: 'Context goes last', body: '1. Take the context last.' },
+    { name: 'patterns.md: Context goes last', body: '1. Take the context last.' },
   ]);
 });
 
@@ -96,8 +99,88 @@ test('it loads the rules file named relative to the repo file', async () => {
   const loaded = await loadConfig({ repoDir: ctx.dir });
 
   expect(loaded.rules).toStrictEqual([
-    { name: 'No positional booleans', body: '1. Pass an object.' },
+    { name: 'patterns.md: No positional booleans', body: '1. Pass an object.' },
   ]);
+});
+
+test('it loads each file of a rules list, keeping one heading in 2 files apart', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(
+    join(ctx.dir, 'review.json'),
+    JSON.stringify({ rules: ['skills/code/SKILL.md', { path: 'skills/tests/SKILL.md' }] }),
+  );
+
+  await Bun.write(join(ctx.dir, 'skills/code/SKILL.md'), '## Naming\n\n1. Start with a verb.');
+  await Bun.write(join(ctx.dir, 'skills/tests/SKILL.md'), '## Naming\n\n1. Start with "it".');
+
+  const loaded = await loadConfig({ repoDir: ctx.dir });
+
+  expect(loaded.rules).toStrictEqual([
+    { name: 'skills/code/SKILL.md: Naming', body: '1. Start with a verb.' },
+    { name: 'skills/tests/SKILL.md: Naming', body: '1. Start with "it".' },
+  ]);
+});
+
+test('it labels the rules of an absolute rules path with the file name alone', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(
+    join(ctx.dir, 'repo', 'review.json'),
+    JSON.stringify({ rules: join(ctx.dir, 'shared', 'patterns.md') }),
+  );
+
+  await Bun.write(join(ctx.dir, 'shared', 'patterns.md'), '## Naming\n\n1. Start with a verb.');
+
+  const loaded = await loadConfig({ repoDir: join(ctx.dir, 'repo') });
+
+  expect(loaded.rules).toStrictEqual([
+    { name: 'patterns.md: Naming', body: '1. Start with a verb.' },
+  ]);
+});
+
+test('it leaves out the sections a rules file entry skips', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(
+    join(ctx.dir, 'review.json'),
+    JSON.stringify({ rules: [{ path: 'SKILL.md', skip: ['Loading the skill'] }] }),
+  );
+
+  await Bun.write(
+    join(ctx.dir, 'SKILL.md'),
+    '## Loading the skill\n\nLoad it first.\n\n## Naming\n\n1. Start with a verb.',
+  );
+
+  const loaded = await loadConfig({ repoDir: ctx.dir });
+
+  expect(loaded.rules).toStrictEqual([{ name: 'SKILL.md: Naming', body: '1. Start with a verb.' }]);
+});
+
+test('it fails the load when a file of the rules list does not exist', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(join(ctx.dir, 'review.json'), JSON.stringify({ rules: ['missing.md'] }));
+
+  expect(loadConfig({ repoDir: ctx.dir })).rejects.toThrowWithMessage(
+    Error,
+    /the rules file .*missing\.md does not exist/u,
+  );
+});
+
+test('it gives 2 rules lists that differ only in a file text 2 hashes', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(join(ctx.dir, 'review.json'), JSON.stringify({ rules: ['a.md'] }));
+  await Bun.write(join(ctx.dir, 'a.md'), '## Naming\n\n1. Start with a verb.');
+
+  const first = await loadConfig({ repoDir: ctx.dir });
+
+  await Bun.write(join(ctx.dir, 'a.md'), '## Naming\n\n1. Start with a noun.');
+
+  const second = await loadConfig({ repoDir: ctx.dir });
+
+  expect(first.hash).not.toBe(second.hash);
 });
 
 test('it loads the rules file when the repo directory is a relative path', async () => {
@@ -109,7 +192,7 @@ test('it loads the rules file when the repo directory is a relative path', async
   const loaded = await loadConfig({ repoDir: relative(process.cwd(), ctx.dir) });
 
   expect(loaded.rules).toStrictEqual([
-    { name: 'No positional booleans', body: '1. Pass an object.' },
+    { name: 'patterns.md: No positional booleans', body: '1. Pass an object.' },
   ]);
 });
 
