@@ -8,11 +8,12 @@ build, and no code exists yet.
 
 The rules a task needs are not repeated here. Load the skill for the work before starting it.
 
-| Skill          | Load before                                                         |
-| -------------- | ------------------------------------------------------------------- |
-| `docs-writing` | writing or editing any committed prose: `docs/`, READMEs, this file |
-| `code-style`   | writing, reviewing, or renaming any TypeScript                      |
-| `testing`      | designing, writing, or reviewing tests                              |
+| Skill           | Load before                                                                        |
+| --------------- | ---------------------------------------------------------------------------------- |
+| `docs-writing`  | writing or editing any committed prose: `docs/`, READMEs, this file                |
+| `code-style`    | writing, reviewing, or renaming any TypeScript — the shared function-verb taxonomy |
+| `testing`       | designing, writing, or reviewing tests                                             |
+| `skill-writing` | writing or editing a skill under `.claude/skills/`                                 |
 
 ## Operations
 
