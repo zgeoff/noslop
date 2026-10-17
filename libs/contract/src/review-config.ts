@@ -27,10 +27,17 @@ export const lensOverrideSchema = z.strictObject({
 export type LensOverride = z.infer<typeof lensOverrideSchema>;
 
 export const thresholdsSchema = z.strictObject({
+  // a change above either limit is never Light
   lightMaxLines: z.int().nonnegative(),
+  lightMaxPackages: z.int().positive(),
   docsMinLines: z.int().nonnegative(),
   complexityMin: z.int().positive(),
   deepMinPackages: z.int().positive(),
+
+  // a marked risk class makes a change Deep with this many changed lines in the class's paths, and a
+  // deletion makes it Deep with this many deleted lines in the paths of risk classes that force lenses
+  deepMinClassLines: z.int().positive(),
+  deepMinForcedDeletions: z.int().positive(),
   commentDensityMax: z.int().nonnegative(),
   concurrencyMinWrites: z.int().positive(),
   reuseShortlistSize: z.int().positive(),

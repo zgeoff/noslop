@@ -50,22 +50,34 @@ Routing checks Deep first, then Light, and every other change is Standard. Depth
 effort of each call: low at Light, medium at Standard and high at Deep. Every threshold comes from
 the config.
 
-A change is Deep when it marks a risk class, touches the configured number of packages or more,
-carries a breaking marker, or hits a consumer edge in another repo. A deletion in any path that a
-risk class forces a lens on also makes it Deep, whether or not the class's detectors mark it,
-because a deletion there is the change most likely to break what the class protects.
+A change is Deep when any of these holds:
+
+- A marked risk class has the configured number of changed lines or more in the class's own paths.
+- It deletes the configured number of lines or more in the paths that risk classes force lenses on,
+  whether or not the classes' detectors mark them, because a deletion there is the change most
+  likely to break what a class protects.
+- It touches the configured number of packages or more.
+- It carries a breaking marker, or hits a consumer edge in another repo.
+
+A risk class that a detector alone marks, or whose paths the change barely touches, leaves the
+change at Standard. The class still fires the lenses it forces, so the change gets their review at
+Standard effort.
 
 A change is Light only when every one of these holds:
 
-- No static risk slice fires: no security slice, no migration, and no set of writes that would fire
-  the concurrency lens.
-- It touches at most one package and no consumer edge.
-- It is small: its code lines are within the Light limit, or it changes only tests, or only prose
-  and instructions.
+- No risk class is marked, and no static risk slice fires: no security slice, no migration, and no
+  set of writes that would fire the concurrency lens.
+- It changes no infra file, because an infra change deploys or provisions, and its effect reaches
+  past what its line count shows.
+- It touches no more packages than the Light limit allows, and no consumer edge.
+- Its code lines are within the Light limit, or it changes only tests, or only prose and
+  instructions.
 - No file in it has a past escape.
 
-The Light line count leaves out prose and instruction files, and the static stage leaves generated
-files out of the change before routing reads it, so neither kind can push a change past Light.
+The Light line limit is a high cutoff above which a change cannot be Light, not a test that only
+small changes pass. The line count leaves out prose and instruction files, and the static stage
+leaves generated files out of the change before routing reads it, so neither kind can push a change
+past Light.
 
 ## The passes
 

@@ -7,11 +7,10 @@ import type { RouteInput } from './types';
 export function pickDepth(input: RouteInput): Depth {
   const signals = input.signals;
   const thresholds = input.config.thresholds;
-  const deletesInForcedPath = hasDeletionInForcedPath(input);
 
   if (
-    signals.riskClasses.length > 0 ||
-    deletesInForcedPath ||
+    hasWeightyRiskClass(input) ||
+    countForcedPathDeletions(input) >= thresholds.deepMinForcedDeletions ||
     signals.packagesTouched >= thresholds.deepMinPackages ||
     signals.breaking ||
     input.slices.edges.some((edge) => edge.consumers.some((consumer) => consumer.repo !== null))
@@ -37,9 +36,12 @@ export function pickDepth(input: RouteInput): Depth {
     input.slices.writes.some((write) => write.eventsBeside.length > 0) ||
     (input.slices.writes.length > 0 && input.slices.events.length > 0);
 
+  // an infra change deploys or provisions, so its effect reaches past what its line count shows
   if (
+    signals.riskClasses.length === 0 &&
     !hasRiskSlice &&
-    signals.packagesTouched <= 1 &&
+    !files.some((file) => file.kind === 'infra') &&
+    signals.packagesTouched <= thresholds.lightMaxPackages &&
     signals.consumerEdges === 0 &&
     isSmall &&
     signals.pastEscapes.length === 0
@@ -50,14 +52,29 @@ export function pickDepth(input: RouteInput): Depth {
   return 'standard';
 }
 
-// a deletion in a path that a risk class forces a lens on makes the change Deep, whether or not the
-// class is marked by its detectors
-function hasDeletionInForcedPath(input: RouteInput): boolean {
+// a marked risk class makes the change Deep only when enough of the change sits in the class's own
+// paths; a class marked by a detector alone, or by a path the change barely touches, fires the lenses
+// it forces at Standard
+function hasWeightyRiskClass(input: RouteInput): boolean {
+  return input.signals.riskClasses.some((name) => {
+    const riskClass = input.config.riskClasses[name];
+
+    const lines = input.change.files
+      .filter((file) => riskClass !== undefined && isGlobMatch(file.path, riskClass.paths))
+      .reduce((sum, file) => sum + file.addedLines + file.deletedLines, 0);
+
+    return lines >= input.config.thresholds.deepMinClassLines;
+  });
+}
+
+// a deletion in a path that a risk class forces a lens on counts whether or not the class is marked
+// by its detectors
+function countForcedPathDeletions(input: RouteInput): number {
   const forcedPaths = Object.values(input.config.riskClasses)
     .filter((riskClass) => riskClass.forces.length > 0)
     .flatMap((riskClass) => riskClass.paths);
 
-  return input.change.files.some(
-    (file) => file.deletedLines > 0 && isGlobMatch(file.path, forcedPaths),
-  );
+  return input.change.files
+    .filter((file) => isGlobMatch(file.path, forcedPaths))
+    .reduce((sum, file) => sum + file.deletedLines, 0);
 }

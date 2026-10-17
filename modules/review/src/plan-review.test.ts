@@ -44,7 +44,11 @@ test('it counts no merge pass in the most calls when the config turns it off', a
     pastEscapes: [],
   });
 
-  expect([plan.route.depth, plan.route.calls.length, plan.maxCalls]).toStrictEqual(['deep', 2, 3]);
+  expect([plan.route.depth, plan.route.calls.length, plan.maxCalls]).toStrictEqual([
+    'standard',
+    2,
+    3,
+  ]);
 });
 
 test('it plans the depth and the calls of a change with no model call', async () => {
@@ -74,5 +78,5 @@ test('it plans the depth and the calls of a change with no model call', async ()
     plan.stage.signals.riskClasses,
     plan.route.calls.map((call) => call.callID),
     plan.maxCalls,
-  ]).toStrictEqual(['deep', ['auth'], ['A', 'B'], 4]);
+  ]).toStrictEqual(['standard', ['auth'], ['A', 'B'], 4]);
 });

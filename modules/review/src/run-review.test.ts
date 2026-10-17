@@ -566,7 +566,7 @@ test('it keeps the planned order of the calls when they end in another order', a
         'src/jobs.ts': [
           'export const jobs: string[] = [];',
           '',
-          ...Array.from({ length: 70 }, (_, index) => `export const job${index} = ${index};`),
+          ...Array.from({ length: 420 }, (_, index) => `export const job${index} = ${index};`),
           '',
           'export function clearJobs(): void {',
           '  jobs.length = 0;',
@@ -648,7 +648,7 @@ test('it steps a Standard review up to Deep on a confirmed P1 and verifies the D
         'src/jobs.ts': [
           'export const jobs: string[] = [];',
           '',
-          ...Array.from({ length: 70 }, (_, index) => `export const job${index} = ${index};`),
+          ...Array.from({ length: 420 }, (_, index) => `export const job${index} = ${index};`),
           '',
           'export function clearJobs(): void {',
           '  jobs.length = 0;',
@@ -775,7 +775,7 @@ test('it drops a stepped-up P1 that the verify pass rejects and removes the work
         'src/jobs.ts': [
           'export const jobs: string[] = [];',
           '',
-          ...Array.from({ length: 70 }, (_, index) => `export const job${index} = ${index};`),
+          ...Array.from({ length: 420 }, (_, index) => `export const job${index} = ${index};`),
           '',
           'export function clearJobs(): void {',
           '  jobs.length = 0;',
@@ -1010,7 +1010,10 @@ test('it keeps the Deep findings when the verify call fails twice', async () => 
     repo: 'example/auth',
     base: repo.commits[0] ?? '',
     head: repo.commits[1] ?? '',
-    config: BUILT_IN_DEFAULTS,
+    config: {
+      ...BUILT_IN_DEFAULTS,
+      thresholds: { ...BUILT_IN_DEFAULTS.thresholds, deepMinClassLines: 1 },
+    },
     configHash: 'hash',
     rules: null,
     adapter: stub.adapter,

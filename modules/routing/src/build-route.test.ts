@@ -61,7 +61,7 @@ test('it fires each lens whose slice holds an entry and groups them by the defau
     change: {
       base: 'a'.repeat(40),
       head: 'b'.repeat(40),
-      files: [buildMockChangedFile({ addedLines: 80 })],
+      files: [buildMockChangedFile({ addedLines: 500 })],
       excluded: [],
     },
     slices: buildMockSlices({
@@ -81,7 +81,7 @@ test('it fires each lens whose slice holds an entry and groups them by the defau
         },
       ],
     }),
-    signals: buildMockRiskSignals({ changedLines: 80 }),
+    signals: buildMockRiskSignals({ changedLines: 500 }),
     config: BUILT_IN_DEFAULTS,
     linkedIssue: 'Add the port.',
     isSync: false,
@@ -109,7 +109,7 @@ test('it runs a marked risk class at Deep with the lenses it forces, one call pe
     change: {
       base: 'a'.repeat(40),
       head: 'b'.repeat(40),
-      files: [buildMockChangedFile({ path: 'src/auth/session.ts' })],
+      files: [buildMockChangedFile({ path: 'src/auth/session.ts', addedLines: 120 })],
       excluded: [],
     },
     slices: buildMockSlices({
@@ -278,7 +278,7 @@ test('it runs a lens with a model of its own in a call of its own, at its own ef
     change: {
       base: 'a'.repeat(40),
       head: 'b'.repeat(40),
-      files: [buildMockChangedFile({ addedLines: 80 })],
+      files: [buildMockChangedFile({ addedLines: 500 })],
       excluded: [],
     },
     slices: buildMockSlices({
@@ -291,7 +291,7 @@ test('it runs a lens with a model of its own in a call of its own, at its own ef
         },
       ],
     }),
-    signals: buildMockRiskSignals({ changedLines: 80 }),
+    signals: buildMockRiskSignals({ changedLines: 500 }),
     config: {
       ...BUILT_IN_DEFAULTS,
       lenses: {
@@ -393,4 +393,125 @@ test('it keeps a small change with one write and an event out of Light', () => {
     'standard',
     ['correctness', 'concurrency-and-data-integrity'],
   ]);
+});
+
+test.each([
+  { addedLines: 400, depth: 'light' },
+  { addedLines: 401, depth: 'standard' },
+])('it reviews $addedLines changed lines of code at $depth', (row) => {
+  const route = buildRoute({
+    change: {
+      base: 'a'.repeat(40),
+      head: 'b'.repeat(40),
+      files: [buildMockChangedFile({ addedLines: row.addedLines })],
+      excluded: [],
+    },
+    slices: buildMockSlices(),
+    signals: buildMockRiskSignals({ changedLines: row.addedLines }),
+    config: BUILT_IN_DEFAULTS,
+    linkedIssue: null,
+    isSync: false,
+    isRelease: false,
+    isPush: false,
+  });
+
+  expect(route.depth).toBe(row.depth);
+});
+
+test.each([
+  { packagesTouched: 2, depth: 'light' },
+  { packagesTouched: 3, depth: 'standard' },
+  { packagesTouched: 5, depth: 'standard' },
+  { packagesTouched: 6, depth: 'deep' },
+])('it reviews a small change across $packagesTouched packages at $depth', (row) => {
+  const route = buildRoute({
+    change: {
+      base: 'a'.repeat(40),
+      head: 'b'.repeat(40),
+      files: [buildMockChangedFile()],
+      excluded: [],
+    },
+    slices: buildMockSlices(),
+    signals: buildMockRiskSignals({ packagesTouched: row.packagesTouched }),
+    config: BUILT_IN_DEFAULTS,
+    linkedIssue: null,
+    isSync: false,
+    isRelease: false,
+    isPush: false,
+  });
+
+  expect(route.depth).toBe(row.depth);
+});
+
+test('it keeps a one-line infra change out of Light', () => {
+  const route = buildRoute({
+    change: {
+      base: 'a'.repeat(40),
+      head: 'b'.repeat(40),
+      files: [buildMockChangedFile({ path: 'Dockerfile', kind: 'infra' })],
+      excluded: [],
+    },
+    slices: buildMockSlices(),
+    signals: buildMockRiskSignals(),
+    config: BUILT_IN_DEFAULTS,
+    linkedIssue: null,
+    isSync: false,
+    isRelease: false,
+    isPush: false,
+  });
+
+  expect(route.depth).toBe('standard');
+});
+
+test('it reviews a marked risk class with few lines in its paths at Standard with its lenses', () => {
+  const route = buildRoute({
+    change: {
+      base: 'a'.repeat(40),
+      head: 'b'.repeat(40),
+      files: [
+        buildMockChangedFile({ path: 'src/auth/session.ts', addedLines: 99 }),
+        buildMockChangedFile({ path: 'src/a.ts', addedLines: 200 }),
+      ],
+      excluded: [],
+    },
+    slices: buildMockSlices(),
+    signals: buildMockRiskSignals({ riskClasses: ['auth'] }),
+    config: BUILT_IN_DEFAULTS,
+    linkedIssue: null,
+    isSync: false,
+    isRelease: false,
+    isPush: false,
+  });
+
+  expect([route.depth, route.lenses]).toStrictEqual(['standard', ['correctness', 'security']]);
+});
+
+test.each([
+  { deletedLines: 49, depth: 'standard' },
+  { deletedLines: 50, depth: 'deep' },
+])('it reviews $deletedLines deleted lines in a forced path at $depth', (row) => {
+  const route = buildRoute({
+    change: {
+      base: 'a'.repeat(40),
+      head: 'b'.repeat(40),
+      files: [
+        buildMockChangedFile({
+          path: 'migrations/0002.sql',
+          addedLines: 0,
+          deletedLines: row.deletedLines,
+        }),
+        buildMockChangedFile({ path: 'src/a.ts', addedLines: 500 }),
+      ],
+      excluded: [],
+    },
+    slices: buildMockSlices(),
+    signals: buildMockRiskSignals(),
+    config: BUILT_IN_DEFAULTS,
+    linkedIssue: null,
+    isSync: false,
+    isRelease: false,
+    isPush: false,
+  });
+
+  expect(route.depth).toBe(row.depth);
 });
