@@ -16,7 +16,8 @@
     "@noslop/lenses": "workspace:*",
     "@noslop/routing": "workspace:*",
     "@noslop/runner": "workspace:*",
-    "@noslop/static-stage": "workspace:*"
+    "@noslop/static-stage": "workspace:*",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@noslop/config": "workspace:*",

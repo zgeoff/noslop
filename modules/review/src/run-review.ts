@@ -22,6 +22,7 @@ import { buildGapTask } from './build-gap-task';
 import { buildVerifyTask } from './build-verify-task';
 import { isLargeChange } from './is-large-change';
 import { planReview } from './plan-review';
+import { runMergePass } from './run-merge-pass';
 import type { CallBatch, CallBatchInput } from './run-planned-calls';
 import { runPlannedCalls } from './run-planned-calls';
 
@@ -48,6 +49,9 @@ export interface RunReviewOptions {
   pastEscapes: readonly string[];
   readConsumerFile?: (repo: string, path: string) => Promise<string | null>;
   now?: () => Date;
+
+  // the model of the merge pass; with none, the pass runs on the adapter's own model
+  mergeModel?: string | null;
 }
 
 export interface ReviewRun {
@@ -79,6 +83,20 @@ export async function runReview(options: RunReviewOptions): Promise<ReviewRun> {
 
   const assembled = buildAssembled(ctx, passes.batches);
 
+  const merged = await runMergePass({
+    findings: assembled.findings,
+    config: options.config,
+    adapter: options.adapter,
+    model: options.mergeModel ?? null,
+    callID: pickPassID(ctx, MERGE_CALL),
+    depth: passes.depth,
+    lenses: ctx.route.lenses,
+    tempDir: options.tempDir,
+    logger: options.logger,
+  });
+
+  const records = passes.batches.flatMap((batch) => batch.records);
+
   return {
     result: {
       version: REVIEW_OUTPUT_VERSION,
@@ -93,8 +111,8 @@ export async function runReview(options: RunReviewOptions): Promise<ReviewRun> {
       special: ctx.route.special,
       riskClasses: stage.signals.riskClasses,
       lenses: ctx.route.lenses,
-      calls: passes.batches.flatMap((batch) => batch.records),
-      findings: assembled.findings,
+      calls: merged.record === null ? records : [...records, merged.record],
+      findings: merged.findings,
       failedCalls: passes.batches.flatMap((batch) => batch.failed),
       configHash: options.configHash,
       startedAt,
@@ -249,6 +267,7 @@ function hasConfirmedP1(assembled: AssembledFindings): boolean {
 
 const VERIFY_CALL = 'verify';
 const GAP_CALL = 'gap';
+const MERGE_CALL = 'merge';
 
 // the verify call re-derives every model finding of the first pass, after the merge, and its findings
 // replace them; a failed verify call keeps them; the gap sweep then runs once on a large change when
@@ -320,25 +339,30 @@ function shouldSweepGaps(ctx: PassContext, batches: readonly CallBatch[]): boole
 }
 
 // a pass call runs at Deep's effort on the adapter's model, with the longest timeout of the calls the
-// route planned, under an ID that no planned call holds, since a config can name a group `verify`
+// route planned
 function buildPassCall(ctx: PassContext, name: string, lenses: readonly LensID[]): PlannedCall {
   const timeouts = ctx.route.calls.flatMap((call) =>
     call.timeoutMs === null ? [] : [call.timeoutMs],
   );
 
-  const taken = new Set(ctx.route.calls.map((call) => call.callID));
-
-  const callID =
-    [name, ...Array.from({ length: taken.size }, (_, index) => `${name}-${index + 2}`)].find(
-      (id) => !taken.has(id),
-    ) ?? name;
-
   return {
-    callID,
+    callID: pickPassID(ctx, name),
     lenses: [...lenses],
     effort: 'high',
     model: null,
     timeoutMs: timeouts.length === 0 ? null : Math.max(...timeouts),
     files: [...ctx.change.files],
   };
+}
+
+// the first of name, name-2 and so on that no planned call holds, since a config can name a group
+// `verify`
+function pickPassID(ctx: PassContext, name: string): string {
+  const taken = new Set(ctx.route.calls.map((call) => call.callID));
+
+  return (
+    [name, ...Array.from({ length: taken.size }, (_, index) => `${name}-${index + 2}`)].find(
+      (id) => !taken.has(id),
+    ) ?? name
+  );
 }

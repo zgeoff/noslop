@@ -55,6 +55,7 @@ export async function runReviewCommand(values: ReviewValues, ctx: CLIContext): P
   try {
     const run = await runReview({
       runner: ctx.runner,
+      mergeModel: loaded.config.adapters[adapterID]?.mergeModel ?? null,
       repoDir,
       repo: change.repo,
       base: change.base,

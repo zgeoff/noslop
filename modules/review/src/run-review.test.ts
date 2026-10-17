@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { getLogger } from '@logtape/logtape';
 import { BUILT_IN_DEFAULTS } from '@noslop/config';
+import { buildFindingID } from '@noslop/findings';
 import { createRunner } from '@noslop/runner';
 import { buildStubAdapter, createTestRepo } from '@noslop/testing';
 import { runReview } from './run-review';
@@ -104,6 +105,306 @@ test('it reviews a small change at Light and reports the finding of its one call
     ],
     [],
   ]);
+});
+
+test('it merges the findings that the merge pass groups into the one with the higher severity', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'src/queue.ts': 'export const queue: string[] = [];\n' } },
+    {
+      message: 'head',
+      files: {
+        'src/queue.ts': [
+          'export const queue: string[] = [];',
+          '',
+          'export function flush(write: (items: string[]) => void): void {',
+          '  queue.length = 0;',
+          '  write(queue);',
+          '}',
+          '',
+        ].join('\n'),
+      },
+    },
+  ]);
+
+  const stub = buildStubAdapter({
+    L: [
+      {
+        findings: {
+          correctness: [
+            {
+              title: 'Write the queue before emptying it',
+              body: 'The function empties the queue, then writes the empty list.',
+              anchor: { path: 'src/queue.ts', startLine: 4, endLine: 5 },
+              secondLocation: null,
+              severity: 'P1',
+              criterion: 'data-loss',
+              rule: null,
+              verdict: 'CONFIRMED',
+              unverifiedFact: null,
+              missingChange: false,
+              fix: null,
+            },
+          ],
+          'naming-shape-and-comments': [
+            {
+              title: 'Keep the items flush is meant to write',
+              body: 'The write receives the list after it is cleared.',
+              anchor: { path: 'src/queue.ts', startLine: 4, endLine: 4 },
+              secondLocation: null,
+              severity: 'P2',
+              criterion: 'wrong-behaviour-edge-path',
+              rule: null,
+              verdict: 'CONFIRMED',
+              unverifiedFact: null,
+              missingChange: false,
+              fix: null,
+            },
+          ],
+          tests: [],
+        },
+      },
+    ],
+    merge: [
+      {
+        groups: [
+          [
+            buildFindingID(
+              'naming-shape-and-comments',
+              'src/queue.ts',
+              'wrong-behaviour-edge-path',
+              'Keep the items flush is meant to write',
+            ),
+            buildFindingID(
+              'correctness',
+              'src/queue.ts',
+              'data-loss',
+              'Write the queue before emptying it',
+            ),
+          ],
+        ],
+      },
+    ],
+  });
+
+  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+
+  const run = await runReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/queue',
+    base: repo.commits[0] ?? '',
+    head: repo.commits[1] ?? '',
+    config: BUILT_IN_DEFAULTS,
+    mergeModel: 'small-model',
+    configHash: 'hash',
+    rules: null,
+    adapter: stub.adapter,
+    logger: ctx.logger,
+    tempDir: join(ctx.dir, 'temp'),
+    cacheDir: null,
+    title: 'Flush the queue',
+    body: '',
+    linkedIssue: null,
+    pullRequest: null,
+    isPush: false,
+    pastEscapes: [],
+  });
+
+  expect(run.result.findings.map((finding) => [finding.lens, finding.severity])).toStrictEqual([
+    ['correctness', 'P1'],
+  ]);
+
+  expect(
+    run.result.calls.map((call) => [call.id, call.status, call.model, call.effort]),
+  ).toStrictEqual([
+    ['L', 'ok', null, 'low'],
+    ['merge', 'ok', 'small-model', 'low'],
+  ]);
+});
+
+test('it runs no merge pass when the config turns it off', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'src/queue.ts': 'export const queue: string[] = [];\n' } },
+    {
+      message: 'head',
+      files: {
+        'src/queue.ts': [
+          'export const queue: string[] = [];',
+          '',
+          'export function flush(write: (items: string[]) => void): void {',
+          '  queue.length = 0;',
+          '  write(queue);',
+          '}',
+          '',
+        ].join('\n'),
+      },
+    },
+  ]);
+
+  const stub = buildStubAdapter({
+    L: [
+      {
+        findings: {
+          correctness: [
+            {
+              title: 'Write the queue before emptying it',
+              body: 'The function empties the queue, then writes the empty list.',
+              anchor: { path: 'src/queue.ts', startLine: 4, endLine: 5 },
+              secondLocation: null,
+              severity: 'P1',
+              criterion: 'data-loss',
+              rule: null,
+              verdict: 'CONFIRMED',
+              unverifiedFact: null,
+              missingChange: false,
+              fix: null,
+            },
+          ],
+          'naming-shape-and-comments': [
+            {
+              title: 'Keep the items flush is meant to write',
+              body: 'The write receives the list after it is cleared.',
+              anchor: { path: 'src/queue.ts', startLine: 4, endLine: 4 },
+              secondLocation: null,
+              severity: 'P2',
+              criterion: 'wrong-behaviour-edge-path',
+              rule: null,
+              verdict: 'CONFIRMED',
+              unverifiedFact: null,
+              missingChange: false,
+              fix: null,
+            },
+          ],
+          tests: [],
+        },
+      },
+    ],
+  });
+
+  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+
+  const run = await runReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/queue',
+    base: repo.commits[0] ?? '',
+    head: repo.commits[1] ?? '',
+    config: { ...BUILT_IN_DEFAULTS, mergePass: { enabled: false, effort: 'low' } },
+    configHash: 'hash',
+    rules: null,
+    adapter: stub.adapter,
+    logger: ctx.logger,
+    tempDir: join(ctx.dir, 'temp'),
+    cacheDir: null,
+    title: 'Flush the queue',
+    body: '',
+    linkedIssue: null,
+    pullRequest: null,
+    isPush: false,
+    pastEscapes: [],
+  });
+
+  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['L']);
+  expect(run.result.findings).toHaveLength(2);
+});
+
+test('it keeps every finding and records the merge call as failed when the merge pass fails', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'src/queue.ts': 'export const queue: string[] = [];\n' } },
+    {
+      message: 'head',
+      files: {
+        'src/queue.ts': [
+          'export const queue: string[] = [];',
+          '',
+          'export function flush(write: (items: string[]) => void): void {',
+          '  queue.length = 0;',
+          '  write(queue);',
+          '}',
+          '',
+        ].join('\n'),
+      },
+    },
+  ]);
+
+  const stub = buildStubAdapter({
+    L: [
+      {
+        findings: {
+          correctness: [
+            {
+              title: 'Write the queue before emptying it',
+              body: 'The function empties the queue, then writes the empty list.',
+              anchor: { path: 'src/queue.ts', startLine: 4, endLine: 5 },
+              secondLocation: null,
+              severity: 'P1',
+              criterion: 'data-loss',
+              rule: null,
+              verdict: 'CONFIRMED',
+              unverifiedFact: null,
+              missingChange: false,
+              fix: null,
+            },
+          ],
+          'naming-shape-and-comments': [
+            {
+              title: 'Keep the items flush is meant to write',
+              body: 'The write receives the list after it is cleared.',
+              anchor: { path: 'src/queue.ts', startLine: 4, endLine: 4 },
+              secondLocation: null,
+              severity: 'P2',
+              criterion: 'wrong-behaviour-edge-path',
+              rule: null,
+              verdict: 'CONFIRMED',
+              unverifiedFact: null,
+              missingChange: false,
+              fix: null,
+            },
+          ],
+          tests: [],
+        },
+      },
+    ],
+    merge: [{ error: 'codex exited 1 on call merge' }],
+  });
+
+  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+
+  const run = await runReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/queue',
+    base: repo.commits[0] ?? '',
+    head: repo.commits[1] ?? '',
+    config: BUILT_IN_DEFAULTS,
+    configHash: 'hash',
+    rules: null,
+    adapter: stub.adapter,
+    logger: ctx.logger,
+    tempDir: join(ctx.dir, 'temp'),
+    cacheDir: null,
+    title: 'Flush the queue',
+    body: '',
+    linkedIssue: null,
+    pullRequest: null,
+    isPush: false,
+    pastEscapes: [],
+  });
+
+  expect(run.result.findings).toHaveLength(2);
+
+  expect(run.result.calls.map((call) => [call.id, call.status])).toStrictEqual([
+    ['L', 'ok'],
+    ['merge', 'failed'],
+  ]);
+
+  expect(run.result.failedCalls).toStrictEqual([]);
 });
 
 test('it keeps the files of the secrets risk class out of the worktree the calls read', async () => {

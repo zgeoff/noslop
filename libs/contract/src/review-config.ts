@@ -60,6 +60,9 @@ export type Consumer = z.infer<typeof consumerSchema>;
 export const adapterOptionsSchema = z.strictObject({
   timeoutMs: z.int().positive().optional(),
   model: z.string().min(1).optional(),
+
+  // the model of the merge pass, a cheap one, since the pass only groups findings it reads
+  mergeModel: z.string().min(1).optional(),
 });
 
 export type AdapterOptions = z.infer<typeof adapterOptionsSchema>;
@@ -78,6 +81,9 @@ export const reviewConfigSchema = z.strictObject({
   rules: z.string().min(1).nullable(),
   adapter: z.string().min(1).nullable(),
   adapters: z.record(z.string(), adapterOptionsSchema),
+
+  // the one call after Assemble that groups the findings which report one defect
+  mergePass: z.strictObject({ enabled: z.boolean(), effort: effortSchema }),
   riskClasses: z.record(z.string(), riskClassSchema),
   stack: z.strictObject({
     writes: stackPatternSchema,

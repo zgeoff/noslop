@@ -5,7 +5,8 @@ import type { ReviewConfig } from '@noslop/contract';
 export const BUILT_IN_DEFAULTS: ReviewConfig = {
   rules: null,
   adapter: null,
-  adapters: {},
+  adapters: { codex: { mergeModel: 'gpt-6-luna' }, claude: { mergeModel: 'haiku' } },
+  mergePass: { enabled: true, effort: 'low' },
   riskClasses: {
     auth: {
       paths: ['**/auth/**', '**/*auth*.{ts,tsx,js,mjs}', '**/login/**', '**/permissions/**'],

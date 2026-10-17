@@ -10,7 +10,7 @@ model calls spend their tokens on judgement. The review module runs these stages
 
 ```mermaid
 flowchart LR
-  load[Load] --> static[Static stage] --> route[Route] --> call[Call] --> assemble[Assemble] --> report[Report]
+  load[Load] --> static[Static stage] --> route[Route] --> call[Call] --> assemble[Assemble] --> mergepass[Merge pass] --> report[Report]
   assemble -. confirmed P1 at Standard .-> call
 ```
 
@@ -33,8 +33,16 @@ flowchart LR
    fails again is recorded as failed, and the review goes on with the rest.
 5. **Assemble.** The findings module turns the raw output of every call, with the static stage's
    direct findings, into [findings](./findings.md): it drops a finding that breaks the finding rules
-   and merges two reports of one defect.
-6. **Report.** The CLI prints the result, as JSON or as a summary, and runs each reporter the config
+   and merges two reports of one defect whose titles hold the same words.
+6. **Merge pass.** One call on a cheap model reads the assembled findings, with no code, and returns
+   the groups of findings that report one defect. The review keeps the finding of each group with
+   the highest severity, so the pass removes a repeat and never a finding that no other finding
+   still reports. Lenses word one defect differently, and only a model tells a reworded repeat from
+   two defects whose titles differ by one word. The pass runs when the config turns it on and the
+   review holds at least two model findings. Each adapter's options name its model. When the call
+   fails, the findings stay unmerged and the review is not counted as failed, because a repeat costs
+   the reader less than a lost finding.
+7. **Report.** The CLI prints the result, as JSON or as a summary, and runs each reporter the config
    lists, or the ones its flag names.
 
 The calls read a detached git worktree of the head commit, so a model that opens a file sees the

@@ -1,11 +1,12 @@
 # Adapters
 
-An adapter runs one call on one model CLI and returns its findings as JSON that matches the call's
-output schema. noslop ships two: one for Codex and one for Claude Code. Each adapter starts its CLI
-read-only in its own code, so a review never changes the repo it reads, and keeps the reviewed
-repo's agent instruction files out of the model's context, so the change under review cannot steer
-its own review. Routing, depth and blocking all live in noslop, so swapping the adapter changes none
-of them. [0011](../decisions/0011-model-adapters.md) records the decision.
+An adapter runs one call on one model CLI and returns its output as JSON that matches the call's
+output schema: the findings of a lens call, or the groups of the merge pass. noslop ships two: one
+for Codex and one for Claude Code. Each adapter starts its CLI read-only in its own code, so a
+review never changes the repo it reads, and keeps the reviewed repo's agent instruction files out of
+the model's context, so the change under review cannot steer its own review. Routing, depth and
+blocking all live in noslop, so swapping the adapter changes none of them.
+[0011](../decisions/0011-model-adapters.md) records the decision.
 
 [Calls](./calls.md) covers how a call gets its lenses, effort, model and timeout.
 [Reporters](./reporters.md) covers the other packages under `adapters/`, which send a review result
@@ -26,7 +27,9 @@ rules out, because a bad anchor drops one finding in Assemble and not the whole 
 draft named, because Claude Code's validator refuses the draft that zod writes into its output.
 
 The CLI wraps each adapter in the options that the config sets for it: the adapter's model runs
-every call whose lenses set no model, and the adapter's timeout replaces its default.
+every call whose lenses set no model, and the adapter's timeout replaces its default. The adapter's
+merge model runs the merge pass, and the defaults give each shipped adapter a cheap one, because the
+pass only groups findings it reads.
 
 ## Running a process
 

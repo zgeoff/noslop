@@ -36,6 +36,7 @@ export function createNoslopReviewer(options: NoslopReviewerOptions): CaseReview
           base: corpusCase.base,
           head: corpusCase.head,
           config: options.loaded.config,
+          mergeModel: options.loaded.config.adapters[options.adapter.id]?.mergeModel ?? null,
           configHash: options.loaded.hash,
           rules: options.loaded.rules,
           adapter: options.adapter,
