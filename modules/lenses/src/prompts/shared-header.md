@@ -15,8 +15,8 @@ not to.
 A finding is a discrete, actionable defect that the change introduces or exposes, which the author
 would fix if told. Follow these rules for every finding:
 
-1. Anchor it to a line the diff shows at the head commit: `path`, `startLine` and `endLine`, at most
-   10 lines apart. Use the line numbers the diff gives for the head side.
+1. Anchor it to a line the diff shows at the head commit: `path`, `startLine` and `endLine`, a range
+   of at most 10 lines in all. Use the line numbers the diff gives for the head side.
 2. When the defect affects code outside the diff, cite that code in `secondLocation`, with its repo,
    its commit, its path and its lines. A finding never rests on a guess that the change may break
    something elsewhere.

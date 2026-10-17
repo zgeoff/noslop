@@ -21,8 +21,8 @@ export interface CallPromptInput {
 }
 
 // joins the shared header, one section per lens in the order given, and the input the lenses read:
-// the hunks of the files in the call, each slice once, cut to those files, and the rules file and
-// the pull request when a lens reads them
+// the pull request, the hunks of the files in the call, each slice once and cut to those files, and
+// the rules file when a lens reads it
 export function buildCallPrompt(input: CallPromptInput): string {
   const lensInputs = input.lenses.map((lens) => LENS_INPUTS[lens]);
 
@@ -39,15 +39,13 @@ export function buildCallPrompt(input: CallPromptInput): string {
     ...input.lenses.map((lens) => `# Lens: ${lens}\n\n${getLensPrompt(lens)}`),
     '# Input',
     `The change runs from commit ${input.base} to commit ${input.head}.`,
+
+    // every lens reads the pull request and its issue, because each one must tell a change made on
+    // purpose from a defect
+    `## Pull request\n\nTitle: ${input.title}\n\n${input.body.trim() || 'The body is empty.'}`,
   ];
 
-  if (lensInputs.some((lensInput) => lensInput.pullRequest)) {
-    sections.push(
-      `## Pull request\n\nTitle: ${input.title}\n\n${input.body.trim() || 'The body is empty.'}`,
-    );
-  }
-
-  if (lensInputs.some((lensInput) => lensInput.linkedIssue) && input.linkedIssue !== null) {
+  if (input.linkedIssue !== null) {
     sections.push(`## Linked issue\n\n${input.linkedIssue.trim()}`);
   }
 

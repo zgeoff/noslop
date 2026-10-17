@@ -67,6 +67,12 @@ test('it joins the header, each lens section in order and each slice once', () =
 
     The change runs from commit aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa to commit bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.
 
+    ## Pull request
+
+    Title: feat: a
+
+    The body is empty.
+
     ## Rules file
 
     ### Context goes last
