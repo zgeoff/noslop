@@ -24,6 +24,7 @@ async function setupTest() {
     runner: createRunner(),
     cwd,
     cacheDir: join(dir, 'cache'),
+    dataDir: join(dir, 'data'),
     logger: getLogger(['test']),
     writeStdout: (text) => {
       stdout.push(text);
@@ -37,7 +38,7 @@ async function setupTest() {
         json: createJSONReporter((text) => {
           stdout.push(text);
         }),
-        sqlite: createSQLiteReporter(join(dir, 'cache', 'store.sqlite')),
+        sqlite: createSQLiteReporter(join(dir, 'data', 'store.sqlite')),
       })[id] ?? null,
   });
 
@@ -116,6 +117,30 @@ test('it reviews the change between 2 commits and prints the result as JSON', as
   );
 
   expect(left).toStrictEqual([]);
+});
+
+test('it titles the review with the head subject and gives the calls every commit message', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'src/a.ts': 'export const a = 1;\n' } },
+    { message: 'Start the change\n\nFirst step.', files: { 'src/a.ts': 'export const a = 2;\n' } },
+    { message: 'Finish the change', files: { 'src/a.ts': 'export const a = 3;\n' } },
+  ]);
+
+  const stub = buildStubAdapter({ L: [{ findings: { correctness: [] } }] });
+
+  await runCLI(
+    ['review', '--base', repo.commits[0] ?? '', '--head', repo.commits[2] ?? '', '--json'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  const result = reviewResultSchema.parse(JSON.parse(ctx.stdout.join('')));
+  const prompt = stub.requests[0]?.prompt ?? '';
+
+  expect(result.title).toBe('Finish the change');
+  expect(prompt.indexOf('First step.')).toBeLessThan(prompt.lastIndexOf('Finish the change'));
+  expect(prompt).toInclude('Start the change');
 });
 
 test('it prints a summary for a person without --json', async () => {

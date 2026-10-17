@@ -44,6 +44,9 @@
   },
   "devDependencies": {
     "@commitlint/cli": "21.2.3",
+    "@noslop/contract": "workspace:*",
+    "@noslop/runner": "workspace:*",
+    "@noslop/testing": "workspace:*",
     "@stylistic/eslint-plugin": "5.10.0",
     "@tsconfig/strictest": "2.0.8",
     "@types/bun": "1.4.2",

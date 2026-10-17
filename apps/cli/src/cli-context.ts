@@ -10,6 +10,10 @@ export interface CLIContext {
 
   // the user's cache folder for noslop: the temp folder of each review and the base index live here
   cacheDir: string;
+
+  // the user's data folder for noslop, which holds the findings store; a user may clear the cache
+  // at any time, and the store is durable data that other tools read
+  dataDir: string;
   logger: Logger;
   writeStdout: (text: string) => void;
   writeStderr: (text: string) => void;

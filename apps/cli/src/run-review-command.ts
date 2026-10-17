@@ -31,9 +31,17 @@ export async function runReviewCommand(values: ReviewValues, ctx: CLIContext): P
 
   const base = values.base ?? defaultBase ?? head;
 
-  const message = await readGitText(ctx, repoDir, ['log', '-1', '--format=%B', head]);
+  // the title is the head commit's subject, and the body holds every commit message of the change,
+  // oldest first, so the intent lens reads the whole branch and not its last commit alone
+  const title = await readGitText(ctx, repoDir, ['log', '-1', '--format=%s', head]);
 
-  const [title = '', ...rest] = message.split('\n');
+  const body = await readGitText(ctx, repoDir, [
+    'log',
+    '--reverse',
+    '--format=%B',
+    `${base}..${head}`,
+  ]);
+
   const adapterID = values.adapter ?? loaded.config.adapter ?? 'codex';
 
   const adapter = buildConfiguredAdapter(
@@ -64,7 +72,7 @@ export async function runReviewCommand(values: ReviewValues, ctx: CLIContext): P
       tempDir,
       cacheDir: join(ctx.cacheDir, 'index'),
       title,
-      body: rest.join('\n').trim(),
+      body,
       linkedIssue: null,
       pullRequest: null,
       isPush: values.push,
