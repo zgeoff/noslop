@@ -1,0 +1,21 @@
+{
+  "name": "@noslop/github-app",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "start": "bun src/server.ts"
+  },
+  "dependencies": {
+    "@logtape/logtape": "catalog:",
+    "@noslop/runner": "workspace:*",
+    "@octokit/app": "catalog:",
+    "@octokit/webhooks": "catalog:",
+    "elysia": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@noslop/testing": "workspace:*"
+  }
+}

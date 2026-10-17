@@ -22,6 +22,8 @@
       "@octokit/app": "16.1.4",
       "@octokit/core": "7.0.8",
       "@octokit/types": "18.0.0",
+      "@octokit/webhooks": "14.2.0",
+      "elysia": "1.4.30",
       "gunshi": "1.0.0-rc.1",
       "kysely": "0.29.6",
       "msw": "2.15.0",
