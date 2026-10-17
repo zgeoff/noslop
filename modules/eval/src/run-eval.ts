@@ -70,7 +70,7 @@ function buildFailedReview(): CaseReview {
   return {
     findings: [],
     failed: true,
-    tokens: { input: 0, output: 0 },
+    tokens: { input: 0, cachedInput: 0, cacheWrite: 0, output: 0 },
     durationMs: 0,
     calls: 0,
     depth: null,

@@ -26,7 +26,7 @@ export function buildMockReviewResult(overrides: Partial<ReviewResult> = {}): Re
         effort: 'low',
         status: 'ok',
         attempts: 1,
-        tokens: { input: 100, output: 10 },
+        tokens: { input: 100, cachedInput: 400, cacheWrite: 20, output: 10 },
         durationMs: 1000,
       },
     ],

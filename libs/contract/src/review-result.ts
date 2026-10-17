@@ -3,10 +3,11 @@ import { depthSchema } from './depth';
 import { effortSchema } from './effort';
 import { findingSchema } from './finding';
 import { lensIDSchema } from './lens-id';
+import { tokensSchema } from './tokens';
 
 // changes only with a breaking change to the output, so a consumer that pins a CLI version reads one
 // shape
-export const REVIEW_OUTPUT_VERSION = 2;
+export const REVIEW_OUTPUT_VERSION = 3;
 const commitSchema = z.string().regex(/^[0-9a-f]{40}$/u);
 
 export const callRecordSchema = z.strictObject({
@@ -18,7 +19,7 @@ export const callRecordSchema = z.strictObject({
   effort: effortSchema,
   status: z.enum(['ok', 'failed']),
   attempts: z.int().positive(),
-  tokens: z.strictObject({ input: z.int().nonnegative(), output: z.int().nonnegative() }),
+  tokens: tokensSchema,
   durationMs: z.int().nonnegative(),
 });
 

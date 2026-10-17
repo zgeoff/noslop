@@ -33,7 +33,7 @@ test('it runs codex read-only with the schema, the effort and the user instructi
     lastMessage: '{"findings":{"correctness":[]}}',
     stdout: [
       '{"type":"thread.started"}',
-      '{"type":"turn.completed","usage":{"input_tokens":120,"output_tokens":30}}',
+      '{"type":"turn.completed","usage":{"input_tokens":120,"cached_input_tokens":80,"output_tokens":30}}',
       '',
     ].join('\n'),
     stderr: '',
@@ -65,7 +65,7 @@ test('it runs codex read-only with the schema, the effort and the user instructi
 
   expect(result).toMatchObject({
     output: { findings: { correctness: [] } },
-    tokens: { input: 120, output: 30 },
+    tokens: { input: 40, cachedInput: 80, cacheWrite: 0, output: 30 },
     exitCode: 0,
   });
 

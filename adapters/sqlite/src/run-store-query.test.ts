@@ -246,6 +246,8 @@ test('#cost-by-depth sums the tokens of the calls at each depth', async () => {
       calls: 1,
       failed: 0,
       inputTokens: 100,
+      cachedInputTokens: 400,
+      cacheWriteTokens: 20,
       outputTokens: 10,
       meanDurationMs: 1000,
     },

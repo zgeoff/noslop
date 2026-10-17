@@ -20,6 +20,15 @@ A call request holds the prompt, the output schema, the effort, the model, the w
 the timeout. A call result holds the parsed output, the model that ran, the token counts, the
 duration and the CLI's exit status.
 
+A call counts its tokens 4 ways: the new input, the input read from the provider's prompt cache, the
+part of the new input written to that cache, and the output. New input is every input token the
+provider did not read from its cache, so the new and the cached input add up to the whole input the
+model read, and each count means the same on both adapters. Claude Code reports its 3 input counts
+apart, and the Claude adapter adds the cache writes to the rest of the new input. Codex reports one
+input count that holds the cached share, and the Codex adapter takes that share out, as Codex does
+for its own totals. Codex takes no cache writes out of its input count, so the adapter reads the
+Codex cache write count as a part of the new input.
+
 An adapter parses the CLI's answer against the call's output schema, and output that fails the
 schema rejects the whole call, so a call never returns a partial result. The schema keeps the anchor
 rules out, because a bad anchor drops one finding in Assemble and not the whole call, under
@@ -94,3 +103,10 @@ The Codex package also holds a reference reviewer for [the eval harness](./eval.
 `codex exec review` on a corpus case, read-only, and parses its answer into findings, so a recorded
 run of it gives the baseline that noslop's runs score against and the noise floor between 2 of its
 runs.
+
+`codex exec review` runs the review in a subagent thread, and the JSON events it prints count no
+tokens for that thread. The reviewer therefore keeps the session files Codex writes under its home
+folder. It takes the thread from the first JSON event and sums the last token count in the session
+file of each thread that the review started. That session file format belongs to Codex and has no
+version of its own, so a reviewer that finds no such file fails the case rather than count no
+tokens.

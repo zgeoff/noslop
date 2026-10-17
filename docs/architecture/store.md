@@ -29,8 +29,10 @@ an object sits in its column as JSON text, and a boolean as 0 or 1.
 
 - A review row keeps the repo, the pull request when there is one, the base and the head, the depth,
   the lenses that ran, the config hash and the start and end time.
-- A call row keeps its lenses, depth, adapter, model, effort, attempts, status, tokens and duration.
-  Deleting a review deletes its calls and findings with it.
+- A call row keeps its lenses, depth, adapter, model, effort, attempts, status, duration, and its
+  new input, cached input, cache write and output tokens. A call row written before the store kept
+  the cache counts has none, and its input count holds the cached share. Deleting a review deletes
+  its calls and findings with it.
 - A finding row keeps every field of the finding, plus the depth, model and effort of the call that
   reported it, so a measure can split one lens by how it ran. A finding that no call reported, such
   as one from the static stage, takes the review's depth and no model.

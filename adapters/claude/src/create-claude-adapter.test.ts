@@ -64,7 +64,7 @@ test('it runs claude with read tools alone, the schema and the effort, and reads
   expect(result).toMatchObject({
     output: { findings: { security: [] } },
     model: 'claude-sonnet-5-5',
-    tokens: { input: 112, output: 40 },
+    tokens: { input: 102, cachedInput: 10, cacheWrite: 100, output: 40 },
   });
 
   expect(record.stdin).toBe('Review the change.');

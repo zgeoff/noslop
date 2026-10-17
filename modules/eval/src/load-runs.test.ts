@@ -28,7 +28,7 @@ test('it reads a recorded run of case reviews', async () => {
           },
         ],
         failed: false,
-        tokens: { input: 0, output: 0 },
+        tokens: { input: 0, cachedInput: 0, cacheWrite: 0, output: 0 },
         durationMs: 1200,
         calls: 1,
         depth: null,
@@ -43,6 +43,36 @@ test('it reads a recorded run of case reviews', async () => {
   expect(loaded).toStrictEqual(runs);
 });
 
+test('it reads no cache counts from a run recorded before them', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(
+    join(ctx.dir, 'run.json'),
+    JSON.stringify([
+      {
+        caseID: 'case-1',
+        review: {
+          findings: [],
+          failed: false,
+          tokens: { input: 9000, output: 300 },
+          durationMs: 1200,
+          calls: 2,
+          depth: 'standard',
+        },
+      },
+    ]),
+  );
+
+  const loaded = await loadRuns(join(ctx.dir, 'run.json'));
+
+  expect(loaded[0]?.review.tokens).toStrictEqual({
+    input: 9000,
+    cachedInput: 0,
+    cacheWrite: 0,
+    output: 300,
+  });
+});
+
 test('it rejects a run whose finding has no anchor', async () => {
   const ctx = await setupTest();
 
@@ -54,7 +84,7 @@ test('it rejects a run whose finding has no anchor', async () => {
         review: {
           findings: [{ lens: null, title: 'Wrap the warning', severity: 'P2' }],
           failed: false,
-          tokens: { input: 0, output: 0 },
+          tokens: { input: 0, cachedInput: 0, cacheWrite: 0, output: 0 },
           durationMs: 1200,
           calls: 1,
           depth: null,

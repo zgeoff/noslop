@@ -1,11 +1,11 @@
-import type { Depth } from '@noslop/contract';
+import type { Depth, Tokens } from '@noslop/contract';
 import type { Case } from './case';
 import type { ReportedFinding } from './collect-matches';
 
 export interface CaseReview {
   findings: ReportedFinding[];
   failed: boolean;
-  tokens: { input: number; output: number };
+  tokens: Tokens;
   durationMs: number;
   calls: number;
 

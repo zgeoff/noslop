@@ -226,4 +226,20 @@ const STORE_MIGRATIONS: Record<string, Migration> = {
       await db.schema.alterTable('calls').dropColumn('chunk').execute();
     },
   },
+
+  // a call counts the input it read from the provider's cache apart from its new input; a row the
+  // store held before has no cache counts, and its input count holds the cached share
+  '0004-calls-with-cache-counts': {
+    up: async (db) => {
+      await db.schema
+        .alterTable('calls')
+        .addColumn('cached_input_tokens', 'integer', (column) => column.notNull().defaultTo(0))
+        .execute();
+
+      await db.schema
+        .alterTable('calls')
+        .addColumn('cache_write_tokens', 'integer', (column) => column.notNull().defaultTo(0))
+        .execute();
+    },
+  },
 };

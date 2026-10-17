@@ -91,6 +91,8 @@ const QUERIES: Record<StoreQueryName, RawBuilder<Record<string, unknown>>> = {
       COUNT(*) AS calls,
       SUM(status = 'failed') AS failed,
       SUM(input_tokens) AS "inputTokens",
+      SUM(cached_input_tokens) AS "cachedInputTokens",
+      SUM(cache_write_tokens) AS "cacheWriteTokens",
       SUM(output_tokens) AS "outputTokens",
       ROUND(AVG(duration_ms)) AS "meanDurationMs"
     FROM calls

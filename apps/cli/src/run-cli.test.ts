@@ -568,7 +568,7 @@ test('it resumes an eval, keeping the cases the out folder holds and replaying t
         review: {
           findings: [],
           failed: false,
-          tokens: { input: 1, output: 1 },
+          tokens: { input: 1, cachedInput: 0, cacheWrite: 0, output: 1 },
           durationMs: 1,
           calls: 1,
           depth: 'light',

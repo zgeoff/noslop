@@ -1,8 +1,9 @@
 import { expect, onTestFinished, test } from 'bun:test';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, utimes } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { buildStubRunner } from '@noslop/testing';
+import { createRunner } from '@noslop/runner';
+import { buildStubRunner, createStubCLI } from '@noslop/testing';
 import { createCodexReviewReviewer } from './create-codex-review-reviewer';
 
 async function setupTest() {
@@ -46,7 +47,7 @@ test('it runs codex review read-only against the case base in the worktree', asy
         'review',
         '--base',
         'a'.repeat(40),
-        '--ephemeral',
+        '--json',
         '-c',
         'sandbox_mode="read-only"',
         '-o',
@@ -85,9 +86,122 @@ test('it records a failed review when codex writes no review', async () => {
   expect(review).toStrictEqual({
     findings: [],
     failed: true,
-    tokens: { input: 0, output: 0 },
+    tokens: { input: 0, cachedInput: 0, cacheWrite: 0, output: 0 },
     durationMs: 40,
     calls: 1,
     depth: null,
   });
+});
+
+test('it reads the token use of a review from the session of the thread it started', async () => {
+  const ctx = await setupTest();
+
+  // Codex files a session under the local date the review starts on
+  const today = new Date();
+
+  const childFile = join(
+    ctx.dir,
+    'codex-home',
+    'sessions',
+    String(today.getFullYear()),
+    String(today.getMonth() + 1).padStart(2, '0'),
+    String(today.getDate()).padStart(2, '0'),
+    'rollout-child.jsonl',
+  );
+
+  await Bun.write(
+    childFile,
+    [
+      '{"type":"session_meta","payload":{"id":"t_child","parent_thread_id":"t_parent"}}',
+      '{"type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":43922,"cached_input_tokens":29312,"cache_write_input_tokens":0,"output_tokens":650}}}}',
+    ].join('\n'),
+  );
+
+  // the stub writes no session, so the session file is dated after the review starts
+  const later = new Date(Date.now() + 60_000);
+
+  await utimes(childFile, later, later);
+
+  const stub = await createStubCLI(ctx.dir, {
+    outputFlag: '-o',
+    lastMessage:
+      '- [P2] Subtract in place of the sum — /work/case-1/add.ts:2-2\n  The sum turns into a difference.',
+    stdout: [
+      '{"type":"thread.started","thread_id":"t_parent"}',
+      '{"type":"turn.completed","usage":{"input_tokens":0,"cached_input_tokens":0,"output_tokens":0}}',
+      '',
+    ].join('\n'),
+    stderr: '',
+    exitCode: 0,
+    delayMs: 0,
+  });
+
+  const reviewer = createCodexReviewReviewer({
+    runner: createRunner(),
+    tempDir: ctx.dir,
+    timeoutMs: 60_000,
+    command: stub.path,
+    codexHome: join(ctx.dir, 'codex-home'),
+  });
+
+  const review = await reviewer.reviewCase(
+    {
+      id: 'case-1',
+      repo: '/repos/app',
+      base: 'a'.repeat(40),
+      head: 'b'.repeat(40),
+      title: 'fix: keep the sum',
+      body: '',
+      findings: [],
+      escapes: [],
+    },
+    ctx.dir,
+  );
+
+  expect(review.tokens).toStrictEqual({
+    input: 14_610,
+    cachedInput: 29_312,
+    cacheWrite: 0,
+    output: 650,
+  });
+});
+
+test('it rejects a finished review that names no thread', async () => {
+  const ctx = await setupTest();
+
+  const stub = await createStubCLI(ctx.dir, {
+    outputFlag: '-o',
+    lastMessage: 'No findings.',
+    stdout: '',
+    stderr: '',
+    exitCode: 0,
+    delayMs: 0,
+  });
+
+  const reviewer = createCodexReviewReviewer({
+    runner: createRunner(),
+    tempDir: ctx.dir,
+    timeoutMs: 60_000,
+    command: stub.path,
+    codexHome: join(ctx.dir, 'codex-home'),
+  });
+
+  expect(
+    reviewer.reviewCase(
+      {
+        id: 'case-1',
+        repo: '/repos/app',
+        base: 'a'.repeat(40),
+        head: 'b'.repeat(40),
+        title: 'fix: keep the sum',
+        body: '',
+        findings: [],
+        escapes: [],
+      },
+      ctx.dir,
+    ),
+  ).rejects.toThrowWithMessage(
+    Error,
+    'codex review printed no thread, so its token use cannot be read',
+  );
 });

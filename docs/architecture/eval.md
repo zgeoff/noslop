@@ -83,8 +83,10 @@ For each lens, the score holds:
 - The escapes its findings caught.
 
 A reported finding with no lens counts under `unknown`. The totals add the cases and failed cases,
-the calls, the tokens in and out, and the duration. The Light rule section counts the cases noslop
-reviewed at Light and the labelled P1 true positives and escapes those cases hold, which the rule in
+the calls, the new input, cached input, cache write and output tokens that [adapters](./adapters.md)
+defines, and the duration. A run recorded before the cache counts holds none, and its input count
+holds the cached share. The Light rule section counts the cases noslop reviewed at Light and the
+labelled P1 true positives and escapes those cases hold, which the rule in
 [0007](../decisions/0007-depth-and-models.md) needs to stay near none.
 
 With `--baseline <runs>`, the harness scores the recorded run on the cases of this run and prints

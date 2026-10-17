@@ -29,7 +29,7 @@ test('it renders the totals, the Light rule, each lens and the noise floor', () 
       lightCases: 1,
       lightP1s: 0,
       lightEscapes: 0,
-      tokens: { input: 1000, output: 200 },
+      tokens: { input: 1000, cachedInput: 9000, cacheWrite: 300, output: 200 },
       durationMs: 60_000,
       calls: 5,
     },
@@ -48,7 +48,7 @@ test('it renders the totals, the Light rule, each lens and the noise floor', () 
         lightCases: 0,
         lightP1s: 0,
         lightEscapes: 0,
-        tokens: { input: 0, output: 0 },
+        tokens: { input: 0, cachedInput: 0, cacheWrite: 0, output: 0 },
         durationMs: 120_000,
         calls: 2,
       },
@@ -68,7 +68,10 @@ test('it renders the totals, the Light rule, each lens and the noise floor', () 
     | Findings with no label | 1 | 0 |
     | Escapes caught | 1 of 2 | 0 of 2 |
     | Calls | 5 | 2 |
-    | Tokens in and out | 1000 / 200 | 0 / 0 |
+    | New input tokens | 1000 | 0 |
+    | Cached input tokens | 9000 | 0 |
+    | Cache write tokens | 300 | 0 |
+    | Output tokens | 200 | 0 |
     | Duration (s) | 60 | 120 |
 
     ## Light rule
@@ -104,7 +107,7 @@ test('it leaves out the baseline column and the noise floor when the run has nei
       lightCases: 0,
       lightP1s: 0,
       lightEscapes: 0,
-      tokens: { input: 0, output: 0 },
+      tokens: { input: 0, cachedInput: 0, cacheWrite: 0, output: 0 },
       durationMs: 0,
       calls: 0,
     },

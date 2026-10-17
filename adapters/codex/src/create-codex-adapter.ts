@@ -5,6 +5,7 @@ import type { CallRequest, CallResult, ReviewAdapter } from '@noslop/contract';
 import { buildOutputJSONSchema } from '@noslop/contract';
 import type { Runner } from '@noslop/runner';
 import { z } from 'zod';
+import { countCodexTokens } from './count-codex-tokens';
 
 export interface CodexAdapterOptions {
   runner: Runner;
@@ -37,11 +38,6 @@ const DISABLED_FEATURES = [
 ];
 
 const BARE_KEY = /^[\w-]+$/u;
-
-const usageSchema = z.looseObject({
-  type: z.literal('turn.completed'),
-  usage: z.looseObject({ input_tokens: z.int(), output_tokens: z.int() }),
-});
 
 const configSchema = z.looseObject({
   developer_instructions: z.string().optional(),
@@ -162,7 +158,7 @@ async function runCodexCall<Output>(
   return {
     output,
     model: call.model,
-    tokens: countTokens(result.stdout),
+    tokens: countCodexTokens(result.stdout),
     durationMs: result.durationMs,
     exitCode: result.exitCode,
   };
@@ -188,29 +184,5 @@ function parseTOML(text: string): unknown {
     return Bun.TOML.parse(text);
   } catch {
     return {};
-  }
-}
-
-// Codex prints one JSON event per line, and each finished turn reports its token use
-function countTokens(stdout: string): CallResult['tokens'] {
-  const tokens = { input: 0, output: 0 };
-
-  for (const line of stdout.split('\n')) {
-    const event = usageSchema.safeParse(parseJSONLine(line));
-
-    if (event.success) {
-      tokens.input += event.data.usage.input_tokens;
-      tokens.output += event.data.usage.output_tokens;
-    }
-  }
-
-  return tokens;
-}
-
-function parseJSONLine(line: string): unknown {
-  try {
-    return JSON.parse(line);
-  } catch {
-    return null;
   }
 }

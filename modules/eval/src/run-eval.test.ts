@@ -38,7 +38,7 @@ test('it reviews each case in a detached worktree of its head and removes the wo
   const review: CaseReview = {
     findings: [],
     failed: false,
-    tokens: { input: 10, output: 2 },
+    tokens: { input: 10, cachedInput: 50, cacheWrite: 0, output: 2 },
     durationMs: 5,
     calls: 1,
     depth: 'standard',
@@ -73,7 +73,7 @@ test('it replays cases at once and keeps their order when a later case ends firs
   const review: CaseReview = {
     findings: [],
     failed: false,
-    tokens: { input: 10, output: 2 },
+    tokens: { input: 10, cachedInput: 50, cacheWrite: 0, output: 2 },
     durationMs: 5,
     calls: 1,
     depth: 'standard',
@@ -156,7 +156,7 @@ test('it hands a reviewer that checks out the head itself the repo and adds no w
     Promise.resolve({
       findings: [],
       failed: false,
-      tokens: { input: 0, output: 0 },
+      tokens: { input: 0, cachedInput: 0, cacheWrite: 0, output: 0 },
       durationMs: 1,
       calls: 1,
       depth: 'light' as const,
@@ -238,7 +238,7 @@ test('it records a failed review when the head is not in the repo', async () => 
       review: {
         findings: [],
         failed: true,
-        tokens: { input: 0, output: 0 },
+        tokens: { input: 0, cachedInput: 0, cacheWrite: 0, output: 0 },
         durationMs: 0,
         calls: 0,
         depth: null,

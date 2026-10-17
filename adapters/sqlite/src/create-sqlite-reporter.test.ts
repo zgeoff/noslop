@@ -38,7 +38,10 @@ test('it records a review with its calls and findings in the file its options na
     .select(['finding_id', 'depth', 'effort', 'written_by_change'])
     .executeTakeFirstOrThrow();
 
-  const calls = await store.selectFrom('calls').select(['call_id', 'input_tokens']).execute();
+  const calls = await store
+    .selectFrom('calls')
+    .select(['call_id', 'input_tokens', 'cached_input_tokens', 'cache_write_tokens'])
+    .execute();
 
   expect(finding).toStrictEqual({
     finding_id: '1111111111111111',
@@ -47,7 +50,9 @@ test('it records a review with its calls and findings in the file its options na
     written_by_change: 1,
   });
 
-  expect(calls).toStrictEqual([{ call_id: 'L', input_tokens: 100 }]);
+  expect(calls).toStrictEqual([
+    { call_id: 'L', input_tokens: 100, cached_input_tokens: 400, cache_write_tokens: 20 },
+  ]);
 });
 
 test('it keeps the first review when a second write of the same review fails', async () => {

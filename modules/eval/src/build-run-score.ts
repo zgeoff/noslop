@@ -1,4 +1,5 @@
-import type { FindingLens } from '@noslop/contract';
+import type { FindingLens, Tokens } from '@noslop/contract';
+import { mergeTokens } from '@noslop/contract';
 import type { Case } from './case';
 import { collectMatches } from './collect-matches';
 import type { CaseRun } from './types';
@@ -33,7 +34,7 @@ export interface RunScore {
   lightCases: number;
   lightP1s: number;
   lightEscapes: number;
-  tokens: { input: number; output: number };
+  tokens: Tokens;
   durationMs: number;
   calls: number;
 }
@@ -84,7 +85,7 @@ export function buildRunScore(
     lightCases: 0,
     lightP1s: 0,
     lightEscapes: 0,
-    tokens: { input: 0, output: 0 },
+    tokens: { input: 0, cachedInput: 0, cacheWrite: 0, output: 0 },
     durationMs: 0,
     calls: 0,
   };
@@ -100,8 +101,7 @@ export function buildRunScore(
 
     total.cases += 1;
     total.failedCases += Number(review.failed);
-    total.tokens.input += review.tokens.input;
-    total.tokens.output += review.tokens.output;
+    total.tokens = mergeTokens([total.tokens, review.tokens]);
     total.durationMs += review.durationMs;
     total.calls += review.calls;
     total.reported += review.findings.length;

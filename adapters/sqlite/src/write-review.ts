@@ -42,6 +42,8 @@ export async function writeReview(store: Store, result: ReviewResult): Promise<v
             status: call.status,
             attempts: call.attempts,
             input_tokens: call.tokens.input,
+            cached_input_tokens: call.tokens.cachedInput,
+            cache_write_tokens: call.tokens.cacheWrite,
             output_tokens: call.tokens.output,
             duration_ms: call.durationMs,
           })),

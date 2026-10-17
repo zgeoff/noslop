@@ -49,6 +49,8 @@ test('it keys each disposition a store held before on the one repo whose reviews
 
   database.run(`DELETE FROM kysely_migration WHERE name >= '0002'`);
   database.run('ALTER TABLE calls ADD COLUMN chunk integer');
+  database.run('ALTER TABLE calls DROP COLUMN cached_input_tokens');
+  database.run('ALTER TABLE calls DROP COLUMN cache_write_tokens');
   database.run('DROP TABLE dispositions');
 
   database.run(`CREATE TABLE dispositions (finding_id text NOT NULL, kind text NOT NULL,
@@ -77,5 +79,34 @@ test('it keys each disposition a store held before on the one repo whose reviews
     { repo: 'example/app', finding_id: '1111111111111111' },
     { repo: '', finding_id: '2222222222222222' },
     { repo: '', finding_id: '3333333333333333' },
+  ]);
+});
+
+test('it gives a call the store held before no cache counts', async () => {
+  const ctx = await setupTest();
+  const first = await loadStore(ctx.path);
+
+  await writeReview(first, buildMockReviewResult({ reviewID: 'review-app' }));
+
+  await first.destroy();
+
+  const database = new Database(ctx.path, { strict: true });
+
+  database.run(`DELETE FROM kysely_migration WHERE name >= '0004'`);
+  database.run('ALTER TABLE calls DROP COLUMN cached_input_tokens');
+  database.run('ALTER TABLE calls DROP COLUMN cache_write_tokens');
+  database.close();
+
+  const store = await loadStore(ctx.path);
+
+  onTestFinished(() => store.destroy());
+
+  const rows = await store
+    .selectFrom('calls')
+    .select(['input_tokens', 'cached_input_tokens', 'cache_write_tokens'])
+    .execute();
+
+  expect(rows).toStrictEqual([
+    { input_tokens: 100, cached_input_tokens: 0, cache_write_tokens: 0 },
   ]);
 });

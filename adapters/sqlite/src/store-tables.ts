@@ -35,6 +35,8 @@ export interface CallRow {
   status: string;
   attempts: number;
   input_tokens: number;
+  cached_input_tokens: number;
+  cache_write_tokens: number;
   output_tokens: number;
   duration_ms: number;
 }

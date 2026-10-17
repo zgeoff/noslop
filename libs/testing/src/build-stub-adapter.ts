@@ -68,7 +68,7 @@ export function buildStubAdapter(
         return {
           output: call.outputSchema.parse(answer),
           model: call.model,
-          tokens: { input: 10, output: 5 },
+          tokens: { input: 10, cachedInput: 40, cacheWrite: 2, output: 5 },
           durationMs: 1,
           exitCode: 0,
         };

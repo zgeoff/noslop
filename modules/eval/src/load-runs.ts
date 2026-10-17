@@ -15,8 +15,11 @@ const reportedSchema = z.strictObject({
   anchor: anchorSchema,
 });
 
+// a run recorded before the cache counts holds none, and its input count holds the cached share
 const tokensSchema = z.strictObject({
   input: z.int().nonnegative(),
+  cachedInput: z.int().nonnegative().default(0),
+  cacheWrite: z.int().nonnegative().default(0),
   output: z.int().nonnegative(),
 });
 

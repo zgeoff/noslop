@@ -2,6 +2,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { LoadedConfig } from '@noslop/config';
 import type { Depth, ReviewAdapter } from '@noslop/contract';
+import { mergeTokens } from '@noslop/contract';
 import type { CaseReviewer } from '@noslop/eval';
 import { runReview } from '@noslop/review';
 import type { CLIContext } from './cli-context';
@@ -65,10 +66,7 @@ export function createNoslopReviewer(options: NoslopReviewerOptions): CaseReview
             severity: finding.severity,
           })),
           failed: result.calls.length > 0 && result.failedCalls.length === result.calls.length,
-          tokens: {
-            input: result.calls.reduce((total, call) => total + call.tokens.input, 0),
-            output: result.calls.reduce((total, call) => total + call.tokens.output, 0),
-          },
+          tokens: mergeTokens(result.calls.map((call) => call.tokens)),
           durationMs: Math.round(performance.now() - started),
           calls: result.calls.length,
           depth: result.depth,

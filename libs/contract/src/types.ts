@@ -7,6 +7,7 @@ import type { Finding } from './finding';
 import type { LensID } from './lens-id';
 import type { ReporterOptions } from './review-config';
 import type { PullRequestRef, ReviewResult } from './review-result';
+import type { Tokens } from './tokens';
 
 // a lens call returns findings keyed by lens; a pass with an output of its own, such as the merge
 // pass, names its schema, and carries no lens
@@ -24,7 +25,7 @@ export interface CallRequest<Output = CallOutput> {
 export interface CallResult<Output = CallOutput> {
   output: Output;
   model: string | null;
-  tokens: { input: number; output: number };
+  tokens: Tokens;
   durationMs: number;
   exitCode: number;
 }

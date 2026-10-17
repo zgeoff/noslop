@@ -102,11 +102,13 @@ async function runClaudeCall<Output>(
   return {
     output: call.outputSchema.parse(parsed.data.structured_output),
     model: call.model ?? models[0] ?? null,
+
+    // Claude Code counts the input it wrote to the cache apart from the rest of the new input, and
+    // the input it read from the cache apart from both
     tokens: {
-      input:
-        (usage?.input_tokens ?? 0) +
-        (usage?.cache_creation_input_tokens ?? 0) +
-        (usage?.cache_read_input_tokens ?? 0),
+      input: (usage?.input_tokens ?? 0) + (usage?.cache_creation_input_tokens ?? 0),
+      cachedInput: usage?.cache_read_input_tokens ?? 0,
+      cacheWrite: usage?.cache_creation_input_tokens ?? 0,
       output: usage?.output_tokens ?? 0,
     },
     durationMs: result.durationMs,

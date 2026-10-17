@@ -58,7 +58,7 @@ export async function runMergePass(input: MergePassInput): Promise<MergePass> {
     effort: input.config.mergePass.effort,
     status: 'ok',
     attempts: 1,
-    tokens: { input: 0, output: 0 },
+    tokens: { input: 0, cachedInput: 0, cacheWrite: 0, output: 0 },
     durationMs: 0,
   };
 

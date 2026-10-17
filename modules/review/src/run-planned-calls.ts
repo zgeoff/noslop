@@ -84,7 +84,7 @@ export async function runPlannedCalls(input: CallBatchInput): Promise<CallBatch>
       effort: call.effort,
       status: outcome.result === null ? 'failed' : 'ok',
       attempts: outcome.attempts,
-      tokens: outcome.result?.tokens ?? { input: 0, output: 0 },
+      tokens: outcome.result?.tokens ?? { input: 0, cachedInput: 0, cacheWrite: 0, output: 0 },
       durationMs: Math.round(outcome.durationMs),
     };
 

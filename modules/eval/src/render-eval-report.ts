@@ -62,7 +62,10 @@ function renderTotals(score: RunScore, reference: RunScore | null): string[] {
     ['Findings with no label', (item) => String(item.unlabelled)],
     ['Escapes caught', (item) => `${item.escapesCaught} of ${item.escapesWithAnchor}`],
     ['Calls', (item) => String(item.calls)],
-    ['Tokens in and out', (item) => `${item.tokens.input} / ${item.tokens.output}`],
+    ['New input tokens', (item) => String(item.tokens.input)],
+    ['Cached input tokens', (item) => String(item.tokens.cachedInput)],
+    ['Cache write tokens', (item) => String(item.tokens.cacheWrite)],
+    ['Output tokens', (item) => String(item.tokens.output)],
     ['Duration (s)', (item) => (item.durationMs / 1000).toFixed(0)],
   ];
 

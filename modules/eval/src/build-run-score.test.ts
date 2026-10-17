@@ -69,7 +69,7 @@ test('it scores the labelled findings a run repeats, per lens', () => {
             },
           ],
           failed: false,
-          tokens: { input: 100, output: 20 },
+          tokens: { input: 100, cachedInput: 900, cacheWrite: 30, output: 20 },
           durationMs: 3000,
           calls: 2,
           depth: 'standard',
@@ -115,7 +115,7 @@ test('it scores the labelled findings a run repeats, per lens', () => {
     lightCases: 0,
     lightP1s: 0,
     lightEscapes: 0,
-    tokens: { input: 100, output: 20 },
+    tokens: { input: 100, cachedInput: 900, cacheWrite: 30, output: 20 },
     durationMs: 3000,
     calls: 2,
   });
@@ -149,7 +149,7 @@ test('it counts the P1s and escapes on cases the run reviewed at Light', () => {
         review: {
           findings: [],
           failed: false,
-          tokens: { input: 0, output: 0 },
+          tokens: { input: 0, cachedInput: 0, cacheWrite: 0, output: 0 },
           durationMs: 0,
           calls: 1,
           depth: 'light',
