@@ -1,0 +1,43 @@
+# 0016: The stack
+
+- Date: 2026-10-17
+- Status: decided
+
+noslop builds on this stack:
+
+| Concern                   | Library                                              |
+| ------------------------- | ---------------------------------------------------- |
+| Runtime, tests            | Bun, `bun test`, msw, faker                          |
+| CLI                       | gunshi                                               |
+| Schemas and validation    | zod                                                  |
+| Branching on variants     | ts-pattern, with `switch` only for a concrete reason |
+| Assertions                | tiny-invariant                                       |
+| Logging                   | LogTape                                              |
+| Parsing                   | oxc-parser                                           |
+| The findings store        | Kysely on `bun:sqlite`                               |
+| The GitHub App's server   | Elysia                                               |
+| GitHub's API and webhooks | `@octokit/app`, `@octokit/webhooks`                  |
+| Retries, caches, IDs      | p-retry, lru-cache, nanoid                           |
+| Lifecycles                | XState, only where a real lifecycle exists           |
+| Spawning a CLI            | One injected runner on `Bun.spawn`                   |
+
+## Why
+
+- LogTape logs nothing until the host configures it, which suits a tool that others install.
+- oxc-parser gives the static stage a full TypeScript syntax tree with no native build step to
+  manage.
+- An injected runner keeps process spawning in one place, which tests replace with a stand-in.
+- GitHub's own SDK handles App auth, token refresh and webhook signatures.
+
+## Alternatives
+
+- **pino for logging.** It suits a long-running service, and it writes output whether or not the
+  host wants it.
+- **execa for spawning.** It adds start-up cost and a second way to spawn.
+- **citty for the CLI.** It has had no release in months, and gunshi covers its features.
+
+## Consequences
+
+- Only the store package imports Kysely and `bun:sqlite`.
+- Only the runner calls `Bun.spawn`.
+- gunshi is pinned to its release candidate until 1.0.0 ships.

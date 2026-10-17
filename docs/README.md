@@ -41,4 +41,7 @@ numbers are stable IDs in the order the decisions were made.
   the eval harness
 - [0013: Prompt language](decisions/0013-prompt-language.md): short numbered rules in plain words
 - [0014: The code layout](decisions/0014-the-code-layout.md): `apps/`, `modules/`, `adapters/`,
-  `libs/`, boundaries by tag
+- [0015: Reporters and disposition sources](decisions/0015-reporters.md): one result, a list of
+  reporters out, dispositions back in
+- [0016: The stack](decisions/0016-the-stack.md): gunshi, zod, ts-pattern, tiny-invariant, LogTape,
+  oxc-parser, Kysely, Elysia, Octokit `libs/`, boundaries by tag

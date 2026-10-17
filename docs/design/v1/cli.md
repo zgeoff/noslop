@@ -13,8 +13,9 @@ CLI is versioned with JSON output.
 | `noslop eval [--corpus <path>]`               | Replays a corpus through the current config              |
 | `noslop store query <name>`                   | Runs a named query on the [findings store](store.md)     |
 
-Each command takes `--json`, which prints one JSON document to stdout and nothing else. Without
-`--json`, the command prints a summary for a person.
+Each command takes `--json`, which runs the `json` reporter to stdout and prints nothing else.
+`review` also runs every reporter in the config's `report` list, under [reporters](reporters.md).
+Without `--json`, the command prints a summary for a person.
 
 ## JSON output
 

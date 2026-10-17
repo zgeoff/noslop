@@ -33,5 +33,6 @@ user brings.
 - [Adapters](adapters.md): the adapter interface and the Codex and Claude adapters
 - [The CLI](cli.md): commands, the JSON output and temp folders
 - [The GitHub App](github-app.md): comments, the check run, dispositions and re-review
+- [Reporters](reporters.md): the reporter and disposition-source interfaces, and the 4 reporters
 - [The findings store](store.md): the schema and what a reader gets
 - [The eval harness](eval.md): the corpus, the baseline and the gates

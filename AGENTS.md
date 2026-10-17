@@ -32,7 +32,7 @@ apps/              deployables
   cli/             @noslop/cli, the bin `noslop`; composition root for a local review
   github-app/      the App that posts comments and the check run
 modules/           config, static-stage, routing, lenses, review, findings, eval
-adapters/          one outside system each: codex, claude, github
+adapters/          one outside system each: codex, claude, github, sqlite, webhook
 libs/              shared code that belongs to no domain: contract, testing
 docs/
   architecture/    what is built
@@ -57,6 +57,11 @@ Boundaries:
   each adapter and passes it to the module that uses it.
 - The core packages hold no project names, paths, stack patterns or taste rules. Those live in each
   user's config.
+
+## Stack
+
+Build on the libraries in [0016](docs/decisions/0016-the-stack.md). A library outside that list is a
+choice for the owner.
 
 ## Working here
 
