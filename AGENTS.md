@@ -1,8 +1,7 @@
 # Agent Guidelines
 
-This repo is noslop, a reviewer for pull requests that coding agents write. It is in design:
-`docs/decisions/` holds the decision records, `docs/design/v1/` holds the design for the first
-build, and no code exists yet.
+This repo is noslop, a reviewer for pull requests that coding agents write. `docs/decisions/` holds
+the decision records, and `docs/architecture/` describes the code as it is built.
 
 ## Required reading
 
@@ -30,15 +29,15 @@ source through an `exports` map that points at `src/index.ts`.
 
 ```text
 apps/              deployables
-  cli/             @noslop/cli, the bin `noslop`; composition root for a local review
-  github-app/      the App that posts comments and the check run
+  cli/             @noslop/cli, the bin `noslop`; composition root for a review
+  github-app/      the server the GitHub App runs; it runs the CLI for each webhook delivery
 modules/           config, static-stage, routing, lenses, review, findings, eval
 adapters/          one outside system each: codex, claude, github, sqlite, webhook
 libs/              shared code that belongs to no domain: contract, runner, testing
 docs/
   architecture/    what is built
   decisions/       numbered decision records
-  design/v1/       the design for the first build; only the owner opens a design
+  design/          a design for work not yet built; only the owner opens a design
 ```
 
 ## Packages
@@ -74,8 +73,8 @@ choice for the owner.
 - **Decision records.** A changed decision is edited in place: the record keeps its number, its
   header gains an `Updated` date, and a `## Changes` list at its end gives each change's date and a
   one-line summary. A new record is only for a new decision.
-- **Designs.** When a part of `docs/design/v1/` lands, the change that lands it moves that part to
-  `docs/architecture/`, rewritten to describe the code.
+- **Designs.** When a part of a design under `docs/design/` lands, the change that lands it moves
+  that part to `docs/architecture/`, rewritten to describe the code.
 - **Attribution.** Commit messages carry no attribution lines: no co-author trailers and no
   generator notes.
 - **Plans.** A plan for work about to be built lives outside `docs/`.

@@ -1,39 +1,75 @@
 # Findings
 
-A finding is the unit every part of noslop passes on.
-[0003](../../decisions/0003-what-counts-as-a-finding.md) sets what counts as a finding, and
-[0004](../../decisions/0004-severity-and-verdicts.md) sets severity and verdicts. The zod schema
-lives in `libs/contract`.
+A finding is one defect at one place in the reviewed head, and it is the unit every part of noslop
+passes on: the lenses report findings, Assemble checks and merges them, and every reporter writes
+them out. [0003](../decisions/0003-what-counts-as-a-finding.md) sets what counts as a finding, and
+[0004](../decisions/0004-severity-and-verdicts.md) sets severity and verdicts. A finding's severity
+follows from the criterion it names, never from the model's own choice, and its ID survives a
+re-review that finds the same defect at a moved line. The contract package (`@noslop/contract`)
+holds the finding schema, and the findings module holds Assemble.
 
-## Fields
+## Model output and the finding
 
-| Field             | Holds                                                                                                       |
-| ----------------- | ----------------------------------------------------------------------------------------------------------- |
-| `id`              | A stable ID: a hash of the lens, the anchor path, the rule or criterion, and the normalised title           |
-| `lens`            | The lens ID, or `static` for a direct finding                                                               |
-| `title`           | At most 80 characters, imperative                                                                           |
-| `body`            | One paragraph: the defect, the inputs or state that trigger it, and the consequence                         |
-| `anchor`          | `path`, `startLine`, `endLine` at the reviewed head; the range overlaps the diff and spans at most 10 lines |
-| `secondLocation`  | Optional: `repo`, `commit`, `path`, `startLine`, `endLine` for affected code outside the diff               |
-| `severity`        | `P1`, `P2` or `P3`                                                                                          |
-| `criterion`       | The severity criterion the lens applied, from the table in 0004                                             |
-| `rule`            | For a taste finding: the rule name from the rules file                                                      |
-| `verdict`         | `CONFIRMED` or `PLAUSIBLE`                                                                                  |
-| `unverifiedFact`  | For a PLAUSIBLE finding: the fact the lens could not read                                                   |
-| `writtenByChange` | `true` when the anchor sits on a line the change added or changed                                           |
-| `fix`             | Optional: one instruction for the fix                                                                       |
+A lens reports a model finding, and Assemble turns it into a finding. The two shapes differ on
+purpose. A model CLI's structured output needs every key present, so the model finding holds null
+for an absent value. Its schema leaves the anchor rules out, so a bad anchor drops one finding in
+Assemble instead of failing the whole call. The finding drops the nulls and adds what only noslop
+knows: the ID, the lens, the call that reported it, whether the change wrote the anchored line, and
+the marked risk class whose paths hold the anchor.
 
-## Rules Assemble enforces
+The criterion is one row of the severity table in 0004, and the contract package maps each criterion
+to its severity. Assemble sets the severity from that map, and the finding schema refuses any other
+severity, so a model that names a criterion with a different severity gets the criterion's. The
+shared prompt header renders the same map for the model, as [the lenses](./lenses.md) describes, so
+the table the model reads and the check Assemble runs come from one source.
 
-1. A finding with an anchor outside the diff is dropped.
-2. A finding outside the diff with no `secondLocation` is dropped, unless it is a missing change
-   anchored to the changed line that needs it.
-3. A taste finding with no `rule`, or a `rule` that the rules file does not hold, is dropped.
-4. A PLAUSIBLE finding with no `unverifiedFact` is dropped.
-5. 2 findings with the same anchor and the same defect merge, and the merged finding keeps the
-   higher severity.
+A direct finding of [the static stage](./static-stage.md) takes the model finding's shape, with the
+lens `static` and no call. It is always CONFIRMED, because the stage read its fact from the code.
+
+## The rules Assemble enforces
+
+Assemble reads the raw findings of every call and the static stage's direct findings together, and
+drops each one that breaks a finding rule. The CLI logs every dropped finding with its reason.
+
+1. A finding whose anchor overlaps no hunk of the diff is dropped. The head lines of each hunk, its
+   context lines included, are the diff a finding may anchor to.
+2. A finding whose anchor holds no line the change touched is dropped, unless it carries a second
+   location for the affected code, or it marks a missing change anchored to the code that needs it.
+3. A taste finding is dropped when it names no rule, or a rule the rules file does not hold, so a
+   model cannot invent a taste rule.
+4. A PLAUSIBLE finding is dropped when it names no fact that the lens could not read, because that
+   fact is what a reader must check.
+5. A finding that fails the finding schema is dropped.
+
+A title over the schema's length is cut short with an ellipsis, because the defect it names still
+holds.
+
+Two findings are one defect when their anchors overlap in one file and their titles match once
+normalised. The merged finding keeps the higher severity. The result lists the findings by severity,
+then by path and line.
+
+A line the change deleted has no head line of its own, so the static stage maps it to the head line
+where it sat. Assemble reads the changed lines through the same function, so a lens finding and a
+direct finding anchor a deletion to the same line. A finding counts as written by the change only
+when its anchor holds an added line, because a finding beside a deletion is about code the change
+left in place.
 
 ## Identity across re-reviews
 
-The `id` stays the same when a re-review finds the same defect at a moved line, so a disposition
-carries over. A finding whose `id` matches a finding that holds `fixed` reopens that finding.
+A finding's ID is a hash of its lens, its anchor's path, its rule or criterion, and its normalised
+title. The hash leaves the line numbers out, and the normalised title keeps only lowercase letters
+and single spaces. A re-review that finds the same defect at a moved line, or words its title with a
+different line number, therefore gives it the same ID. One defect reported at two places in one file
+would hash to one ID, so each place after the first, in anchor order, hashes its place number into
+its ID, and every ID stays unique in a review.
+
+The ID is what a disposition attaches to. [The GitHub App](./github-app.md) reads a disposition from
+the reply in a finding's thread and keys it by the ID, and [the findings store](./store.md) reopens
+a `fixed` finding when a later review reports the same ID.
+
+## The risk class on a finding
+
+A finding whose anchor sits in the paths of a marked risk class carries that class's name. The
+GitHub App refuses a `deferred` disposition on such a finding even in code the change did not write,
+under [0009](../decisions/0009-the-merge-loop.md), because a defect beside a change to a risky path
+needs an answer before the merge.

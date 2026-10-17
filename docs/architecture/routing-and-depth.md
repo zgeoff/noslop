@@ -1,38 +1,110 @@
 # Routing and depth
 
-Routing fires the lenses, and the risk score picks the depth.
-[0006](../../decisions/0006-routing.md) holds the trigger table and the special changes, and
-[0007](../../decisions/0007-depth-and-models.md) holds the Light and Deep rules. This page covers
-how routing computes them.
+Routing decides, for one change, which lenses fire and how hard the review looks. It reads only what
+the [static stage](./static-stage.md) produced: the changed files, the slices, the risk signals and
+the config. No model takes part, so 2 runs on one change fire the same lenses at the same depth.
+[0006](../decisions/0006-routing.md) records the triggers and the special changes, and
+[0007](../decisions/0007-depth-and-models.md) records the Light and Deep rules. Routing then plans
+the calls that carry the fired lenses, which [calls](./calls.md) covers.
+
+## Special changes
+
+A few kinds of change route on a lens list of their own in place of the triggers. Routing checks
+them in order, so a change that is both a sync and a release routes as a sync, and each change gets
+the narrowest route that covers it.
+
+| Change      | When                                               | Lenses                         |
+| ----------- | -------------------------------------------------- | ------------------------------ |
+| sync        | every changed file is under a synced path          | none                           |
+| release     | only changelogs and manifest version bumps change  | none                           |
+| docs-only   | every changed file is prose or an instruction file | documentation and instructions |
+| direct-push | the caller reviews a push to the default branch    | the triggers                   |
+
+A sync or a release fires no lens, so its review holds only the static stage's findings, and the
+review makes no worktree and runs no model. The source change of a sync carries its own review, and
+a release bump changes no behaviour. A docs-only change fires the documentation lens on any prose it
+changes, whatever its size, because documentation is the lens that change exists for. A direct push
+fires lenses by the triggers like any other change, and the result marks it as a direct push.
 
 ## Firing a lens
 
-1. The correctness lens fires on every change that holds code.
-2. Each other lens fires when its trigger matches a non-empty slice or a changed path.
-3. A marked risk class fires every lens it forces on.
-4. A lens with `enabled: false` in the config never fires, except when a risk class forces it.
-5. A special change (a sync, a release bump, docs only, a direct push) replaces steps 1 to 3 with
-   its own lens list.
+The correctness lens fires on every change that holds a code or test file. Each other lens fires
+when its trigger matches, and each trigger reads only slices and changed paths, so a lens fires only
+when its input holds something to look at. Several triggers compare a slice with a threshold from
+the config, such as the number of writes that fires the concurrency lens.
+
+A marked risk class fires every lens it forces on, whatever the triggers say.
+[Your own rules](./your-own-rules.md) covers how a risk class is marked. A special change with a
+lens list of its own ignores forced lenses, because its list is the whole route.
+
+A lens that the config turns off never fires. One exception: a lens that a marked risk class forces
+on fires even when the config turns it off, because the risk class is the stronger statement about
+the change.
+
+The fired lenses keep the lens set's own order, so a call's prompt holds its sections in one order
+on every run.
 
 ## Picking the depth
 
-Routing checks Deep first, then Light, and every other change is Standard. Every threshold comes
-from `thresholds` in the config.
+Routing checks Deep first, then Light, and every other change is Standard. Depth sets the default
+effort of each call: low at Light, medium at Standard and high at Deep. Every threshold comes from
+the config.
 
-| Depth    | Effort   | Passes                                                                                                                                                  |
-| -------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Light    | `low`    | Every fired lens in 1 call                                                                                                                              |
-| Standard | `medium` | The calls in the grouping                                                                                                                               |
-| Deep     | `high`   | The calls with call A split, then a verify pass, then a gap sweep on a change of 5 or more files or 200 or more lines when no blocking finding survives |
+A change is Deep when it marks a risk class, touches the configured number of packages or more,
+carries a breaking marker, or hits a consumer edge in another repo. A deletion in any path that a
+risk class forces a lens on also makes it Deep, whether or not the class's detectors mark it,
+because a deletion there is the change most likely to break what the class protects.
 
-## Stepping up
+A change is Light only when every one of these holds:
 
-A CONFIRMED P1 at Standard reruns the calls at Deep once. The result records both depths. A Light
-review never steps up: a Light review that finds a P1 records it, and the history gate in
-[the eval harness](eval.md) catches a Light rule that lets P1s through.
+- No static risk slice fires: no security slice, no migration, and no set of writes that would fire
+  the concurrency lens.
+- It touches at most one package and no consumer edge.
+- It is small: its code lines are within the Light limit, or it changes only tests, or only prose
+  and instructions.
+- No file in it has a past escape.
 
-## Chunking
+The Light line count leaves out prose and instruction files, and the static stage leaves generated
+files out of the change before routing reads it, so neither kind can push a change past Light.
 
-A diff of more than `chunkLines` changed lines reaches each lens in chunks. A chunk holds whole
-files, grouped by package, up to `chunkLines` lines. A single file larger than `chunkLines` is its
-own chunk. Each chunk is a separate call, and Assemble merges their findings.
+## The passes
+
+The review module runs the planned calls in passes, and the depth decides which passes run.
+
+```mermaid
+flowchart TD
+  first[First pass] --> light{Depth}
+  light -->|Light| done[Assemble]
+  light -->|Standard| p1{Confirmed P1?}
+  p1 -->|no| done
+  p1 -->|yes| rerun[Deep rerun]
+  light -->|Deep| verify[Verify pass]
+  rerun --> verify
+  verify --> gap{Large change and no blocking finding?}
+  gap -->|no| done
+  gap -->|yes| sweep[Gap sweep]
+  sweep --> done
+```
+
+A CONFIRMED P1 at Standard steps the review up to Deep once: the review module plans the calls again
+at Deep, and they run with the verify pass and the gap sweep that Deep adds. The Deep rerun replaces
+the Standard pass's findings and failures. The Standard calls stay in the result under their own
+IDs, so their cost stays counted, and the result holds the depth it stepped up from.
+
+A Light review never steps up. A P1 that a Light review finds stays in its result, and the
+[eval harness](./eval.md) counts the labelled P1s and escapes that its Light cases hold, so a Light
+rule that lets P1s through shows up on the corpus.
+
+The verify pass reruns each Deep call that returned findings, with those findings and a closing task
+to re-derive each one from the code. Its findings replace that call's. A call whose verify call
+fails keeps its own findings, so a verify failure never loses a finding.
+
+The gap sweep runs on a large change, one with at least the configured number of files or of changed
+lines, when no blocking finding survives the verify pass. A blocking finding is a P1, a security
+finding or a risk-class finding. The sweep reruns every Deep call with the findings so far and asks
+only for defects they miss, because a change with a blocking finding cannot merge, and the sweep
+spends its effort where the review would otherwise pass.
+
+Each pass runs every call through the adapter, retrying a failed call once, under
+[adapters](./adapters.md). [Findings](./findings.md) covers how Assemble merges the findings of
+every pass.

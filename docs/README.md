@@ -9,8 +9,30 @@ What noslop is, what binds it, and what has been decided.
 - [Scope](scope.md): requirements in tiers, and non-goals
 - [Glossary](glossary.md): the terms the docs and the code use, one meaning each
 
-`decisions/` holds the decision records. `design/v1/` holds the design for the first build.
-`architecture/` holds what is built.
+`decisions/` holds the decision records, and `architecture/` describes the code as it is built.
+
+## Architecture
+
+Each page describes one part of the code and links the decision records it rests on. The pipeline
+page gives the whole path from a change to a check result.
+
+- [Pipeline](architecture/pipeline.md): the stages from a change to a review result
+- [Findings](architecture/findings.md): the finding schema, anchors, severity and verdicts
+- [The reviewer config](architecture/review-config.md): `review.json`, `extends`, merging and the
+  built-in defaults
+- [Your own rules](architecture/your-own-rules.md): the rules file, stack patterns and risk classes
+- [The static stage](architecture/static-stage.md): slices, direct findings and the risk signals
+- [Routing and depth](architecture/routing-and-depth.md): which lenses fire, and at which depth
+- [Calls](architecture/calls.md): how fired lenses group into model calls, with retry, verify and
+  the gap sweep
+- [The lenses](architecture/lenses.md): one prompt per lens, and how a call's prompt is built
+- [Adapters](architecture/adapters.md): the Codex and Claude CLIs behind one read-only interface
+- [The CLI](architecture/cli.md): the `noslop` commands, their output and exit codes
+- [Reporters](architecture/reporters.md): where a result goes, and how dispositions come back
+- [The GitHub App](architecture/github-app.md): inline comments, the check run, dispositions and the
+  App server
+- [The findings store](architecture/store.md): the SQLite store and its queries
+- [The eval harness](architecture/eval.md): the replay of a labelled corpus, scored per lens
 
 ## Decisions
 
@@ -41,7 +63,8 @@ numbers are stable IDs in the order the decisions were made.
   the eval harness
 - [0013: Prompt language](decisions/0013-prompt-language.md): short numbered rules in plain words
 - [0014: The code layout](decisions/0014-the-code-layout.md): `apps/`, `modules/`, `adapters/`,
+  `libs/`, boundaries by tag
 - [0015: Reporters and disposition sources](decisions/0015-reporters.md): one result, a list of
   reporters out, dispositions back in
 - [0016: The stack](decisions/0016-the-stack.md): gunshi, zod, ts-pattern, tiny-invariant, LogTape,
-  oxc-parser, Kysely, Elysia, Octokit `libs/`, boundaries by tag
+  oxc-parser, Kysely, Elysia, Octokit

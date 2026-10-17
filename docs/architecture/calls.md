@@ -1,30 +1,61 @@
 # Calls
 
-A call bundles fired lenses into one model request.
-[0008](../../decisions/0008-stacking-lenses-into-calls.md) records the grouping and why each lens
-stays a separate unit.
+A call is one model request that carries several fired lenses at once. Routing groups the lenses
+that [routing and depth](./routing-and-depth.md) fired into calls by the config's call grouping,
+then splits the change into chunks, and each call runs once per chunk it needs. A call's effort,
+model and timeout come from its lenses and its depth.
+[0008](../decisions/0008-stacking-lenses-into-calls.md) records the default grouping and why each
+lens stays a separate unit inside a call. [Lenses](./lenses.md) covers how a call's prompt is built
+and how each finding keeps its lens.
 
-## Default grouping
+## Grouping the fired lenses
 
-| Call | Lenses                                                                                |
-| ---- | ------------------------------------------------------------------------------------- |
-| A    | `correctness`, `failure-handling-and-observability`, `concurrency-and-data-integrity` |
-| B    | `security`                                                                            |
-| C    | `architecture-and-boundaries`, `naming-shape-and-comments`                            |
-| D    | `cross-repo-and-platform-limits`, `deploy-and-config`                                 |
-| E    | `intent`, `tests`                                                                     |
-| F    | `reuse`                                                                               |
-| G    | `instructions`                                                                        |
-| H    | `documentation`                                                                       |
+The config maps each call ID to its lens list, and the built-in defaults hold the grouping of 0008.
+A repo's `calls` key replaces the list of each call it holds, because arrays replace under the merge
+rules in [the reviewer config](./review-config.md), so moving a lens into a call of its own is a
+config change.
 
-`calls` in the config replaces a call's lens list by call ID.
+Routing walks the calls in the order of their IDs and puts each fired lens into the first call that
+lists it. A call holds only the lenses of its list that fired, and a call with no fired lens is left
+out. A fired lens that no call lists runs in a call of its own, so a grouping that leaves a lens out
+never drops it.
 
-## Building a call's prompt
+The depth changes the grouping at both ends:
 
-1. The shared header: the finding rules, the severity criteria, the verdict rules and the output
-   schema.
-2. One section per fired lens, in the grouping's order, each with its own rules.
-3. The input: the hunks and slices that the fired lenses read, each slice once.
+- At Light, every fired lens goes into one call, because a Light change is small enough for one
+  prompt to hold.
+- At Standard, the calls follow the grouping.
+- At Deep, call A, which holds correctness in the default grouping, splits into one call per lens,
+  so each of its lenses has a prompt to itself.
 
-A lens section never refers to another lens's section. The output holds one findings list per lens,
-keyed by lens ID, so every finding keeps its lens.
+One call runs on one model. A lens whose config sets a model of its own therefore leaves its call
+for a call with the other lenses that set the same model.
+
+## Effort, model and timeout
+
+A lens can set its own effort, model and timeout in the config, and the call takes its settings from
+its lenses:
+
+- The effort is the highest that any of its lenses asks for. A lens that sets none asks for the
+  depth's effort.
+- The model is the one its lenses set. When they set none, the adapter's model from the config
+  applies, and then the CLI's own default.
+- The timeout is the longest that any of its lenses sets. When none sets one, the adapter's timeout
+  applies.
+
+[Adapters](./adapters.md) covers how the adapter applies the model and the timeout and maps the
+effort onto its CLI.
+
+## Chunks
+
+A change with more changed lines than the chunk budget reaches the lenses in chunks, because recall
+falls as a diff grows. A chunk holds whole files of one package, up to the budget. Routing sorts the
+files by the package that owns them and closes a chunk when the next file would pass the budget or
+belongs to another package. A file larger than the budget is a chunk of its own. A change within the
+budget is one chunk at every depth.
+
+Each call runs once per chunk that holds a file of a kind its lenses read, so a call whose lenses
+read only code skips a chunk of prose. A call whose lenses read no hunks, such as reuse, runs once
+on the whole change and reads its slices. The prompt keeps only the slice entries on the chunk's
+files, under [lenses](./lenses.md). Each run of a call on a chunk is its own call in the review
+result, numbered by its chunk, and Assemble merges the findings of every chunk.

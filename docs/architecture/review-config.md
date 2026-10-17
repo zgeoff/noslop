@@ -1,67 +1,80 @@
 # The reviewer config
 
-A repo's noslop config is `review.json` at the repo root.
-[0010](../../decisions/0010-the-reviewer-config.md) records the decision. The zod schema lives in
-`libs/contract`.
-
-## Resolution
-
-1. noslop starts from the built-in defaults.
-2. It walks the `extends` chain from the root parent down to the repo's own file, and merges each
-   file over the result so far.
-3. Objects merge by key, arrays replace, and `null` removes an inherited key.
-
-An `extends` value is a path relative to the file, or `github:<owner>/<repo>[/<path>][@<ref>]`. A
-remote parent is fetched read-only and cached per ref. A cycle in the chain fails the load.
-
-## Shape
+A repo's noslop config is `review.json` at the repo root, and every key in it is optional. The
+config module starts from built-in defaults, merges each file of an `extends` chain over them, and
+validates the merged result, so a review always reads a config with every key set. A repo with no
+`review.json` still gets a review from the defaults, under
+[0010](../decisions/0010-the-reviewer-config.md). The contract package (`@noslop/contract`) holds
+the schema of the merged config. [Your own rules](./your-own-rules.md) covers the parts a user
+brings: the rules file, stack patterns and risk classes.
 
 ```json
 {
   "extends": "github:example/noslop-config",
-  "rules": "./patterns.md",
-  "adapter": "codex",
+  "rules": "./rules.md",
   "riskClasses": {
-    "auth": { "paths": ["src/auth/**"], "forces": ["security"] },
-    "migrations": { "paths": ["**/migrations/**"], "forces": ["concurrency-and-data-integrity"] }
+    "billing": { "paths": ["src/billing/**"], "detectors": [], "forces": ["security"] }
   },
-  "stack": {
-    "writes": { "calls": ["insertInto", "updateTable", "deleteFrom"] },
-    "io": { "imports": ["bun:sqlite", "node:child_process"] },
-    "procedures": { "calls": [".handler"] }
-  },
-  "lenses": {
-    "security": { "effort": "high" },
-    "reuse": { "model": "small" }
-  },
-  "calls": {
-    "A": ["correctness", "failure-handling-and-observability", "concurrency-and-data-integrity"]
-  },
-  "thresholds": { "lightMaxLines": 50, "docsMinLines": 100, "chunkLines": 150 }
+  "lenses": { "reuse": { "enabled": false } },
+  "synced": ["scripts/shared/**"]
 }
 ```
 
-| Key           | Holds                                                                        |
-| ------------- | ---------------------------------------------------------------------------- |
-| `extends`     | The parent config                                                            |
-| `rules`       | The rules file, under [your own rules](your-own-rules.md)                    |
-| `adapter`     | The default adapter ID                                                       |
-| `riskClasses` | Each class: path globs, an optional detector ID, and the lenses it forces on |
-| `stack`       | Stack patterns for the static stage                                          |
-| `lenses`      | Per-lens overrides: `enabled`, `model`, `effort`                             |
-| `calls`       | The call grouping, which replaces the default grouping per call ID           |
-| `thresholds`  | The tuning values of routing and depth                                       |
-| `consumers`   | Repos whose code the cross-repo lens reads, and how                          |
+## Resolution
 
-## Built-in defaults
+The config module reads the repo's own `review.json` from the repo's working tree, then follows its
+`extends` to the parent, and that parent's `extends` in turn, until a file names none. It then
+merges the chain over the built-in defaults, from the root parent down to the repo's own file, so
+the file nearest the repo wins. Three rules govern each merge:
 
-With no `review.json`, noslop runs every generic lens, the default call grouping, the default
-thresholds, and these risk classes: auth, secrets, money, migrations, deletion and infra
-permissions. Each default class carries default path globs and detectors. No rules file loads, so
-the taste lenses check only generic concerns.
+1. Objects merge by key, so a file that sets one risk class or one lens override keeps the inherited
+   ones.
+2. Arrays replace, so a file that lists paths owns the whole list.
+3. `null` removes an inherited key. A key the defaults leave null, such as the rules file, reads as
+   none once a file removes it. A key the schema requires fails the load once a file removes it.
 
-## Effort and model per lens
+An `extends` value is a path relative to the file that names it, or
+`github:<owner>/<repo>[/<path>][@<ref>]`, which names a file in another repo, `review.json` by
+default, at a ref or at that repo's default branch. A remote parent's relative `extends` resolves
+inside the same repo and ref. The CLI reads a remote file through GitHub, read-only, on every load.
+A cycle in the chain fails the load, and so does a parent that does not exist. The repo's own file
+is the only one that may be missing.
 
-The depth sets the default effort: `low` at Light, `medium` at Standard, `high` at Deep. A lens
-override replaces that default. A call runs at the highest effort among its fired lenses. Fired
-lenses that ask for different models split into separate calls.
+The merged config is validated once, after the merge, because a single file is only a partial
+config. A key the schema does not know fails the load, with the dotted path of the key, so a typo
+never passes as an empty setting.
+
+The `rules` value resolves against the file that names it, as `extends` does, so a parent in a
+shared config repo can name a rules file that sits beside it. The module reads the rules file and
+parses it into named rules.
+
+## What a review records
+
+The config module hashes the merged config together with the rules text, and the review result holds
+that hash. Two reviews with the same hash ran under the same settings and rules, so the
+[findings store](./store.md) and the [eval harness](./eval.md) can compare their findings. The
+module also keeps the source of every leaf key, as a path or a `github:` location, and
+`noslop config` prints the merged config with the source of each key and the chain it came from.
+
+## The built-in defaults
+
+The defaults hold every generic lens, a default call grouping, the default thresholds, a generic set
+of risk classes and stack patterns, and the path globs for generated, instruction, prose and infra
+files. They name no rules file, no adapter and no consumers, so a repo with no config gets a review
+that knows nothing about its stack or its taste. The defaults hold no project names or
+stack-specific patterns, under [0001](../decisions/0001-scope-and-your-own-rules.md). When neither
+the config nor the CLI flag names an adapter, the CLI uses its own default adapter, which
+[adapters](./adapters.md) covers.
+
+## Per-lens overrides
+
+A lens override can turn a lens off, name a model for it, set its effort, or set its timeout. A lens
+turned off stays off unless a marked risk class forces it on, because a risk class marks code a user
+wants reviewed whatever else the config says. [Routing and depth](./routing-and-depth.md) covers how
+the depth sets the default effort, and [calls](./calls.md) covers how an override's model and effort
+shape the calls.
+
+The other groups of keys belong to the parts that read them: the thresholds to
+[routing and depth](./routing-and-depth.md), the call grouping to [calls](./calls.md), the adapter
+options to [adapters](./adapters.md), and the reporter list and options to
+[reporters](./reporters.md).

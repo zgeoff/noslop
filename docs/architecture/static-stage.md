@@ -1,53 +1,105 @@
 # The static stage
 
-The static stage parses the changed files once with oxc and builds every slice in one pass.
-[0002](../../decisions/0002-the-pipeline.md) records the decision. The stage makes no model call.
+The static stage computes, with no model call, every fact about a change that code can compute,
+under [0002](../decisions/0002-the-pipeline.md). It reads the changed files at the head commit,
+parses each TypeScript or JavaScript file once with oxc, and walks each syntax tree once with every
+collector reading every node. It then cuts the facts down to three outputs: the slices that the
+lenses read, the direct findings it reports itself, and the risk signals that
+[routing](./routing-and-depth.md) reads. A fact the stage computes costs nothing per run and gives
+the same answer every run, so the model calls spend their tokens on judgement.
 
-## Inputs
+```mermaid
+flowchart LR
+  git[Files at the pinned commits] --> walk[One walk per file] --> facts[Facts]
+  facts --> slices[Slices]
+  facts --> direct[Direct findings]
+  slices --> signals[Risk signals]
+```
 
-- The changed files at the head commit, and their base versions.
-- The base index: every exported function at the base commit, with its name tokens, its types, and a
-  fingerprint of its literals, imports and calls. The index is cached per base commit.
-- The stack patterns and risk classes from the config.
-- Consumer manifests: `package.json` dependencies on the repo's own packages, and the pins and sync
-  manifests that `consumers` in the config names.
+## Reading the change
+
+Every read goes through git at a pinned commit, so the stage never depends on the state of a working
+tree. The stage reads each changed file at the head, every package manifest at the head, and a set
+of context files: the test files beside each changed source, and every instruction file when an
+instruction file changed. A context file feeds the checks that compare against it, such as a
+duplicate test body or a rule repeated in another instruction file, and a direct finding never
+anchors to one. At the base commit, the stage reads only the changed manifests and the deleted code
+files, because a version bump and an export that leaves with its file are the facts that need the
+base side.
+
+Only TypeScript and JavaScript files get a syntax tree. Every other file, code in other languages
+included, yields only the facts a path and a diff show: its kind, its changed lines, and whether it
+is a migration, an infra file, prose or an instruction file. A file with syntax errors still yields
+the tree oxc recovered.
+
+The stage sorts each changed path into a kind, from the config's path globs for instruction, infra
+and prose files and from the extension for code, tests and config. Instruction files come before
+prose, because an agent instruction file is also Markdown. Routing and the lenses read the kind to
+decide which hunks a lens sees.
 
 ## Slices
 
-| Slice          | Holds                                                                                                                                               | Read by                        |
-| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
-| `functions`    | Each new or changed function: name, parameters, cyclomatic complexity, I/O calls, writes                                                            | Architecture, naming, reuse    |
-| `reuse`        | For each new function, the 5 closest base functions                                                                                                 | Reuse                          |
-| `guards`       | Each new guard, throw, early return and invariant call, with its condition's value traced 1 or 2 steps to its origin                                | Failure handling               |
-| `throws`       | Each new throw with its type and nearest catch, and each detached call with its catch                                                               | Failure handling               |
-| `writes`       | Each write, whether it sits in a transaction, and any event published beside it                                                                     | Concurrency and data integrity |
-| `security`     | Allow-or-deny checks, injection sinks fed by non-constant input, request-path middleware and headers, row-mapper columns, reads of credential paths | Security                       |
-| `edges`        | Changed exports, schemas and pins, with the consumers that use them                                                                                 | Cross-repo                     |
-| `config`       | Changed infra, workflow and container files, and changed config reads                                                                               | Deploy and config              |
-| `tests`        | Changed test files and the source files they cover                                                                                                  | Tests                          |
-| `instructions` | Changed agent instruction files, and every file loaded beside them                                                                                  | Instructions                   |
-| `prose`        | Changed prose files and their line counts                                                                                                           | Documentation                  |
-| `comments`     | Comment lines per 1,000 changed lines, against the target                                                                                           | Naming                         |
+A slice is one cut of the facts that one lens concern reads, and the contract package
+(`@noslop/contract`) holds its shape. The stage keeps a fact only when it touches the change: the
+functions a changed line falls in, the guards, throws and config reads on added lines, every write
+in a changed function so a lens sees the writes a new one sits beside, and the security facts on
+touched lines. [The lenses](./lenses.md) covers which lens reads which slice.
+
+The stack patterns in [your own rules](./your-own-rules.md) decide what counts as a write, an I/O
+call, an event, a transaction, an invariant or a request-path call. The stage matches each call
+against them by name and by import source, so it learns a stack's meaning without loading its code.
+
+A guard's condition is traced back through its declarations a step or two, to whether the value
+comes from a parameter, a call, a constant or the function's own state. The failure-handling lens
+needs that origin to tell an input check from an assertion of a bug-only condition.
+
+The edge slice lists each changed export, schema bound and manifest whose package another package
+uses: a workspace package that depends on it, or a consumer in the config that pins it. A change
+that nothing consumes holds no edge, so the cross-repo lens stays off.
+
+### The reuse slice and the base index
+
+The reuse slice gives each new function the base functions closest to it. Half of a candidate's
+score is the overlap of the two functions' name tokens, and half is the overlap of their calls and
+literals. A function with no candidate at the configured minimum score is left out, so the reuse
+lens fires only on a real match.
+
+The candidates come from the base index: every exported function at the base commit, with its name,
+its place and its fingerprint of calls and literals. The stage builds the index only when the change
+adds a function, because building it parses every code file at the base. It caches the index in the
+user's cache folder under a key built from the base commit and the stack patterns, so a change to
+the patterns rebuilds it.
 
 ## Direct findings
 
-The stage reports these with no model call:
+A direct finding is a defect the stage reads from the code, so it is CONFIRMED and carries the lens
+`static`, as [findings](./findings.md) describes. A check that reports a missing change, such as a
+missing version bump, anchors to the code that needs it. The stage reports:
 
-1. A test with no assertion.
-2. 2 test bodies with the same fingerprint.
-3. A type test that uses a key the type does not have.
-4. A version bump that a consumer's pin or compatibility check refuses.
-5. An input that feeds a published downstream limit with a schema bound above that limit.
-6. A new allow-or-deny check with no hostile-input table in its tests.
-7. An edit to a synced copy, not to its source.
-8. The same rule sentence in 2 instruction files.
-9. Vague wording in a new instruction rule: prefer, usually, where sensible, consider.
-10. A format-only hunk in a file the linked issue does not cover.
-11. A test that the pull request body names and the diff does not add.
-12. A missing version bump where the repo's release rules need one.
+- Defects in tests: a new test with no assertion, a new test whose body repeats another test's, a
+  type test on a key its type lacks, a new allow-or-deny check whose tests hold no table of hostile
+  inputs, and a test file the pull request body names that the change neither adds nor edits.
+- Defects in instruction files: a new rule sentence that another instruction file loaded beside it
+  already holds, and a new rule with wording that leaves an agent the choice.
+- Defects in the change as a whole: a version bump that a consumer's range refuses, a schema bound
+  above the published limit the config names, an edit to a synced copy outside a sync, a format-only
+  hunk in a file the linked issue does not name, and a public package that changes paths the config
+  ties to a version bump without bumping its version.
 
-## The risk score
+The review takes the linked issue and a reader for consumer manifests from its caller. A review of a
+pull request reads the issue that its body closes, so the format-only check runs there. A local
+review links no issue. The CLI passes no reader, so the consumer-range check reads only the
+manifests in the repo itself.
 
-The stage computes the signals that [routing and depth](routing-and-depth.md) reads: marked risk
-classes, risk slices that fired, packages touched, consumer edges hit, changed and deleted lines, a
-breaking marker in the title, and files with a past escape from the findings store.
+## Special changes and risk signals
+
+The stage tells routing whether the change is a sync or a release bump. A sync touches only the
+paths the config marks synced. A release bump touches only changelogs and package manifests whose
+only difference from the base is the top-level version.
+
+The risk signals are the facts routing reads to fire lenses and pick the depth: the marked risk
+classes, the detectors that fired, the number of packages touched, the consumer edges, the changed
+and deleted lines, a breaking marker in the title or body, and the changed files with a past escape.
+A risk class is marked when a changed path matches its globs or one of its detectors fires on a
+slice, as [your own rules](./your-own-rules.md) describes. The CLI reads the past escapes of the
+repo from [the findings store](./store.md).
