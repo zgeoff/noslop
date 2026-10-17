@@ -24,6 +24,9 @@ export interface EvalValues {
   out: string | undefined;
   adapter: string | undefined;
   json: boolean;
+
+  // keep the cases that the out folder's runs file holds, and replay only the rest
+  resume: boolean;
 }
 
 // a reported finding matches a labelled one on the same path within this many lines
@@ -63,10 +66,12 @@ export async function runEvalCommand(values: EvalValues, ctx: CLIContext): Promi
   await mkdir(workDir, { recursive: true });
 
   const reviewer = createNoslopReviewer({ ctx, loaded, adapter, tempDir: workDir });
-  const done: CaseRun[] = [];
+  const done = values.resume ? await loadDoneRuns(join(outDir, 'runs.json'), caseIDs) : [];
 
-  const runs = await runEval({
-    cases,
+  const doneIDs = new Set(done.map((run) => run.caseID));
+
+  await runEval({
+    cases: cases.filter((item) => !doneIDs.has(item.id)),
     reviewer,
     runner: ctx.runner,
     workDir,
@@ -83,7 +88,7 @@ export async function runEvalCommand(values: EvalValues, ctx: CLIContext): Promi
     },
   });
 
-  const score = buildRunScore(cases, runs, WINDOW_LINES);
+  const score = buildRunScore(cases, done, WINDOW_LINES);
 
   const scoredReference =
     reference === null
@@ -109,6 +114,20 @@ export async function runEvalCommand(values: EvalValues, ctx: CLIContext): Promi
   ctx.writeStdout(output);
 
   return 0;
+}
+
+// the runs an earlier replay into the same out folder finished, for the cases of this replay; a
+// folder with no runs file holds none
+async function loadDoneRuns(path: string, caseIDs: ReadonlySet<string>): Promise<CaseRun[]> {
+  const exists = await Bun.file(path).exists();
+
+  if (!exists) {
+    return [];
+  }
+
+  const runs = await loadRuns(path);
+
+  return runs.filter((run) => caseIDs.has(run.caseID));
 }
 
 async function loadReference(

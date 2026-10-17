@@ -536,6 +536,61 @@ test('it sets the check of a pull request again from its replies', async () => {
   expect(githubCollections.checkRuns.all()).toMatchObject([{ conclusion: 'success' }]);
 });
 
+test('it resumes an eval, keeping the cases the out folder holds and replaying the rest', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'src/a.ts': 'export const a = 1;\n' } },
+    { message: 'head', files: { 'src/a.ts': 'export const a = 2;\n' } },
+  ]);
+
+  for (const id of ['case-a', 'case-b']) {
+    await Bun.write(
+      join(ctx.dir, 'corpus', id, 'case.json'),
+      JSON.stringify({
+        id,
+        repo: repo.path,
+        base: repo.commits[0],
+        head: repo.commits[1],
+        title: 'Change a',
+        body: '',
+        findings: [],
+        escapes: [],
+      }),
+    );
+  }
+
+  await Bun.write(
+    join(ctx.dir, 'out', 'runs.json'),
+    JSON.stringify([
+      {
+        caseID: 'case-a',
+        review: {
+          findings: [],
+          failed: false,
+          tokens: { input: 1, output: 1 },
+          durationMs: 1,
+          calls: 1,
+          depth: 'light',
+        },
+      },
+    ]),
+  );
+
+  const stub = buildStubAdapter({ L: [{ findings: { correctness: [] } }] });
+
+  const code = await runCLI(
+    ['eval', '--corpus', join(ctx.dir, 'corpus'), '--out', join(ctx.dir, 'out'), '--resume'],
+    ctx.buildContext(ctx.dir, stub.adapter),
+  );
+
+  const runs: unknown = await Bun.file(join(ctx.dir, 'out', 'runs.json')).json();
+
+  expect(code).toBe(0);
+  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['L']);
+  expect(runs).toMatchObject([{ caseID: 'case-a' }, { caseID: 'case-b' }]);
+});
+
 test('it puts an unknown option on stderr and keeps stdout empty', async () => {
   const ctx = await setupTest();
 

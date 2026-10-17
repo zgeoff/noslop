@@ -84,6 +84,10 @@ export async function runCLI(argv: readonly string[], ctx: CLIContext): Promise<
       },
       out: { type: 'string', description: 'The folder the run and its report go to' },
       adapter: { type: 'string', description: 'The model adapter: codex or claude' },
+      resume: {
+        type: 'boolean',
+        description: 'Keep the cases the out folder already holds and replay only the rest',
+      },
       json: JSON_ARG,
     },
     run: (command) =>
@@ -97,6 +101,7 @@ export async function runCLI(argv: readonly string[], ctx: CLIContext): Promise<
             out: command.values.out,
             adapter: command.values.adapter,
             json: command.values.json === true,
+            resume: command.values.resume === true,
           },
           ctx,
         ),

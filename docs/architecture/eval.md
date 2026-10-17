@@ -88,3 +88,7 @@ With `--baseline <runs>`, the harness scores the recorded run on the cases of th
 its totals in a second column. With `--noise-floor <first>,<second>`, it matches the two runs'
 findings on each case that both completed, and reports the agreement: the matched findings over the
 union of both runs' findings.
+
+The harness writes the runs file again as each case ends, so a replay that stops keeps the cases it
+finished. With `--resume`, a replay into the same out folder keeps those cases and replays only the
+rest.
