@@ -78,6 +78,40 @@ test('it reads a script with a shebang and no extension as code', async () => {
   ]);
 });
 
+test('it reads a shebang script as code when the hunks miss its first line or delete it', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'bin/deploy': '#!/bin/sh\n1\n2\n3\n4\n5\n6\n7\necho deploying\n',
+        'bin/clean': '#!/bin/sh\nrm -rf dist\n',
+      },
+    },
+    {
+      message: 'head',
+      files: {
+        'bin/deploy': '#!/bin/sh\n1\n2\n3\n4\n5\n6\n7\necho deploying now\n',
+        'bin/clean': null,
+      },
+    },
+  ]);
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config: BUILT_IN_DEFAULTS,
+  });
+
+  expect(change.files.map((file) => [file.path, file.status, file.kind])).toStrictEqual([
+    ['bin/clean', 'deleted', 'code'],
+    ['bin/deploy', 'modified', 'code'],
+  ]);
+});
+
 test('it leaves out lockfiles and other generated files', async () => {
   const ctx = await setupTest();
 

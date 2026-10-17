@@ -46,9 +46,9 @@ export async function readChange(options: ReadChangeOptions): Promise<Change> {
     const kind = pickFileKind(parsed.path, options.config);
 
     // a script with no extension, such as an executable in a bin folder, names its language in its
-    // first line, so a shebang there makes it code
-    const isScript =
-      kind === 'other' && lines.some((line) => line.newLine === 1 && line.text.startsWith('#!'));
+    // first line, which a hunk can leave out, so the stage reads it from the committed file
+    const commit = parsed.status === 'deleted' ? base : head;
+    const isScript = kind === 'other' ? await hasShebang(options, commit, parsed.path) : false;
 
     files.push({
       ...parsed,
@@ -70,6 +70,18 @@ async function resolveCommit(options: ReadChangeOptions, ref: string): Promise<s
   ]);
 
   return sha.trim();
+}
+
+async function hasShebang(
+  options: ReadChangeOptions,
+  commit: string,
+  path: string,
+): Promise<boolean> {
+  const result = await options.runner.run(['git', 'cat-file', 'blob', `${commit}:${path}`], {
+    cwd: options.repoDir,
+  });
+
+  return result.exitCode === 0 && result.stdout.startsWith('#!');
 }
 
 async function runGit(options: ReadChangeOptions, args: readonly string[]): Promise<string> {
