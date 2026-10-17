@@ -7,7 +7,7 @@ import type { ReviewAdapter } from '@noslop/contract';
 import { reviewResultSchema } from '@noslop/contract';
 import { createGitHubConnection, createGitHubReporter } from '@noslop/github';
 import { createRunner } from '@noslop/runner';
-import { createSQLiteReporter } from '@noslop/sqlite';
+import { createSQLiteReporter, loadStore } from '@noslop/sqlite';
 import {
   STUB_APP_LOGIN,
   buildStubAdapter,
@@ -345,6 +345,163 @@ test('it reviews a pull request from GitHub and posts its findings and the check
 
   expect(githubCollections.checkRuns.all()).toMatchObject([
     { name: 'noslop', headSha: repo.commits[1] ?? '', conclusion: 'failure' },
+  ]);
+});
+
+test('it gives the calls the issue that the pull request body closes', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
+    {
+      message: 'Add one',
+      files: { 'src/total.ts': 'export const zero = 0;\nexport const one = 1;\n' },
+    },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    title: 'Add one',
+    body: 'Adds one.\n\nFixes #3',
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[1] ?? '',
+  });
+
+  await githubCollections.issues.create({
+    owner: 'example',
+    repo: 'app',
+    number: 3,
+    title: 'Export a constant for one',
+    body: 'Callers write 1 by hand.',
+  });
+
+  const stub = buildStubAdapter({
+    L: [{ findings: { correctness: [], intent: [] } }],
+  });
+
+  await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'json', '--json'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  expect(stub.requests[0]?.prompt).toInclude(
+    '## Linked issue\n\n#3 Export a constant for one\n\nCallers write 1 by hand.',
+  );
+});
+
+test('it records an escape in the store and counts it in recall', async () => {
+  const ctx = await setupTest();
+
+  const context = ctx.buildContext(ctx.dir, buildStubAdapter({}).adapter);
+
+  await runCLI(
+    [
+      'store',
+      'escape',
+      '--repo',
+      'example/app',
+      '--issue',
+      '#12',
+      '--head',
+      'b'.repeat(40),
+      '--defect',
+      'The total skips the first item',
+      '--lens',
+      'correctness',
+      '--path',
+      'src/a.ts',
+      '--lines',
+      '4-6',
+    ],
+    context,
+  );
+
+  ctx.stdout.length = 0;
+
+  const code = await runCLI(['store', 'query', 'recall-by-lens', '--json'], context);
+
+  const rows: unknown = JSON.parse(ctx.stdout.join(''));
+
+  expect(code).toBe(0);
+  expect(rows).toStrictEqual([{ lens: 'correctness', escapes: 1, lensRan: 0, lensReported: 0 }]);
+});
+
+test('it refuses escape lines that are no line range', async () => {
+  const ctx = await setupTest();
+
+  const code = await runCLI(
+    [
+      'store',
+      'escape',
+      '--repo',
+      'example/app',
+      '--issue',
+      '#12',
+      '--head',
+      'b'.repeat(40),
+      '--defect',
+      'The total skips the first item',
+      '--path',
+      'src/a.ts',
+      '--lines',
+      'four',
+    ],
+    ctx.buildContext(ctx.dir, buildStubAdapter({}).adapter),
+  );
+
+  expect(code).toBe(1);
+
+  expect(ctx.stderr.join('')).toBe(
+    'noslop: --lines takes a line or a range such as 12-14, not four\n',
+  );
+});
+
+test('it records the dispositions of a pull request in the store when it sets the check', async () => {
+  const ctx = await setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    headSha: 'b'.repeat(40),
+  });
+
+  const thread = await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: '<!-- noslop:finding {"id":"1111111111111111","title":"Await the write","path":"src/a.ts","lens":"correctness","severity":"P2","riskClass":null,"writtenByChange":true} -->',
+  });
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: 'dev',
+    inReplyToID: thread.id,
+    body: 'not-a-defect the caller awaits it',
+  });
+
+  await runCLI(
+    ['check', '--pr', '9', '--repo', 'example/app'],
+    ctx.buildContext(ctx.dir, buildStubAdapter({}).adapter),
+  );
+
+  const store = await loadStore(join(ctx.dir, 'data', 'store.sqlite'));
+
+  onTestFinished(() => store.destroy());
+
+  const rows = await store
+    .selectFrom('dispositions')
+    .select(['finding_id', 'kind', 'value'])
+    .execute();
+
+  expect(rows).toStrictEqual([
+    { finding_id: '1111111111111111', kind: 'not-a-defect', value: 'the caller awaits it' },
   ]);
 });
 

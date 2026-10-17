@@ -77,7 +77,7 @@ export async function runAppJob(event: AppEvent, options: AppJobOptions): Promis
 
   await runChecked(
     options.runner,
-    [...cli, 'review', '--pr', String(event.number), '--repo', repo, '--report', 'github'],
+    [...cli, 'review', '--pr', String(event.number), '--repo', repo, '--report', 'sqlite,github'],
     { cwd: clone, env: { ...cliEnv, ...gitEnv } },
   );
 }

@@ -2,11 +2,13 @@ import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import type { PullRequestRef, ReviewResult } from '@noslop/contract';
 import { reviewResultSchema } from '@noslop/contract';
-import { readPullRequestState } from '@noslop/github';
+import { readLinkedIssue, readPullRequestState } from '@noslop/github';
 import { runReview } from '@noslop/review';
+import { loadStore, readEscapePaths } from '@noslop/sqlite';
 import { buildConfiguredAdapter } from './build-configured-adapter';
 import type { CLIContext } from './cli-context';
 import { formatReviewSummary } from './format-review-summary';
+import { getStorePath } from './get-store-path';
 import { loadRepoConfig } from './load-repo-config';
 import { runReporters } from './run-reporters';
 
@@ -40,6 +42,8 @@ export async function runReviewCommand(values: ReviewValues, ctx: CLIContext): P
     loaded.config.adapters[adapterID] ?? {},
   );
 
+  const pastEscapes = await readPastEscapes(getStorePath(loaded.config, ctx), change.repo);
+
   const reviewsDir = join(ctx.cacheDir, 'reviews');
 
   await mkdir(reviewsDir, { recursive: true });
@@ -64,10 +68,10 @@ export async function runReviewCommand(values: ReviewValues, ctx: CLIContext): P
       cacheDir: join(ctx.cacheDir, 'index'),
       title: change.title,
       body: change.body,
-      linkedIssue: null,
+      linkedIssue: change.linkedIssue,
       pullRequest: change.pullRequest,
       isPush: values.push,
-      pastEscapes: [],
+      pastEscapes,
       ...(ctx.now === undefined ? {} : { now: ctx.now }),
     });
 
@@ -99,6 +103,9 @@ interface ResolvedChange {
   head: string;
   title: string;
   body: string;
+
+  // the issue a pull request body closes, for the intent lens; a local change links none
+  linkedIssue: string | null;
   pullRequest: PullRequestRef | null;
 }
 
@@ -125,7 +132,9 @@ async function resolveLocalChange(
     `${base}..${head}`,
   ]);
 
-  return { repo: await readRepoName(ctx, repoDir), base, head, title, body, pullRequest: null };
+  const repo = await readRepoName(ctx, repoDir);
+
+  return { repo, base, head, title, body, linkedIssue: null, pullRequest: null };
 }
 
 // a pull request's change from GitHub: its title and body, its head, and its base; once noslop has
@@ -187,14 +196,35 @@ async function resolvePullRequestChange(
 
   const isDelta = reviewed !== null && reviewed !== state.headSha && ancestry.exitCode === 0;
 
+  const linkedIssue = await readLinkedIssue(connection, pullRequest, state.body);
+
   return {
     repo,
     base: isDelta ? reviewed : start,
     head: state.headSha,
     title: state.title,
     body: state.body,
+    linkedIssue,
     pullRequest,
   };
+}
+
+// the files of the repo where a defect escaped an earlier review, from the store; a user with no
+// store yet has none, and the review makes no store to find that out
+async function readPastEscapes(path: string, repo: string): Promise<string[]> {
+  const exists = await Bun.file(path).exists();
+
+  if (!exists) {
+    return [];
+  }
+
+  const store = await loadStore(path);
+
+  try {
+    return await readEscapePaths(store, repo);
+  } finally {
+    await store.destroy();
+  }
 }
 
 async function readGitText(ctx: CLIContext, cwd: string, args: readonly string[]): Promise<string> {

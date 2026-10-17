@@ -4,6 +4,7 @@ import { runCheckCommand } from './run-check-command';
 import { runConfigCommand } from './run-config-command';
 import { runEvalCommand } from './run-eval-command';
 import { runReviewCommand } from './run-review-command';
+import { runStoreEscapeCommand } from './run-store-escape-command';
 import { runStoreQueryCommand } from './run-store-query-command';
 
 const JSON_ARG = {
@@ -113,11 +114,44 @@ export async function runCLI(argv: readonly string[], ctx: CLIContext): Promise<
       run(() => runStoreQueryCommand(command.values.name, command.values.json === true, ctx)),
   });
 
+  const escape = define({
+    name: 'escape',
+    description: 'Record a defect that a review missed',
+    args: {
+      repo: { type: 'string', description: 'The repo as owner/name', required: true },
+      issue: { type: 'string', description: 'The issue that reports the defect', required: true },
+      head: {
+        type: 'string',
+        description: 'The head commit of the change that caused it',
+        required: true,
+      },
+      defect: { type: 'string', description: 'What the defect is', required: true },
+      lens: { type: 'string', description: 'The lens that should have found it' },
+      path: { type: 'string', description: 'The file that holds it' },
+      lines: { type: 'string', description: 'Its line or line range in the file, such as 12-14' },
+    },
+    run: (command) =>
+      run(() =>
+        runStoreEscapeCommand(
+          {
+            repo: command.values.repo,
+            issue: command.values.issue,
+            head: command.values.head,
+            defect: command.values.defect,
+            lens: command.values.lens,
+            path: command.values.path,
+            lines: command.values.lines,
+          },
+          ctx,
+        ),
+      ),
+  });
+
   const store = define({
     name: 'store',
-    description: 'Read the findings store',
-    subCommands: { query },
-    run: () => run(() => Promise.reject(new Error('name a store command: query'))),
+    description: 'Read and add to the findings store',
+    subCommands: { query, escape },
+    run: () => run(() => Promise.reject(new Error('name a store command: query or escape'))),
   });
 
   const check = define({

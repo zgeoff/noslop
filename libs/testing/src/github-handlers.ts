@@ -361,7 +361,7 @@ export const githubHandlers = [
       return buildNotFound();
     }
 
-    return HttpResponse.json({ number: issue.number, title: issue.title });
+    return HttpResponse.json({ number: issue.number, title: issue.title, body: issue.body });
   }),
 
   http.post<RepoParams, IssueInput>(`${GITHUB_API_URL}/repos/:owner/:repo/issues`, async (info) => {

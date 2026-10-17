@@ -56,7 +56,7 @@ test('it clones the repo, fetches the pull request and reviews it through the Ap
       '--repo',
       'example/app',
       '--report',
-      'github',
+      'sqlite,github',
     ],
   ]);
 

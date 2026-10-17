@@ -1,5 +1,10 @@
-import { runGitHubCheck } from '@noslop/github';
+import type { PullRequestRef } from '@noslop/contract';
+import { createGitHubDispositionSource, runGitHubCheck } from '@noslop/github';
+import { loadStore, writeDispositions } from '@noslop/sqlite';
 import type { CLIContext } from './cli-context';
+import { getStorePath } from './get-store-path';
+import { loadRepoConfig } from './load-repo-config';
+import { resolveRepoDir } from './resolve-repo-dir';
 
 export interface CheckValues {
   pr: string;
@@ -8,7 +13,8 @@ export interface CheckValues {
 }
 
 // sets the noslop check run of a pull request again from what GitHub holds, with no new review, so a
-// reply in a finding thread passes or fails the check; it exits 0 whatever the check concludes
+// reply in a finding thread passes or fails the check, and records the dispositions in the store; it
+// exits 0 whatever the check concludes
 export async function runCheckCommand(values: CheckValues, ctx: CLIContext): Promise<number> {
   const number = Number(values.pr);
   const [owner, name] = values.repo.split('/');
@@ -23,11 +29,11 @@ export async function runCheckCommand(values: CheckValues, ctx: CLIContext): Pro
 
   const connection = await ctx.loadGitHubConnection();
 
-  const outcome = await runGitHubCheck(
-    connection,
-    { owner, repo: name, number },
-    { failedReporters: [] },
-  );
+  const pullRequest = { owner, repo: name, number };
+
+  const outcome = await runGitHubCheck(connection, pullRequest, { failedReporters: [] });
+
+  await writePullRequestDispositions(ctx, pullRequest);
 
   const output = values.json
     ? `${JSON.stringify(outcome, null, 2)}\n`
@@ -36,4 +42,28 @@ export async function runCheckCommand(values: CheckValues, ctx: CLIContext): Pro
   ctx.writeStdout(output);
 
   return 0;
+}
+
+// the typed replies of the pull request go to the store, so yield and noise per lens count them
+async function writePullRequestDispositions(
+  ctx: CLIContext,
+  pullRequest: PullRequestRef,
+): Promise<void> {
+  const repoDir = await resolveRepoDir(ctx);
+  const loaded = await loadRepoConfig(ctx, repoDir);
+
+  const source = createGitHubDispositionSource({ loadConnection: ctx.loadGitHubConnection });
+
+  const dispositions = await source.readDispositions(
+    { pullRequest, head: '', findings: [] },
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const store = await loadStore(getStorePath(loaded.config, ctx));
+
+  try {
+    await writeDispositions(store, dispositions);
+  } finally {
+    await store.destroy();
+  }
 }
