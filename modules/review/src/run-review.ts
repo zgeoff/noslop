@@ -15,13 +15,12 @@ import type {
 import { REVIEW_OUTPUT_VERSION } from '@noslop/contract';
 import type { AssembledFindings, DropReason, RawFinding } from '@noslop/findings';
 import { buildFindings } from '@noslop/findings';
-import type { PlannedCall, Route, RouteInput } from '@noslop/routing';
-import { buildRoute } from '@noslop/routing';
+import type { PlannedCall, Route } from '@noslop/routing';
 import type { Runner } from '@noslop/runner';
 import type { StaticStageResult } from '@noslop/static-stage';
-import { readChange, runStaticStage } from '@noslop/static-stage';
 import { buildGapTask } from './build-gap-task';
 import { buildVerifyTask } from './build-verify-task';
+import { planReview } from './plan-review';
 import type { CallBatch, CallBatchInput } from './run-planned-calls';
 import { runPlannedCalls } from './run-planned-calls';
 
@@ -61,46 +60,16 @@ export async function runReview(options: RunReviewOptions): Promise<ReviewRun> {
   const now = options.now ?? (() => new Date());
   const startedAt = now().toISOString();
 
-  const change = await readChange({
-    runner: options.runner,
-    repoDir: options.repoDir,
-    base: options.base,
-    head: options.head,
-    config: options.config,
-  });
+  const plan = await planReview(options);
 
-  const stage = await runStaticStage({
-    runner: options.runner,
-    repoDir: options.repoDir,
-    change,
-    config: options.config,
-    title: options.title,
-    body: options.body,
-    linkedIssue: options.linkedIssue,
-    cacheDir: options.cacheDir,
-    pastEscapes: options.pastEscapes,
-    ...(options.readConsumerFile === undefined
-      ? {}
-      : { readConsumerFile: options.readConsumerFile }),
-  });
-
-  const routeInput: RouteInput = {
-    change,
-    slices: stage.slices,
-    signals: stage.signals,
-    config: options.config,
-    linkedIssue: options.linkedIssue,
-    isSync: stage.isSync,
-    isRelease: stage.isRelease,
-    isPush: options.isPush,
-  };
+  const change = plan.change;
+  const stage = plan.stage;
 
   const ctx: PassContext = {
     options,
     change,
     stage,
-    routeInput,
-    route: buildRoute(routeInput),
+    route: plan.route,
     worktree: join(options.tempDir, 'head'),
     staticRaw: stage.findings.map((finding) => ({ lens: 'static', callID: null, finding })),
   };
@@ -142,7 +111,6 @@ interface PassContext {
   options: RunReviewOptions;
   change: Change;
   stage: StaticStageResult;
-  routeInput: RouteInput;
   route: Route;
   worktree: string;
   staticRaw: RawFinding[];
@@ -358,11 +326,18 @@ function shouldSweepGaps(ctx: PassContext, batches: readonly CallBatch[]): boole
 }
 
 // a pass call runs at Deep's effort on the adapter's model, with the longest timeout of the calls the
-// route planned
-function buildPassCall(ctx: PassContext, callID: string, lenses: readonly LensID[]): PlannedCall {
+// route planned, under an ID that no planned call holds, since a config can name a group `verify`
+function buildPassCall(ctx: PassContext, name: string, lenses: readonly LensID[]): PlannedCall {
   const timeouts = ctx.route.calls.flatMap((call) =>
     call.timeoutMs === null ? [] : [call.timeoutMs],
   );
+
+  const taken = new Set(ctx.route.calls.map((call) => call.callID));
+
+  const callID =
+    [name, ...Array.from({ length: taken.size }, (_, index) => `${name}-${index + 2}`)].find(
+      (id) => !taken.has(id),
+    ) ?? name;
 
   return {
     callID,

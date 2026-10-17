@@ -541,6 +541,62 @@ test('it drops a stepped-up P1 that the verify pass rejects and removes the work
   expect(worktrees.stdout.match(/^worktree /gmu)).toHaveLength(1);
 });
 
+test('it gives the verify call an ID of its own when a config group is named verify', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'src/auth/session.ts': 'export const ttl = 60;\n' } },
+    { message: 'head', files: { 'src/auth/session.ts': 'export const ttl = 6000;\n' } },
+  ]);
+
+  const p1 = {
+    title: 'Expire a stolen session within the hour',
+    body: 'A session that lives 6000 seconds outlasts the token rotation, so a stolen one stays valid.',
+    anchor: { path: 'src/auth/session.ts', startLine: 1, endLine: 1 },
+    secondLocation: null,
+    severity: 'P1',
+    criterion: 'security-defect',
+    rule: null,
+    verdict: 'CONFIRMED',
+    unverifiedFact: null,
+    missingChange: false,
+    fix: null,
+  } as const;
+
+  const stub = buildStubAdapter({
+    A: [{ findings: { correctness: [] } }],
+    verify: [{ findings: { security: [p1] } }],
+    'verify-2': [{ findings: { security: [p1] } }],
+  });
+
+  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+
+  const { B: security, ...calls } = BUILT_IN_DEFAULTS.calls;
+
+  const run = await runReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/auth',
+    base: repo.commits[0] ?? '',
+    head: repo.commits[1] ?? '',
+    config: { ...BUILT_IN_DEFAULTS, calls: { ...calls, verify: security ?? [] } },
+    configHash: 'hash',
+    rules: null,
+    adapter: stub.adapter,
+    logger: ctx.logger,
+    tempDir: join(ctx.dir, 'temp'),
+    cacheDir: null,
+    title: 'Lengthen the session',
+    body: '',
+    linkedIssue: null,
+    pullRequest: null,
+    isPush: false,
+    pastEscapes: [],
+  });
+
+  expect(run.result.calls.map((call) => call.id)).toStrictEqual(['A', 'verify', 'verify-2']);
+});
+
 test('it verifies the findings of every Deep call in one call over the merged list', async () => {
   const ctx = await setupTest();
 

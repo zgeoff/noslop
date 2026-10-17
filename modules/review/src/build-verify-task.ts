@@ -21,15 +21,18 @@ export function buildVerifyTask(findings: readonly Finding[]): string {
   ].join('\n');
 }
 
-// the fields a model reads to judge a finding, without the IDs that only noslop uses
+// the fields a model reads to judge a finding and to report it again, without the IDs that only
+// noslop uses
 export function buildTaskFinding(finding: Finding): Record<string, unknown> {
   return {
     lens: finding.lens,
     title: finding.title,
     body: finding.body,
     anchor: finding.anchor,
+    ...(finding.secondLocation === undefined ? {} : { secondLocation: finding.secondLocation }),
     severity: finding.severity,
     criterion: finding.criterion,
+    ...(finding.rule === undefined ? {} : { rule: finding.rule }),
     verdict: finding.verdict,
     ...(finding.unverifiedFact === undefined ? {} : { unverifiedFact: finding.unverifiedFact }),
     ...(finding.fix === undefined ? {} : { fix: finding.fix }),
