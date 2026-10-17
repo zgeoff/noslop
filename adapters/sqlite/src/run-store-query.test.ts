@@ -42,7 +42,7 @@ test('#yield-by-lens gives each lens its fixed and not-a-defect shares', async (
     }),
   );
 
-  await writeDispositions(ctx.store, [
+  await writeDispositions(ctx.store, 'example/app', [
     {
       findingID: '1111111111111111',
       kind: 'fixed',
@@ -96,7 +96,7 @@ test('#open-findings lists the findings of the latest review with no disposition
     }),
   );
 
-  await writeDispositions(ctx.store, [
+  await writeDispositions(ctx.store, 'example/app', [
     {
       findingID: '3333333333333333',
       kind: 'fixed',
@@ -138,7 +138,7 @@ test('#open-findings reopens a fixed finding that a later review reports again',
     }),
   );
 
-  await writeDispositions(ctx.store, [
+  await writeDispositions(ctx.store, 'example/app', [
     {
       findingID: '1111111111111111',
       kind: 'fixed',
@@ -191,6 +191,46 @@ test('#yield-by-lens counts one finding ID in 2 repos as 2 findings', async () =
   const rows = await runStoreQuery(ctx.store, 'yield-by-lens');
 
   expect(rows).toMatchObject([{ lens: 'correctness', findings: 2, open: 2 }]);
+});
+
+test('#yield-by-lens applies a disposition only to the finding ID of its own repo', async () => {
+  const ctx = await setupTest();
+
+  await writeReview(
+    ctx.store,
+    buildMockReviewResult({
+      reviewID: 'review-x',
+      repo: 'example/x',
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+  );
+
+  await writeReview(
+    ctx.store,
+    buildMockReviewResult({
+      reviewID: 'review-y',
+      repo: 'example/y',
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+  );
+
+  await writeDispositions(ctx.store, 'example/x', [
+    {
+      findingID: '1111111111111111',
+      kind: 'not-a-defect',
+      value: 'the caller holds the lock',
+      author: 'dev',
+      authorIsOwner: false,
+      source: 'github',
+      at: '2026-10-17T13:00:00.000Z',
+    },
+  ]);
+
+  const rows = await runStoreQuery(ctx.store, 'yield-by-lens');
+
+  expect(rows).toStrictEqual([
+    { lens: 'correctness', findings: 2, fixed: 0, notADefect: 1, open: 1, yield: 0, noise: 0.5 },
+  ]);
 });
 
 test('#cost-by-depth sums the tokens of the calls at each depth', async () => {

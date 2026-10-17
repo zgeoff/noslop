@@ -16,8 +16,9 @@ export type StoreQueryName = (typeof STORE_QUERY_NAMES)[number];
 // the finding reopens it
 const OUTCOMES = sql`
   latest AS (
-    SELECT finding_id, kind, at FROM (
-      SELECT finding_id, kind, at, ROW_NUMBER() OVER (PARTITION BY finding_id ORDER BY at DESC) AS position
+    SELECT repo, finding_id, kind, at FROM (
+      SELECT repo, finding_id, kind, at,
+        ROW_NUMBER() OVER (PARTITION BY repo, finding_id ORDER BY at DESC) AS position
       FROM dispositions
     ) WHERE position = 1
   ),
@@ -34,7 +35,7 @@ const OUTCOMES = sql`
         WHEN latest.kind = 'fixed' AND seen.last_seen > latest.at THEN 'open'
         ELSE latest.kind
       END AS kind
-    FROM seen LEFT JOIN latest USING (finding_id)
+    FROM seen LEFT JOIN latest USING (repo, finding_id)
   )`;
 
 const QUERIES: Record<StoreQueryName, RawBuilder<Record<string, unknown>>> = {

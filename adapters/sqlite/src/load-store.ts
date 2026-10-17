@@ -25,7 +25,7 @@ export async function loadStore(path: string): Promise<Store> {
 
   const migrator = new Migrator({
     db: store,
-    provider: { getMigrations: () => Promise.resolve(MIGRATIONS) },
+    provider: { getMigrations: () => Promise.resolve(STORE_MIGRATIONS) },
   });
 
   const outcome = await migrator.migrateToLatest();
@@ -86,7 +86,7 @@ function toSQLValue(value: unknown): SQLValue {
   return value === undefined ? null : JSON.stringify(value);
 }
 
-const MIGRATIONS: Record<string, Migration> = {
+const STORE_MIGRATIONS: Record<string, Migration> = {
   '0001-the-store': {
     up: async (db) => {
       await db.schema
@@ -182,6 +182,39 @@ const MIGRATIONS: Record<string, Migration> = {
         .execute();
 
       await sql`CREATE INDEX findings_by_finding ON findings (finding_id)`.execute(db);
+    },
+  },
+
+  // a finding ID is unique within one repo only, so each disposition keys on the repo too; a row the
+  // store held before takes the repo of a review that reported its finding
+  '0002-dispositions-by-repo': {
+    up: async (db) => {
+      await db.schema
+        .createTable('dispositions_by_repo')
+        .addColumn('repo', 'text', (column) => column.notNull())
+        .addColumn('finding_id', 'text', (column) => column.notNull())
+        .addColumn('kind', 'text', (column) => column.notNull())
+        .addColumn('value', 'text', (column) => column.notNull())
+        .addColumn('author', 'text', (column) => column.notNull())
+        .addColumn('author_is_owner', 'integer', (column) => column.notNull())
+        .addColumn('source', 'text', (column) => column.notNull())
+        .addColumn('at', 'text', (column) => column.notNull())
+        .addPrimaryKeyConstraint('dispositions_pk', ['repo', 'finding_id', 'source', 'at'])
+        .execute();
+
+      await sql`
+        INSERT INTO dispositions_by_repo
+        SELECT
+          COALESCE(
+            (SELECT MIN(reviews.repo) FROM findings JOIN reviews USING (review_id)
+              WHERE findings.finding_id = dispositions.finding_id),
+            ''
+          ),
+          finding_id, kind, value, author, author_is_owner, source, at
+        FROM dispositions`.execute(db);
+
+      await db.schema.dropTable('dispositions').execute();
+      await sql`ALTER TABLE dispositions_by_repo RENAME TO dispositions`.execute(db);
     },
   },
 };

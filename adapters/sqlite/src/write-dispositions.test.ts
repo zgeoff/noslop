@@ -30,13 +30,14 @@ test('it records a disposition read twice from one source once', async () => {
     at: '2026-10-17T11:00:00.000Z',
   } as const;
 
-  await writeDispositions(ctx.store, [disposition]);
-  await writeDispositions(ctx.store, [disposition]);
+  await writeDispositions(ctx.store, 'example/app', [disposition]);
+  await writeDispositions(ctx.store, 'example/app', [disposition]);
 
   const rows = await ctx.store.selectFrom('dispositions').selectAll().execute();
 
   expect(rows).toStrictEqual([
     {
+      repo: 'example/app',
       finding_id: '1111111111111111',
       kind: 'deferred',
       value: '#123',
@@ -45,5 +46,33 @@ test('it records a disposition read twice from one source once', async () => {
       source: 'github',
       at: '2026-10-17T11:00:00.000Z',
     },
+  ]);
+});
+
+test('it records one finding ID from 2 repos as 2 dispositions', async () => {
+  const ctx = await setupTest();
+
+  const disposition = {
+    findingID: '1111111111111111',
+    kind: 'deferred',
+    value: '#123',
+    author: 'dev',
+    authorIsOwner: true,
+    source: 'github',
+    at: '2026-10-17T11:00:00.000Z',
+  } as const;
+
+  await writeDispositions(ctx.store, 'example/x', [disposition]);
+  await writeDispositions(ctx.store, 'example/y', [disposition]);
+
+  const rows = await ctx.store
+    .selectFrom('dispositions')
+    .select(['repo', 'finding_id'])
+    .orderBy('repo')
+    .execute();
+
+  expect(rows).toStrictEqual([
+    { repo: 'example/x', finding_id: '1111111111111111' },
+    { repo: 'example/y', finding_id: '1111111111111111' },
   ]);
 });

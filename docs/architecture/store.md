@@ -34,8 +34,9 @@ an object sits in its column as JSON text, and a boolean as 0 or 1.
 - A finding row keeps every field of the finding, plus the depth, model and effort of the call that
   reported it, so a measure can split one lens by how it ran. A finding that no call reported, such
   as one from the static stage, takes the review's depth and no model.
-- A disposition row keeps the finding id, the kind and its value, the author and whether the author
-  owns the repo, the source it came from and its time. A disposition the store holds already, from
+- A disposition row keeps the repo and the finding id, the kind and its value, the author and
+  whether the author owns the repo, the source it came from and its time. A finding id is unique
+  only within one repo, so the repo is part of the key. A disposition the store holds already, from
   the same source at the same time, is kept as it is, so reading one thread twice records it once.
 - An escape row keeps the issue that reported a defect, the repo and head of the change that caused
   it, the lens that should have caught it, and the location when it is known.

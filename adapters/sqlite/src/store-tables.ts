@@ -67,6 +67,7 @@ export interface FindingRow {
 }
 
 export interface DispositionRow {
+  repo: string;
   finding_id: string;
   kind: string;
   value: string;

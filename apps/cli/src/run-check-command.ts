@@ -62,7 +62,7 @@ async function writePullRequestDispositions(
   const store = await loadStore(getStorePath(loaded.config, ctx));
 
   try {
-    await writeDispositions(store, dispositions);
+    await writeDispositions(store, `${pullRequest.owner}/${pullRequest.repo}`, dispositions);
   } finally {
     await store.destroy();
   }
