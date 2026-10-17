@@ -591,6 +591,54 @@ test('it resumes an eval, keeping the cases the out folder holds and replaying t
   expect(runs).toMatchObject([{ caseID: 'case-a' }, { caseID: 'case-b' }]);
 });
 
+test('it replays the depth of each case with no model call under --static', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'src/a.ts': 'export const a = 1;\n' } },
+    { message: 'head', files: { 'src/a.ts': 'export const a = 2;\n' } },
+  ]);
+
+  await Bun.write(
+    join(ctx.dir, 'corpus', 'case-a', 'case.json'),
+    JSON.stringify({
+      id: 'case-a',
+      repo: repo.path,
+      base: repo.commits[0],
+      head: repo.commits[1],
+      title: 'Change a',
+      body: '',
+      findings: [
+        {
+          anchor: { path: 'unknown', startLine: 1, endLine: 1 },
+          title: 'Keep a at 1',
+          severity: 'P1',
+          lens: 'correctness',
+          label: 'true-positive',
+        },
+      ],
+      escapes: [],
+    }),
+  );
+
+  const stub = buildStubAdapter({});
+
+  const code = await runCLI(
+    ['eval', '--corpus', join(ctx.dir, 'corpus'), '--out', join(ctx.dir, 'out'), '--static'],
+    ctx.buildContext(ctx.dir, stub.adapter),
+  );
+
+  const written: unknown = await Bun.file(join(ctx.dir, 'out', 'static.json')).json();
+
+  expect(code).toBe(0);
+  expect(stub.requests).toStrictEqual([]);
+
+  expect(written).toMatchObject({
+    runs: [{ caseID: 'case-a', plan: { depth: 'light', calls: ['L'], maxCalls: 1 } }],
+    score: { lightMisses: [{ caseID: 'case-a', kind: 'p1', text: 'Keep a at 1' }] },
+  });
+});
+
 test('it puts an unknown option on stderr and keeps stdout empty', async () => {
   const ctx = await setupTest();
 

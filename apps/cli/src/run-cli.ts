@@ -88,12 +88,17 @@ export async function runCLI(argv: readonly string[], ctx: CLIContext): Promise<
         type: 'boolean',
         description: 'Keep the cases the out folder already holds and replay only the rest',
       },
+      static: {
+        type: 'boolean',
+        description: 'Plan each case with no model call and report the depth and calls it gets',
+      },
       json: JSON_ARG,
     },
     run: (command) =>
       run(() =>
         runEvalCommand(
           {
+            static: command.values.static === true,
             corpus: command.values.corpus,
             limit: command.values.limit,
             baseline: command.values.baseline,

@@ -96,3 +96,17 @@ The harness replays cases at the same time, up to the config's parallel case lim
 runs in the corpus's order whatever order they end in. It writes the runs file again as each case
 ends, so a replay that stops keeps the cases it finished. With `--resume`, a replay into the same
 out folder keeps those cases and replays only the rest.
+
+## The static depth replay
+
+With `--static`, the harness plans each case with the config under test and makes no model call: it
+reads the change, runs the static stage and routes it, which is the part of a review that needs no
+model. Routing and the risk score are deterministic, so the replay runs on a whole corpus in minutes
+and tells what a change to the risk score's thresholds does before any model run.
+
+The report counts the cases at each depth, the labelled P1 true positives and the escapes those
+cases hold, and the calls each depth plans. It lists every labelled P1 and escape on a case that
+routes to Light, because each one is a defect the Light rule lets through with the least effort. It
+gives each case its planned calls and the most calls its review can make once the depth's own passes
+count: the verify call at Deep or on a step-up, and the gap sweep at Deep. A label's anchor plays no
+part, so the replay skips the check that each labelled path names a file.

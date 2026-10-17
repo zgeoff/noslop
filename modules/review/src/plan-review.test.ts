@@ -41,5 +41,6 @@ test('it plans the depth and the calls of a change with no model call', async ()
     plan.route.depth,
     plan.stage.signals.riskClasses,
     plan.route.calls.map((call) => call.callID),
-  ]).toStrictEqual(['deep', ['auth'], ['A', 'B']]);
+    plan.maxCalls,
+  ]).toStrictEqual(['deep', ['auth'], ['A', 'B'], 4]);
 });

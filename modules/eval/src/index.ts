@@ -8,4 +8,7 @@ export * from './run-eval';
 export * from './build-run-score';
 export * from './render-eval-report';
 export * from './require-case-paths';
+export * from './run-static-eval';
+export * from './build-static-score';
+export * from './render-static-report';
 export type * from './types';

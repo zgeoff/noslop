@@ -26,6 +26,10 @@ export interface ReviewPlan {
   stage: StaticStageResult;
   routeInput: RouteInput;
   route: Route;
+
+  // the most calls the review can make: the planned calls, the verify call that Deep or a step-up from
+  // Standard adds, and the gap sweep that Deep can add
+  maxCalls: number;
 }
 
 // the part of a review that needs no model: the change, the static stage and the route, so the depth
@@ -65,5 +69,17 @@ export async function planReview(options: PlanReviewOptions): Promise<ReviewPlan
     isPush: options.isPush,
   };
 
-  return { change, stage, routeInput, route: buildRoute(routeInput) };
+  const route = buildRoute(routeInput);
+
+  return { change, stage, routeInput, route, maxCalls: countMaxCalls(route) };
+}
+
+const PASS_CALLS: Readonly<Record<Route['depth'], number>> = { light: 0, standard: 1, deep: 2 };
+
+function countMaxCalls(route: Route): number {
+  if (route.calls.length === 0) {
+    return 0;
+  }
+
+  return route.calls.length + PASS_CALLS[route.depth];
 }

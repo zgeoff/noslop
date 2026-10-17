@@ -17,6 +17,7 @@ import type { CLIContext } from './cli-context';
 import { createNoslopReviewer } from './create-noslop-reviewer';
 import { loadRepoConfig } from './load-repo-config';
 import { resolveRepoDir } from './resolve-repo-dir';
+import { runStaticEvalCommand } from './run-static-eval-command';
 
 export interface EvalValues {
   corpus: string;
@@ -29,6 +30,9 @@ export interface EvalValues {
 
   // keep the cases that the out folder's runs file holds, and replay only the rest
   resume: boolean;
+
+  // plan each case with no model call, under the static depth replay
+  static: boolean;
 }
 
 // a reported finding matches a labelled one on the same path within this many lines
@@ -47,6 +51,10 @@ export async function runEvalCommand(values: EvalValues, ctx: CLIContext): Promi
   }
 
   const cases = all.slice(0, limit);
+
+  if (values.static) {
+    return runStaticEvalCommand(cases, values, ctx);
+  }
 
   await Promise.all(
     cases.map(async (item) => {
