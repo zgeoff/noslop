@@ -1,0 +1,27 @@
+# Runs the shared Bun checks on every push to main, with the script list that
+# the BUN_CHECK_SCRIPTS repo variable sets for pull requests.
+name: main
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: main
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    # GitHub checks the called workflow's job permissions even for its skipped
+    # gitleaks job, which asks for pull-requests: write
+    permissions:
+      contents: read
+      pull-requests: write
+    uses: zgeoff/tools/.github/workflows/bun-checks.yml@sync-v1
+    with:
+      scripts: ${{ vars.BUN_CHECK_SCRIPTS }}
+      # the pull request that landed the commits already scanned them
+      gitleaks: false
