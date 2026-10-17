@@ -26,6 +26,7 @@ A lens names one criterion per finding, and the criterion sets the severity:
 | `misleading-name`           | P2       | A name that hides what the code does                                       |
 | `intent-mismatch`           | P2       | Unrequested work, an unmet acceptance criterion, a false claim in the body |
 | `duplicate-helper`          | P2       | A new function that does the job of an existing one                        |
+| `design-defect`             | P2       | Structure that makes the next change harder, with or without a rules file  |
 | `instruction-conflict`      | P2       | An instruction that conflicts with another rule an agent loads             |
 | `wrong-doc-fact`            | P2       | A wrong fact or a failing step in the documentation                        |
 | `naming`                    | P3       | Naming                                                                     |
@@ -64,3 +65,5 @@ P1 counts as a P1 until someone checks the fact. A lens lowers a severity only o
   from its criterion.
 - 2026-10-18: a P1 no longer steps a review up to Deep, since a review keeps the depth routing picks
   under [0007](0007-depth-and-models.md).
+- 2026-10-18: added `design-defect` at P2, so the architecture lens reports its generic checks in a
+  repo with no rules file. A finding under a rule keeps `taste-rule` and cites the rule.

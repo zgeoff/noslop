@@ -121,6 +121,7 @@ test('it exports a JSON Schema that requires every key and allows no other', () 
                       "misleading-name",
                       "intent-mismatch",
                       "duplicate-helper",
+                      "design-defect",
                       "instruction-conflict",
                       "wrong-doc-fact",
                       "naming",

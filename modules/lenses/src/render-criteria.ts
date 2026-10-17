@@ -12,6 +12,7 @@ const CRITERION_COVERS: Readonly<Record<Criterion, string>> = {
   'misleading-name': 'A name that hides what the code does',
   'intent-mismatch': 'Unrequested work, an unmet acceptance criterion, a false claim in the body',
   'duplicate-helper': 'A new function that does the job of an existing one',
+  'design-defect': 'Structure that makes the next change harder, with or without a rules file',
   'instruction-conflict': 'An instruction that conflicts with another rule an agent loads',
   'wrong-doc-fact': 'A wrong fact or a failing step in the documentation',
   naming: 'Naming',
