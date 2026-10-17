@@ -375,16 +375,9 @@ test('it steps a Standard review up to Deep on a confirmed P1 and verifies the D
 
   const stub = buildStubAdapter({
     A: [{ findings: { correctness: [p1], 'failure-handling-and-observability': [] } }],
-    'A:correctness': [{ findings: { correctness: [p1] } }],
-    'A:failure-handling-and-observability': [
-      { findings: { 'failure-handling-and-observability': [] } },
-    ],
-    C: [
-      { findings: { 'naming-shape-and-comments': [] } },
-      { findings: { 'naming-shape-and-comments': [] } },
-    ],
-    E: [{ findings: { tests: [] } }, { findings: { tests: [] } }],
-    'verify:A:correctness': [{ findings: { correctness: [p1] } }],
+    C: [{ findings: { 'naming-shape-and-comments': [] } }],
+    E: [{ findings: { tests: [] } }],
+    verify: [{ findings: { correctness: [p1] } }],
   });
 
   await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
@@ -419,14 +412,10 @@ test('it steps a Standard review up to Deep on a confirmed P1 and verifies the D
     'deep',
     'standard',
     [
-      ['standard:A', 'standard', 'medium'],
-      ['standard:C', 'standard', 'medium'],
-      ['standard:E', 'standard', 'medium'],
-      ['A:correctness', 'deep', 'high'],
-      ['A:failure-handling-and-observability', 'deep', 'high'],
-      ['C', 'deep', 'high'],
-      ['E', 'deep', 'high'],
-      ['verify:A:correctness', 'deep', 'high'],
+      ['A', 'standard', 'medium'],
+      ['C', 'standard', 'medium'],
+      ['E', 'standard', 'medium'],
+      ['verify', 'deep', 'high'],
     ],
     [['Keep the jobs until the write succeeds', 'P1']],
   ]);
@@ -513,16 +502,9 @@ test('it drops a stepped-up P1 that the verify pass rejects and removes the work
 
   const stub = buildStubAdapter({
     A: [{ findings: { correctness: [p1], 'failure-handling-and-observability': [] } }],
-    'A:correctness': [{ findings: { correctness: [p1] } }],
-    'A:failure-handling-and-observability': [
-      { findings: { 'failure-handling-and-observability': [] } },
-    ],
-    C: [
-      { findings: { 'naming-shape-and-comments': [] } },
-      { findings: { 'naming-shape-and-comments': [] } },
-    ],
-    E: [{ findings: { tests: [] } }, { findings: { tests: [] } }],
-    'verify:A:correctness': [{ findings: { correctness: [] } }],
+    C: [{ findings: { 'naming-shape-and-comments': [] } }],
+    E: [{ findings: { tests: [] } }],
+    verify: [{ findings: { correctness: [] } }],
   });
 
   await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
@@ -559,7 +541,83 @@ test('it drops a stepped-up P1 that the verify pass rejects and removes the work
   expect(worktrees.stdout.match(/^worktree /gmu)).toHaveLength(1);
 });
 
-test('it keeps a Deep call findings when its verify call fails twice', async () => {
+test('it verifies the findings of every Deep call in one call over the merged list', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'src/auth/session.ts': 'export const ttl = 60;\n' } },
+    { message: 'head', files: { 'src/auth/session.ts': 'export const ttl = 6000;\n' } },
+  ]);
+
+  const p2 = {
+    title: 'Keep the session lifetime short',
+    body: 'A lifetime of 6000 seconds keeps a stolen session open for hours.',
+    anchor: { path: 'src/auth/session.ts', startLine: 1, endLine: 1 },
+    secondLocation: null,
+    severity: 'P2',
+    criterion: 'wrong-behaviour-edge-path',
+    rule: null,
+    verdict: 'CONFIRMED',
+    unverifiedFact: null,
+    missingChange: false,
+    fix: null,
+  } as const;
+
+  const p1 = {
+    title: 'Expire a stolen session within the hour',
+    body: 'A session that lives 6000 seconds outlasts the token rotation, so a stolen one stays valid.',
+    anchor: { path: 'src/auth/session.ts', startLine: 1, endLine: 1 },
+    secondLocation: null,
+    severity: 'P1',
+    criterion: 'security-defect',
+    rule: null,
+    verdict: 'CONFIRMED',
+    unverifiedFact: null,
+    missingChange: false,
+    fix: null,
+  } as const;
+
+  const stub = buildStubAdapter({
+    A: [{ findings: { correctness: [p2] } }],
+    B: [{ findings: { security: [p1] } }],
+    verify: [{ findings: { correctness: [], security: [p1] } }],
+  });
+
+  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+
+  const run = await runReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/auth',
+    base: repo.commits[0] ?? '',
+    head: repo.commits[1] ?? '',
+    config: BUILT_IN_DEFAULTS,
+    configHash: 'hash',
+    rules: null,
+    adapter: stub.adapter,
+    logger: ctx.logger,
+    tempDir: join(ctx.dir, 'temp'),
+    cacheDir: null,
+    title: 'Lengthen the session',
+    body: '',
+    linkedIssue: null,
+    pullRequest: null,
+    isPush: false,
+    pastEscapes: [],
+  });
+
+  expect(run.result.calls.map((call) => [call.id, call.lenses])).toStrictEqual([
+    ['A', ['correctness']],
+    ['B', ['security']],
+    ['verify', ['correctness', 'security']],
+  ]);
+
+  expect(run.result.findings.map((finding) => [finding.title, finding.callID])).toStrictEqual([
+    ['Expire a stolen session within the hour', 'verify'],
+  ]);
+});
+
+test('it keeps the Deep findings when the verify call fails twice', async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.dir, 'repo'), [
@@ -582,9 +640,9 @@ test('it keeps a Deep call findings when its verify call fails twice', async () 
   } as const;
 
   const stub = buildStubAdapter({
-    'A:correctness': [{ findings: { correctness: [p2] } }],
+    A: [{ findings: { correctness: [p2] } }],
     B: [{ findings: { security: [] } }],
-    'verify:A:correctness': [{ error: 'claude timed out' }, { error: 'claude timed out' }],
+    verify: [{ error: 'claude timed out' }, { error: 'claude timed out' }],
   });
 
   await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
@@ -614,7 +672,7 @@ test('it keeps a Deep call findings when its verify call fails twice', async () 
     run.result.depth,
     run.result.findings.map((finding) => finding.title),
     run.result.failedCalls.map((call) => call.id),
-  ]).toStrictEqual(['deep', ['Keep the session lifetime short'], ['verify:A:correctness']]);
+  ]).toStrictEqual(['deep', ['Keep the session lifetime short'], ['verify']]);
 });
 
 test('it sweeps a large Deep change for gaps when no blocking finding survives', async () => {
@@ -633,10 +691,9 @@ test('it sweeps a large Deep change for gaps when no blocking finding survives',
   ]);
 
   const stub = buildStubAdapter({
-    'A:correctness': [{ findings: { correctness: [] } }],
+    A: [{ findings: { correctness: [] } }],
     B: [{ findings: { security: [] } }],
-    'gap:A:correctness': [{ findings: { correctness: [] } }],
-    'gap:B': [{ findings: { security: [] } }],
+    gap: [{ findings: { correctness: [], security: [] } }],
   });
 
   await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
@@ -662,10 +719,9 @@ test('it sweeps a large Deep change for gaps when no blocking finding survives',
     pastEscapes: [],
   });
 
-  expect(run.result.calls.map((call) => [call.id, call.status])).toStrictEqual([
-    ['A:correctness', 'ok'],
-    ['B', 'ok'],
-    ['gap:A:correctness', 'ok'],
-    ['gap:B', 'ok'],
+  expect(run.result.calls.map((call) => [call.id, call.lenses, call.status])).toStrictEqual([
+    ['A', ['correctness'], 'ok'],
+    ['B', ['security'], 'ok'],
+    ['gap', ['correctness', 'security'], 'ok'],
   ]);
 });

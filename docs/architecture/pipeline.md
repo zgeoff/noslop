@@ -45,24 +45,22 @@ logged for the user to prune.
 ## Depth passes
 
 The depth that routing picks decides how many passes the Call and Assemble stages make. Light and
-Standard make one pass. Deep makes a first pass, then a verify pass, and on a large change a gap
-sweep, under [0007](../decisions/0007-depth-and-models.md).
+Standard make one pass. Deep makes a first pass, then 1 verify call, and on a large change 1 gap
+sweep call, under [0007](../decisions/0007-depth-and-models.md).
 
-A Standard review whose first pass holds a confirmed P1 steps up to Deep once: routing plans the
-calls again at Deep, and the Deep passes run in full. The Deep findings replace the Standard ones,
-because the Deep pass reads the same change more closely. The Standard calls stay in the result
-under their own IDs, so their cost is still counted, and the result records the depth it stepped up
-from.
+A Standard review whose first pass holds a confirmed P1 steps up to Deep once by running only the
+verify call on the findings it has. The first pass's calls keep their Standard depth in the result,
+and the result records the depth it stepped up from.
 
-The verify pass reruns each Deep call that reported a finding, with the earlier findings and a
-closing task to re-derive each one from the code. Its findings replace that call's findings, so a
-finding the model cannot trace a second time drops out. A call whose verify call fails keeps its own
-findings, because a failed check is no evidence against a finding.
+The verify call carries the lenses of every model finding of the first pass, after Assemble merges
+them, with a closing task to re-derive each one from the code. Its findings replace the first pass's
+model findings, so a finding the model cannot trace a second time drops out. When the verify call
+fails, the first pass's findings stay, because a failed check is no evidence against a finding.
 
-The gap sweep reruns every Deep call with all the findings so far and a task to report only what
-they miss. It runs only on a change that is large by the config's file or line count, and only when
-no blocking finding survives: a P1, a security finding, or a finding in a marked risk class. A
-change that already blocks the merge gains nothing from more findings.
+The gap sweep is 1 call that carries every fired lens, with all the findings so far and a task to
+report only what they miss. It runs only on a change that is large by the config's file or line
+count, and only when no blocking finding survives: a P1, a security finding, or a finding in a
+marked risk class. A change that already blocks the merge gains nothing from more findings.
 
 ## The result
 

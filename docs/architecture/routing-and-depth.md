@@ -77,33 +77,33 @@ flowchart TD
   light -->|Light| done[Assemble]
   light -->|Standard| p1{Confirmed P1?}
   p1 -->|no| done
-  p1 -->|yes| rerun[Deep rerun]
-  light -->|Deep| verify[Verify pass]
-  rerun --> verify
-  verify --> gap{Large change and no blocking finding?}
+  p1 -->|yes| verify[Verify call]
+  light -->|Deep| verify
+  verify --> gap{Deep from the start, a large change and no blocking finding?}
   gap -->|no| done
   gap -->|yes| sweep[Gap sweep]
   sweep --> done
 ```
 
-A CONFIRMED P1 at Standard steps the review up to Deep once: the review module plans the calls again
-at Deep, and they run with the verify pass and the gap sweep that Deep adds. The Deep rerun replaces
-the Standard pass's findings and failures. The Standard calls stay in the result under their own
-IDs, so their cost stays counted, and the result holds the depth it stepped up from.
+A CONFIRMED P1 at Standard steps the review up to Deep once: the review module runs only the verify
+call on the findings the Standard pass has, and runs no call again. The result holds the depth it
+stepped up from.
 
 A Light review never steps up. A P1 that a Light review finds stays in its result, and the
 [eval harness](./eval.md) counts the labelled P1s and escapes that its Light cases hold, so a Light
 rule that lets P1s through shows up on the corpus.
 
-The verify pass reruns each Deep call that returned findings, with those findings and a closing task
-to re-derive each one from the code. Its findings replace that call's. A call whose verify call
-fails keeps its own findings, so a verify failure never loses a finding.
+The verify call is 1 call over every model finding of the first pass, after the merge, with the
+lenses of those findings and a closing task to re-derive each one from the code. Its findings
+replace the first pass's model findings. When the verify call fails, the first pass's findings stay,
+so a verify failure never loses a finding.
 
-The gap sweep runs on a large change, one with at least the configured number of files or of changed
-lines, when no blocking finding survives the verify pass. A blocking finding is a P1, a security
-finding or a risk-class finding. The sweep reruns every Deep call with the findings so far and asks
-only for defects they miss, because a change with a blocking finding cannot merge, and the sweep
-spends its effort where the review would otherwise pass.
+The gap sweep runs on a review that routed to Deep, on a large change, one with at least the
+configured number of files or of changed lines, when no blocking finding survives the verify call. A
+blocking finding is a P1, a security finding or a risk-class finding. The sweep is 1 call with every
+fired lens and the findings so far, and it asks only for defects they miss, because a change with a
+blocking finding cannot merge, and the sweep spends its effort where the review would otherwise
+pass.
 
 Each pass runs every call through the adapter, retrying a failed call once, under
 [adapters](./adapters.md). [Findings](./findings.md) covers how Assemble merges the findings of

@@ -83,7 +83,7 @@ test('it fires each lens whose slice holds an entry and groups them by the defau
   ]);
 });
 
-test('it runs a marked risk class at Deep with the lenses it forces and call A split', () => {
+test('it runs a marked risk class at Deep with the lenses it forces, one call per group', () => {
   const route = buildRoute({
     change: {
       base: 'a'.repeat(40),
@@ -109,12 +109,14 @@ test('it runs a marked risk class at Deep with the lenses it forces and call A s
     isPush: false,
   });
 
-  expect([route.depth, route.calls.map((call) => [call.callID, call.effort])]).toStrictEqual([
+  expect([
+    route.depth,
+    route.calls.map((call) => [call.callID, call.lenses, call.effort]),
+  ]).toStrictEqual([
     'deep',
     [
-      ['A:correctness', 'high'],
-      ['A:failure-handling-and-observability', 'high'],
-      ['B', 'high'],
+      ['A', ['correctness', 'failure-handling-and-observability'], 'high'],
+      ['B', ['security'], 'high'],
     ],
   ]);
 });

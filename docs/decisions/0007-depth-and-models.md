@@ -23,16 +23,19 @@ A change is Deep when any of these holds:
 4. Its title carries a breaking marker.
 5. It hits a consumer edge in another repo.
 
-Every other change is Standard. Deep adds a verify pass, which re-derives each finding from the
-code, and a gap sweep, which looks for what the other findings miss on a change of 5 or more files
-or 200 or more lines. A confirmed P1 at Standard steps the review up to Deep once. At every depth,
-each call reads the whole change.
+Every other change is Standard. Deep adds 1 verify call, which re-derives every finding from the
+code after the findings merge, and at most 1 gap sweep call, which looks for what the other findings
+miss on a change of 5 or more files or 200 or more lines. A confirmed P1 at Standard steps the
+review up to Deep once, by running only the verify call on the findings it has. At every depth, each
+call reads the whole change.
 
 ## Why
 
 - Effort costs time and tokens, so low-risk changes get less of it.
 - A deterministic score gives the same depth on every run.
 - A reviewer must see the whole change to judge it, so no call splits the diff.
+- A usable review beats the most thorough one, so Deep adds 2 calls at most, and fewer calls win a
+  tie.
 
 ## Alternatives
 
@@ -51,3 +54,6 @@ each call reads the whole change.
 
 - 2026-10-17: dropped the 150-line chunk rule, so each call reads the whole change. A reviewer must
   see the whole change, and chunking multiplied the calls for no measured gain.
+- 2026-10-17: Deep runs 1 verify call on the merged findings, not 1 per call, and at most 1 gap
+  sweep call. A step-up from Standard runs only the verify call, and no longer reruns every call at
+  Deep.

@@ -9,16 +9,15 @@ const DEPTH_EFFORT: Readonly<Record<Depth, Effort>> = {
 };
 
 const LIGHT_CALL = 'L';
-const SPLIT_AT_DEEP = 'A';
 
 interface CallGroup {
   callID: string;
   lenses: LensID[];
 }
 
-// groups the fired lenses into calls by the config's grouping: one call at Light, call A split into
-// its lenses at Deep, and a lens with a model of its own in a call of its own; each call reads the
-// whole change, so a reviewer always sees every hunk its lenses read
+// groups the fired lenses into calls by the config's grouping, one call per group at every depth but
+// Light, where one call holds them all; a lens with a model of its own runs in a call of its own; each
+// call reads the whole change, so a reviewer always sees every hunk its lenses read
 export function planCalls(
   input: RouteInput,
   lenses: readonly LensID[],
@@ -63,11 +62,7 @@ function buildGroups(input: RouteInput, lenses: readonly LensID[], depth: Depth)
       continue;
     }
 
-    if (depth === 'deep' && callID === SPLIT_AT_DEEP) {
-      groups.push(...inCall.map((lens) => ({ callID: `${callID}:${lens}`, lenses: [lens] })));
-    } else {
-      groups.push({ callID, lenses: inCall });
-    }
+    groups.push({ callID, lenses: inCall });
   }
 
   // a fired lens that no call names runs in a call of its own

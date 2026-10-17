@@ -2,6 +2,7 @@
 
 - Date: 2026-10-17
 - Status: decided
+- Updated: 2026-10-17
 
 noslop groups the fired lenses into at most 8 calls, by the input they share:
 
@@ -17,8 +18,8 @@ noslop groups the fired lenses into at most 8 calls, by the input they share:
 | H    | Documentation                                                                   |
 
 A call fires when any of its lenses fires, and its prompt holds only the sections of the lenses that
-fired. Security runs alone. At Light, every fired lens goes into 1 call. At Deep, call A splits into
-its 3 lenses.
+fired. Security runs alone. At Light, every fired lens goes into 1 call. At Standard and Deep, each
+group that fired is 1 call.
 
 Each lens stays a separate unit: its own id, trigger, slice, prompt section and output schema. A
 section never refers to another lens's section. Every finding carries its lens id. The grouping is
@@ -39,3 +40,8 @@ config, so moving a lens into its own call is a config change.
 
 - The eval corpus sets the final groups: a stack that loses recall against its lenses run alone is
   split.
+
+## Changes
+
+- 2026-10-17: call A no longer splits into its lenses at Deep, so a review makes at most 1 call per
+  fired group, and fewer calls win a tie.

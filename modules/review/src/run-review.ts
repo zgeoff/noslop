@@ -3,10 +3,10 @@ import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { Logger } from '@logtape/logtape';
 import type {
-  CallRecord,
   Change,
   Depth,
-  ModelFinding,
+  Finding,
+  LensID,
   PullRequestRef,
   ReviewAdapter,
   ReviewConfig,
@@ -16,7 +16,7 @@ import { REVIEW_OUTPUT_VERSION } from '@noslop/contract';
 import type { AssembledFindings, DropReason, RawFinding } from '@noslop/findings';
 import { buildFindings } from '@noslop/findings';
 import type { PlannedCall, Route, RouteInput } from '@noslop/routing';
-import { buildRoute, planCalls } from '@noslop/routing';
+import { buildRoute } from '@noslop/routing';
 import type { Runner } from '@noslop/runner';
 import type { StaticStageResult } from '@noslop/static-stage';
 import { readChange, runStaticStage } from '@noslop/static-stage';
@@ -154,8 +154,9 @@ interface CallPasses {
   batches: CallBatch[];
 }
 
-// a confirmed P1 at Standard reruns the calls at Deep once, and Deep adds a verify pass and a gap
-// sweep; a route with no calls runs none, and needs no worktree
+// one call per fired lens group; Deep then adds one verify call over the merged findings and at most
+// one gap sweep, and a confirmed P1 at Standard steps the review up to Deep by running only that verify
+// call on the findings it has; a route with no calls runs none, and needs no worktree
 async function runCallPasses(ctx: PassContext): Promise<CallPasses> {
   if (ctx.route.calls.length === 0) {
     return { depth: ctx.route.depth, steppedUpFrom: null, batches: [] };
@@ -167,16 +168,13 @@ async function runCallPasses(ctx: PassContext): Promise<CallPasses> {
     const first = await runBatch(ctx, ctx.route.calls, ctx.route.depth, null);
 
     if (ctx.route.depth === 'deep') {
-      const batches = await runDeepPasses(ctx, [], ctx.route.calls, first);
+      const batches = await runDeepPasses(ctx, first, true);
 
       return { depth: 'deep', steppedUpFrom: null, batches };
     }
 
     if (ctx.route.depth === 'standard' && hasConfirmedP1(buildAssembled(ctx, [first]))) {
-      const plan = planCalls(ctx.routeInput, ctx.route.lenses, 'deep');
-
-      const deep = await runBatch(ctx, plan, 'deep', null);
-      const batches = await runDeepPasses(ctx, [buildSupersededBatch(first)], plan, deep);
+      const batches = await runDeepPasses(ctx, first, false);
 
       return { depth: 'deep', steppedUpFrom: 'standard', batches };
     }
@@ -185,22 +183,6 @@ async function runCallPasses(ctx: PassContext): Promise<CallPasses> {
   } finally {
     await removeWorktree(ctx);
   }
-}
-
-const STANDARD_PREFIX = 'standard:';
-
-// the Deep rerun replaces the Standard pass's findings and failures; the Standard calls stay in the
-// result under their own IDs, for their cost
-function buildSupersededBatch(batch: CallBatch): CallBatch {
-  return {
-    records: batch.records.map((record) => buildRenamedRecord(record, STANDARD_PREFIX)),
-    failed: [],
-    raw: [],
-  };
-}
-
-function buildRenamedRecord(record: CallRecord, prefix: string): CallRecord {
-  return { ...record, id: `${prefix}${record.id}` };
 }
 
 // a worktree that git cannot remove leaves an entry in the repo's worktree list, so the review
@@ -296,36 +278,68 @@ function hasConfirmedP1(assembled: AssembledFindings): boolean {
   );
 }
 
-const VERIFY_PREFIX = 'verify:';
+const VERIFY_CALL = 'verify';
+const GAP_CALL = 'gap';
 
-// the verify pass re-derives the findings of each Deep call, and its findings replace that call's;
-// a call whose verify call failed keeps its own; the gap sweep then runs on a large change when no
-// blocking finding survives: a P1, a security finding or a risk-class finding
+// the verify call re-derives every model finding of the first pass, after the merge, and its findings
+// replace them; a failed verify call keeps them; the gap sweep then runs once on a large change when
+// no blocking finding survives: a P1, a security finding or a risk-class finding
 async function runDeepPasses(
   ctx: PassContext,
-  earlier: readonly CallBatch[],
-  plan: readonly PlannedCall[],
-  deep: CallBatch,
+  first: CallBatch,
+  sweepGaps: boolean,
 ): Promise<CallBatch[]> {
-  const byCall = Map.groupBy(deep.raw, (raw) => raw.callID ?? '');
-  const toVerify = plan.filter((call) => byCall.has(call.callID));
-  const verifyPlan = toVerify.map((call) => buildRenamedCall(call, VERIFY_PREFIX));
+  const merged = buildAssembled(ctx, [first]).findings.filter(
+    (finding) => finding.lens !== 'static',
+  );
 
-  const verified = await runBatch(ctx, verifyPlan, 'deep', (call) => {
-    const raw = byCall.get(call.callID.slice(VERIFY_PREFIX.length));
+  const verified = await runVerifyCall(ctx, merged);
 
-    return buildVerifyTask(collectModelFindings(raw));
-  });
+  const batches = buildVerifiedBatches(first, verified);
 
-  const kept = new Set(verified.failed.map((item) => item.id.slice(VERIFY_PREFIX.length)));
-  const replaced = new Set(toVerify.map((call) => call.callID).filter((id) => !kept.has(id)));
+  if (!sweepGaps || !shouldSweepGaps(ctx, batches)) {
+    return batches;
+  }
 
-  const batches = [
-    ...earlier,
-    { ...deep, raw: deep.raw.filter((raw) => !replaced.has(raw.callID ?? '')) },
-    verified,
-  ];
+  const known = buildAssembled(ctx, batches).findings;
 
+  const gap = await runBatch(ctx, [buildPassCall(ctx, GAP_CALL, ctx.route.lenses)], 'deep', () =>
+    buildGapTask(known),
+  );
+
+  return [...batches, gap];
+}
+
+// the first pass's records stay for their cost; its findings give way to the verified ones, unless
+// the verify call failed or never ran
+function buildVerifiedBatches(first: CallBatch, verified: CallBatch | null): CallBatch[] {
+  if (verified === null) {
+    return [first];
+  }
+
+  if (verified.failed.length > 0) {
+    return [first, verified];
+  }
+
+  return [{ ...first, raw: [] }, verified];
+}
+
+// one call carries the lenses of every finding it verifies; with no finding there is nothing to verify
+function runVerifyCall(ctx: PassContext, findings: readonly Finding[]): Promise<CallBatch | null> {
+  const reported = new Set<string>(findings.map((finding) => finding.lens));
+
+  const lenses = ctx.route.lenses.filter((lens) => reported.has(lens));
+
+  if (lenses.length === 0) {
+    return Promise.resolve(null);
+  }
+
+  return runBatch(ctx, [buildPassCall(ctx, VERIFY_CALL, lenses)], 'deep', () =>
+    buildVerifyTask(findings),
+  );
+}
+
+function shouldSweepGaps(ctx: PassContext, batches: readonly CallBatch[]): boolean {
   const lines = ctx.change.files.reduce(
     (total, file) => total + file.addedLines + file.deletedLines,
     0,
@@ -340,23 +354,22 @@ async function runDeepPasses(
       finding.severity === 'P1' || finding.lens === 'security' || finding.riskClass !== undefined,
   );
 
-  if (!isLarge || hasBlocking) {
-    return batches;
-  }
-
-  const known = batches.flatMap((batch) => collectModelFindings(batch.raw));
-  const gapPlan = plan.map((call) => buildRenamedCall(call, 'gap:'));
-
-  const gap = await runBatch(ctx, gapPlan, 'deep', () => buildGapTask(known));
-
-  return [...batches, gap];
+  return isLarge && !hasBlocking;
 }
 
-// a pass reruns a call under its own ID, so the review result lists the pass beside the call
-function buildRenamedCall(call: PlannedCall, prefix: string): PlannedCall {
-  return { ...call, callID: `${prefix}${call.callID}` };
-}
+// a pass call runs at Deep's effort on the adapter's model, with the longest timeout of the calls the
+// route planned
+function buildPassCall(ctx: PassContext, callID: string, lenses: readonly LensID[]): PlannedCall {
+  const timeouts = ctx.route.calls.flatMap((call) =>
+    call.timeoutMs === null ? [] : [call.timeoutMs],
+  );
 
-function collectModelFindings(raw: readonly RawFinding[] | undefined): ModelFinding[] {
-  return (raw ?? []).map((item) => item.finding);
+  return {
+    callID,
+    lenses: [...lenses],
+    effort: 'high',
+    model: null,
+    timeoutMs: timeouts.length === 0 ? null : Math.max(...timeouts),
+    files: [...ctx.change.files],
+  };
 }

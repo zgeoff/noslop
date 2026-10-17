@@ -20,13 +20,9 @@ lists it. A call holds only the lenses of its list that fired, and a call with n
 out. A fired lens that no call lists runs in a call of its own, so a grouping that leaves a lens out
 never drops it.
 
-The depth changes the grouping at both ends:
-
-- At Light, every fired lens goes into one call, because a Light change is small enough for one
-  prompt to hold.
-- At Standard, the calls follow the grouping.
-- At Deep, call A, which holds correctness in the default grouping, splits into one call per lens,
-  so each of its lenses has a prompt to itself.
+At Light, every fired lens goes into one call, because a Light change is small enough for one prompt
+to hold. At Standard and Deep, the calls follow the grouping, one call per group that fired, so a
+review makes as few calls as its fired groups allow.
 
 One call runs on one model. A lens whose config sets a model of its own therefore leaves its call
 for a call with the other lenses that set the same model.
