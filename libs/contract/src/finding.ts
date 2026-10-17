@@ -42,6 +42,10 @@ export const findingSchema = z
   .strictObject({
     id: z.string().regex(/^[0-9a-f]{16}$/u),
     lens: findingLensSchema,
+
+    // the call in the review result that reported it, so the store records its depth, model and
+    // effort; null for a direct finding of the static stage
+    callID: z.string().min(1).nullable(),
     title: z.string().min(1).max(TITLE_MAX_LENGTH),
     body: z.string().min(1),
     anchor: anchorSchema,
@@ -52,6 +56,10 @@ export const findingSchema = z
     verdict: verdictSchema,
     unverifiedFact: z.string().min(1).optional(),
     writtenByChange: z.boolean(),
+
+    // the marked risk class whose paths hold the anchor; a risk-class finding blocks the merge even in
+    // code the change did not write
+    riskClass: z.string().min(1).optional(),
     fix: z.string().min(1).optional(),
   })
   .refine((finding) => finding.verdict === 'CONFIRMED' || finding.unverifiedFact !== undefined, {

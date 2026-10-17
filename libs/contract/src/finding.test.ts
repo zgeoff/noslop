@@ -6,6 +6,7 @@ test('it accepts a complete CONFIRMED finding', () => {
   const payload: Finding = {
     id: '0123456789abcdef',
     lens: 'correctness',
+    callID: 'A',
     title: 'Keep the items in the queue until the batch write succeeds',
     body: 'The loop deletes every item, then writes the batch.',
     anchor: { path: 'src/queue.ts', startLine: 12, endLine: 14 },
@@ -30,6 +31,7 @@ test('it accepts a direct finding from the static stage', () => {
   const payload: Finding = {
     id: '0123456789abcdef',
     lens: 'static',
+    callID: null,
     title: 'Add an assertion to the test',
     body: 'The test calls the unit and checks nothing.',
     anchor: { path: 'src/a.test.ts', startLine: 1, endLine: 4 },
@@ -46,6 +48,7 @@ test('it rejects a PLAUSIBLE finding with no unverified fact', () => {
   const result = findingSchema.safeParse({
     id: '0123456789abcdef',
     lens: 'security',
+    callID: 'B',
     title: 'Check the actor before the read',
     body: 'The query reads any row.',
     anchor: { path: 'src/db.ts', startLine: 4, endLine: 4 },
@@ -62,6 +65,7 @@ test('it rejects a title longer than 80 characters', () => {
   const result = findingSchema.safeParse({
     id: '0123456789abcdef',
     lens: 'correctness',
+    callID: 'A',
     title: 'x'.repeat(81),
     body: 'The loop deletes every item, then writes the batch.',
     anchor: { path: 'src/queue.ts', startLine: 12, endLine: 14 },
@@ -78,6 +82,7 @@ test('it rejects a lens that is not in the lens set', () => {
   const result = findingSchema.safeParse({
     id: '0123456789abcdef',
     lens: 'performance',
+    callID: 'A',
     title: 'Keep the items in the queue until the batch write succeeds',
     body: 'The loop deletes every item, then writes the batch.',
     anchor: { path: 'src/queue.ts', startLine: 12, endLine: 14 },
