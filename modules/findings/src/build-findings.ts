@@ -200,8 +200,9 @@ function buildPlacedFinding(finding: Finding, place: number): Finding {
   return { ...finding, id };
 }
 
-// lenses word one defect differently, so 2 titles match on their shared words; a test finding asks
-// for a test and a fix finding for a fix, so the 2 kinds never merge with each other
+// a reordered or shorter wording of one defect merges, but a title that swaps a word, such as request
+// for response, can name another defect; a test finding asks for a test where a fix finding asks for
+// a fix, so the 2 kinds never merge
 function isSameDefect(left: Finding, right: Finding, thresholds: Thresholds): boolean {
   const overlaps =
     left.anchor.path === right.anchor.path &&
@@ -219,9 +220,8 @@ function isSameDefect(left: Finding, right: Finding, thresholds: Thresholds): bo
   const leftWords = splitTitleWords(left.title);
   const rightWords = splitTitleWords(right.title);
   const shared = [...leftWords].filter((word) => rightWords.has(word)).length;
-  const smaller = Math.min(leftWords.size, rightWords.size);
 
   return (
-    shared >= thresholds.mergeMinSharedWords && shared / smaller >= thresholds.mergeMinWordShare
+    shared >= thresholds.mergeMinSharedWords && shared === Math.min(leftWords.size, rightWords.size)
   );
 }

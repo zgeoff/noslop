@@ -248,14 +248,14 @@ test('it merges 2 findings of one defect into the one with the higher severity',
   ]);
 });
 
-test('it merges 2 lenses wording one defect differently on overlapping lines', () => {
+test('it merges a shorter wording of one defect on overlapping lines', () => {
   const result = buildFindings({
     raw: [
       {
         lens: 'correctness',
         callID: 'A',
         finding: {
-          title: "Keep the transient watcher's interval when start replaces it",
+          title: "Keep the transient watcher's interval when replacing it",
           body: 'The new unit starts at the default interval, so the watcher runs 10 times as often.',
           anchor: { path: 'src/a.ts', startLine: 1, endLine: 2 },
           secondLocation: null,
@@ -344,15 +344,15 @@ test('it keeps a test finding apart from a fix finding on the same lines', () =>
   expect(result.findings.map((finding) => finding.lens)).toStrictEqual(['correctness', 'tests']);
 });
 
-test('it keeps 2 findings on overlapping lines whose titles share too few words', () => {
+test('it keeps 2 findings on overlapping lines whose titles each hold a word the other lacks', () => {
   const result = buildFindings({
     raw: [
       {
         lens: 'correctness',
         callID: 'A',
         finding: {
-          title: 'Count new local runs without a lane in the flexible lane',
-          body: 'A run with no lane falls out of every count.',
+          title: 'Reject null values in the request body',
+          body: 'A null field in the request reaches the write.',
           anchor: { path: 'src/a.ts', startLine: 1, endLine: 1 },
           secondLocation: null,
           severity: 'P2',
@@ -368,8 +368,8 @@ test('it keeps 2 findings on overlapping lines whose titles share too few words'
         lens: 'failure-handling-and-observability',
         callID: 'A',
         finding: {
-          title: 'Surface why the lanes config was refused instead of swallowing it',
-          body: 'A bad config reads as no lanes, and nothing says why.',
+          title: 'Reject null values in the response body',
+          body: 'A null field in the response reaches the client.',
           anchor: { path: 'src/a.ts', startLine: 1, endLine: 1 },
           secondLocation: null,
           severity: 'P2',

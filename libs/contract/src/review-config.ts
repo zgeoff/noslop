@@ -38,10 +38,9 @@ export const thresholdsSchema = z.strictObject({
   reuseShortlistSize: z.int().positive(),
   reuseMinScore: z.number().min(0).max(1),
 
-  // 2 findings on overlapping lines merge when their titles share this many words, and this share of
-  // the shorter title's words
+  // 2 findings on overlapping lines merge when every word of one title, and at least this many, is
+  // in the other title
   mergeMinSharedWords: z.int().positive(),
-  mergeMinWordShare: z.number().min(0).max(1),
 
   // how many calls of one review, and how many cases of one eval, run at once
   parallelCalls: z.int().positive(),

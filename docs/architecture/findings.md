@@ -44,12 +44,13 @@ drops each one that breaks a finding rule. The CLI logs every dropped finding wi
 A title over the schema's length is cut short with an ellipsis, because the defect it names still
 holds.
 
-Two findings are one defect when their anchors overlap in one file and their titles say the same
-thing: equal once normalised, or sharing the config's count and share of the words a title rests on,
-after joining words and common endings drop. Lenses word one defect differently, so equal titles
-alone miss most repeats. A tests-lens finding merges only with another tests-lens finding, because
-it asks for a test where the other lenses ask for a fix. The merged finding keeps the higher
-severity. The result lists the findings by severity, then by path and line.
+Two findings are one defect when their anchors overlap in one file and every word that one title
+rests on is in the other title, after joining words and common endings drop. That catches a
+reordered or shorter wording of one defect. A title that swaps a word, such as request for response,
+can name a different defect, so Assemble keeps both findings. A tests-lens finding merges only with
+another tests-lens finding, because it asks for a test where the other lenses ask for a fix. The
+merged finding keeps the higher severity. The result lists the findings by severity, then by path
+and line.
 
 A line the change deleted has no head line of its own, so the static stage maps it to the head line
 where it sat. Assemble reads the changed lines through the same function, so a lens finding and a
