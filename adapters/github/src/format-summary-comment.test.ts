@@ -20,6 +20,7 @@ test('it writes the head, depth, lenses, failed calls, fixes and marker of a re-
         reviews: 2,
         reported: [],
         failedCalls: 1,
+        followUps: [],
       },
       [{ id: '1111111111111111', title: 'Await the write', fixed: true }],
     ),
@@ -36,6 +37,6 @@ test('it writes the head, depth, lenses, failed calls, fixes and marker of a re-
 
     - \`1111111111111111\` Await the write: fixed
 
-    <!-- noslop:summary {"head":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","reviews":2,"reported":[],"failedCalls":1} -->"
+    <!-- noslop:summary {"head":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","reviews":2,"reported":[],"failedCalls":1,"followUps":[]} -->"
   `);
 });

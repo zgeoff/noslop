@@ -32,6 +32,7 @@ function toFindingMarker(finding: Finding): FindingMarker {
   return {
     id: finding.id,
     title: finding.title,
+    path: finding.anchor.path,
     lens: finding.lens,
     severity: finding.severity,
     riskClass: finding.riskClass ?? null,

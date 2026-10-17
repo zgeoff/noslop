@@ -2,7 +2,8 @@ import type { Disposition, PullRequestRef } from '@noslop/contract';
 import type { CheckOutcome } from './build-check-outcome';
 import { buildCheckOutcome } from './build-check-outcome';
 import { createFormsReplies } from './create-forms-replies';
-import type { GitHubClient } from './create-github-client';
+import type { GitHubClient, GitHubConnection } from './create-github-connection';
+import { readFixedFindings } from './read-fixed-findings';
 import type { PullRequestState } from './read-pull-request-state';
 import { readPullRequestState } from './read-pull-request-state';
 import { readThreadDispositions } from './read-thread-dispositions';
@@ -19,18 +20,21 @@ export interface GitHubCheckOptions {
 // sets the noslop check run on the pull request's head from what GitHub holds: it answers free-text
 // replies, reads every disposition, checks each deferral's issue, and passes or fails the check
 export async function runGitHubCheck(
-  client: GitHubClient,
+  connection: GitHubConnection,
   pr: PullRequestRef,
   options: GitHubCheckOptions,
 ): Promise<CheckOutcome> {
+  const client = connection.client;
+
   const state = await (options.state === undefined
-    ? readPullRequestState(client, pr)
+    ? readPullRequestState(connection, pr)
     : Promise.resolve(options.state));
 
   await createFormsReplies(client, pr, state.threads);
 
   const dispositions = await readThreadDispositions(client, pr, state.threads);
   const existingIssues = await readExistingIssues(client, pr, dispositions);
+  const fixChangesFile = await readFixedFindings(client, pr, state.threads, dispositions);
 
   const outcome = buildCheckOutcome({
     findings: state.threads.map((thread) => thread.marker),
@@ -39,6 +43,7 @@ export async function runGitHubCheck(
     currentHead: state.headSha,
     commits: state.commits,
     existingIssues,
+    fixChangesFile,
     failedReporters: options.failedReporters,
   });
 

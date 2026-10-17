@@ -6,6 +6,7 @@ import { z } from 'zod';
 export const findingMarkerSchema = z.strictObject({
   id: z.string().regex(/^[0-9a-f]{16}$/u),
   title: z.string().min(1),
+  path: z.string().min(1),
   lens: findingLensSchema,
   severity: severitySchema,
   riskClass: z.string().min(1).nullable(),

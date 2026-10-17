@@ -1,5 +1,5 @@
 import type { PullRequestRef } from '@noslop/contract';
-import type { GitHubClient } from './create-github-client';
+import type { GitHubClient } from './create-github-connection';
 import { DISPOSITION_FORMS } from './format-finding-comment';
 import { formatMarker } from './format-marker';
 import { parseDisposition } from './parse-disposition';

@@ -5,10 +5,11 @@ import { join } from 'node:path';
 import { getLogger } from '@logtape/logtape';
 import type { ReviewAdapter } from '@noslop/contract';
 import { reviewResultSchema } from '@noslop/contract';
-import { createGitHubClient, createGitHubReporter } from '@noslop/github';
+import { createGitHubConnection, createGitHubReporter } from '@noslop/github';
 import { createRunner } from '@noslop/runner';
 import { createSQLiteReporter } from '@noslop/sqlite';
 import {
+  STUB_APP_LOGIN,
   buildStubAdapter,
   buildStubAppKey,
   createTestRepo,
@@ -45,13 +46,13 @@ async function setupTest() {
           stdout.push(text);
         }),
         sqlite: createSQLiteReporter(join(dir, 'data', 'store.sqlite')),
-        github: createGitHubReporter({ loadClient }),
+        github: createGitHubReporter({ loadConnection }),
       })[id] ?? null,
-    loadGitHubClient: loadClient,
+    loadGitHubConnection: loadConnection,
   });
 
   const privateKey = buildStubAppKey();
-  const loadClient = () => createGitHubClient({ appID: 1, privateKey, installationID: 7 });
+  const loadConnection = () => createGitHubConnection({ appID: 1, privateKey, installationID: 7 });
 
   return { dir, stdout, stderr, buildContext };
 }
@@ -345,6 +346,37 @@ test('it reviews a pull request from GitHub and posts its findings and the check
   expect(githubCollections.checkRuns.all()).toMatchObject([
     { name: 'noslop', headSha: repo.commits[1] ?? '', conclusion: 'failure' },
   ]);
+});
+
+test('it sets the check of a pull request again from its replies', async () => {
+  const ctx = await setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    headSha: 'b'.repeat(40),
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${'b'.repeat(40)}","reviews":1,"reported":[],"failedCalls":0} -->`,
+  });
+
+  const code = await runCLI(
+    ['check', '--pr', '9', '--repo', 'example/app', '--json'],
+    ctx.buildContext(ctx.dir, buildStubAdapter({}).adapter),
+  );
+
+  const outcome: unknown = JSON.parse(ctx.stdout.join(''));
+
+  expect(code).toBe(0);
+  expect(outcome).toMatchObject({ conclusion: 'success' });
+  expect(githubCollections.checkRuns.all()).toMatchObject([{ conclusion: 'success' }]);
 });
 
 test('it puts an unknown option on stderr and keeps stdout empty', async () => {

@@ -1,6 +1,6 @@
 import type { Logger } from '@logtape/logtape';
 import type { Reporter, ReviewAdapter } from '@noslop/contract';
-import type { GitHubClient } from '@noslop/github';
+import type { GitHubConnection } from '@noslop/github';
 import type { Runner } from '@noslop/runner';
 
 // what each command reads from the world, so a test runs a command on a temp repo with its own
@@ -23,7 +23,7 @@ export interface CLIContext {
   // the reporter with the id, or null when noslop has none by that id
   createReporter: (id: string) => Reporter | null;
 
-  // a GitHub client, as the App's installation when the environment holds one
-  loadGitHubClient: () => Promise<GitHubClient>;
+  // a GitHub connection, as the App's installation when the environment holds one
+  loadGitHubConnection: () => Promise<GitHubConnection>;
   now?: () => Date;
 }

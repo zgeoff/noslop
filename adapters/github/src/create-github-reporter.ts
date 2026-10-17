@@ -1,15 +1,16 @@
 import type { Finding, PullRequestRef, Reporter, ReviewResult } from '@noslop/contract';
-import type { GitHubClient } from './create-github-client';
+import type { GitHubClient, GitHubConnection } from './create-github-connection';
 import { formatFindingComment } from './format-finding-comment';
 import type { FixConfirmation } from './format-summary-comment';
 import { formatSummaryComment } from './format-summary-comment';
+import { readFixedFindings } from './read-fixed-findings';
 import type { PullRequestState } from './read-pull-request-state';
 import { readPullRequestState } from './read-pull-request-state';
 import { readThreadDispositions } from './read-thread-dispositions';
 import { runGitHubCheck } from './run-github-check';
 
 export interface GitHubReporterOptions {
-  loadClient: () => Promise<GitHubClient>;
+  loadConnection: () => Promise<GitHubConnection>;
 }
 
 // a re-review after this many reviews of one pull request is past the one re-check
@@ -31,10 +32,15 @@ export function createGitHubReporter(options: GitHubReporterOptions): Reporter {
         );
       }
 
-      const client = await options.loadClient();
-      const before = await readPullRequestState(client, pr);
+      const connection = await options.loadConnection();
 
-      const posted = new Set(before.threads.map((thread) => thread.marker.id));
+      const client = connection.client;
+
+      const before = await readPullRequestState(connection, pr);
+
+      const filed = before.summary?.marker.followUps ?? [];
+
+      const posted = new Set([...before.threads.map((thread) => thread.marker.id), ...filed]);
 
       const reviews = (before.summary?.marker.reviews ?? 0) + 1;
       const fresh = result.findings.filter((finding) => !posted.has(finding.id));
@@ -58,23 +64,24 @@ export function createGitHubReporter(options: GitHubReporterOptions): Reporter {
 
       const confirmations = await buildConfirmations(client, pr, before, result);
 
+      const marker = {
+        head: result.head,
+        reviews,
+        reported: result.findings.map((finding) => finding.id),
+        failedCalls: result.failedCalls.length,
+        followUps: [...filed, ...followUps.map((finding) => finding.id)],
+      };
+
       await writeSummaryComment(
         client,
         pr,
         before,
-        formatSummaryComment(
-          result,
-          {
-            head: result.head,
-            reviews,
-            reported: result.findings.map((finding) => finding.id),
-            failedCalls: result.failedCalls.length,
-          },
-          confirmations,
-        ),
+        formatSummaryComment(result, marker, confirmations),
       );
 
-      const outcome = await runGitHubCheck(client, pr, { failedReporters: ctx.failedReporters });
+      const outcome = await runGitHubCheck(connection, pr, {
+        failedReporters: ctx.failedReporters,
+      });
 
       ctx.logger.info('the noslop check on {head}: {conclusion}', {
         head: result.head.slice(0, 12),
@@ -194,8 +201,8 @@ async function createFollowUpIssue(
   });
 }
 
-// a re-review confirms each finding whose latest disposition is `fixed`: fixed when this review no
-// longer reports it
+// a re-review confirms each finding whose latest disposition is `fixed`: fixed when the fix commit
+// changes the finding's file, so the re-review read it, and the re-review no longer reports it
 async function buildConfirmations(
   client: GitHubClient,
   pr: PullRequestRef,
@@ -203,6 +210,7 @@ async function buildConfirmations(
   result: ReviewResult,
 ): Promise<FixConfirmation[]> {
   const dispositions = await readThreadDispositions(client, pr, before.threads);
+  const changesFile = await readFixedFindings(client, pr, before.threads, dispositions);
 
   const latest = new Map(dispositions.map((item) => [item.findingID, item]));
   const reported = new Set(result.findings.map((finding) => finding.id));
@@ -212,7 +220,7 @@ async function buildConfirmations(
     .map((thread) => ({
       id: thread.marker.id,
       title: thread.marker.title,
-      fixed: !reported.has(thread.marker.id),
+      fixed: changesFile.has(thread.marker.id) && !reported.has(thread.marker.id),
     }));
 }
 

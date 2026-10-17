@@ -3,6 +3,7 @@ import { Collection } from '@msw/data';
 import { z } from 'zod';
 
 const lineNumbersSchema = z.array(z.int());
+const pathsSchema = z.array(z.string());
 
 // the state of the stand-in GitHub API: each collection holds one kind of record the API serves, and
 // a test seeds the records its case needs
@@ -20,13 +21,14 @@ export const githubCollections = {
     }),
   }),
 
-  // the commits of a pull request, oldest first
+  // the commits of a pull request, oldest first, with the files each one changes
   pullCommits: new Collection({
     schema: z.object({
       owner: z.string().default('example'),
       repo: z.string().default('app'),
       number: z.int().default(1),
       sha: z.string().default(buildSha),
+      files: pathsSchema.default(buildNoPaths),
     }),
   }),
 
@@ -141,4 +143,8 @@ function buildFilePath(): string {
 
 function buildFirstLine(): number[] {
   return [1];
+}
+
+function buildNoPaths(): string[] {
+  return [];
 }

@@ -1,4 +1,4 @@
-export * from './create-github-client';
+export * from './create-github-connection';
 export * from './create-github-disposition-source';
 export * from './create-github-file-reader';
 export * from './create-github-reporter';

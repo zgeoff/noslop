@@ -7,6 +7,7 @@ test('it passes when the review ran on the head and every finding holds a valid 
       {
         id: '1111111111111111',
         title: 'Await the write',
+        path: 'src/a.ts',
         lens: 'correctness',
         severity: 'P2',
         riskClass: null,
@@ -15,6 +16,7 @@ test('it passes when the review ran on the head and every finding holds a valid 
       {
         id: '2222222222222222',
         title: 'Name the retry',
+        path: 'src/b.ts',
         lens: 'naming-shape-and-comments',
         severity: 'P3',
         riskClass: null,
@@ -41,10 +43,11 @@ test('it passes when the review ran on the head and every finding holds a valid 
         at: '2026-10-17T10:01:00.000Z',
       },
     ],
-    summary: { head: 'f'.repeat(40), reviews: 2, reported: [], failedCalls: 0 },
+    summary: { head: 'f'.repeat(40), reviews: 2, reported: [], failedCalls: 0, followUps: [] },
     currentHead: 'f'.repeat(40),
     commits: ['abc1234'.padEnd(40, '0'), 'f'.repeat(40)],
     existingIssues: new Set(['#12']),
+    fixChangesFile: new Set(['1111111111111111']),
     failedReporters: [],
   });
 
@@ -62,6 +65,7 @@ test('it lists each finding whose disposition is not valid, with the reason', ()
       {
         id: '1111111111111111',
         title: 'Await the write',
+        path: 'src/a.ts',
         lens: 'correctness',
         severity: 'P2',
         riskClass: null,
@@ -70,6 +74,7 @@ test('it lists each finding whose disposition is not valid, with the reason', ()
       {
         id: '2222222222222222',
         title: 'Check the token',
+        path: 'src/auth.ts',
         lens: 'security',
         severity: 'P2',
         riskClass: null,
@@ -78,6 +83,7 @@ test('it lists each finding whose disposition is not valid, with the reason', ()
       {
         id: '3333333333333333',
         title: 'Keep the jobs',
+        path: 'src/jobs.ts',
         lens: 'correctness',
         severity: 'P1',
         riskClass: null,
@@ -86,6 +92,7 @@ test('it lists each finding whose disposition is not valid, with the reason', ()
       {
         id: '4444444444444444',
         title: 'Lock the row',
+        path: 'src/rows.ts',
         lens: 'correctness',
         severity: 'P2',
         riskClass: null,
@@ -94,6 +101,7 @@ test('it lists each finding whose disposition is not valid, with the reason', ()
       {
         id: '5555555555555555',
         title: 'Close the file',
+        path: 'src/files.ts',
         lens: 'correctness',
         severity: 'P3',
         riskClass: null,
@@ -138,10 +146,11 @@ test('it lists each finding whose disposition is not valid, with the reason', ()
         at: '2026-10-17T10:03:00.000Z',
       },
     ],
-    summary: { head: 'f'.repeat(40), reviews: 2, reported: [], failedCalls: 0 },
+    summary: { head: 'f'.repeat(40), reviews: 2, reported: [], failedCalls: 0, followUps: [] },
     currentHead: 'f'.repeat(40),
     commits: ['f'.repeat(40)],
     existingIssues: new Set(['#12']),
+    fixChangesFile: new Set(),
     failedReporters: [],
   });
 
@@ -171,12 +180,13 @@ test('it lists each finding whose disposition is not valid, with the reason', ()
   ]);
 });
 
-test('it fails a fixed finding that the re-review still finds, and a deferral to a missing issue', () => {
+test('it fails a fixed finding that the re-review still finds or whose commit misses its file', () => {
   const outcome = buildCheckOutcome({
     findings: [
       {
         id: '1111111111111111',
         title: 'Await the write',
+        path: 'src/a.ts',
         lens: 'correctness',
         severity: 'P2',
         riskClass: null,
@@ -184,7 +194,17 @@ test('it fails a fixed finding that the re-review still finds, and a deferral to
       },
       {
         id: '2222222222222222',
+        title: 'Lock the row',
+        path: 'src/rows.ts',
+        lens: 'correctness',
+        severity: 'P2',
+        riskClass: null,
+        writtenByChange: true,
+      },
+      {
+        id: '3333333333333333',
         title: 'Name the retry',
+        path: 'src/b.ts',
         lens: 'naming-shape-and-comments',
         severity: 'P3',
         riskClass: null,
@@ -203,6 +223,15 @@ test('it fails a fixed finding that the re-review still finds, and a deferral to
       },
       {
         findingID: '2222222222222222',
+        kind: 'fixed',
+        value: 'abc1234',
+        author: 'dev',
+        authorIsOwner: false,
+        source: 'github',
+        at: '2026-10-17T10:00:30.000Z',
+      },
+      {
+        findingID: '3333333333333333',
         kind: 'deferred',
         value: '#99',
         author: 'dev',
@@ -216,15 +245,18 @@ test('it fails a fixed finding that the re-review still finds, and a deferral to
       reviews: 2,
       reported: ['1111111111111111'],
       failedCalls: 0,
+      followUps: [],
     },
     currentHead: 'f'.repeat(40),
     commits: ['abc1234'.padEnd(40, '0'), 'f'.repeat(40)],
     existingIssues: new Set(),
+    fixChangesFile: new Set(['1111111111111111']),
     failedReporters: [],
   });
 
   expect(outcome.open.map((item) => item.reason)).toStrictEqual([
     'the re-review still finds it',
+    'the commit abc1234 does not change src/rows.ts',
     'the issue #99 does not exist',
   ]);
 });
@@ -233,10 +265,11 @@ test('it fails when no review ran on the current head, a call failed or a report
   const outcome = buildCheckOutcome({
     findings: [],
     dispositions: [],
-    summary: { head: 'e'.repeat(40), reviews: 1, reported: [], failedCalls: 2 },
+    summary: { head: 'e'.repeat(40), reviews: 1, reported: [], failedCalls: 2, followUps: [] },
     currentHead: 'f'.repeat(40),
     commits: [],
     existingIssues: new Set(),
+    fixChangesFile: new Set(),
     failedReporters: ['sqlite'],
   });
 
@@ -258,6 +291,7 @@ test('it judges a finding by its latest disposition', () => {
       {
         id: '1111111111111111',
         title: 'Await the write',
+        path: 'src/a.ts',
         lens: 'correctness',
         severity: 'P2',
         riskClass: null,
@@ -284,10 +318,11 @@ test('it judges a finding by its latest disposition', () => {
         at: '2026-10-17T11:00:00.000Z',
       },
     ],
-    summary: { head: 'f'.repeat(40), reviews: 1, reported: [], failedCalls: 0 },
+    summary: { head: 'f'.repeat(40), reviews: 1, reported: [], failedCalls: 0, followUps: [] },
     currentHead: 'f'.repeat(40),
     commits: ['f'.repeat(40)],
     existingIssues: new Set(),
+    fixChangesFile: new Set(),
     failedReporters: [],
   });
 

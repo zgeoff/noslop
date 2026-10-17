@@ -88,6 +88,32 @@ export const githubHandlers = [
     ),
   ),
 
+  http.get(`${GITHUB_API_URL}/app`, () =>
+    HttpResponse.json({ slug: STUB_APP_LOGIN.replace('[bot]', '') }),
+  ),
+
+  http.get<RepoParams & { ref: string }>(
+    `${GITHUB_API_URL}/repos/:owner/:repo/commits/:ref`,
+    (info) => {
+      const commit = githubCollections.pullCommits.findFirst((q) =>
+        q.where({
+          owner: info.params.owner,
+          repo: info.params.repo,
+          sha: (sha) => sha.startsWith(info.params.ref),
+        }),
+      );
+
+      if (commit === undefined) {
+        return buildNotFound();
+      }
+
+      return HttpResponse.json({
+        sha: commit.sha,
+        files: commit.files.map((filename) => ({ filename })),
+      });
+    },
+  ),
+
   http.get<PullParams>(`${GITHUB_API_URL}/repos/:owner/:repo/pulls/:number`, (info) => {
     const pull = githubCollections.pullRequests.findFirst((q) =>
       q.where({

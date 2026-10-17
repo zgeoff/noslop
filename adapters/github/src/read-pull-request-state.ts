@@ -1,6 +1,6 @@
 import type { PullRequestRef } from '@noslop/contract';
 import { z } from 'zod';
-import type { GitHubClient } from './create-github-client';
+import type { GitHubConnection } from './create-github-connection';
 import type { FindingMarker } from './finding-marker';
 import { findingMarkerSchema } from './finding-marker';
 import { parseMarker } from './parse-marker';
@@ -15,8 +15,8 @@ export interface Reply {
   at: string;
 }
 
-// one posted finding and the people's replies to it; a finding GitHub could not anchor in the diff
-// sits in an issue comment, and a reply to it is an issue comment whose first line starts with its id
+// one posted finding and the replies to it; a finding GitHub could not anchor in the diff sits in an
+// issue comment, and a reply to it is an issue comment whose first line starts with its id
 export interface FindingThread {
   source: 'review' | 'issue';
   commentID: number;
@@ -40,12 +40,13 @@ export interface PullRequestState {
 const formsMarkerSchema = z.strictObject({ replyID: z.int() });
 
 // everything noslop keeps on a pull request, read back from GitHub: its commits, each finding thread
-// with its replies, and the summary of the latest review; a comment by a bot is noslop's own only when
-// it holds a marker
+// with its replies, and the summary of the latest review; only a comment by noslop's own App holds
+// state, and a comment by anyone else, another bot included, is a reply
 export async function readPullRequestState(
-  client: GitHubClient,
+  connection: GitHubConnection,
   pr: PullRequestRef,
 ): Promise<PullRequestState> {
+  const client = connection.client;
   const params = { owner: pr.owner, repo: pr.repo };
 
   const pull = await client.request('GET /repos/{owner}/{repo}/pulls/{pull_number}', {
@@ -82,11 +83,14 @@ export async function readPullRequestState(
     return response.data;
   });
 
+  const isOwn = (comment: GitHubComment) =>
+    connection.appLogin !== null && comment.user?.login === connection.appLogin;
+
   const threads = new Map<number, FindingThread>();
   const byFindingID = new Map<string, FindingThread>();
 
   for (const comment of reviewComments) {
-    const marker = isBot(comment.user)
+    const marker = isOwn(comment)
       ? parseMarker('finding', findingMarkerSchema, comment.body)
       : null;
 
@@ -105,7 +109,7 @@ export async function readPullRequestState(
       continue;
     }
 
-    if (!isBot(comment.user)) {
+    if (!isOwn(comment)) {
       thread.replies.push(toReply(comment, comment.body));
       continue;
     }
@@ -119,12 +123,17 @@ export async function readPullRequestState(
 
   let summary: PullRequestState['summary'] = null;
 
+  const answeredInIssue = new Set<number>();
+
+  const issueReplies: { id: string; reply: Reply }[] = [];
+
   for (const comment of issueComments) {
     const body = comment.body ?? '';
 
-    if (isBot(comment.user)) {
+    if (isOwn(comment)) {
       const marker = parseMarker('finding', findingMarkerSchema, body);
       const summaryMarker = parseMarker('summary', summaryMarkerSchema, body);
+      const forms = parseMarker('forms', formsMarkerSchema, body);
 
       if (marker !== null) {
         byFindingID.set(marker.id, buildThread('issue', Number(comment.id), marker));
@@ -134,15 +143,33 @@ export async function readPullRequestState(
         summary = { commentID: Number(comment.id), marker: summaryMarker };
       }
 
+      if (forms !== null) {
+        answeredInIssue.add(forms.replyID);
+      }
+
       continue;
     }
 
     const match = /^(?<id>[0-9a-f]{16})\s+(?<reply>.+)$/su.exec(body.trim());
-    const thread = byFindingID.get(match?.groups?.['id'] ?? '');
+    const id = match?.groups?.['id'];
     const reply = match?.groups?.['reply'];
 
-    if (thread?.source === 'issue' && reply !== undefined) {
-      thread.replies.push(toReply(comment, reply));
+    if (id !== undefined && reply !== undefined) {
+      issueReplies.push({ id, reply: toReply(comment, reply) });
+    }
+  }
+
+  for (const item of issueReplies) {
+    const thread = byFindingID.get(item.id);
+
+    if (thread?.source === 'issue') {
+      thread.replies.push(item.reply);
+    }
+  }
+
+  for (const thread of byFindingID.values()) {
+    if (thread.source === 'issue') {
+      thread.answered = new Set([...thread.answered, ...answeredInIssue]);
     }
   }
 
@@ -157,22 +184,18 @@ export async function readPullRequestState(
   };
 }
 
+interface GitHubComment {
+  id: number | bigint;
+  user?: { login: string } | null;
+  created_at?: string;
+}
+
 function buildThread(
   source: FindingThread['source'],
   commentID: number,
   marker: FindingMarker,
 ): FindingThread {
   return { source, commentID, marker, replies: [], answered: new Set() };
-}
-
-function isBot(user: { type?: string } | null | undefined): boolean {
-  return user?.type === 'Bot';
-}
-
-interface GitHubComment {
-  id: number | bigint;
-  user?: { login: string } | null;
-  created_at?: string;
 }
 
 function toReply(comment: GitHubComment, body: string): Reply {

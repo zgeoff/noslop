@@ -1,15 +1,17 @@
 import type { ReadRemoteFile } from '@noslop/config';
-import type { GitHubClient } from './create-github-client';
+import type { GitHubConnection } from './create-github-connection';
 
 export interface GitHubFileReaderOptions {
-  loadClient: () => Promise<GitHubClient>;
+  loadConnection: () => Promise<GitHubConnection>;
 }
 
 // reads a config file of a `github:` extends from GitHub's contents API, at its ref or the repo's
 // default branch; a missing file reads as null, and any other refusal throws
 export function createGitHubFileReader(options: GitHubFileReaderOptions): ReadRemoteFile {
   return async (location) => {
-    const client = await options.loadClient();
+    const connection = await options.loadConnection();
+
+    const client = connection.client;
 
     try {
       const response = await client.request('GET /repos/{owner}/{repo}/contents/{path}', {

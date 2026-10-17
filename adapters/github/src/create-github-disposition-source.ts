@@ -1,10 +1,10 @@
 import type { DispositionSource } from '@noslop/contract';
-import type { GitHubClient } from './create-github-client';
+import type { GitHubConnection } from './create-github-connection';
 import { readPullRequestState } from './read-pull-request-state';
 import { readThreadDispositions } from './read-thread-dispositions';
 
 export interface GitHubDispositionSourceOptions {
-  loadClient: () => Promise<GitHubClient>;
+  loadConnection: () => Promise<GitHubConnection>;
 }
 
 // the typed replies in the finding threads of a pull request, as dispositions for the findings store
@@ -14,10 +14,10 @@ export function createGitHubDispositionSource(
   return {
     id: 'github',
     readDispositions: async (review) => {
-      const client = await options.loadClient();
-      const state = await readPullRequestState(client, review.pullRequest);
+      const connection = await options.loadConnection();
+      const state = await readPullRequestState(connection, review.pullRequest);
 
-      return readThreadDispositions(client, review.pullRequest, state.threads);
+      return readThreadDispositions(connection.client, review.pullRequest, state.threads);
     },
   };
 }

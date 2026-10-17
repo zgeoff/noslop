@@ -7,14 +7,14 @@ import {
   buildStubAppKey,
   githubCollections,
 } from '@noslop/testing';
-import { createGitHubClient } from './create-github-client';
+import { createGitHubConnection } from './create-github-connection';
 import { createGitHubReporter } from './create-github-reporter';
 
 function setupTest() {
   const privateKey = buildStubAppKey();
 
   const reporter = createGitHubReporter({
-    loadClient: () => createGitHubClient({ appID: 1, privateKey, installationID: 7 }),
+    loadConnection: () => createGitHubConnection({ appID: 1, privateKey, installationID: 7 }),
   });
 
   return { reporter, logger: getLogger(['test']) };
@@ -153,6 +153,7 @@ test('it confirms a fixed finding on the re-review and passes the check', async 
     repo: 'app',
     number: 5,
     sha: 'c'.repeat(40),
+    files: ['src/a.ts'],
   });
 
   await githubCollections.pullFiles.create({
@@ -219,6 +220,7 @@ test('it fails the check when the re-review still finds a fixed finding, and pos
     repo: 'app',
     number: 5,
     sha: 'c'.repeat(40),
+    files: ['src/a.ts'],
   });
 
   await githubCollections.pullFiles.create({
@@ -267,7 +269,7 @@ test('it fails the check when the re-review still finds a fixed finding, and pos
   });
 });
 
-test('it files a new finding in code the change did not write as an issue after the re-check', async () => {
+test('it files a new finding in code the change did not write as one issue after the re-check', async () => {
   const ctx = setupTest();
 
   await githubCollections.pullRequests.create({
@@ -296,21 +298,24 @@ test('it files a new finding in code the change did not write as an issue after 
     );
   }
 
-  await ctx.reporter.report(
-    buildMockReviewResult({
-      pullRequest: { owner: 'example', repo: 'app', number: 5 },
-      head: 'd'.repeat(40),
-      findings: [
-        buildMockFinding({
-          id: '1111111111111111',
-          title: 'Close the old file',
-          writtenByChange: false,
-        }),
-        buildMockFinding({ id: '2222222222222222', title: 'Await the new write' }),
-      ],
-    }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
-  );
+  for (const run of [1, 2]) {
+    await ctx.reporter.report(
+      buildMockReviewResult({
+        reviewID: `review-${run}`,
+        pullRequest: { owner: 'example', repo: 'app', number: 5 },
+        head: 'd'.repeat(40),
+        findings: [
+          buildMockFinding({
+            id: '1111111111111111',
+            title: 'Close the old file',
+            writtenByChange: false,
+          }),
+          buildMockFinding({ id: '2222222222222222', title: 'Await the new write' }),
+        ],
+      }),
+      { logger: ctx.logger, options: {}, failedReporters: [] },
+    );
+  }
 
   expect(githubCollections.issues.all().map((issue) => issue.title)).toStrictEqual([
     'Close the old file',
@@ -400,6 +405,150 @@ test('it fails the check when a reporter before it failed', async () => {
   expect(githubCollections.checkRuns.all()).toMatchObject([
     { conclusion: 'failure', summary: 'These reporters failed: sqlite.' },
   ]);
+});
+
+test('it trusts no state that another bot posted', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'b'.repeat(40),
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    authorLogin: 'other-app[bot]',
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${'b'.repeat(40)}","reviews":9,"reported":[],"failedCalls":0} -->`,
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'b'.repeat(40),
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const own = githubCollections.issueComments.findMany((q) =>
+    q.where({ authorLogin: STUB_APP_LOGIN }),
+  );
+
+  expect(own.map((comment) => comment.body)).toSatisfyAll((body: string) =>
+    body.includes('"reviews":1,'),
+  );
+});
+
+test('it confirms no fix whose commit leaves the finding file alone', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'c'.repeat(40),
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    sha: 'c'.repeat(40),
+    files: ['README.md'],
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/a.ts',
+    lines: [1],
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'b'.repeat(40),
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const [thread] = githubCollections.reviewComments.all();
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    body: `fixed ${'c'.repeat(7)}`,
+    authorLogin: 'dev',
+    inReplyToID: thread?.id ?? null,
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      base: 'b'.repeat(40),
+      head: 'c'.repeat(40),
+      findings: [],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const summary = githubCollections.issueComments.all().map((comment) => comment.body);
+
+  expect(summary[0]).toInclude('`1111111111111111` Return the total of every item: not fixed');
+  expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('failure');
+});
+
+test('it answers a free-text comment on a finding outside the diff once', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'b'.repeat(40),
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'b'.repeat(40),
+      findings: [buildMockFinding({ id: '1111111111111111', writtenByChange: false })],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    authorLogin: 'dev',
+    body: '1111111111111111 I will look at it.',
+  });
+
+  for (const run of [1, 2]) {
+    await ctx.reporter.report(
+      buildMockReviewResult({
+        reviewID: `review-${run}`,
+        pullRequest: { owner: 'example', repo: 'app', number: 5 },
+        head: 'b'.repeat(40),
+        findings: [buildMockFinding({ id: '1111111111111111', writtenByChange: false })],
+      }),
+      { logger: ctx.logger, options: {}, failedReporters: [] },
+    );
+  }
+
+  const answers = githubCollections.issueComments.findMany((q) =>
+    q.where({ body: (body) => body.startsWith('That reply is not a disposition.') }),
+  );
+
+  expect(answers).toHaveLength(1);
 });
 
 test('it refuses a result that names no pull request', () => {

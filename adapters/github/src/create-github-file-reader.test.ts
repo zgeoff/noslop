@@ -1,10 +1,12 @@
 import { expect, test } from 'bun:test';
 import { githubCollections } from '@noslop/testing';
-import { createGitHubClient } from './create-github-client';
+import { createGitHubConnection } from './create-github-connection';
 import { createGitHubFileReader } from './create-github-file-reader';
 
 function setupTest() {
-  return { read: createGitHubFileReader({ loadClient: () => createGitHubClient(null) }) };
+  return {
+    read: createGitHubFileReader({ loadConnection: () => createGitHubConnection(null) }),
+  };
 }
 
 test('it reads a config file from a repo at its ref', async () => {

@@ -7,6 +7,6 @@ import type { CLIContext } from './cli-context';
 export function loadRepoConfig(ctx: CLIContext, repoDir: string): Promise<LoadedConfig> {
   return loadConfig({
     repoDir,
-    readRemoteFile: createGitHubFileReader({ loadClient: ctx.loadGitHubClient }),
+    readRemoteFile: createGitHubFileReader({ loadConnection: ctx.loadGitHubConnection }),
   });
 }

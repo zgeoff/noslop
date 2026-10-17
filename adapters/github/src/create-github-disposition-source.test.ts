@@ -1,14 +1,14 @@
 import { expect, test } from 'bun:test';
 import { getLogger } from '@logtape/logtape';
 import { STUB_APP_LOGIN, buildStubAppKey, githubCollections } from '@noslop/testing';
-import { createGitHubClient } from './create-github-client';
+import { createGitHubConnection } from './create-github-connection';
 import { createGitHubDispositionSource } from './create-github-disposition-source';
 
 function setupTest() {
   const privateKey = buildStubAppKey();
 
   const source = createGitHubDispositionSource({
-    loadClient: () => createGitHubClient({ appID: 1, privateKey, installationID: 7 }),
+    loadConnection: () => createGitHubConnection({ appID: 1, privateKey, installationID: 7 }),
   });
 
   return { source, logger: getLogger(['test']) };
@@ -32,7 +32,7 @@ test('it reads the typed replies of each finding thread and whether their author
     number: 5,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: '**P2 · CONFIRMED** Await the write\n<!-- noslop:finding {"id":"1111111111111111","title":"Await the write","lens":"correctness","severity":"P2","riskClass":null,"writtenByChange":true} -->',
+    body: '**P2 · CONFIRMED** Await the write\n<!-- noslop:finding {"id":"1111111111111111","title":"Await the write","path":"src/a.ts","lens":"correctness","severity":"P2","riskClass":null,"writtenByChange":true} -->',
   });
 
   await githubCollections.reviewComments.create({
@@ -87,7 +87,7 @@ test('it ignores a marker that a person pasted into their own comment', async ()
     repo: 'app',
     number: 5,
     authorLogin: 'dev',
-    body: '<!-- noslop:finding {"id":"1111111111111111","title":"Await the write","lens":"correctness","severity":"P2","riskClass":null,"writtenByChange":true} -->',
+    body: '<!-- noslop:finding {"id":"1111111111111111","title":"Await the write","path":"src/a.ts","lens":"correctness","severity":"P2","riskClass":null,"writtenByChange":true} -->',
   });
 
   await githubCollections.reviewComments.create({

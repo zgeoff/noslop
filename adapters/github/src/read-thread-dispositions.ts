@@ -1,5 +1,5 @@
 import type { Disposition, PullRequestRef } from '@noslop/contract';
-import type { GitHubClient } from './create-github-client';
+import type { GitHubClient } from './create-github-connection';
 import { parseDisposition } from './parse-disposition';
 import type { FindingThread } from './read-pull-request-state';
 

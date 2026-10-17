@@ -13,6 +13,9 @@ export interface CheckOutcomeInput {
 
   // the values of the `deferred` dispositions whose issue exists
   existingIssues: ReadonlySet<string>;
+
+  // the findings whose `fixed` commit changes the finding's file
+  fixChangesFile: ReadonlySet<string>;
   failedReporters: readonly string[];
 }
 
@@ -104,6 +107,10 @@ function findFixedReason(
 ): string | null {
   if (!input.commits.some((sha) => sha.startsWith(commit))) {
     return `the commit ${commit} is not on the branch`;
+  }
+
+  if (!input.fixChangesFile.has(finding.id)) {
+    return `the commit ${commit} does not change ${finding.path}`;
   }
 
   if (input.summary?.reported.includes(finding.id) === true) {

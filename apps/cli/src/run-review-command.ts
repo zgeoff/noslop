@@ -158,10 +158,12 @@ async function resolvePullRequestChange(
 
   const pullRequest = { owner, repo: name, number };
 
-  const client = await ctx.loadGitHubClient();
-  const state = await readPullRequestState(client, pullRequest);
+  const connection = await ctx.loadGitHubConnection();
+  const state = await readPullRequestState(connection, pullRequest);
 
-  const reviewed = state.summary?.marker.head ?? null;
+  // only a review with no failed call covered its head, so only such a head bases a delta
+  const summary = state.summary?.marker;
+  const reviewed = summary !== undefined && summary.failedCalls === 0 ? summary.head : null;
 
   await ctx.runner.run(
     [

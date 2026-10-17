@@ -13,6 +13,18 @@ test('it reads back the state that a marker holds, a title that ends a comment i
   });
 });
 
+test('it writes no comment end inside a marker, so a title holding } --> reads back whole', () => {
+  const marker = formatMarker('finding', { id: 'a', title: 'Escape } --> in markers' });
+  const schema = z.object({ id: z.string(), title: z.string() });
+
+  expect(marker).not.toInclude('} -->"');
+
+  expect(parseMarker('finding', schema, marker)).toStrictEqual({
+    id: 'a',
+    title: 'Escape } --> in markers',
+  });
+});
+
 test('it returns null for a comment with no marker of the kind', () => {
   expect(parseMarker('summary', z.object({}), formatMarker('finding', { id: 'a' }))).toBeNull();
 });
