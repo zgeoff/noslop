@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { basename, isAbsolute, join, normalize } from 'node:path';
+import { basename, dirname, isAbsolute, join, normalize } from 'node:path';
 import type { ReviewConfig, Rule, RulesFile } from '@noslop/contract';
 import { reviewConfigSchema } from '@noslop/contract';
 import { BUILT_IN_DEFAULTS } from './built-in-defaults';
@@ -150,9 +150,10 @@ function parseConfigFile(text: string, label: string): Record<string, unknown> {
   return { ...value };
 }
 
-// a config file writes one path or a list of paths and rules files; each path resolves against the
-// file that names it, and keeps the path as written for its label; a shape the schema refuses passes
-// through for the schema to report
+const REPO_PREFIX = 'repo:';
+
+// each path resolves against the file that names it and keeps its written form as its label; a
+// `repo:` path resolves at load time against the reviewed repo, which a shared config cannot know
 function resolveRulesFiles(raw: unknown, from: ConfigLocation): unknown[] {
   return (Array.isArray(raw) ? raw : [raw]).map((entry: unknown) => resolveRulesFile(entry, from));
 }
@@ -175,7 +176,9 @@ function resolveRulesFile(entry: unknown, from: ConfigLocation): unknown {
   return {
     label: buildRulesLabel(path),
     ...entry,
-    path: formatConfigLocation(parseConfigLocation(path, from, CONFIG_FILE)),
+    path: path.startsWith(REPO_PREFIX)
+      ? path
+      : formatConfigLocation(parseConfigLocation(path, from, CONFIG_FILE)),
   };
 }
 
@@ -186,6 +189,10 @@ function buildRulesLabel(path: string): string {
     return path;
   }
 
+  if (path.startsWith(REPO_PREFIX)) {
+    return normalize(path.slice(REPO_PREFIX.length));
+  }
+
   return isAbsolute(path) ? basename(path) : normalize(path);
 }
 
@@ -193,35 +200,84 @@ interface RulesSource {
   label: string;
   text: string;
   skip: readonly string[];
+  paths: readonly string[] | null;
 }
 
+// each rules file, then each of its references; a reference resolves against its file, and its
+// label sits beside the file's label, so one reference name under 2 files keeps 2 labels
 function readRulesSources(
   files: readonly RulesFile[],
   options: LoadConfigOptions,
 ): Promise<RulesSource[]> {
-  return Promise.all(
-    files.map(async (file) => {
-      // the chain has resolved each path against the file that names it already
-      const location: ConfigLocation = file.path.startsWith('github:')
-        ? parseConfigLocation(file.path, { kind: 'local', path: file.path }, CONFIG_FILE)
-        : { kind: 'local', path: file.path };
+  const sources = files.flatMap((file) => {
+    const label = file.label ?? buildRulesLabel(file.path);
+    const location = resolveRulesLocation(file.path, options);
+    const skip = file.skip ?? [];
 
-      const text = await readLocation(location, options);
+    return [
+      { location, label, skip, paths: null },
+      ...Object.entries(file.references ?? {}).map(([reference, paths]) => ({
+        location: parseConfigLocation(
+          requireInnerPath(reference, 'reference'),
+          location,
+          CONFIG_FILE,
+        ),
+        label: normalize(join(dirname(label), reference)),
+        skip,
+        paths,
+      })),
+    ];
+  });
+
+  return Promise.all(
+    sources.map(async (source) => {
+      const text = await readLocation(source.location, options);
 
       if (text === null) {
-        throw new Error(`the rules file ${file.path} does not exist`);
+        throw new Error(`the rules file ${source.label} does not exist`);
       }
 
-      return { label: file.label ?? file.path, text, skip: file.skip ?? [] };
+      return { label: source.label, text, skip: source.skip, paths: source.paths };
     }),
   );
+}
+
+// the chain has resolved each path but a `repo:` one against the file that names it already
+function resolveRulesLocation(path: string, options: LoadConfigOptions): ConfigLocation {
+  if (path.startsWith(REPO_PREFIX)) {
+    const inner = requireInnerPath(path.slice(REPO_PREFIX.length), 'repo: path');
+
+    return { kind: 'local', path: join(options.repoDir, inner) };
+  }
+
+  if (path.startsWith('github:')) {
+    return parseConfigLocation(path, { kind: 'local', path }, CONFIG_FILE);
+  }
+
+  return { kind: 'local', path };
+}
+
+// a repo: path stays inside the reviewed repo and a reference beside its file, so neither reads a
+// file of the host, and neither puts a host folder into a rule's name
+function requireInnerPath(path: string, kind: string): string {
+  const inner = normalize(path);
+
+  if (isAbsolute(inner) || inner === '..' || inner.startsWith('../')) {
+    throw new Error(`the rules ${kind} ${path} leaves the folder it is relative to`);
+  }
+
+  return inner;
 }
 
 // a skipped heading names a section that holds no rule, such as how to load a skill
 function buildRules(source: RulesSource): Rule[] {
   return parseRulesFile(source.text)
     .filter((section) => !source.skip.includes(section.name))
-    .map((section) => ({ name: `${source.label}: ${section.name}`, body: section.body }));
+    .map((section) => ({
+      name: `${source.label}: ${section.name}`,
+      body: section.body,
+      paths: source.paths,
+    }));
 }
 
 async function readLocation(

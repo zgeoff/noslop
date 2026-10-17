@@ -81,12 +81,15 @@ export const reporterOptionsSchema = z.strictObject({
 
 export type ReporterOptions = z.infer<typeof reporterOptionsSchema>;
 
-// one rules file: the skipped headings name sections that hold no rule, and the label prefixes the
-// name of each rule the file holds; the label is the path as a config file wrote it unless that file
-// names one
+// the path globs that gate one reference: its rules load only for a change that touches a match
+const referenceGlobsSchema = z.array(z.string().min(1)).min(1);
+
+// one rules file and the references beside it; the skipped headings hold no rule, and the label
+// prefixes each rule's name, the path as written unless the config names one
 export const rulesFileSchema = z.strictObject({
   path: z.string().min(1),
   label: z.string().min(1).optional(),
+  references: z.record(z.string().min(1), referenceGlobsSchema).optional(),
   skip: z.array(z.string().min(1)).optional(),
 });
 

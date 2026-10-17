@@ -14,20 +14,6 @@ them. Each level-2 or level-3 heading names one rule, and the lines up to the ne
 its body. A heading inside a code block is example text, so a rule can show a Markdown example
 without splitting itself in two. Text before the first heading belongs to no rule.
 
-A rule's name is its file's label, then a colon, then its heading, such as
-`.claude/skills/testing/SKILL.md: Loops`. The label is the path as the config wrote it, so 2 files
-in a list can each hold a rule under one heading. A list entry can skip headings, so a skill serves
-as a rules file unchanged: its sections on how to load it, or its index of rules, hold no rule.
-
-```json
-{
-  "rules": [
-    { "path": ".claude/skills/code-style/SKILL.md", "skip": ["Key rules", "Loading the skill"] },
-    ".claude/skills/testing/SKILL.md"
-  ]
-}
-```
-
 ```markdown
 ## Context goes last
 
@@ -35,11 +21,37 @@ as a rules file unchanged: its sections on how to load it, or its index of rules
 2. A framework signature such as `(ctx, next)` is exempt.
 ```
 
-A call whose lenses read the rules file carries every rule, each under its name, and
-[the lenses](./lenses.md) covers which lenses read it. A taste finding names one rule by its full
-name, and Assemble drops a taste finding whose rule no file holds, as [findings](./findings.md)
-describes. A repo with no rules file gets a prompt that tells the lenses to report no taste finding,
-so the taste lenses still check generic concerns.
+A rule's name is its file's label, then a colon, then its heading, such as
+`.claude/skills/testing/SKILL.md: Loops`. The label is the path as the config wrote it, so 2 files
+in a list can each hold a rule under one heading. A list entry can skip headings, so a skill serves
+as a rules file unchanged: its sections on how to load it, or its index of rules, hold no rule.
+
+A list entry can name references: files beside it, each with the path globs it applies to. A
+reference's rules reach a review only when the change touches a path that one of its globs matches,
+so a rule for Nix files costs a TypeScript change nothing. A file's skip list applies to its
+references too.
+
+A path that starts with `repo:` resolves against the root of the reviewed repo, not the config file
+that names it. A shared config in its own repo names the skills that every repo holds this way.
+
+```json
+{
+  "rules": [
+    {
+      "path": "repo:.claude/skills/testing/SKILL.md",
+      "references": { "references/nixos.md": ["**/*.nix"] },
+      "skip": ["Key rules", "References", "Loading the skill"]
+    },
+    "repo:.claude/skills/code-style/SKILL.md"
+  ]
+}
+```
+
+A call whose lenses read the rules file carries every rule that applies to the change, each under
+its name, and [the lenses](./lenses.md) covers which lenses read it. A taste finding names one rule
+by its full name, and Assemble drops a taste finding whose rule no file holds, as
+[findings](./findings.md) describes. A repo with no rules file gets a prompt that tells the lenses
+to report no taste finding, so the taste lenses still check generic concerns.
 
 ## Stack patterns
 

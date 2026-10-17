@@ -44,10 +44,13 @@ The merged config is validated once, after the merge, because a single file is o
 config. A key the schema does not know fails the load, with the dotted path of the key, so a typo
 never passes as an empty setting.
 
-The `rules` value is one path, or a list whose entries are paths or objects with a `path` and a
-`skip` list of headings. Each path resolves against the file that names it, as `extends` does, so a
-parent in a shared config repo can name a rules file that sits beside it. The module reads each
-file, parses it into named rules, and drops the sections whose headings the entry skips.
+The `rules` value is one path, or a list whose entries are paths or objects with a `path`, a
+`references` map and a `skip` list of headings. Each path resolves against the file that names it,
+as `extends` does, so a parent in a shared config repo can name a rules file that sits beside it. A
+`repo:` path resolves against the reviewed repo instead, so that parent can name a file each repo
+holds. The module reads each file and its references, parses them into named rules, and drops the
+sections whose headings the entry skips. [Your own rules](./your-own-rules.md) covers how a review
+picks the rules that apply to its change.
 
 ## What a review records
 

@@ -22,7 +22,8 @@ The config holds:
   names and import sources.
 - **Rules files:** one Markdown file of named taste rules, or a list of them, such as a repo's
   skills. Each rule's name holds its file and its heading, and an entry can skip the headings that
-  hold no rule.
+  hold no rule. An entry's references load only for a change that touches the paths they name, and a
+  `repo:` path names a file in the reviewed repo.
 - **Model and effort per lens,** which override the depth's default.
 - **The call grouping,** under [0008](0008-stacking-lenses-into-calls.md).
 
@@ -49,3 +50,6 @@ The config holds:
 - 2026-10-18: `rules` takes a list of files as well as one file, with a list of headings to skip for
   each, so a repo's skills serve as its rules unchanged. A rule's name holds its file, so 2 files
   can each hold a rule under one heading.
+- 2026-10-18: a rules file names references that load only when the change touches their path globs,
+  and a `repo:` path resolves against the reviewed repo, so one shared config can point every repo
+  at its own synced skills.

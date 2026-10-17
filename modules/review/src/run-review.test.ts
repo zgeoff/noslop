@@ -817,3 +817,61 @@ test('it runs only the group calls on a risk class change that holds no finding'
     ['B', ['security'], 'ok'],
   ]);
 });
+
+test('it gives the calls only the reference rules whose globs match a changed path', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
+    {
+      message: 'head',
+      files: {
+        'src/total.ts': [
+          'export const zero = 0;',
+          '',
+          'export function total(items: number[]): number {',
+          '  return items.reduce((sum, item) => sum + item, 0);',
+          '}',
+          '',
+        ].join('\n'),
+      },
+    },
+  ]);
+
+  const stub = buildStubAdapter({
+    L: [{ findings: { correctness: [], 'naming-shape-and-comments': [], tests: [] } }],
+  });
+
+  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+
+  await runReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/total',
+    base: repo.commits[0] ?? '',
+    head: repo.commits[1] ?? '',
+    config: BUILT_IN_DEFAULTS,
+    configHash: 'hash',
+    rules: [
+      { name: 'SKILL.md: Naming', body: '1. Start with a verb.', paths: null },
+      { name: 'references/ts.md: Types', body: '1. Name each type.', paths: ['**/*.ts'] },
+      { name: 'references/nix.md: VM tests', body: '1. Boot once.', paths: ['**/*.nix'] },
+    ],
+    adapter: stub.adapter,
+    logger: ctx.logger,
+    tempDir: join(ctx.dir, 'temp'),
+    cacheDir: null,
+    title: 'Add one',
+    body: '',
+    linkedIssue: null,
+    pullRequest: null,
+    isPush: false,
+    pastEscapes: [],
+  });
+
+  const prompt = stub.requests[0]?.prompt ?? '';
+
+  expect(prompt).toInclude('### SKILL.md: Naming');
+  expect(prompt).toInclude('### references/ts.md: Types');
+  expect(prompt).not.toInclude('references/nix.md');
+});

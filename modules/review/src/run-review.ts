@@ -9,6 +9,7 @@ import type {
   ReviewAdapter,
   ReviewConfig,
   ReviewResult,
+  Rule,
 } from '@noslop/contract';
 import { REVIEW_OUTPUT_VERSION } from '@noslop/contract';
 import type { AssembledFindings, DropReason, RawFinding } from '@noslop/findings';
@@ -18,7 +19,7 @@ import type { Runner } from '@noslop/runner';
 import type { StaticStageResult } from '@noslop/static-stage';
 import { planReview } from './plan-review';
 import { runMergePass } from './run-merge-pass';
-import type { CallBatch, CallBatchInput } from './run-planned-calls';
+import type { CallBatch } from './run-planned-calls';
 import { runPlannedCalls } from './run-planned-calls';
 
 export interface RunReviewOptions {
@@ -29,7 +30,7 @@ export interface RunReviewOptions {
   head: string;
   config: ReviewConfig;
   configHash: string;
-  rules: CallBatchInput['rules'];
+  rules: readonly Rule[] | null;
   adapter: ReviewAdapter;
   logger: Logger;
 
@@ -75,6 +76,7 @@ export async function runReview(options: RunReviewOptions): Promise<ReviewRun> {
     route: plan.route,
     worktree: join(options.tempDir, 'head'),
     staticRaw: stage.findings.map((finding) => ({ lens: 'static', callID: null, finding })),
+    rules: collectChangeRules(options.rules, change),
   };
 
   const batches = await runCalls(ctx);
@@ -130,6 +132,26 @@ interface PassContext {
   route: Route;
   worktree: string;
   staticRaw: RawFinding[];
+
+  // the rules that apply to the change: every rule but a reference's, which needs a changed path
+  // that one of its globs matches
+  rules: readonly Rule[] | null;
+}
+
+function collectChangeRules(rules: readonly Rule[] | null, change: Change): Rule[] | null {
+  if (rules === null) {
+    return null;
+  }
+
+  return rules.filter(
+    (rule) =>
+      rule.paths === null ||
+      rule.paths.some((glob) => {
+        const matcher = new Bun.Glob(glob);
+
+        return change.files.some((file) => matcher.match(file.path));
+      }),
+  );
 }
 
 // one call per fired lens group, at the effort of the route's depth; a route with no calls runs none,
@@ -209,7 +231,7 @@ function runBatch(ctx: PassContext, calls: readonly PlannedCall[]): Promise<Call
     tempDir: ctx.options.tempDir,
     logger: ctx.options.logger,
     slices: ctx.stage.slices,
-    rules: ctx.options.rules,
+    rules: ctx.rules,
     title: ctx.options.title,
     body: ctx.options.body,
     linkedIssue: ctx.options.linkedIssue,
@@ -223,7 +245,7 @@ function buildAssembled(ctx: PassContext, batches: readonly CallBatch[]): Assemb
   return buildFindings({
     raw: [...ctx.staticRaw, ...batches.flatMap((batch) => batch.raw)],
     files: ctx.change.files,
-    ruleNames: (ctx.options.rules ?? []).map((rule) => rule.name),
+    ruleNames: (ctx.rules ?? []).map((rule) => rule.name),
     riskClasses: ctx.stage.signals.riskClasses,
     config: ctx.options.config,
   });
