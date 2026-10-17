@@ -21,6 +21,19 @@
         "typescript": "7.0.2",
       },
     },
+    "adapters/claude": {
+      "name": "@noslop/claude",
+      "version": "0.0.0",
+      "dependencies": {
+        "@noslop/contract": "workspace:*",
+        "@noslop/runner": "workspace:*",
+        "zod": "catalog:",
+      },
+      "devDependencies": {
+        "@logtape/logtape": "catalog:",
+        "@noslop/testing": "workspace:*",
+      },
+    },
     "adapters/codex": {
       "name": "@noslop/codex",
       "version": "0.0.0",
@@ -28,8 +41,10 @@
         "@noslop/contract": "workspace:*",
         "@noslop/eval": "workspace:*",
         "@noslop/runner": "workspace:*",
+        "zod": "catalog:",
       },
       "devDependencies": {
+        "@logtape/logtape": "catalog:",
         "@noslop/testing": "workspace:*",
       },
     },
@@ -50,6 +65,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@noslop/runner": "workspace:*",
+        "zod": "catalog:",
       },
     },
     "modules/config": {
@@ -195,6 +211,8 @@
     "@logtape/logtape": ["@logtape/logtape@2.4.0", "", {}, "sha512-xhvG/NwfBXs+a+oJxl6xOmqA4zX8giP1brvd5lVbL3qUHUkZfVt+4QE/+9p/Vf76JNwe/upH3XYTNItocKQ8Qg=="],
 
     "@napi-rs/wasm-runtime": ["@napi-rs/wasm-runtime@1.2.5", "", { "dependencies": { "@tybys/wasm-util": "^0.10.3" }, "peerDependencies": { "@emnapi/core": "^1.7.1 || ^2.0.0-alpha.4", "@emnapi/runtime": "^1.7.1 || ^2.0.0-alpha.4" } }, "sha512-HshSvXzmBxNzqejd3k/KemgQ3hdREUYFRRrgxOZ+gPljDIsO2SDZrVZMd4Z/HsxudQbE62OVyVFE8z9BCurfjA=="],
+
+    "@noslop/claude": ["@noslop/claude@workspace:adapters/claude"],
 
     "@noslop/codex": ["@noslop/codex@workspace:adapters/codex"],
 

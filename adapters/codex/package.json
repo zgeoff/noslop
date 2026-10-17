@@ -12,9 +12,11 @@
   "dependencies": {
     "@noslop/contract": "workspace:*",
     "@noslop/eval": "workspace:*",
-    "@noslop/runner": "workspace:*"
+    "@noslop/runner": "workspace:*",
+    "zod": "catalog:"
   },
   "devDependencies": {
+    "@logtape/logtape": "catalog:",
     "@noslop/testing": "workspace:*"
   }
 }

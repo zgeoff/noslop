@@ -1,0 +1,21 @@
+{
+  "name": "@noslop/claude",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@noslop/contract": "workspace:*",
+    "@noslop/runner": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@logtape/logtape": "catalog:",
+    "@noslop/testing": "workspace:*"
+  }
+}
