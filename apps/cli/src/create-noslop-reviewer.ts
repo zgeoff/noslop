@@ -1,7 +1,7 @@
 import { mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { LoadedConfig } from '@noslop/config';
-import type { ReviewAdapter } from '@noslop/contract';
+import type { Depth, ReviewAdapter } from '@noslop/contract';
 import type { CaseReviewer } from '@noslop/eval';
 import { runReview } from '@noslop/review';
 import type { CLIContext } from './cli-context';
@@ -10,6 +10,9 @@ export interface NoslopReviewerOptions {
   ctx: CLIContext;
   loaded: LoadedConfig;
   adapter: ReviewAdapter;
+
+  // the depth every case is reviewed at, in place of the one the risk score picks
+  depth: Depth | null;
 
   // the folder that holds each case's own temp folder
   tempDir: string;
@@ -37,6 +40,7 @@ export function createNoslopReviewer(options: NoslopReviewerOptions): CaseReview
           head: corpusCase.head,
           config: options.loaded.config,
           mergeModel: options.loaded.config.adapters[options.adapter.id]?.mergeModel ?? null,
+          depth: options.depth,
           configHash: options.loaded.hash,
           rules: options.loaded.rules,
           adapter: options.adapter,

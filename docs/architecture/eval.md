@@ -97,6 +97,10 @@ runs in the corpus's order whatever order they end in. It writes the runs file a
 ends, so a replay that stops keeps the cases it finished. With `--resume`, a replay into the same
 out folder keeps those cases and replays only the rest.
 
+With `--depth light|standard|deep`, the harness reviews every case at that depth in place of the one
+the risk score picks, so two runs of one corpus at two depths show what the deeper review finds that
+the other misses. A special route still runs no call.
+
 ## The static depth replay
 
 With `--static`, the harness plans each case with the config under test and makes no model call: it

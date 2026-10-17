@@ -1,6 +1,8 @@
 import { writeFileSync } from 'node:fs';
 import { mkdir, rm } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
+import type { Depth } from '@noslop/contract';
+import { depthSchema } from '@noslop/contract';
 import type { CaseRun, RunComparison } from '@noslop/eval';
 import {
   buildRunComparison,
@@ -33,6 +35,9 @@ export interface EvalValues {
 
   // plan each case with no model call, under the static depth replay
   static: boolean;
+
+  // the depth every case is reviewed at, in place of the one the risk score picks
+  depth: string | undefined;
 }
 
 // a reported finding matches a labelled one on the same path within this many lines
@@ -51,9 +56,10 @@ export async function runEvalCommand(values: EvalValues, ctx: CLIContext): Promi
   }
 
   const cases = all.slice(0, limit);
+  const depth = parseDepthFlag(values.depth);
 
   if (values.static) {
-    return runStaticEvalCommand(cases, values, ctx);
+    return runStaticEvalCommand(cases, values, depth, ctx);
   }
 
   await Promise.all(
@@ -83,7 +89,7 @@ export async function runEvalCommand(values: EvalValues, ctx: CLIContext): Promi
 
   await mkdir(workDir, { recursive: true });
 
-  const reviewer = createNoslopReviewer({ ctx, loaded, adapter, tempDir: workDir });
+  const reviewer = createNoslopReviewer({ ctx, loaded, adapter, depth, tempDir: workDir });
   const done = values.resume ? await loadDoneRuns(join(outDir, 'runs.json'), caseIDs) : [];
 
   const doneIDs = new Set(done.map((run) => run.caseID));
@@ -140,6 +146,20 @@ export async function runEvalCommand(values: EvalValues, ctx: CLIContext): Promi
 
 // the runs an earlier replay into the same out folder finished, for the cases of this replay; a
 // folder with no runs file holds none
+function parseDepthFlag(value: string | undefined): Depth | null {
+  if (value === undefined) {
+    return null;
+  }
+
+  const parsed = depthSchema.safeParse(value);
+
+  if (!parsed.success) {
+    throw new Error(`--depth takes light, standard or deep, not ${value}`);
+  }
+
+  return parsed.data;
+}
+
 async function loadDoneRuns(path: string, caseIDs: ReadonlySet<string>): Promise<CaseRun[]> {
   const exists = await Bun.file(path).exists();
 

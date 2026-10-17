@@ -1,5 +1,6 @@
 import { mkdir } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
+import type { Depth } from '@noslop/contract';
 import type { Case } from '@noslop/eval';
 import { buildStaticScore, renderStaticReport, runStaticEval } from '@noslop/eval';
 import { planReview } from '@noslop/review';
@@ -14,6 +15,7 @@ import type { EvalValues } from './run-eval-command';
 export async function runStaticEvalCommand(
   cases: readonly Case[],
   values: EvalValues,
+  depth: Depth | null,
   ctx: CLIContext,
 ): Promise<number> {
   const repoDir = await resolveRepoDir(ctx);
@@ -36,6 +38,7 @@ export async function runStaticEvalCommand(
           linkedIssue: null,
           isPush: false,
           pastEscapes: [],
+          depth,
         });
 
         return {

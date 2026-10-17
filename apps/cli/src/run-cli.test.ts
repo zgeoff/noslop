@@ -639,6 +639,74 @@ test('it replays the depth of each case with no model call under --static', asyn
   });
 });
 
+test('it plans every case at the depth that --depth names', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'src/a.ts': 'export const a = 1;\n' } },
+    { message: 'head', files: { 'src/a.ts': 'export const a = 2;\n' } },
+  ]);
+
+  await Bun.write(
+    join(ctx.dir, 'corpus', 'case-a', 'case.json'),
+    JSON.stringify({
+      id: 'case-a',
+      repo: repo.path,
+      base: repo.commits[0],
+      head: repo.commits[1],
+      title: 'Change a',
+      body: '',
+      findings: [],
+      escapes: [],
+    }),
+  );
+
+  const code = await runCLI(
+    [
+      'eval',
+      '--corpus',
+      join(ctx.dir, 'corpus'),
+      '--out',
+      join(ctx.dir, 'out'),
+      '--static',
+      '--depth',
+      'standard',
+    ],
+    ctx.buildContext(ctx.dir, buildStubAdapter({}).adapter),
+  );
+
+  const written: unknown = await Bun.file(join(ctx.dir, 'out', 'static.json')).json();
+
+  expect(code).toBe(0);
+  expect(written).toMatchObject({ runs: [{ caseID: 'case-a', plan: { depth: 'standard' } }] });
+});
+
+test('it refuses a --depth that names no depth', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(
+    join(ctx.dir, 'corpus', 'case-a', 'case.json'),
+    JSON.stringify({
+      id: 'case-a',
+      repo: join(ctx.dir, 'repo'),
+      base: 'a'.repeat(40),
+      head: 'b'.repeat(40),
+      title: 'Change a',
+      body: '',
+      findings: [],
+      escapes: [],
+    }),
+  );
+
+  const code = await runCLI(
+    ['eval', '--corpus', join(ctx.dir, 'corpus'), '--static', '--depth', 'deepest'],
+    ctx.buildContext(ctx.dir, buildStubAdapter({}).adapter),
+  );
+
+  expect(code).toBe(1);
+  expect(ctx.stderr.join('')).toInclude('--depth takes light, standard or deep, not deepest');
+});
+
 test('it puts an unknown option on stderr and keeps stdout empty', async () => {
   const ctx = await setupTest();
 

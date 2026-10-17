@@ -52,6 +52,9 @@ export interface RunReviewOptions {
 
   // the model of the merge pass; with none, the pass runs on the adapter's own model
   mergeModel?: string | null;
+
+  // a depth that replaces the one the risk score picks, which the eval sets to compare depths
+  depth?: Depth | null;
 }
 
 export interface ReviewRun {

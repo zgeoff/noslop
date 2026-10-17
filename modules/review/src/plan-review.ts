@@ -20,6 +20,7 @@ export type PlanReviewOptions = Pick<
   | 'isPush'
   | 'pastEscapes'
   | 'readConsumerFile'
+  | 'depth'
 >;
 
 export interface ReviewPlan {
@@ -69,7 +70,7 @@ export async function planReview(options: PlanReviewOptions): Promise<ReviewPlan
     isPush: options.isPush,
   };
 
-  const route = buildRoute(routeInput);
+  const route = buildRoute(routeInput, options.depth ?? null);
 
   return { change, stage, routeInput, route, maxCalls: countMaxCalls(route, change, options) };
 }

@@ -92,6 +92,11 @@ export async function runCLI(argv: readonly string[], ctx: CLIContext): Promise<
         type: 'boolean',
         description: 'Plan each case with no model call and report the depth and calls it gets',
       },
+      depth: {
+        type: 'string',
+        description:
+          'Review every case at this depth, light, standard or deep, in place of its own',
+      },
       json: JSON_ARG,
     },
     run: (command) =>
@@ -99,6 +104,7 @@ export async function runCLI(argv: readonly string[], ctx: CLIContext): Promise<
         runEvalCommand(
           {
             static: command.values.static === true,
+            depth: command.values.depth,
             corpus: command.values.corpus,
             limit: command.values.limit,
             baseline: command.values.baseline,

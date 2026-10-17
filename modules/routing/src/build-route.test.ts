@@ -35,6 +35,27 @@ test('it runs a small code change at Light in one call', () => {
   });
 });
 
+test('it reviews a small code change at the depth it is forced to', () => {
+  const file = buildMockChangedFile();
+
+  const route = buildRoute(
+    {
+      change: { base: 'a'.repeat(40), head: 'b'.repeat(40), files: [file], excluded: [] },
+      slices: buildMockSlices(),
+      signals: buildMockRiskSignals(),
+      config: BUILT_IN_DEFAULTS,
+      linkedIssue: null,
+      isSync: false,
+      isRelease: false,
+      isPush: false,
+    },
+    'deep',
+  );
+
+  expect(route.depth).toBe('deep');
+  expect(route.calls.map((call) => [call.callID, call.effort])).toStrictEqual([['A', 'high']]);
+});
+
 test('it fires each lens whose slice holds an entry and groups them by the default calls', () => {
   const route = buildRoute({
     change: {
