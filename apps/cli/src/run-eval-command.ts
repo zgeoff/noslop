@@ -7,7 +7,9 @@ import {
   buildRunScore,
   loadCorpus,
   loadRuns,
+  readHeadFiles,
   renderEvalReport,
+  resolveCasePaths,
   runEval,
 } from '@noslop/eval';
 import { buildConfiguredAdapter } from './build-configured-adapter';
@@ -44,7 +46,13 @@ export async function runEvalCommand(values: EvalValues, ctx: CLIContext): Promi
     throw new Error(`--limit takes a positive whole number, not ${values.limit ?? ''}`);
   }
 
-  const cases = all.slice(0, limit);
+  const cases = await Promise.all(
+    all.slice(0, limit).map(async (item) => {
+      const files = await readHeadFiles(item, ctx.runner);
+
+      return resolveCasePaths(item, files);
+    }),
+  );
 
   const caseIDs = new Set(cases.map((item) => item.id));
 
