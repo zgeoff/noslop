@@ -1,0 +1,55 @@
+{
+  "name": "noslop",
+  "version": "0.0.0",
+  "private": true,
+  "description": "A reviewer for pull requests that coding agents write",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zgeoff/noslop.git"
+  },
+  "workspaces": {
+    "packages": [
+      "apps/*",
+      "modules/*",
+      "adapters/*",
+      "libs/*"
+    ],
+    "catalog": {}
+  },
+  "type": "module",
+  "scripts": {
+    "audit": "bun audit",
+    "boundaries": "turbo boundaries",
+    "check": "bun run audit && bun run deadcode && bun run format:check && bun run lint:full && bun run typecheck && bun run boundaries && bun run prose && bun run test",
+    "deadcode": "knip",
+    "format": "oxfmt . && { [ -z \"$(git ls-files -co --exclude-standard -- '*.ts' '*.tsx' $(sed -e '/^#/d' -e '/^$/d' -e 's/^/:(exclude,glob)/' .formatignore))\" ] || format-codemod --quiet .; }",
+    "format:check": "oxfmt --check . && { [ -z \"$(git ls-files -co --exclude-standard -- '*.ts' '*.tsx' $(sed -e '/^#/d' -e '/^$/d' -e 's/^/:(exclude,glob)/' .formatignore))\" ] || format-codemod --check --quiet .; }",
+    "lint": "oxlint",
+    "lint:full": "oxlint --type-aware --report-unused-disable-directives-severity error",
+    "prepare": "command -v git > /dev/null 2>&1 && lefthook install --force || true",
+    "prose": "test -f .claude/skills/docs-writing/scripts/check-prose.sh || { echo 'prose: skipped until repo-sync delivers the docs-writing skill'; exit 0; }; bash .claude/skills/docs-writing/scripts/check-prose.sh README.md AGENTS.md .claude/skills/code-style ':(glob)docs/**/*.md'",
+    "test": "bun test --pass-with-no-tests",
+    "typecheck": "tsc --noEmit && turbo run typecheck"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "21.2.3",
+    "@stylistic/eslint-plugin": "5.10.0",
+    "@tsconfig/strictest": "2.0.8",
+    "@types/bun": "1.4.2",
+    "@zgeoff/bun-test-extended": "0.1.0",
+    "@zgeoff/format-codemod": "0.1.0",
+    "@zgeoff/oxlint-config": "0.2.0",
+    "knip": "6.39.0",
+    "lefthook": "2.1.14",
+    "oxfmt": "0.71.0",
+    "oxlint": "1.86.0",
+    "oxlint-tsgolint": "7.0.2003",
+    "turbo": "2.11.7",
+    "typescript": "7.0.2"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "packageManager": "bun@1.4.2"
+}

@@ -1,0 +1,47 @@
+# Git hooks. pre-commit fixes staged files only (fast); pre-push runs the
+# shared baseline, which repo-sync delivers, plus the cheap whole-tree gates
+# below. CI runs every whole-tree check: type-aware lint, dead code, and the
+# full test suite.
+
+extends:
+  - .lefthook/pre-push-baseline.yml
+
+pre-commit:
+  piped: true
+  jobs:
+    - name: oxlint --fix
+      glob: '*.{js,mjs,cjs,ts,mts,cts}'
+      run: node_modules/.bin/oxlint --fix --no-error-on-unmatched-pattern {staged_files}
+      stage_fixed: true
+    - name: oxfmt
+      glob: '*.{js,mjs,cjs,ts,mts,cts,json,jsonc,md,yml,yaml}'
+      run: node_modules/.bin/oxfmt --no-error-on-unmatched-pattern {staged_files}
+      stage_fixed: true
+    # the exclude mirrors .formatignore: the tool exits 2 when every file
+    # it is given is ignored, so ignored files must not reach it
+    - name: format-codemod
+      glob: '*.{ts,tsx}'
+      exclude:
+        - '.claude/hooks/skill-gate/**'
+        - '**/dist/**'
+        - '**/coverage/**'
+        - '.worktrees/**'
+      run: node_modules/.bin/format-codemod --quiet {staged_files}
+      stage_fixed: true
+    # last so it scans what the fixers above re-staged; needs the gitleaks
+    # binary on PATH (mise: `mise use -g gitleaks`)
+    - name: gitleaks
+      run: gitleaks git --pre-commit --staged --redact --no-banner
+
+commit-msg:
+  jobs:
+    - name: commitlint
+      run: node_modules/.bin/commitlint --edit {1}
+
+# runs before the baseline's jobs; the baseline sets piped
+pre-push:
+  jobs:
+    - name: boundaries
+      run: bun run boundaries
+    - name: prose
+      run: bun run prose

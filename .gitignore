@@ -1,0 +1,28 @@
+# compiled output
+dist
+coverage
+*.tsbuildinfo
+
+# git worktrees
+.worktrees
+
+# dependencies
+node_modules
+
+# System Files
+.DS_Store
+Thumbs.db
+*Zone.Identifier
+
+# agent scratch; .claude/skills stays tracked
+.reviews
+.scratch/
+.claude/settings.local.json
+
+# local credentials
+.env
+.env.*
+!.env.example
+
+# turbo cache and logs
+.turbo

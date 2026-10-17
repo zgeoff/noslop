@@ -1,0 +1,24 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "ignorePatterns": [
+    "bun.lock",
+    // verbatim copies that repo-sync delivers from zgeoff/tools; edit them there
+    ".claude/skills/docs-writing/**",
+    ".claude/skills/testing/**",
+    ".claude/hooks/skill-gate/**"
+  ],
+  "proseWrap": "always",
+  "semi": true,
+  "trailingComma": "all",
+  "singleQuote": true,
+  "printWidth": 100,
+  "tabWidth": 2,
+  "useTabs": false,
+  "bracketSpacing": true,
+  "arrowParens": "always",
+  "sortImports": {
+    "groups": ["side_effect", "builtin", "external", "unknown", ["parent", "sibling", "index"]],
+    "newlinesBetween": false,
+    "sortSideEffects": false
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "$schema": "./node_modules/turbo/schema.json",
+  // turbo otherwise writes a guidance block into the generated AGENTS.md
+  "agentGuidance": false,
+  "tasks": {
+    "typecheck": {
+      // a package typechecks against its dependencies' source, which its own hash leaves out
+      "cache": false
+    }
+  },
+  "boundaries": {
+    "tags": {
+      "app": {
+        "dependencies": { "allow": ["module", "adapter", "lib"] }
+      },
+      // a module never imports an adapter; the app passes each adapter in
+      "module": {
+        "dependencies": { "allow": ["module", "lib"] }
+      },
+      "adapter": {
+        "dependencies": { "allow": ["module", "lib"] }
+      },
+      "lib": {
+        "dependencies": { "allow": ["lib"] }
+      }
+    }
+  }
+}
