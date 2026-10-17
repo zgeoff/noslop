@@ -1,0 +1,30 @@
+{
+  "name": "@noslop/cli",
+  "version": "0.0.0",
+  "private": true,
+  "bin": {
+    "noslop": "./src/cli.ts"
+  },
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@logtape/logtape": "catalog:",
+    "@noslop/claude": "workspace:*",
+    "@noslop/codex": "workspace:*",
+    "@noslop/config": "workspace:*",
+    "@noslop/contract": "workspace:*",
+    "@noslop/eval": "workspace:*",
+    "@noslop/review": "workspace:*",
+    "@noslop/runner": "workspace:*",
+    "@noslop/sqlite": "workspace:*",
+    "gunshi": "catalog:"
+  },
+  "devDependencies": {
+    "@noslop/testing": "workspace:*"
+  }
+}

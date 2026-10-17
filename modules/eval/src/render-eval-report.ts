@@ -1,0 +1,82 @@
+import type { RunComparison } from './build-run-comparison';
+import type { LensScore, RunScore } from './build-run-score';
+
+export interface EvalReportInput {
+  reviewer: string;
+  score: RunScore;
+
+  // a reference reviewer's recorded run, scored on the same cases
+  reference: { reviewer: string; score: RunScore } | null;
+
+  // 2 runs of the reference reviewer on the same cases, compared with each other
+  noiseFloor: RunComparison | null;
+}
+
+// the eval run as Markdown: the totals, the Light rule, one row per lens, and the noise floor that a
+// difference between 2 configs must clear
+export function renderEvalReport(input: EvalReportInput): string {
+  const score = input.score;
+  const columns = [input.reviewer, input.reference?.reviewer].filter((name) => name !== undefined);
+
+  const lines = [
+    `# Eval: ${input.reviewer}`,
+    '',
+    `${score.cases} cases, ${score.failedCases} failed.`,
+    '',
+    `| Measure | ${columns.join(' | ')} |`,
+    input.reference === null ? '| --- | --- |' : '| --- | --- | --- |',
+    ...renderTotals(score, input.reference?.score ?? null),
+    '',
+    '## Light rule',
+    '',
+    `${score.lightCases} cases ran at Light, holding ${score.lightP1s} labelled P1s and ${score.lightEscapes} escapes.`,
+    '',
+    '## Per lens',
+    '',
+    '| Lens | Baseline true positives | Repeated | Reported | Matched true | Matched false | Disputed | Unlabelled | Escapes caught |',
+    '| --- | --- | --- | --- | --- | --- | --- | --- | --- |',
+    ...score.lenses.map((lens) => renderLensRow(lens)),
+  ];
+
+  if (input.noiseFloor !== null) {
+    const noise = input.noiseFloor;
+
+    lines.push(
+      '',
+      '## Noise floor',
+      '',
+      `2 runs of the reference reviewer on ${noise.cases} cases reported ${noise.findingsFirst} and ${noise.findingsSecond} findings, and ${noise.matched} of them matched: an agreement of ${formatRatio(noise.agreement)}.`,
+    );
+  }
+
+  return `${lines.join('\n')}\n`;
+}
+
+function renderTotals(score: RunScore, reference: RunScore | null): string[] {
+  const rows: [string, (item: RunScore) => string][] = [
+    [
+      'Labelled true positives repeated',
+      (item) => `${item.repeatedTruePositives} of ${item.baselineTruePositives}`,
+    ],
+    ['Findings reported', (item) => String(item.reported)],
+    ['Findings with no label', (item) => String(item.unlabelled)],
+    ['Escapes caught', (item) => `${item.escapesCaught} of ${item.escapesWithAnchor}`],
+    ['Calls', (item) => String(item.calls)],
+    ['Tokens in and out', (item) => `${item.tokens.input} / ${item.tokens.output}`],
+    ['Duration (s)', (item) => (item.durationMs / 1000).toFixed(0)],
+  ];
+
+  return rows.map(([name, read]) =>
+    reference === null
+      ? `| ${name} | ${read(score)} |`
+      : `| ${name} | ${read(score)} | ${read(reference)} |`,
+  );
+}
+
+function renderLensRow(lens: LensScore): string {
+  return `| ${lens.lens} | ${lens.baselineTruePositives} | ${lens.repeatedTruePositives} | ${lens.reported} | ${lens.matchedTruePositive} | ${lens.matchedFalsePositive} | ${lens.matchedDisputed} | ${lens.unlabelled} | ${lens.escapesCaught} |`;
+}
+
+function formatRatio(value: number): string {
+  return `${(value * 100).toFixed(0)}%`;
+}
