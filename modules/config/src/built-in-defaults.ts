@@ -118,6 +118,7 @@ export const BUILT_IN_DEFAULTS: ReviewConfig = {
     '**/fly.toml',
     '**/k8s/**',
     '**/helm/**',
+    '**/deploy/**',
   ],
   synced: [],
   breakingMarkers: ['!:', 'BREAKING CHANGE'],

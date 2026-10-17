@@ -14,6 +14,7 @@ test.each<[string, FileKind]>([
   ['.claude/skills/testing/SKILL.md', 'instructions'],
   ['.github/workflows/ci.yml', 'infra'],
   ['Dockerfile', 'infra'],
+  ['deploy/api/config.yaml', 'infra'],
   ['package.json', 'config'],
   ['logo.png', 'other'],
 ])('it sorts %s as %s', (path, kind) => {
