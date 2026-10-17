@@ -31,17 +31,31 @@ const tokenCountSchema = z.looseObject({
 
 const DAY_MS = 86_400_000;
 
+export interface ReviewSession {
+  tokens: Tokens;
+
+  // the session files of the review thread and of each thread it started
+  files: string[];
+
+  // whether Codex wrote a session for a thread the review started, which holds the review's tokens
+  hasReviewThread: boolean;
+}
+
 // `codex exec review` runs the review in a subagent thread and reports no token use for it, so the
 // tokens come from the session files Codex writes for the review thread and each thread it started;
 // Codex files a session under the local date it began, and a thread's last count holds its total
-export async function loadReviewSessionTokens(query: ReviewSessionQuery): Promise<Tokens> {
-  const files = await collectSessionFiles(query);
+export async function loadReviewSession(query: ReviewSessionQuery): Promise<ReviewSession> {
+  const candidates = await collectSessionFiles(query);
 
   const threads: Tokens[] = [];
-  let found = false;
+  const files: string[] = [];
+  let hasReviewThread = false;
 
-  for (const file of files) {
-    const text = await Bun.file(file).text();
+  for (const file of candidates) {
+    // another review that shares the Codex home removes its own files once it has read them
+    const text = await Bun.file(file)
+      .text()
+      .catch(() => '');
 
     const lines = text.split('\n');
     const meta = metaSchema.safeParse(parseJSONLine(lines[0] ?? ''));
@@ -56,7 +70,9 @@ export async function loadReviewSessionTokens(query: ReviewSessionQuery): Promis
       continue;
     }
 
-    found ||= isChild;
+    files.push(file);
+
+    hasReviewThread ||= isChild;
 
     const last = lines
       .map((line) => tokenCountSchema.safeParse(parseJSONLine(line)))
@@ -67,11 +83,7 @@ export async function loadReviewSessionTokens(query: ReviewSessionQuery): Promis
     }
   }
 
-  if (!found) {
-    throw new Error(`codex wrote no review session for thread ${query.threadID}`);
-  }
-
-  return mergeTokens(threads);
+  return { tokens: mergeTokens(threads), files, hasReviewThread };
 }
 
 async function collectSessionFiles(query: ReviewSessionQuery): Promise<string[]> {
@@ -92,9 +104,9 @@ async function collectSessionFiles(query: ReviewSessionQuery): Promise<string[]>
     const names = await readdir(dir).catch(() => []);
 
     for (const name of names.filter((candidate) => candidate.endsWith('.jsonl'))) {
-      const info = await stat(join(dir, name));
+      const info = await stat(join(dir, name)).catch(() => null);
 
-      if (info.mtimeMs >= query.since) {
+      if (info !== null && info.mtimeMs >= query.since) {
         files.push(join(dir, name));
       }
     }

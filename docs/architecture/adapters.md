@@ -107,6 +107,7 @@ runs.
 `codex exec review` runs the review in a subagent thread, and the JSON events it prints count no
 tokens for that thread. The reviewer therefore keeps the session files Codex writes under its home
 folder. It takes the thread from the first JSON event and sums the last token count in the session
-file of each thread that the review started. That session file format belongs to Codex and has no
-version of its own, so a reviewer that finds no such file fails the case rather than count no
-tokens.
+file of each thread that the review started. It then removes the session files of the review's own
+threads, and no other file, so a case leaves the user's Codex history as it found it. That session
+file format belongs to Codex and has no version of its own, so a reviewer that finds no such file
+fails the case rather than count no tokens.

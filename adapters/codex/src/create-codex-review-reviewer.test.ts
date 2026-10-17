@@ -1,5 +1,5 @@
 import { expect, onTestFinished, test } from 'bun:test';
-import { mkdtemp, rm, utimes } from 'node:fs/promises';
+import { mkdtemp, readdir, rm, utimes } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createRunner } from '@noslop/runner';
@@ -202,6 +202,81 @@ test('it rejects a finished review that names no thread', async () => {
     ),
   ).rejects.toThrowWithMessage(
     Error,
-    'codex review printed no thread, so its token use cannot be read',
+    'codex review left no session of its review thread to read its tokens from',
   );
+});
+
+test('it removes the session files of its own review and never another run', async () => {
+  const ctx = await setupTest();
+
+  const today = new Date();
+
+  const day = join(
+    ctx.dir,
+    'codex-home',
+    'sessions',
+    String(today.getFullYear()),
+    String(today.getMonth() + 1).padStart(2, '0'),
+    String(today.getDate()).padStart(2, '0'),
+  );
+
+  await Bun.write(
+    join(day, 'rollout-parent.jsonl'),
+    '{"type":"session_meta","payload":{"id":"t_parent","source":"exec"}}',
+  );
+
+  await Bun.write(
+    join(day, 'rollout-child.jsonl'),
+    [
+      '{"type":"session_meta","payload":{"id":"t_child","parent_thread_id":"t_parent"}}',
+      '{"type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":100,"cached_input_tokens":0,"output_tokens":5}}}}',
+    ].join('\n'),
+  );
+
+  await Bun.write(
+    join(day, 'rollout-other.jsonl'),
+    '{"type":"session_meta","payload":{"id":"t_other_child","parent_thread_id":"t_other"}}',
+  );
+
+  // the stub writes no session, so each session file is dated after the review starts
+  const later = new Date(Date.now() + 60_000);
+
+  await utimes(join(day, 'rollout-parent.jsonl'), later, later);
+  await utimes(join(day, 'rollout-child.jsonl'), later, later);
+  await utimes(join(day, 'rollout-other.jsonl'), later, later);
+
+  const stub = await createStubCLI(ctx.dir, {
+    outputFlag: '-o',
+    lastMessage: 'No findings.',
+    stdout: '{"type":"thread.started","thread_id":"t_parent"}\n',
+    stderr: '',
+    exitCode: 0,
+    delayMs: 0,
+  });
+
+  const reviewer = createCodexReviewReviewer({
+    runner: createRunner(),
+    tempDir: ctx.dir,
+    timeoutMs: 60_000,
+    command: stub.path,
+    codexHome: join(ctx.dir, 'codex-home'),
+  });
+
+  await reviewer.reviewCase(
+    {
+      id: 'case-1',
+      repo: '/repos/app',
+      base: 'a'.repeat(40),
+      head: 'b'.repeat(40),
+      title: 'fix: keep the sum',
+      body: '',
+      findings: [],
+      escapes: [],
+    },
+    ctx.dir,
+  );
+
+  const left = await readdir(day);
+
+  expect(left).toStrictEqual(['rollout-other.jsonl']);
 });

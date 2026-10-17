@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import type { CaseReviewer } from '@noslop/eval';
 import type { Runner } from '@noslop/runner';
 import { z } from 'zod';
-import { loadReviewSessionTokens } from './load-review-session-tokens';
+import { loadReviewSession } from './load-review-session';
 import { parseCodexReview } from './parse-codex-review';
 
 export interface CodexReviewReviewerOptions {
@@ -23,7 +23,7 @@ const threadSchema = z.looseObject({ type: z.literal('thread.started'), thread_i
 
 // the reference reviewer: `codex review` of the case's change, read-only in the reviewed worktree; its
 // runs on the corpus record the baseline and measure the noise floor; Codex keeps the review's
-// session files, because the review's token use is in them alone
+// session files, because the review's token use is in them alone, and the reviewer removes them
 export function createCodexReviewReviewer(options: CodexReviewReviewerOptions): CaseReviewer {
   return {
     id: 'codex-review',
@@ -56,17 +56,33 @@ export function createCodexReviewReviewer(options: CodexReviewReviewerOptions): 
       await rm(outDir, { recursive: true, force: true });
 
       const failed = result.exitCode !== 0 || result.timedOut || text === '';
+      const threadID = findThreadID(result.stdout);
+
+      const session =
+        threadID === null
+          ? null
+          : await loadReviewSession({
+              codexHome: options.codexHome ?? Bun.env['CODEX_HOME'] ?? join(homedir(), '.codex'),
+              threadID,
+              since,
+            });
+
+      // the review's own session files go, whether it ended or failed, and no other run's file does
+      await Promise.all(session?.files.map((file) => rm(file, { force: true })) ?? []);
+
+      if (!failed && session?.hasReviewThread !== true) {
+        throw new Error(
+          'codex review left no session of its review thread to read its tokens from',
+        );
+      }
 
       return {
         findings: parseCodexReview(text, worktree),
         failed,
-        tokens: failed
-          ? { input: 0, cachedInput: 0, cacheWrite: 0, output: 0 }
-          : await loadReviewSessionTokens({
-              codexHome: options.codexHome ?? Bun.env['CODEX_HOME'] ?? join(homedir(), '.codex'),
-              threadID: requireThreadID(result.stdout),
-              since,
-            }),
+        tokens:
+          failed || session === null
+            ? { input: 0, cachedInput: 0, cacheWrite: 0, output: 0 }
+            : session.tokens,
         durationMs: result.durationMs,
         calls: 1,
         depth: null,
@@ -75,8 +91,7 @@ export function createCodexReviewReviewer(options: CodexReviewReviewerOptions): 
   };
 }
 
-// a review that ends without the event that names its thread leaves no session to count
-function requireThreadID(stdout: string): string {
+function findThreadID(stdout: string): string | null {
   for (const line of stdout.split('\n')) {
     const event = threadSchema.safeParse(parseJSONLine(line));
 
@@ -85,7 +100,7 @@ function requireThreadID(stdout: string): string {
     }
   }
 
-  throw new Error('codex review printed no thread, so its token use cannot be read');
+  return null;
 }
 
 function parseJSONLine(line: string): unknown {
