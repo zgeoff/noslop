@@ -1,0 +1,20 @@
+{
+  "name": "@noslop/eval",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@noslop/contract": "workspace:*",
+    "@noslop/runner": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@noslop/testing": "workspace:*"
+  }
+}

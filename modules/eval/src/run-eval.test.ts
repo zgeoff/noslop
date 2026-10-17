@@ -1,0 +1,102 @@
+import { expect, mock, onTestFinished, test } from 'bun:test';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { createRunner } from '@noslop/runner';
+import { createTestRepo } from '@noslop/testing';
+import type { Case } from './case';
+import { runEval } from './run-eval';
+import type { CaseReview } from './types';
+
+async function setupTest() {
+  const dir = await mkdtemp(join(tmpdir(), 'noslop-run-eval-'));
+
+  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+
+  return { dir, workDir: join(dir, 'work'), runner: createRunner() };
+}
+
+test('it reviews each case in a detached worktree of its head and removes the worktree', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'a.ts': 'export const a = 1;\n' } },
+    { message: 'head', files: { 'a.ts': 'export const a = 2;\n' } },
+  ]);
+
+  const corpusCase: Case = {
+    id: 'case-1',
+    repo: repo.path,
+    base: repo.commits[0] ?? '',
+    head: repo.commits[1] ?? '',
+    title: 'feat: head',
+    body: '',
+    findings: [],
+    escapes: [],
+  };
+
+  const review: CaseReview = {
+    findings: [],
+    failed: false,
+    tokens: { input: 10, output: 2 },
+    durationMs: 5,
+    calls: 1,
+    depth: 'standard',
+  };
+
+  const reviewCase = mock(() => Promise.resolve(review));
+
+  const runs = await runEval({
+    cases: [corpusCase],
+    reviewer: { id: 'stub', reviewCase },
+    runner: ctx.runner,
+    workDir: ctx.workDir,
+  });
+
+  expect(runs).toStrictEqual([{ caseID: 'case-1', review }]);
+  expect(reviewCase).toHaveBeenCalledExactlyOnceWith(corpusCase, join(ctx.workDir, 'case-1-stub'));
+
+  const left = await Bun.file(join(ctx.workDir, 'case-1-stub', '.git')).exists();
+
+  expect(left).toBe(false);
+});
+
+test('it records a failed review when the head is not in the repo', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'a.ts': 'export const a = 1;\n' } },
+  ]);
+
+  const runs = await runEval({
+    cases: [
+      {
+        id: 'case-1',
+        repo: repo.path,
+        base: repo.commits[0] ?? '',
+        head: 'f'.repeat(40),
+        title: 'feat: gone',
+        body: '',
+        findings: [],
+        escapes: [],
+      },
+    ],
+    reviewer: { id: 'stub', reviewCase: mock() },
+    runner: ctx.runner,
+    workDir: ctx.workDir,
+  });
+
+  expect(runs).toStrictEqual([
+    {
+      caseID: 'case-1',
+      review: {
+        findings: [],
+        failed: true,
+        tokens: { input: 0, output: 0 },
+        durationMs: 0,
+        calls: 0,
+        depth: null,
+      },
+    },
+  ]);
+});

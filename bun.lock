@@ -21,6 +21,18 @@
         "typescript": "7.0.2",
       },
     },
+    "adapters/codex": {
+      "name": "@noslop/codex",
+      "version": "0.0.0",
+      "dependencies": {
+        "@noslop/contract": "workspace:*",
+        "@noslop/eval": "workspace:*",
+        "@noslop/runner": "workspace:*",
+      },
+      "devDependencies": {
+        "@noslop/testing": "workspace:*",
+      },
+    },
     "libs/contract": {
       "name": "@noslop/contract",
       "version": "0.0.0",
@@ -38,6 +50,18 @@
       "version": "0.0.0",
       "dependencies": {
         "@noslop/runner": "workspace:*",
+      },
+    },
+    "modules/eval": {
+      "name": "@noslop/eval",
+      "version": "0.0.0",
+      "dependencies": {
+        "@noslop/contract": "workspace:*",
+        "@noslop/runner": "workspace:*",
+        "zod": "catalog:",
+      },
+      "devDependencies": {
+        "@noslop/testing": "workspace:*",
       },
     },
   },
@@ -140,7 +164,11 @@
 
     "@napi-rs/wasm-runtime": ["@napi-rs/wasm-runtime@1.2.5", "", { "dependencies": { "@tybys/wasm-util": "^0.10.3" }, "peerDependencies": { "@emnapi/core": "^1.7.1 || ^2.0.0-alpha.4", "@emnapi/runtime": "^1.7.1 || ^2.0.0-alpha.4" } }, "sha512-HshSvXzmBxNzqejd3k/KemgQ3hdREUYFRRrgxOZ+gPljDIsO2SDZrVZMd4Z/HsxudQbE62OVyVFE8z9BCurfjA=="],
 
+    "@noslop/codex": ["@noslop/codex@workspace:adapters/codex"],
+
     "@noslop/contract": ["@noslop/contract@workspace:libs/contract"],
+
+    "@noslop/eval": ["@noslop/eval@workspace:modules/eval"],
 
     "@noslop/runner": ["@noslop/runner@workspace:libs/runner"],
 
