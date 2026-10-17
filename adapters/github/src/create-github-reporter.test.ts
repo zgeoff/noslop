@@ -407,6 +407,38 @@ test('it fails the check when a reporter before it failed', async () => {
   ]);
 });
 
+test('it fails the check on a finding comment of the App whose marker it cannot read', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'b'.repeat(40),
+  });
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: '<!-- noslop:finding {"id":"1111111111111111","title":"Await the write"} -->',
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'b'.repeat(40),
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  expect(githubCollections.checkRuns.all()).toMatchObject([
+    { conclusion: 'failure', title: '1 finding comments hold a marker noslop cannot read.' },
+  ]);
+});
+
 test('it trusts no state that another bot posted', async () => {
   const ctx = setupTest();
 

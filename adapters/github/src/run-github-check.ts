@@ -45,6 +45,7 @@ export async function runGitHubCheck(
     existingIssues,
     fixChangesFile,
     failedReporters: options.failedReporters,
+    unreadable: state.unreadable,
   });
 
   await client.request('POST /repos/{owner}/{repo}/check-runs', {

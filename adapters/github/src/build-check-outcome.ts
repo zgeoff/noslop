@@ -17,6 +17,9 @@ export interface CheckOutcomeInput {
   // the findings whose `fixed` commit changes the finding's file
   fixChangesFile: ReadonlySet<string>;
   failedReporters: readonly string[];
+
+  // the App's finding comments whose marker noslop cannot read
+  unreadable: number;
 }
 
 interface OpenFinding {
@@ -55,6 +58,10 @@ export function buildCheckOutcome(input: CheckOutcomeInput): CheckOutcome {
 
   if (input.failedReporters.length > 0) {
     problems.push(`These reporters failed: ${input.failedReporters.join(', ')}.`);
+  }
+
+  if (input.unreadable > 0) {
+    problems.push(`${input.unreadable} finding comments hold a marker noslop cannot read.`);
   }
 
   if (open.length > 0) {

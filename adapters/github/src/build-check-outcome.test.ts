@@ -56,6 +56,7 @@ test('it passes when the review ran on the head and every finding holds a valid 
     existingIssues: new Set(['#12']),
     fixChangesFile: new Set(['1111111111111111']),
     failedReporters: [],
+    unreadable: 0,
   });
 
   expect(outcome).toStrictEqual({
@@ -166,6 +167,7 @@ test('it lists each finding whose disposition is not valid, with the reason', ()
     existingIssues: new Set(['#12']),
     fixChangesFile: new Set(),
     failedReporters: [],
+    unreadable: 0,
   });
 
   expect(outcome.open).toStrictEqual([
@@ -285,6 +287,7 @@ test('it fails a fixed finding that is still found, misses its file or no re-rev
     existingIssues: new Set(),
     fixChangesFile: new Set(['1111111111111111', '4444444444444444']),
     failedReporters: [],
+    unreadable: 0,
   });
 
   expect(outcome.open.map((item) => item.reason)).toStrictEqual([
@@ -293,6 +296,34 @@ test('it fails a fixed finding that is still found, misses its file or no re-rev
     'the issue #99 does not exist',
     'no re-review has read the commit abc1234 yet',
   ]);
+});
+
+test('it fails when a finding comment holds a marker noslop cannot read', () => {
+  const outcome = buildCheckOutcome({
+    findings: [],
+    dispositions: [],
+    summary: {
+      head: 'f'.repeat(40),
+      reviews: 1,
+      reported: [],
+      failedCalls: 0,
+      followUps: [],
+      confirmed: [],
+    },
+    currentHead: 'f'.repeat(40),
+    commits: ['f'.repeat(40)],
+    existingIssues: new Set(),
+    fixChangesFile: new Set(),
+    failedReporters: [],
+    unreadable: 2,
+  });
+
+  expect(outcome).toStrictEqual({
+    conclusion: 'failure',
+    title: '2 finding comments hold a marker noslop cannot read.',
+    summary: '2 finding comments hold a marker noslop cannot read.',
+    open: [],
+  });
 });
 
 test('it fails when no review ran on the current head, a call failed or a reporter failed', () => {
@@ -312,6 +343,7 @@ test('it fails when no review ran on the current head, a call failed or a report
     existingIssues: new Set(),
     fixChangesFile: new Set(),
     failedReporters: ['sqlite'],
+    unreadable: 0,
   });
 
   expect(outcome).toStrictEqual({
@@ -372,6 +404,7 @@ test('it judges a finding by its latest disposition', () => {
     existingIssues: new Set(),
     fixChangesFile: new Set(),
     failedReporters: [],
+    unreadable: 0,
   });
 
   expect(outcome.conclusion).toBe('success');

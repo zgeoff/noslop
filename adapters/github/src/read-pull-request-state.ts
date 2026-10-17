@@ -35,9 +35,13 @@ export interface PullRequestState {
   commits: string[];
   threads: FindingThread[];
   summary: { commentID: number; marker: SummaryMarker } | null;
+
+  // the App's comments that hold a finding marker noslop cannot read, so the check fails closed
+  unreadable: number;
 }
 
 const formsMarkerSchema = z.strictObject({ replyID: z.int() });
+const FINDING_MARKER_START = '<!-- noslop:finding ';
 
 // everything noslop keeps on a pull request, read back from GitHub: its commits, each finding thread
 // with its replies, and the summary of the latest review; only a comment by noslop's own App holds
@@ -89,10 +93,16 @@ export async function readPullRequestState(
   const threads = new Map<number, FindingThread>();
   const byFindingID = new Map<string, FindingThread>();
 
+  let unreadable = 0;
+
   for (const comment of reviewComments) {
     const marker = isOwn(comment)
       ? parseMarker('finding', findingMarkerSchema, comment.body)
       : null;
+
+    if (isOwn(comment) && marker === null && comment.body.includes(FINDING_MARKER_START)) {
+      unreadable += 1;
+    }
 
     if (marker !== null && comment.in_reply_to_id === undefined) {
       const thread = buildThread('review', Number(comment.id), marker);
@@ -134,6 +144,10 @@ export async function readPullRequestState(
       const marker = parseMarker('finding', findingMarkerSchema, body);
       const summaryMarker = parseMarker('summary', summaryMarkerSchema, body);
       const forms = parseMarker('forms', formsMarkerSchema, body);
+
+      if (marker === null && body.includes(FINDING_MARKER_START)) {
+        unreadable += 1;
+      }
 
       if (marker !== null) {
         byFindingID.set(marker.id, buildThread('issue', Number(comment.id), marker));
@@ -181,6 +195,7 @@ export async function readPullRequestState(
     commits: commits.map((commit) => commit.sha),
     threads: [...byFindingID.values()],
     summary,
+    unreadable,
   };
 }
 
