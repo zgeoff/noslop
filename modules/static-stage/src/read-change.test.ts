@@ -50,6 +50,34 @@ test('it reads the changed files between 2 commits with their line counts', asyn
   ]);
 });
 
+test('it reads a script with a shebang and no extension as code', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'README.md': '# Tools\n' } },
+    {
+      message: 'head',
+      files: {
+        'bin/deploy': '#!/bin/sh\necho deploying\n',
+        'bin/notes': 'deploy before noon\n',
+      },
+    },
+  ]);
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config: BUILT_IN_DEFAULTS,
+  });
+
+  expect(change.files.map((file) => [file.path, file.kind])).toStrictEqual([
+    ['bin/deploy', 'code'],
+    ['bin/notes', 'other'],
+  ]);
+});
+
 test('it leaves out lockfiles and other generated files', async () => {
   const ctx = await setupTest();
 

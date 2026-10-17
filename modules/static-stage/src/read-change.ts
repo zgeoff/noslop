@@ -43,10 +43,16 @@ export async function readChange(options: ReadChangeOptions): Promise<Change> {
     }
 
     const lines = parsed.hunks.flatMap((hunk) => hunk.lines);
+    const kind = pickFileKind(parsed.path, options.config);
+
+    // a script with no extension, such as an executable in a bin folder, names its language in its
+    // first line, so a shebang there makes it code
+    const isScript =
+      kind === 'other' && lines.some((line) => line.newLine === 1 && line.text.startsWith('#!'));
 
     files.push({
       ...parsed,
-      kind: pickFileKind(parsed.path, options.config),
+      kind: isScript ? 'code' : kind,
       addedLines: lines.filter((line) => line.kind === 'added').length,
       deletedLines: lines.filter((line) => line.kind === 'deleted').length,
     });

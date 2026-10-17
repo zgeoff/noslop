@@ -34,8 +34,9 @@ the tree oxc recovered.
 
 The stage sorts each changed path into a kind, from the config's path globs for instruction, infra
 and prose files and from the extension for code, tests and config. Instruction files come before
-prose, because an agent instruction file is also Markdown. Routing and the lenses read the kind to
-decide which hunks a lens sees.
+prose, because an agent instruction file is also Markdown. A file with no known extension whose
+first line is a shebang is code, so an executable script fires the correctness lens. Routing and the
+lenses read the kind to decide which hunks a lens sees.
 
 ## Slices
 
