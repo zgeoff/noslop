@@ -16,6 +16,7 @@ export interface ReviewValues {
   base: string | undefined;
   head: string | undefined;
   pr: string | undefined;
+  full: boolean;
   repo: string | undefined;
   report: string | undefined;
   json: boolean;
@@ -29,6 +30,10 @@ export interface ReviewValues {
 export async function runReviewCommand(values: ReviewValues, ctx: CLIContext): Promise<number> {
   const repoDir = await readGitText(ctx, ctx.cwd, ['rev-parse', '--show-toplevel']);
   const loaded = await loadRepoConfig(ctx, repoDir);
+
+  if (values.full && values.pr === undefined) {
+    throw new Error('--full takes --pr; a review without --pr covers the whole change');
+  }
 
   for (const label of loaded.missingRules) {
     ctx.logger.warn('the repo holds no rules file {label}, so the review reads no rules from it', {
@@ -145,7 +150,8 @@ async function resolveLocalChange(
 }
 
 // a pull request's change from GitHub: its title and body, its head, and its base; once noslop has
-// reviewed an earlier head of it, the base is that head, so a re-review covers only the new commits
+// reviewed an earlier head of it, the base is that head, so a re-review covers only the new commits;
+// --full keeps the merge base, so the review covers the whole change again
 async function resolvePullRequestChange(
   ctx: CLIContext,
   repoDir: string,
@@ -179,7 +185,9 @@ async function resolvePullRequestChange(
 
   // only a review with no failed call covered its head, so only such a head bases a delta
   const summary = state.summary?.marker;
-  const reviewed = summary !== undefined && summary.failedCalls === 0 ? summary.head : null;
+
+  const reviewed =
+    summary !== undefined && summary.failedCalls === 0 && !values.full ? summary.head : null;
 
   await ctx.runner.run(
     [

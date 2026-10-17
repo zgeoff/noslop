@@ -35,6 +35,10 @@ export async function runCLI(argv: readonly string[], ctx: CLIContext): Promise<
       base: { type: 'string', description: 'The commit the change starts from' },
       head: { type: 'string', description: 'The commit to review, HEAD unless given' },
       pr: { type: 'string', description: 'Review a pull request, from its base and head' },
+      full: {
+        type: 'boolean',
+        description: 'Review the whole pull request, not only the commits since the last review',
+      },
       repo: {
         type: 'string',
         description: 'The pull request repo as owner/name, origin unless given',
@@ -54,6 +58,7 @@ export async function runCLI(argv: readonly string[], ctx: CLIContext): Promise<
             base: command.values.base,
             head: command.values.head,
             pr: command.values.pr,
+            full: command.values.full === true,
             repo: command.values.repo,
             report: command.values.report,
             json: command.values.json === true,

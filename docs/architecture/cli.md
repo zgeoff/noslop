@@ -9,15 +9,15 @@ records why noslop is a versioned CLI with JSON output.
 
 ## Commands
 
-| Command                                              | Does                                                                  |
-| ---------------------------------------------------- | --------------------------------------------------------------------- |
-| `noslop review [--base <ref>] [--head <ref>]`        | Reviews the change between 2 commits of the current repo              |
-| `noslop review --pr <number> [--repo <owner/name>]`  | Reviews a pull request, from its base and head                        |
-| `noslop check --pr <number> --repo <owner/name>`     | Sets a pull request's check run from its dispositions, with no review |
-| `noslop config`                                      | Prints the merged config and the file each key comes from             |
-| `noslop store query <name>`                          | Runs a named query on the [findings store](./store.md)                |
-| `noslop store escape --repo --issue --head --defect` | Records a defect that a review missed                                 |
-| `noslop eval --corpus <path>`                        | Replays a corpus through the current config and scores it per lens    |
+| Command                                                      | Does                                                                  |
+| ------------------------------------------------------------ | --------------------------------------------------------------------- |
+| `noslop review [--base <ref>] [--head <ref>]`                | Reviews the change between 2 commits of the current repo              |
+| `noslop review --pr <number> [--full] [--repo <owner/name>]` | Reviews a pull request, from its base and head                        |
+| `noslop check --pr <number> --repo <owner/name>`             | Sets a pull request's check run from its dispositions, with no review |
+| `noslop config`                                              | Prints the merged config and the file each key comes from             |
+| `noslop store query <name>`                                  | Runs a named query on the [findings store](./store.md)                |
+| `noslop store escape --repo --issue --head --defect`         | Records a defect that a review missed                                 |
+| `noslop eval --corpus <path>`                                | Replays a corpus through the current config and scores it per lens    |
 
 `review` also takes `--report <ids>`, a comma-separated list of reporters that replaces the config's
 list, `--adapter codex|claude`, which replaces the config's adapter, and `--push`, which reviews a
@@ -45,7 +45,9 @@ from there, so it refuses `--base` and `--head`. The repo comes from `--repo`, o
 remote's URL. The base is the merge-base of the pull request's base and head. One exception: once
 noslop has reviewed an earlier head of the pull request with no failed call, and that head is an
 ancestor of the current one, the base is that head, so a re-review covers only the new commits.
-[The GitHub App](./github-app.md) covers the summary comment that holds the reviewed head.
+`--full` keeps the merge-base as the base, so the review covers the whole pull request again, such
+as to confirm a fix whose commit an earlier delta left out. [The GitHub App](./github-app.md) covers
+the summary comment that holds the reviewed head.
 
 ## Output and reporters
 
