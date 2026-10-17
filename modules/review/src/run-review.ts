@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { Logger } from '@logtape/logtape';
 import type {
@@ -228,6 +229,28 @@ async function createWorktree(ctx: PassContext): Promise<void> {
   if (result.exitCode !== 0) {
     throw new Error(`git worktree add failed: ${result.stderr.trim()}`);
   }
+
+  await removeSecretFiles(ctx);
+}
+
+// the files the `secrets` risk class names leave the worktree before any model reads it, so a
+// reviewer never sees a committed secret; the diff still shows the change's own lines
+async function removeSecretFiles(ctx: PassContext): Promise<void> {
+  const globs = (ctx.options.config.riskClasses['secrets']?.paths ?? []).map(
+    (glob) => new Bun.Glob(glob),
+  );
+
+  if (globs.length === 0) {
+    return;
+  }
+
+  const listed = await ctx.options.runner.run(['git', 'ls-files', '-z'], { cwd: ctx.worktree });
+
+  const secrets = listed.stdout
+    .split('\0')
+    .filter((path) => path !== '' && globs.some((glob) => glob.match(path)));
+
+  await Promise.all(secrets.map((path) => rm(join(ctx.worktree, path), { force: true })));
 }
 
 function runBatch(

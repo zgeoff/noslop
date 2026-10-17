@@ -106,6 +106,54 @@ test('it reviews a small change at Light and reports the finding of its one call
   ]);
 });
 
+test('it keeps the files of the secrets risk class out of the worktree the calls read', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    {
+      message: 'base',
+      files: { 'src/total.ts': 'export const zero = 0;\n', '.env.local': 'TOKEN=example\n' },
+    },
+    {
+      message: 'head',
+      files: { 'src/total.ts': 'export const zero = 0;\nexport const one = 1;\n' },
+    },
+  ]);
+
+  const stub = buildStubAdapter({
+    L: [{ findings: { correctness: [], 'naming-shape-and-comments': [], tests: [] } }],
+  });
+
+  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+
+  await runReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/total',
+    base: repo.commits[0] ?? '',
+    head: repo.commits[1] ?? '',
+    config: BUILT_IN_DEFAULTS,
+    configHash: 'hash',
+    rules: null,
+    adapter: stub.adapter,
+    logger: ctx.logger,
+    tempDir: join(ctx.dir, 'temp'),
+    cacheDir: null,
+    title: 'Add one',
+    body: '',
+    linkedIssue: null,
+    pullRequest: null,
+    isPush: false,
+    pastEscapes: [],
+  });
+
+  expect(stub.seenFiles).not.toBeEmpty();
+
+  expect(stub.seenFiles).toSatisfyAll(
+    (files: string[]) => files.length === 1 && files[0] === join('src', 'total.ts'),
+  );
+});
+
 test('it retries a failed call once and lists a call that fails twice', async () => {
   const ctx = await setupTest();
 
