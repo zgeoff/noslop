@@ -28,5 +28,4 @@ Do not report:
 1. A claim about review results. The reviewer posts its own record.
 2. A small change the issue's work needs, such as a type or an import.
 
-Severity: P2 for unrequested behaviour change or a false claim. P3 for an unmet criterion on a pull
-request that contributes to the issue.
+Severity: P2.
