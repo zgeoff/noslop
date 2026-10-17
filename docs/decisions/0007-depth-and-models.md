@@ -2,7 +2,7 @@
 
 - Date: 2026-10-17
 - Status: decided
-- Updated: 2026-10-17
+- Updated: 2026-10-18
 
 A risk score picks one of 3 depths from signals that need no model. Depth sets the default model
 effort: low for Light, medium for Standard, high for Deep.
@@ -28,6 +28,10 @@ code after the findings merge, and at most 1 gap sweep call, which looks for wha
 miss on a change of 5 or more files or 200 or more lines. A confirmed P1 at Standard steps the
 review up to Deep once, by running only the verify call on the findings it has. At every depth, each
 call reads the whole change.
+
+At every depth, a review with 2 or more model findings ends with 1 merge pass call on a cheap model.
+The call groups the findings that report one defect, and the review keeps one finding of each group
+in each file. The config can turn the pass off.
 
 ## Why
 
@@ -57,3 +61,5 @@ call reads the whole change.
 - 2026-10-17: Deep runs 1 verify call on the merged findings, not 1 per call, and at most 1 gap
   sweep call. A step-up from Standard runs only the verify call, and no longer reruns every call at
   Deep.
+- 2026-10-18: added the merge pass at every depth. Lenses word one defect differently, and a title
+  rule cannot tell a reworded repeat from 2 defects whose titles differ by one word.
