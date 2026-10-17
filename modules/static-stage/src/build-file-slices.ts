@@ -1,6 +1,7 @@
 import { dirname, join, normalize } from 'node:path';
 import type { ReviewConfig } from '@noslop/contract';
 import type { AnalyzedFile } from './analyzed-file';
+import { hasTouchedLine } from './has-touched-line';
 import { isGlobMatch } from './is-glob-match';
 import type {
   CommentDensity,
@@ -115,9 +116,9 @@ function collectLineFacts(entry: AnalyzedFile, slices: FileSlices): void {
   }
 
   for (const item of analysis.security) {
-    if (entry.lines.touched.has(item.line)) {
+    if (hasTouchedLine(entry.lines, item.line, item.endLine)) {
       slices.security.push({
-        location: { path, startLine: item.line, endLine: item.line },
+        location: { path, startLine: item.line, endLine: item.endLine },
         part: item.part,
         detail: item.detail,
       });

@@ -573,3 +573,250 @@ test('it shortlists a base function that a new function repeats', async () => {
     ]),
   ).toStrictEqual([['formatName', ['formatUserName']]]);
 });
+
+test('it keeps an access check in the security slice when only its body changes', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/access.ts': 'export function canEdit(role: string) {\n  return role === "admin";\n}\n',
+        'src/access.spec.ts': [
+          "import { expect, test } from 'bun:test';",
+          "import { canEdit } from './access';",
+          '',
+          "test.each([['guest'], ['']])('it refuses %s', (role) => {",
+          '  expect(canEdit(role)).toBe(false);',
+          '});',
+          '',
+        ].join('\n'),
+      },
+    },
+    {
+      message: 'head',
+      files: {
+        'src/access.ts':
+          'export function canEdit(role: string) {\n  return role === "admin" || role === "owner";\n}\n',
+      },
+    },
+  ]);
+
+  const config = BUILT_IN_DEFAULTS;
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config,
+    title: 'feat: owners edit',
+    body: '',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(result.slices.security.map((entry) => [entry.part, entry.location])).toStrictEqual([
+    ['allow-deny-check', { path: 'src/access.ts', startLine: 1, endLine: 3 }],
+  ]);
+
+  expect(result.findings).toStrictEqual([]);
+});
+
+test('it reports no finding for an inherited key, a string change or an unchanged version', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'package.json': '{\n  "name": "root",\n  "private": true\n}\n',
+        'packages/core/package.json': '{\n  "name": "core",\n  "version": "2.0.0"\n}\n',
+        'apps/web/package.json':
+          '{\n  "name": "web",\n  "private": true,\n  "dependencies": { "core": "^1.0.0" }\n}\n',
+        'src/a.ts': 'export const a = { b: "x y" };\n',
+        'src/item.test.ts': [
+          "import { expect, test } from 'bun:test';",
+          '',
+          "test('it reads ab', () => {",
+          "  expect('ab').toBe('ab');",
+          '});',
+          '',
+        ].join('\n'),
+      },
+    },
+    {
+      message: 'head',
+      files: {
+        'src/a.ts': 'export const a = { b: "xy" };\n',
+        'src/item.ts':
+          'interface Base {\n  id: string;\n}\n\nexport interface Item extends Base {\n  name: string;\n}\n',
+        'src/item.test.ts': [
+          "import { expect, expectTypeOf, test } from 'bun:test';",
+          "import type { Item } from './item';",
+          '',
+          "test('it reads ab', () => {",
+          "  expect('ab').toBe('ab');",
+          '});',
+          '',
+          "test('it reads a b', () => {",
+          "  expect('a b').toBe('a b');",
+          '});',
+          '',
+          "test('it has an id', () => {",
+          "  expectTypeOf<Item>().toHaveProperty('id');",
+          '});',
+          '',
+        ].join('\n'),
+      },
+    },
+  ]);
+
+  const config = BUILT_IN_DEFAULTS;
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config,
+    title: 'feat: item',
+    body: '',
+    linkedIssue: 'Change the value in src/x.ts.',
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(result.findings).toStrictEqual([]);
+});
+
+test('it anchors a bound on its own line of a chain that spans lines', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/input.ts': [
+          "import { z } from 'zod';",
+          '',
+          'export const inputSchema = z.object({',
+          '  title: z',
+          '    .string()',
+          '    .max(100),',
+          '});',
+          '',
+        ].join('\n'),
+      },
+    },
+    {
+      message: 'head',
+      files: {
+        'src/input.ts': [
+          "import { z } from 'zod';",
+          '',
+          'export const inputSchema = z.object({',
+          '  title: z',
+          '    .string()',
+          '    .max(500),',
+          '});',
+          '',
+        ].join('\n'),
+      },
+    },
+  ]);
+
+  const config = { ...BUILT_IN_DEFAULTS, limits: { title: 256 } };
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config,
+    title: 'feat: longer titles',
+    body: '',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(result.findings.map((finding) => finding.anchor)).toStrictEqual([
+    { path: 'src/input.ts', startLine: 6, endLine: 6 },
+  ]);
+});
+
+test('it records an edge for a changed interface member and for the exports of a deleted file', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'packages/core/package.json': '{\n  "name": "core",\n  "version": "1.0.0"\n}\n',
+        'packages/core/src/item.ts': 'export interface Item {\n  id: string;\n}\n',
+        'packages/core/src/old.ts': 'export function readOld() {\n  return 1;\n}\n',
+        'apps/web/package.json':
+          '{\n  "name": "web",\n  "private": true,\n  "dependencies": { "core": "workspace:*" }\n}\n',
+      },
+    },
+    {
+      message: 'head',
+      files: {
+        'packages/core/src/item.ts': 'export interface Item {\n  id: number;\n}\n',
+        'packages/core/src/old.ts': null,
+      },
+    },
+  ]);
+
+  const config = BUILT_IN_DEFAULTS;
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config,
+    title: 'feat!: numeric ids',
+    body: '',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(
+    result.slices.edges.map((edge) => [edge.location.path, edge.kind, edge.name]),
+  ).toStrictEqual([
+    ['packages/core/src/item.ts', 'export', 'Item'],
+    ['packages/core/src/old.ts', 'export', 'readOld'],
+  ]);
+});

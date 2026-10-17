@@ -38,10 +38,12 @@ function collectRefusedBumps(inputs: ChangeFindingInputs): ModelFinding[] {
   return inputs.manifests.flatMap((manifest) => {
     const before = inputs.baseManifests.get(manifest.path);
 
+    // only a manifest the change edits, at a version other than its base version, is a bump
     if (
       manifest.name === null ||
       manifest.version === null ||
-      before?.version === manifest.version
+      before === undefined ||
+      before.version === manifest.version
     ) {
       return [];
     }
@@ -226,6 +228,10 @@ function findFirstChange(entry: AnalyzedFile): SourceLocation {
   return { path: entry.file.path, startLine: line, endLine: line };
 }
 
+// drops the whitespace outside quoted text, so a change inside a string literal is never format-only
 function normalizeSpace(text: string): string {
-  return text.replaceAll(/\s+/gu, '');
+  return text.replaceAll(
+    /(?<quoted>"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`)|\s+/gu,
+    '$<quoted>',
+  );
 }

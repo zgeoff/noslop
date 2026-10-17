@@ -18,8 +18,8 @@ const TEST_CALLS = new Set([
 const TABLE_CALLS = new Set(['test.each()', 'it.each()']);
 const ASSERTION_ROOTS = new Set(['expect', 'assert', 't', 'should']);
 
-// records each test with its title, whether its body asserts anything, and a fingerprint of its body
-// with the whitespace and comments gone, so 2 tests with one body match
+// records each test with its title, whether its body asserts anything, and a fingerprint of its body,
+// so 2 tests with one body match
 export function collectTestFacts(node: ASTNode, name: string, ctx: AnalyzeContext): void {
   const isTable = TABLE_CALLS.has(name);
 
@@ -41,11 +41,24 @@ export function collectTestFacts(node: ASTNode, name: string, ctx: AnalyzeContex
     endLine: ctx.parsed.getLine(node.end),
     hasAssertion: hasAssertion(body, ctx),
     isTable,
-    fingerprint: ctx.parsed.text
-      .slice(body.start, body.end)
-      .replaceAll(/\/\/[^\n]*|\/\*[\s\S]*?\*\//gu, '')
-      .replaceAll(/\s+/gu, ''),
+    fingerprint: buildBodyFingerprint(body),
   });
+}
+
+// the body's syntax tree as a list of node types, names and literal values, so layout and comments
+// never count and a changed literal always does
+function buildBodyFingerprint(body: ASTNode): string {
+  const tokens: string[] = [];
+
+  collectFromAST(body, (node) => {
+    const name = node['name'];
+    const raw = node['raw'] ?? node['operator'];
+    const text = typeof raw === 'string' ? raw : '';
+
+    tokens.push(`${node.type}:${typeof name === 'string' ? name : text}`);
+  });
+
+  return new Bun.CryptoHasher('sha256').update(tokens.join('\n')).digest('hex');
 }
 
 function readTitle(node: ASTNode, ctx: AnalyzeContext): string {

@@ -22,7 +22,11 @@ export function parseDiff(diff: string): ParsedFile[] {
 
   for (const line of diff.split('\n')) {
     if (line.startsWith('diff --git ')) {
-      file = { path: '', oldPath: null, status: 'modified', binary: false, hunks: [] };
+      // a patch with no text headers, such as an empty new file or a mode change, names its path
+      // only here
+      const path = parseHeaderPath(line.slice('diff --git '.length));
+
+      file = { path, oldPath: path, status: 'modified', binary: false, hunks: [] };
       hunk = null;
 
       files.push(file);
@@ -78,7 +82,7 @@ function readHeaderLine(line: string, file: ParsedFile): boolean {
   const target = file;
 
   if (line.startsWith('--- ')) {
-    const path = line.slice(4);
+    const path = parseGitPath(line.slice(4));
 
     if (path !== '/dev/null') {
       target.oldPath = path;
@@ -88,7 +92,7 @@ function readHeaderLine(line: string, file: ParsedFile): boolean {
   }
 
   if (line.startsWith('+++ ')) {
-    const path = line.slice(4);
+    const path = parseGitPath(line.slice(4));
 
     if (path === '/dev/null') {
       target.status = 'deleted';
@@ -106,6 +110,7 @@ function readHeaderLine(line: string, file: ParsedFile): boolean {
 
   if (line.startsWith('new file mode')) {
     target.status = 'added';
+    target.oldPath = null;
 
     return true;
   }
@@ -118,13 +123,13 @@ function readHeaderLine(line: string, file: ParsedFile): boolean {
 
   if (line.startsWith('rename from ')) {
     target.status = 'renamed';
-    target.oldPath = line.slice('rename from '.length);
+    target.oldPath = parseGitPath(line.slice('rename from '.length));
 
     return true;
   }
 
   if (line.startsWith('rename to ')) {
-    target.path = line.slice('rename to '.length);
+    target.path = parseGitPath(line.slice('rename to '.length));
 
     return true;
   }
@@ -137,6 +142,89 @@ function readHeaderLine(line: string, file: ParsedFile): boolean {
   }
 
   return false;
+}
+
+// the header names the path twice; with no prefixes, an unrenamed path splits the rest in 2 equal
+// halves, and a quoted path ends at its closing quote
+function parseHeaderPath(rest: string): string {
+  if (rest.startsWith('"')) {
+    const end = findClosingQuote(rest);
+
+    return parseGitPath(rest.slice(0, end + 1));
+  }
+
+  const half = (rest.length - 1) / 2;
+
+  if (Number.isInteger(half) && rest.slice(0, half) === rest.slice(half + 1)) {
+    return rest.slice(0, half);
+  }
+
+  return rest.slice(0, rest.indexOf(' '));
+}
+
+const ESCAPES: Readonly<Record<string, string>> = {
+  n: '\n',
+  t: '\t',
+  r: '\r',
+  '"': '"',
+  '\\': '\\',
+  a: '\u0007',
+  b: '\b',
+  f: '\f',
+  v: '\v',
+};
+
+// git ends a path that holds a space with a tab, and quotes a path that holds a special character,
+// with C escapes and octal bytes for the rest
+function parseGitPath(raw: string): string {
+  const path = raw.endsWith('\t') ? raw.slice(0, -1) : raw;
+
+  if (!path.startsWith('"') || !path.endsWith('"') || path.length < 2) {
+    return path;
+  }
+
+  const bytes: number[] = [];
+
+  const encoder = new TextEncoder();
+
+  const body = path.slice(1, -1);
+
+  for (let index = 0; index < body.length; index += 1) {
+    const char = body.charAt(index);
+
+    if (char !== '\\') {
+      bytes.push(...encoder.encode(char));
+      continue;
+    }
+
+    const octal = /^[0-7]{3}/u.exec(body.slice(index + 1))?.[0];
+
+    if (octal === undefined) {
+      const next = body.charAt(index + 1);
+
+      bytes.push(...encoder.encode(ESCAPES[next] ?? next));
+
+      index += 1;
+    } else {
+      bytes.push(Number.parseInt(octal, 8));
+
+      index += 3;
+    }
+  }
+
+  return new TextDecoder().decode(new Uint8Array(bytes));
+}
+
+function findClosingQuote(text: string): number {
+  for (let index = 1; index < text.length; index += 1) {
+    if (text.charAt(index) === '\\') {
+      index += 1;
+    } else if (text.charAt(index) === '"') {
+      return index;
+    }
+  }
+
+  return text.length - 1;
 }
 
 function readHunkLine(line: string, oldLine: number, newLine: number): DiffLine | null {

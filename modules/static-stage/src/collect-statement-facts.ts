@@ -144,6 +144,7 @@ function collectGuard(node: ASTNode, ancestors: readonly ASTNode[], ctx: Analyze
   if (DENY_TEXT.test(consequentText)) {
     ctx.analysis.security.push({
       line,
+      endLine: ctx.parsed.getLine(node.end),
       part: 'allow-deny-check',
       detail: `denies when ${getNodeText(test, ctx, 80)}`,
     });

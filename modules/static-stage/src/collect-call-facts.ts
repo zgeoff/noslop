@@ -155,11 +155,15 @@ function collectSchemaBound(
   const key = property === undefined ? null : getField(property, 'key');
   const keyName = key?.['name'] ?? key?.['value'];
 
+  // a chain can span lines, so the bound sits on the line of its own `.max`
+  const callee = getField(node, 'callee');
+  const maxToken = (callee === null ? null : getField(callee, 'property')) ?? node;
+
   if (typeof keyName === 'string') {
     ctx.analysis.schemaBounds.push({
       property: keyName,
       max,
-      line: ctx.parsed.getLine(node.start),
+      line: ctx.parsed.getLine(maxToken.start),
     });
   }
 }
@@ -170,7 +174,7 @@ function collectSink(node: ASTNode, name: string, ctx: AnalyzeContext): void {
   const line = ctx.parsed.getLine(node.start);
 
   const collectEntry = (part: 'injection-sink' | 'request-path', detail: string): void => {
-    ctx.analysis.security.push({ line, part, detail });
+    ctx.analysis.security.push({ line, endLine: ctx.parsed.getLine(node.end), part, detail });
   };
 
   if (isCallMatch(name, SHELL_SINKS) && isBuiltFromInput(first)) {

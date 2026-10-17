@@ -53,6 +53,9 @@ interface TypeDeclaration {
   startLine: number;
   endLine: number;
   exported: boolean;
+
+  // false when the type takes keys from elsewhere, through extends, an intersection or a mapped type
+  isComplete: boolean;
 }
 
 // everything the one walk of a file collects; the slices cut it down to the changed lines
@@ -63,9 +66,11 @@ export interface SourceAnalysis {
   tests: TestFacts[];
   guards: GuardFacts[];
   throws: ThrowFacts[];
-  security: { line: number; part: SecurityPart; detail: string }[];
+
+  // a security fact spans its whole declaration, so a change inside an access check keeps it
+  security: { line: number; endLine: number; part: SecurityPart; detail: string }[];
   imports: { source: string; names: string[]; line: number }[];
-  exports: { name: string; line: number }[];
+  exports: { name: string; line: number; endLine: number }[];
   types: TypeDeclaration[];
   typeTests: { typeName: string; key: string; line: number }[];
   schemaBounds: { property: string; max: number; line: number }[];

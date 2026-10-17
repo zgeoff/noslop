@@ -73,6 +73,36 @@ test('it leaves out lockfiles and other generated files', async () => {
   expect(change.excluded).toStrictEqual(['bun.lock', 'dist/a.js']);
 });
 
+test('it keeps the path of an empty new file, a path with a space and a quoted path', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'src/a b.ts': 'export const a = 1;\n' } },
+    {
+      message: 'head',
+      files: {
+        'src/a b.ts': 'export const a = 2;\n',
+        'src/empty.ts': '',
+        'src/tab\there.ts': 'export const t = 1;\n',
+      },
+    },
+  ]);
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config: BUILT_IN_DEFAULTS,
+  });
+
+  expect(change.files.map((file) => [file.path, file.status])).toStrictEqual([
+    ['src/a b.ts', 'modified'],
+    ['src/empty.ts', 'added'],
+    ['src/tab\there.ts', 'added'],
+  ]);
+});
+
 test('it rejects a ref that names no commit', async () => {
   const ctx = await setupTest();
 

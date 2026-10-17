@@ -104,7 +104,8 @@ function collectMissingTypeKeys(files: readonly AnalyzedFile[]): ModelFinding[] 
         return [];
       }
 
-      if (declared.keys.includes(typeTest.key)) {
+      // a type that takes keys from elsewhere has keys the walk cannot list
+      if (!declared.isComplete || declared.keys.includes(typeTest.key)) {
         return [];
       }
 

@@ -69,6 +69,7 @@ function collectCredentialPath(node: ASTNode, line: number, ctx: AnalyzeContext)
   if (typeof value === 'string' && CREDENTIAL_PATH.test(value)) {
     ctx.analysis.security.push({
       line,
+      endLine: line,
       part: 'credential-read',
       detail: `names the credential path ${value}`,
     });
@@ -123,8 +124,10 @@ function collectExports(node: ASTNode, line: number, ctx: AnalyzeContext): void 
     }
   }
 
+  const endLine = ctx.parsed.getLine(node.end);
+
   for (const name of names) {
-    ctx.analysis.exports.push({ name, line });
+    ctx.analysis.exports.push({ name, line, endLine });
   }
 }
 
@@ -149,6 +152,9 @@ function collectType(node: ASTNode, exported: boolean, ctx: AnalyzeContext): voi
     startLine: ctx.parsed.getLine(node.start),
     endLine: ctx.parsed.getLine(node.end),
     exported,
+    isComplete:
+      getFields(node, 'extends').length === 0 &&
+      (body?.type === 'TSInterfaceBody' || body?.type === 'TSTypeLiteral'),
   });
 }
 
@@ -172,6 +178,7 @@ function collectConfigRead(node: ASTNode, line: number, ctx: AnalyzeContext): vo
   if (CREDENTIAL_NAME.test(name)) {
     ctx.analysis.security.push({
       line,
+      endLine: line,
       part: 'credential-read',
       detail: `reads ${objectText}.${name}`,
     });
@@ -194,6 +201,7 @@ function collectInstructionText(node: ASTNode, line: number, ctx: AnalyzeContext
   if (isBuilt) {
     ctx.analysis.security.push({
       line,
+      endLine: line,
       part: 'injection-sink',
       detail: `text built from input placed into the model's ${keyName}`,
     });
@@ -217,10 +225,12 @@ function collectSecurityFunction(
   }
 
   const line = ctx.parsed.getLine(node.start);
+  const endLine = ctx.parsed.getLine(node.end);
 
   if (ALLOW_DENY_NAME.test(name)) {
     ctx.analysis.security.push({
       line,
+      endLine,
       part: 'allow-deny-check',
       detail: `${name} decides access`,
     });
@@ -229,6 +239,7 @@ function collectSecurityFunction(
   if (ROW_MAPPER_NAME.test(name)) {
     ctx.analysis.security.push({
       line,
+      endLine,
       part: 'row-mapper',
       detail: `${name} maps a row to output`,
     });

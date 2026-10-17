@@ -1,5 +1,6 @@
 import type { ReviewConfig } from '@noslop/contract';
 import type { AnalyzedFile, PackageManifest } from './analyzed-file';
+import { hasTouchedLine } from './has-touched-line';
 import type { EdgeEntry } from './types';
 
 export interface EdgeInputs {
@@ -40,9 +41,12 @@ export function buildEdgeSlice(inputs: EdgeInputs): EdgeEntry[] {
     }
 
     for (const exported of entry.analysis?.exports ?? []) {
-      if (entry.lines.touched.has(exported.line)) {
+      if (
+        entry.file.status === 'deleted' ||
+        hasTouchedLine(entry.lines, exported.line, exported.endLine)
+      ) {
         edges.push({
-          location: { path, startLine: exported.line, endLine: exported.line },
+          location: { path, startLine: exported.line, endLine: exported.endLine },
           kind: 'export',
           name: exported.name,
           consumers,

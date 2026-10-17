@@ -69,8 +69,13 @@ export async function runStaticStage(options: RunStaticStageOptions): Promise<St
     ...new Set([...readable, ...contextPaths, ...manifestPaths]),
   ]);
 
+  // the base side of each changed manifest, and of each deleted code file, whose exports leave with it
   const baseManifestPaths = change.files
-    .filter((file) => basename(file.path) === 'package.json' && file.status !== 'added')
+    .filter(
+      (file) =>
+        (basename(file.path) === 'package.json' && file.status !== 'added') ||
+        (file.status === 'deleted' && file.kind === 'code'),
+    )
     .map((file) => file.oldPath ?? file.path);
 
   const baseTexts = await readFilesAtCommit(
@@ -133,7 +138,20 @@ export async function runStaticStage(options: RunStaticStageOptions): Promise<St
     throws: functionSlices.throws,
     writes: functionSlices.writes,
     security: fileSlices.security,
-    edges: buildEdgeSlice({ files: changed, manifests, config: options.config }),
+    edges: buildEdgeSlice({
+      files: changed.map((entry) =>
+        entry.file.status === 'deleted'
+          ? buildAnalyzedFile(
+              entry.file,
+              baseTexts.get(entry.file.oldPath ?? entry.file.path) ?? null,
+              false,
+              options.config,
+            )
+          : entry,
+      ),
+      manifests,
+      config: options.config,
+    }),
     config: fileSlices.config,
     tests: fileSlices.tests,
     instructions: fileSlices.instructions,
@@ -207,13 +225,22 @@ function collectContextPaths(
   const instructions = headPaths.filter((path) => isGlobMatch(path, config.instructions));
 
   for (const file of files) {
+    // a test of a source sits beside it or in a __tests__ folder beside it, as .test or .spec
     if (file.kind === 'code') {
-      const stem = basename(file.path).replace(
-        /\.(?<extension>[cm]?[jt]sx?)$/u,
-        '.test.$<extension>',
-      );
+      const stem = basename(file.path).replace(/\.[cm]?[jt]sx?$/u, '.');
+      const dir = dirname(file.path);
 
-      paths.add(join(dirname(file.path), stem));
+      const testDirs = new Set([dir, join(dir, '__tests__')]);
+
+      for (const path of headPaths) {
+        if (
+          testDirs.has(dirname(path)) &&
+          basename(path).startsWith(stem) &&
+          pickFileKind(path, config) === 'test'
+        ) {
+          paths.add(path);
+        }
+      }
     }
 
     if (file.kind === 'instructions') {
