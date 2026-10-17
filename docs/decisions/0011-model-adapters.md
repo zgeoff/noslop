@@ -3,9 +3,15 @@
 - Date: 2026-10-17
 - Status: decided
 
-Each model CLI sits behind an adapter. An adapter takes a prompt and an output schema, runs the CLI, and returns JSON. It maps the 3 depths onto the CLI's own effort names. Every adapter in noslop is configured read-only in its own code: no writes to the repo, no tests, no network to production. The Codex adapter comes first, then a Claude adapter.
+Each model CLI sits behind an adapter. An adapter takes a prompt and an output schema, runs the CLI,
+and returns JSON. It maps the 3 depths onto the CLI's own effort names. Every adapter in noslop is
+configured read-only in its own code: no writes to the repo, no tests, no network to production. The
+Codex adapter comes first, then a Claude adapter.
 
-noslop itself is a versioned CLI with JSON output, so other tools pin a version and read its results. A review writes only to its own temp folder outside `/tmp`, and deletes that folder whether it passes or fails. When an adapter adds to a CLI's instructions, it appends to the user's own instructions and never replaces them.
+noslop itself is a versioned CLI with JSON output, so other tools pin a version and read its
+results. A review writes only to its own temp folder outside `/tmp`, and deletes that folder whether
+it passes or fails. When an adapter adds to a CLI's instructions, it appends to the user's own
+instructions and never replaces them.
 
 ## Why
 
@@ -16,7 +22,8 @@ noslop itself is a versioned CLI with JSON output, so other tools pin a version 
 ## Alternatives
 
 - **One model CLI, called directly.** An outage of that service stops every review.
-- **A runtime check that an adapter is read-only.** The adapters ship inside noslop, so their own configuration is the place to set it.
+- **A runtime check that an adapter is read-only.** The adapters ship inside noslop, so their own
+  configuration is the place to set it.
 
 ## Consequences
 

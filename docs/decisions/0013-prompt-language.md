@@ -3,7 +3,8 @@
 - Date: 2026-10-17
 - Status: decided
 
-Lens prompts and design pages use short numbered rules, plain words, and one idea per line. A rule states what counts and what does not, with an example where one helps.
+Lens prompts and design pages use short numbered rules, plain words, and one idea per line. A rule
+states what counts and what does not, with an example where one helps.
 
 ## Why
 
