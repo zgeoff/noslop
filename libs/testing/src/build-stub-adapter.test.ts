@@ -1,0 +1,50 @@
+import { expect, test } from 'bun:test';
+import { getLogger } from '@logtape/logtape';
+import { buildCallOutputSchema } from '@noslop/contract';
+import { buildStubAdapter } from './build-stub-adapter';
+
+test('it answers each attempt of a call with the next answer under its ID', async () => {
+  const stub = buildStubAdapter({
+    A: [{ error: 'codex timed out' }, { findings: { correctness: [] } }],
+  });
+
+  const request = {
+    callID: 'A',
+    lenses: ['correctness'] as const,
+    prompt: 'Review the change.',
+    outputSchema: buildCallOutputSchema(['correctness']),
+    effort: 'medium' as const,
+    model: null,
+    cwd: '.',
+    timeoutMs: null,
+  };
+
+  const context = { tempDir: '.', logger: getLogger(['test']) };
+
+  const first = await stub.adapter.runCall(request, context).catch((error: unknown) => error);
+  const second = await stub.adapter.runCall(request, context);
+
+  expect(first).toStrictEqual(new Error('codex timed out'));
+  expect(second.output).toStrictEqual({ findings: { correctness: [] } });
+  expect(stub.requests.map((item) => item.callID)).toStrictEqual(['A', 'A']);
+});
+
+test('it rejects a call that has no answer left', () => {
+  const stub = buildStubAdapter({});
+
+  expect(
+    stub.adapter.runCall(
+      {
+        callID: 'B',
+        lenses: ['security'],
+        prompt: 'Review the change.',
+        outputSchema: buildCallOutputSchema(['security']),
+        effort: 'high',
+        model: null,
+        cwd: '.',
+        timeoutMs: null,
+      },
+      { tempDir: '.', logger: getLogger(['test']) },
+    ),
+  ).rejects.toThrowWithMessage(Error, 'the stub adapter has no answer 1 for call B');
+});

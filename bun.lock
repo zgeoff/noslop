@@ -64,6 +64,7 @@
       "name": "@noslop/testing",
       "version": "0.0.0",
       "dependencies": {
+        "@logtape/logtape": "catalog:",
         "@noslop/contract": "workspace:*",
         "@noslop/runner": "workspace:*",
         "zod": "catalog:",
@@ -106,6 +107,23 @@
       "dependencies": {
         "@noslop/contract": "workspace:*",
         "@noslop/static-stage": "workspace:*",
+      },
+    },
+    "modules/review": {
+      "name": "@noslop/review",
+      "version": "0.0.0",
+      "dependencies": {
+        "@logtape/logtape": "catalog:",
+        "@noslop/contract": "workspace:*",
+        "@noslop/findings": "workspace:*",
+        "@noslop/lenses": "workspace:*",
+        "@noslop/routing": "workspace:*",
+        "@noslop/runner": "workspace:*",
+        "@noslop/static-stage": "workspace:*",
+      },
+      "devDependencies": {
+        "@noslop/config": "workspace:*",
+        "@noslop/testing": "workspace:*",
       },
     },
     "modules/routing": {
@@ -251,6 +269,8 @@
     "@noslop/findings": ["@noslop/findings@workspace:modules/findings"],
 
     "@noslop/lenses": ["@noslop/lenses@workspace:modules/lenses"],
+
+    "@noslop/review": ["@noslop/review@workspace:modules/review"],
 
     "@noslop/routing": ["@noslop/routing@workspace:modules/routing"],
 
