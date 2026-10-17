@@ -12,7 +12,7 @@ code.
 3. [Routing and depth](routing-and-depth.md) and [calls](calls.md): which lenses fire, how hard, and
    in which call.
 4. [Adapters](adapters.md) and [the CLI](cli.md): a local review end to end.
-5. [The lenses](lenses/): one page per lens.
+5. [The lenses](lenses/README.md): one prompt per lens.
 6. [The GitHub App](github-app.md) and [the findings store](store.md): the merge gate and its
    record.
 7. [The eval harness](eval.md): the replay that gates every prompt change.
