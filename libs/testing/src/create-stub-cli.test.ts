@@ -47,6 +47,27 @@ test('it records the arguments and stdin, writes the last message and exits as s
   expect(lastMessage).toBe('{"ok":true}');
 });
 
+test('it runs from a folder whose path holds a quote', async () => {
+  const ctx = await setupTest();
+
+  const dir = join(ctx.dir, "it's here");
+
+  await Bun.write(join(dir, '.keep'), '');
+
+  const stub = await createStubCLI(dir, {
+    outputFlag: null,
+    lastMessage: null,
+    stdout: 'ran\n',
+    stderr: '',
+    exitCode: 0,
+    delayMs: 0,
+  });
+
+  const result = await ctx.runner.run([stub.path], { cwd: dir });
+
+  expect([result.exitCode, result.stdout]).toStrictEqual([0, 'ran\n']);
+});
+
 test('it writes no last message when the arguments lack the output flag', async () => {
   const ctx = await setupTest();
 

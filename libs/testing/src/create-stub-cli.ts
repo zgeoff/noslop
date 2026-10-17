@@ -25,7 +25,7 @@ export async function createStubCLI(
 
   await Bun.write(
     path,
-    `#!/bin/sh\nNOSLOP_STUB_SCRIPT='${scriptPath}' exec bun '${join(import.meta.dir, 'run-stub-cli.ts')}' "$@"\n`,
+    `#!/bin/sh\nNOSLOP_STUB_SCRIPT=${formatShellWord(scriptPath)} exec bun ${formatShellWord(join(import.meta.dir, 'run-stub-cli.ts'))} "$@"\n`,
   );
 
   await chmod(path, 0o755);
@@ -38,4 +38,9 @@ export async function createStubCLI(
       return recordSchema.parse(record);
     },
   };
+}
+
+// a single-quoted shell word, with each quote inside it closed, escaped and reopened
+function formatShellWord(value: string): string {
+  return `'${value.replaceAll("'", String.raw`'\''`)}'`;
 }
