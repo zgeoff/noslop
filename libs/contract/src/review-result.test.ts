@@ -4,7 +4,7 @@ import { reviewResultSchema } from './review-result';
 
 test('it accepts a review result with one call and no findings', () => {
   const payload: ReviewResult = {
-    version: 1,
+    version: 2,
     reviewID: 'r_1',
     repo: 'example/app',
     pullRequest: { owner: 'example', repo: 'app', number: 7 },
@@ -42,7 +42,7 @@ test('it accepts a review result with one call and no findings', () => {
 
 test('it rejects a head that is not a full commit', () => {
   const result = reviewResultSchema.safeParse({
-    version: 1,
+    version: 2,
     reviewID: 'r_1',
     repo: 'example/app',
     pullRequest: null,
@@ -67,7 +67,7 @@ test('it rejects a head that is not a full commit', () => {
 
 test('it rejects an output version it does not know', () => {
   const result = reviewResultSchema.safeParse({
-    version: 2,
+    version: 1,
     reviewID: 'r_1',
     repo: 'example/app',
     pullRequest: null,

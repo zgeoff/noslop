@@ -74,6 +74,22 @@ test('it starts no task after one rejects, and rejects once the running tasks se
   expect(settled).toStrictEqual([2]);
 });
 
+test('it rejects with the first error when 2 running tasks reject', () => {
+  const second = Promise.withResolvers<null>();
+
+  // task 1 rejects at once, and task 2 rejects only after the test releases it
+  const waits: Record<number, Promise<null>> = {
+    1: Promise.reject(new Error('the first task failed')),
+    2: second.promise,
+  };
+
+  const run = runConcurrently([1, 2], 2, (item) => waits[item] ?? Promise.resolve(null));
+
+  second.reject(new Error('the second task failed'));
+
+  expect(run).rejects.toThrowWithMessage(Error, 'the first task failed');
+});
+
 test('it rejects a limit below 1', () => {
   expect(runConcurrently([1], 0, (item) => Promise.resolve(item))).rejects.toThrowWithMessage(
     Error,

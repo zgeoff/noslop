@@ -34,9 +34,12 @@ export async function runConcurrently<Item, Result>(
       (error: unknown) => ({ ok: false as const, error }),
     );
 
+    // the first rejection is the one the run reports; a later one only stops its own worker
     if (!outcome.ok) {
-      failure.failed = true;
-      failure.error = outcome.error;
+      if (!failure.failed) {
+        failure.failed = true;
+        failure.error = outcome.error;
+      }
 
       return;
     }

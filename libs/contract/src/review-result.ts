@@ -6,7 +6,7 @@ import { lensIDSchema } from './lens-id';
 
 // changes only with a breaking change to the output, so a consumer that pins a CLI version reads one
 // shape
-export const REVIEW_OUTPUT_VERSION = 1;
+export const REVIEW_OUTPUT_VERSION = 2;
 const commitSchema = z.string().regex(/^[0-9a-f]{40}$/u);
 
 export const callRecordSchema = z.strictObject({
