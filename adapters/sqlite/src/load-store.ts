@@ -186,7 +186,8 @@ const STORE_MIGRATIONS: Record<string, Migration> = {
   },
 
   // a finding ID is unique within one repo only, so each disposition keys on the repo too; a row the
-  // store held before takes the repo of a review that reported its finding
+  // store held before takes the repo of the reviews that reported its finding when they name one repo,
+  // and no repo otherwise, so it applies to no finding until noslop check reads its source again
   '0002-dispositions-by-repo': {
     up: async (db) => {
       await db.schema
@@ -206,7 +207,8 @@ const STORE_MIGRATIONS: Record<string, Migration> = {
         INSERT INTO dispositions_by_repo
         SELECT
           COALESCE(
-            (SELECT MIN(reviews.repo) FROM findings JOIN reviews USING (review_id)
+            (SELECT CASE WHEN COUNT(DISTINCT reviews.repo) = 1 THEN MIN(reviews.repo) END
+              FROM findings JOIN reviews USING (review_id)
               WHERE findings.finding_id = dispositions.finding_id),
             ''
           ),

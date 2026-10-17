@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test';
 import { requireCasePaths } from './require-case-paths';
 
-test('it accepts a case whose labelled paths each name a file at the head', () => {
+test('it accepts a case whose labelled paths each name a file at the head, with or without ./', () => {
   expect(() => {
     requireCasePaths(
       {
@@ -18,6 +18,13 @@ test('it accepts a case whose labelled paths each name a file at the head', () =
             severity: 'P2',
             lens: 'correctness',
             label: 'true-positive',
+          },
+          {
+            anchor: { path: './src/main.ts', startLine: 1, endLine: 1 },
+            title: 'Start the server',
+            severity: 'P3',
+            lens: null,
+            label: 'disputed',
           },
         ],
         escapes: [

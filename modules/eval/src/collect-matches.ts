@@ -1,4 +1,5 @@
 import type { FindingLens, Severity } from '@noslop/contract';
+import { normalizePath } from './normalize-path';
 
 export interface LineRange {
   path: string;
@@ -147,8 +148,4 @@ function countLineDistance(left: LineRange, right: LineRange): number | null {
   }
 
   return 0;
-}
-
-function normalizePath(path: string): string {
-  return path.replace(/^\.\//u, '');
 }

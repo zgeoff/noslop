@@ -15,15 +15,31 @@ async function setupTest() {
   return { path: join(dir, 'store.sqlite') };
 }
 
-test('it keys each disposition a store held before on the repo of a review of its finding', async () => {
+test('it keys each disposition a store held before on the one repo whose reviews report its finding', async () => {
   const ctx = await setupTest();
   const first = await loadStore(ctx.path);
 
   await writeReview(
     first,
     buildMockReviewResult({
+      reviewID: 'review-app',
       repo: 'example/app',
-      findings: [buildMockFinding({ id: '1111111111111111' })],
+      findings: [
+        buildMockFinding({ id: '1111111111111111' }),
+        buildMockFinding({
+          id: '3333333333333333',
+          anchor: { path: 'src/b.ts', startLine: 2, endLine: 2 },
+        }),
+      ],
+    }),
+  );
+
+  await writeReview(
+    first,
+    buildMockReviewResult({
+      reviewID: 'review-web',
+      repo: 'example/web',
+      findings: [buildMockFinding({ id: '3333333333333333' })],
     }),
   );
 
@@ -41,7 +57,8 @@ test('it keys each disposition a store held before on the repo of a review of it
 
   database.run(`INSERT INTO dispositions VALUES
     ('1111111111111111', 'deferred', '#123', 'dev', 1, 'github', '2026-10-17T11:00:00.000Z'),
-    ('2222222222222222', 'deferred', '#124', 'dev', 1, 'github', '2026-10-17T11:00:00.000Z')`);
+    ('2222222222222222', 'deferred', '#124', 'dev', 1, 'github', '2026-10-17T11:00:00.000Z'),
+    ('3333333333333333', 'deferred', '#125', 'dev', 1, 'github', '2026-10-17T11:00:00.000Z')`);
 
   database.close();
 
@@ -58,5 +75,6 @@ test('it keys each disposition a store held before on the repo of a review of it
   expect(rows).toStrictEqual([
     { repo: 'example/app', finding_id: '1111111111111111' },
     { repo: '', finding_id: '2222222222222222' },
+    { repo: '', finding_id: '3333333333333333' },
   ]);
 });
