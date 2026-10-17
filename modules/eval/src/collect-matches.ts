@@ -1,4 +1,4 @@
-import type { FindingLens, Severity } from '@noslop/contract';
+import type { Criterion, FindingLens, Severity } from '@noslop/contract';
 import { normalizePath } from './normalize-path';
 
 export interface LineRange {
@@ -12,6 +12,11 @@ export interface ReportedFinding {
   anchor: LineRange;
   title: string;
   severity: Severity;
+
+  // what noslop names for a finding, so a run can count taste findings and the rules they cite; a
+  // baseline reviewer, and a run recorded before the fields, names neither
+  criterion?: Criterion | undefined;
+  rule?: string | undefined;
 }
 
 export interface MatchTarget {

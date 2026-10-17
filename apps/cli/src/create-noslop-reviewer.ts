@@ -17,6 +17,10 @@ export interface NoslopReviewerOptions {
 
   // the folder that holds each case's own temp folder
   tempDir: string;
+
+  // the config with its `repo:` rules read from the case's repo, as a live review of that repo reads
+  // them
+  loadCaseConfig: (caseRepo: string) => Promise<LoadedConfig>;
 }
 
 // noslop as a reviewer under test: each case runs the whole pipeline on the case's repo at its base and
@@ -33,6 +37,8 @@ export function createNoslopReviewer(options: NoslopReviewerOptions): CaseReview
       const started = performance.now();
 
       try {
+        const caseConfig = await options.loadCaseConfig(corpusCase.repo);
+
         const run = await runReview({
           runner: options.ctx.runner,
           repoDir: corpusCase.repo,
@@ -43,7 +49,7 @@ export function createNoslopReviewer(options: NoslopReviewerOptions): CaseReview
           mergeModel: options.loaded.config.adapters[options.adapter.id]?.mergeModel ?? null,
           depth: options.depth,
           configHash: options.loaded.hash,
-          rules: options.loaded.rules,
+          rules: caseConfig.rules,
           adapter: options.adapter,
           logger: options.ctx.logger,
           tempDir,
@@ -64,6 +70,8 @@ export function createNoslopReviewer(options: NoslopReviewerOptions): CaseReview
             anchor: finding.anchor,
             title: finding.title,
             severity: finding.severity,
+            criterion: finding.criterion,
+            rule: finding.rule,
           })),
           failed: result.calls.length > 0 && result.failedCalls.length === result.calls.length,
           tokens: mergeTokens(result.calls.map((call) => call.tokens)),

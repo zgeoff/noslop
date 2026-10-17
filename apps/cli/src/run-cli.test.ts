@@ -607,6 +607,91 @@ test('it resumes an eval, keeping the cases the out folder holds and replaying t
   expect(runs).toMatchObject([{ caseID: 'case-a' }, { caseID: 'case-b' }]);
 });
 
+test("it reads the repo: rules of an eval case from the case's repo and records the rule a finding cites", async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'RULES.md': '## Naming\n\n1. Start a function name with a verb.\n',
+        'src/total.ts': 'export const zero = 0;\n',
+      },
+    },
+    {
+      message: 'head',
+      files: {
+        'src/total.ts': [
+          'export const zero = 0;',
+          '',
+          'export function total(items: number[]): number {',
+          '  return items.reduce((sum, item) => sum + item, 0);',
+          '}',
+          '',
+        ].join('\n'),
+      },
+    },
+  ]);
+
+  await Bun.write(join(ctx.dir, 'review.json'), JSON.stringify({ rules: ['repo:RULES.md'] }));
+
+  await Bun.write(
+    join(ctx.dir, 'corpus', 'case-a', 'case.json'),
+    JSON.stringify({
+      id: 'case-a',
+      repo: repo.path,
+      base: repo.commits[0],
+      head: repo.commits[1],
+      title: 'Add the total',
+      body: '',
+      findings: [],
+      escapes: [],
+    }),
+  );
+
+  const stub = buildStubAdapter({
+    L: [
+      {
+        findings: {
+          correctness: [],
+          'naming-shape-and-comments': [
+            {
+              title: 'Start "total" with a verb',
+              body: 'The rule asks each function name to start with a verb.',
+              anchor: { path: 'src/total.ts', startLine: 3, endLine: 3 },
+              secondLocation: null,
+              severity: 'P2',
+              criterion: 'taste-rule',
+              rule: 'RULES.md: Naming',
+              verdict: 'CONFIRMED',
+              unverifiedFact: null,
+              missingChange: false,
+              fix: 'Rename it to countTotal.',
+            },
+          ],
+          tests: [],
+        },
+      },
+    ],
+  });
+
+  await runCLI(
+    ['eval', '--corpus', join(ctx.dir, 'corpus'), '--out', join(ctx.dir, 'out')],
+    ctx.buildContext(ctx.dir, stub.adapter),
+  );
+
+  const runs: unknown = await Bun.file(join(ctx.dir, 'out', 'runs.json')).json();
+
+  expect(stub.requests[0]?.prompt).toInclude('### RULES.md: Naming');
+
+  expect(runs).toMatchObject([
+    {
+      caseID: 'case-a',
+      review: { findings: [{ criterion: 'taste-rule', rule: 'RULES.md: Naming' }] },
+    },
+  ]);
+});
+
 test('it replays the depth of each case with no model call under --static', async () => {
   const ctx = await setupTest();
 

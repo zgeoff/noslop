@@ -48,13 +48,15 @@ The harness reviews the first cases of the corpus, all of them unless `--limit` 
 each case, noslop runs its whole pipeline on the case's clone, from the base to the head, with the
 merged config of the working directory's repo and the adapter that config or `--adapter` names. The
 pipeline checks out the head in a worktree of its own, so the clone's own checkout never moves. A
-case that throws, or whose calls all fail, is recorded as failed, and the run goes on.
+case that throws, or whose calls all fail, is recorded as failed, and the run goes on. A `repo:`
+rules path reads from the case's clone, as a live review of that repo reads it.
 
 Each case that ends is written at once to `runs.json` in the out folder, which `--out` names or
 which sits under the user's cache folder. A run cut short therefore keeps every case it finished.
-The file is a recorded run, and a later eval reads it as a baseline or as half of a noise floor.
-When the run ends, the harness writes the report as Markdown and the score as JSON beside it, and
-prints one of them.
+Each finding in it keeps its criterion and the rule it cites, so a run can count taste findings and
+their rules. The file is a recorded run, and a later eval reads it as a baseline or as half of a
+noise floor. When the run ends, the harness writes the report as Markdown and the score as JSON
+beside it, and prints one of them.
 
 The harness also drives a reviewer that needs the head checked out for it: it adds a detached
 worktree of the case's clone at the head and removes it after the review. A reference reviewer of

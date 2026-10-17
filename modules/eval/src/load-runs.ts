@@ -1,4 +1,4 @@
-import { depthSchema, findingLensSchema, severitySchema } from '@noslop/contract';
+import { criterionSchema, depthSchema, findingLensSchema, severitySchema } from '@noslop/contract';
 import { z } from 'zod';
 import type { CaseRun } from './types';
 
@@ -13,6 +13,8 @@ const reportedSchema = z.strictObject({
   title: z.string(),
   severity: severitySchema,
   anchor: anchorSchema,
+  criterion: criterionSchema.optional(),
+  rule: z.string().min(1).optional(),
 });
 
 // a run recorded before the cache counts holds none, and its input count holds the cached share

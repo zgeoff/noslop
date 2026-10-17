@@ -43,6 +43,40 @@ test('it reads a recorded run of case reviews', async () => {
   expect(loaded).toStrictEqual(runs);
 });
 
+test('it reads the criterion and the rule of a taste finding', async () => {
+  const ctx = await setupTest();
+
+  const finding = {
+    lens: 'naming-shape-and-comments' as const,
+    title: 'Start the name with a verb',
+    severity: 'P2' as const,
+    anchor: { path: 'src/a.ts', startLine: 4, endLine: 4 },
+    criterion: 'taste-rule' as const,
+    rule: 'SKILL.md: Function naming',
+  };
+
+  await Bun.write(
+    join(ctx.dir, 'run.json'),
+    JSON.stringify([
+      {
+        caseID: 'case-1',
+        review: {
+          findings: [finding],
+          failed: false,
+          tokens: { input: 0, cachedInput: 0, cacheWrite: 0, output: 0 },
+          durationMs: 1200,
+          calls: 1,
+          depth: 'standard',
+        },
+      },
+    ]),
+  );
+
+  const runs = await loadRuns(join(ctx.dir, 'run.json'));
+
+  expect(runs[0]?.review.findings).toStrictEqual([finding]);
+});
+
 test('it reads no cache counts from a run recorded before them', async () => {
   const ctx = await setupTest();
 

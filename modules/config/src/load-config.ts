@@ -18,6 +18,10 @@ export type ReadRemoteFile = (location: GithubLocation) => Promise<string | null
 export interface LoadConfigOptions {
   repoDir: string;
   readRemoteFile?: ReadRemoteFile;
+
+  // the repo that `repo:` rules paths read from, which the eval sets to each case's repo; the repo
+  // of the config unless given
+  rulesRepoDir?: string;
 }
 
 export interface LoadedConfig {
@@ -256,7 +260,7 @@ function resolveRulesLocation(path: string, options: LoadConfigOptions): ConfigL
   if (path.startsWith(REPO_PREFIX)) {
     const inner = requireInnerPath(path.slice(REPO_PREFIX.length), 'repo: path');
 
-    return { kind: 'local', path: join(options.repoDir, inner) };
+    return { kind: 'local', path: join(options.rulesRepoDir ?? options.repoDir, inner) };
   }
 
   if (path.startsWith('github:')) {

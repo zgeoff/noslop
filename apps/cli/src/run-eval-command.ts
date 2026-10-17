@@ -89,7 +89,15 @@ export async function runEvalCommand(values: EvalValues, ctx: CLIContext): Promi
 
   await mkdir(workDir, { recursive: true });
 
-  const reviewer = createNoslopReviewer({ ctx, loaded, adapter, depth, tempDir: workDir });
+  const reviewer = createNoslopReviewer({
+    ctx,
+    loaded,
+    adapter,
+    depth,
+    tempDir: workDir,
+    loadCaseConfig: (caseRepo) => loadRepoConfig(ctx, repoDir, caseRepo),
+  });
+
   const done = values.resume ? await loadDoneRuns(join(outDir, 'runs.json'), caseIDs) : [];
 
   const doneIDs = new Set(done.map((run) => run.caseID));
