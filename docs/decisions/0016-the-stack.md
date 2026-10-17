@@ -2,6 +2,7 @@
 
 - Date: 2026-10-17
 - Status: decided
+- Updated: 2026-10-17
 
 noslop builds on this stack:
 
@@ -16,7 +17,9 @@ noslop builds on this stack:
 | Parsing                   | oxc-parser                                           |
 | The findings store        | Kysely on `bun:sqlite`                               |
 | The GitHub App's server   | Elysia                                               |
-| GitHub's API and webhooks | `@octokit/app`, `@octokit/webhooks`                  |
+| GitHub's API and webhooks | `@octokit/app`, `@octokit/webhooks`, `@octokit/core` |
+| GitHub's API types        | `@octokit/types`                                     |
+| The GitHub test stand-in  | msw 2.15.0 with `@msw/data`                          |
 | Retries, caches, IDs      | p-retry, lru-cache, nanoid                           |
 | Lifecycles                | XState, only where a real lifecycle exists           |
 | Spawning a CLI            | One injected runner on `Bun.spawn`                   |
@@ -27,7 +30,10 @@ noslop builds on this stack:
 - oxc-parser gives the static stage a full TypeScript syntax tree with no native build step to
   manage.
 - An injected runner keeps process spawning in one place, which tests replace with a stand-in.
-- GitHub's own SDK handles App auth, token refresh and webhook signatures.
+- GitHub's own SDK handles App auth, token refresh and webhook signatures. `@octokit/core` is the
+  typed client an installation token drives, and `@octokit/types` types its routes.
+- msw with `@msw/data` stands in for GitHub's API and for a webhook receiver in tests, over an
+  in-memory store the handlers read and write.
 
 ## Alternatives
 
@@ -41,3 +47,9 @@ noslop builds on this stack:
 - Only the store package imports Kysely and `bun:sqlite`.
 - Only the runner calls `Bun.spawn`.
 - gunshi is pinned to its release candidate until 1.0.0 ships.
+- msw is pinned to 2.15.0, because msw 3 does not intercept `fetch` under Bun 1.4.2.
+
+## Changes
+
+- 2026-10-17: added `@octokit/core` and `@octokit/types` for the typed GitHub client, and msw 2.15.0
+  with `@msw/data` for the GitHub and webhook test stand-in.

@@ -2,6 +2,7 @@
 
 - Date: 2026-10-17
 - Status: decided
+- Updated: 2026-10-17
 
 Each model CLI sits behind an adapter. An adapter takes a prompt and an output schema, runs the CLI,
 and returns JSON. It maps the 3 depths onto the CLI's own effort names. Every adapter in noslop is
@@ -11,7 +12,8 @@ Codex adapter comes first, then a Claude adapter.
 noslop itself is a versioned CLI with JSON output, so other tools pin a version and read its
 results. A review writes only to its own temp folder outside `/tmp`, and deletes that folder whether
 it passes or fails. When an adapter adds to a CLI's instructions, it appends to the user's own
-instructions and never replaces them.
+instructions and never replaces them. The Claude adapter loads no settings files, so it keeps no
+user instructions: the user's settings would also load their hooks and plugins into every call.
 
 ## Why
 
@@ -28,3 +30,8 @@ instructions and never replaces them.
 ## Consequences
 
 - An adapter declares its effort mapping and its timeout.
+
+## Changes
+
+- 2026-10-17: the Claude adapter loads no settings files, so it keeps no user instructions, because
+  user settings would also load hooks and plugins into every call.
