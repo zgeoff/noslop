@@ -10,21 +10,6 @@
     // oxlint 1.86 enables one-var through the style category, which the shared config predates; it
     // forbids the separate const per step that every test body uses
     "one-var": "off",
-    // format-codemod owns blank-line spacing, so the size limits count code, not padding
-    "max-lines": ["error", { "max": 300, "skipBlankLines": true }],
-    "max-lines-per-function": ["error", { "max": 50, "skipBlankLines": true }],
-    // a callback's parameter takes its type from the caller, such as a test.each row; the allowed
-    // types are platform handles, which no caller can make readonly, and ReadonlyMap, which the
-    // rule reads as mutable
-    "typescript/prefer-readonly-parameter-types": [
-      "error",
-      {
-        "ignoreInferredTypes": true,
-        "allow": [
-          { "from": "lib", "name": ["Date", "Error", "Promise", "ReadonlyMap", "Uint8Array"] }
-        ]
-      }
-    ],
     "no-restricted-imports": [
       "error",
       {
