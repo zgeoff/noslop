@@ -1,5 +1,5 @@
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { isAbsolute, join } from 'node:path';
 import { getLogger } from '@logtape/logtape';
 import { createClaudeAdapter } from '@noslop/claude';
 import { createCodexAdapter } from '@noslop/codex';
@@ -13,8 +13,8 @@ import { createJSONReporter } from './create-json-reporter';
 // and stderr, and the adapters and reporters noslop ships
 export function createCLIContext(env: Readonly<Record<string, string | undefined>>): CLIContext {
   const runner = createRunner();
-  const cacheDir = join(env['XDG_CACHE_HOME'] ?? join(homedir(), '.cache'), 'noslop');
-  const dataDir = join(env['XDG_DATA_HOME'] ?? join(homedir(), '.local', 'share'), 'noslop');
+  const cacheDir = join(resolveXDGDir(env['XDG_CACHE_HOME'], ['.cache']), 'noslop');
+  const dataDir = join(resolveXDGDir(env['XDG_DATA_HOME'], ['.local', 'share']), 'noslop');
 
   const adapters: Record<string, () => ReviewAdapter> = {
     codex: () => createCodexAdapter({ runner }),
@@ -48,6 +48,12 @@ export function createCLIContext(env: Readonly<Record<string, string | undefined
       return id === 'sqlite' ? createSQLiteReporter(join(dataDir, 'store.sqlite')) : null;
     },
   };
+}
+
+// the XDG base directory spec ignores an empty or relative value, so the folder under the home
+// directory stands in for it
+function resolveXDGDir(value: string | undefined, fallback: readonly string[]): string {
+  return value !== undefined && isAbsolute(value) ? value : join(homedir(), ...fallback);
 }
 
 function writeStdout(text: string): void {
