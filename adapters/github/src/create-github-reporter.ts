@@ -3,7 +3,6 @@ import type { GitHubClient, GitHubConnection } from './create-github-connection'
 import { formatFindingComment } from './format-finding-comment';
 import type { FixConfirmation } from './format-summary-comment';
 import { formatSummaryComment } from './format-summary-comment';
-import { readFixedFindings } from './read-fixed-findings';
 import type { PullRequestState } from './read-pull-request-state';
 import { readPullRequestState } from './read-pull-request-state';
 import { readThreadDispositions } from './read-thread-dispositions';
@@ -55,7 +54,7 @@ export function createGitHubReporter(options: GitHubReporterOptions): Reporter {
       const unanchored = await createReviewComments(client, pr, result.head, inline);
 
       for (const finding of unanchored) {
-        await createIssueComment(client, pr, formatUnanchoredComment(finding));
+        await createIssueComment(client, pr, formatUnanchoredComment(finding, result.head));
       }
 
       for (const finding of followUps) {
@@ -113,7 +112,7 @@ async function createReviewComments(
       pull_number: pr.number,
       commit_id: head,
       event: 'COMMENT',
-      comments: findings.map((finding) => toReviewComment(finding)),
+      comments: findings.map((finding) => toReviewComment(finding, head)),
     });
 
     return [];
@@ -132,7 +131,7 @@ async function createReviewComments(
         repo: pr.repo,
         pull_number: pr.number,
         commit_id: head,
-        ...toReviewComment(finding),
+        ...toReviewComment(finding, head),
       });
     } catch (error) {
       if (!isUnprocessable(error)) {
@@ -146,14 +145,14 @@ async function createReviewComments(
   return refused;
 }
 
-function toReviewComment(finding: Finding) {
+function toReviewComment(finding: Finding, head: string) {
   const range = finding.anchor.startLine < finding.anchor.endLine;
 
   return {
     path: finding.anchor.path,
     line: finding.anchor.endLine,
     side: 'RIGHT' as const,
-    body: formatFindingComment(finding),
+    body: formatFindingComment(finding, head),
     ...(range ? { start_line: finding.anchor.startLine, start_side: 'RIGHT' as const } : {}),
   };
 }
@@ -162,13 +161,13 @@ function isUnprocessable(error: unknown): boolean {
   return typeof error === 'object' && error !== null && 'status' in error && error.status === 422;
 }
 
-function formatUnanchoredComment(finding: Finding): string {
+function formatUnanchoredComment(finding: Finding, head: string): string {
   const anchor = `\`${finding.anchor.path}:${finding.anchor.startLine}-${finding.anchor.endLine}\``;
 
   return [
     `GitHub cannot anchor this finding at ${anchor}, outside the diff. Answer it in a comment that starts with its id, \`${finding.id}\`.`,
     '',
-    formatFindingComment(finding),
+    formatFindingComment(finding, head),
   ].join('\n');
 }
 
@@ -204,9 +203,9 @@ async function createFollowUpIssue(
   });
 }
 
-// a `fixed` finding is confirmed while no review reports it again, once a review whose range holds a
-// fix commit that changes the finding's file has read the fix; a fix outside the range keeps the
-// earlier review's word
+// a `fixed` finding is confirmed while no review reports it again, once a review whose range holds the
+// fix commit has read the fix; the commit may change any file, since a fix such as a missing test
+// lives beside the finding's file, and a fix outside the range keeps the earlier review's word
 async function buildConfirmations(
   client: GitHubClient,
   pr: PullRequestRef,
@@ -214,14 +213,22 @@ async function buildConfirmations(
   result: ReviewResult,
 ): Promise<FixConfirmation[]> {
   const dispositions = await readThreadDispositions(client, pr, before.threads);
-  const changesFile = await readFixedFindings(client, pr, before.threads, dispositions);
   const range = await readRangeCommits(client, pr, result.base, result.head);
 
   const latest = new Map(dispositions.map((item) => [item.findingID, item]));
   const reported = new Set(result.findings.map((finding) => finding.id));
   const confirmed = new Set(before.summary?.marker.confirmed);
+  const sincePosted = new Map<string, Promise<string[]>>();
 
-  return before.threads.flatMap((thread) => {
+  const readSincePosted = (posted: string): Promise<string[]> => {
+    const commits = sincePosted.get(posted) ?? readRangeCommits(client, pr, posted, result.head);
+
+    sincePosted.set(posted, commits);
+
+    return commits;
+  };
+
+  const confirmations = before.threads.map(async (thread) => {
     const disposition = latest.get(thread.marker.id);
 
     if (disposition?.kind !== 'fixed') {
@@ -229,7 +236,13 @@ async function buildConfirmations(
     }
 
     const commit = disposition.value;
-    const isRead = range.some((sha) => sha.startsWith(commit)) && changesFile.has(thread.marker.id);
+    const match = findOneCommit(before.commits, commit);
+    const posted = thread.marker.head;
+
+    // a full review covers the whole branch, so only a commit after the head that posted the finding
+    // is a fix of it; a marker without that head leaves the review's range alone to decide
+    const after = posted === undefined ? range : await readSincePosted(posted);
+    const isRead = range.includes(match ?? '') && after.includes(match ?? '');
     const isHeld = confirmed.has(`${thread.marker.id}:${commit}`);
 
     return [
@@ -237,26 +250,46 @@ async function buildConfirmations(
         id: thread.marker.id,
         title: thread.marker.title,
         commit,
-        fixed: !reported.has(thread.marker.id) && (isRead || isHeld),
+        fixed: !reported.has(thread.marker.id) && match !== null && (isRead || isHeld),
       },
     ];
   });
+
+  const all = await Promise.all(confirmations);
+
+  return all.flat();
 }
 
-// the commits after the review's base up to its head
+// the one branch commit a `fixed` sha names; a prefix that 2 commits share names neither
+function findOneCommit(commits: readonly string[], sha: string): string | null {
+  const matches = commits.filter((commit) => commit.startsWith(sha));
+
+  return matches.length === 1 ? (matches[0] ?? null) : null;
+}
+
+// the commits after the base up to the head; a base that GitHub no longer holds, such as a head that
+// a force push dropped, gives none, so no fix counts through it
 async function readRangeCommits(
   client: GitHubClient,
   pr: PullRequestRef,
   base: string,
   head: string,
 ): Promise<string[]> {
-  const response = await client.request('GET /repos/{owner}/{repo}/compare/{basehead}', {
-    owner: pr.owner,
-    repo: pr.repo,
-    basehead: `${base}...${head}`,
-  });
+  try {
+    const response = await client.request('GET /repos/{owner}/{repo}/compare/{basehead}', {
+      owner: pr.owner,
+      repo: pr.repo,
+      basehead: `${base}...${head}`,
+    });
 
-  return response.data.commits.map((commit) => commit.sha);
+    return response.data.commits.map((commit) => commit.sha);
+  } catch (error) {
+    if (typeof error === 'object' && error !== null && 'status' in error && error.status === 404) {
+      return [];
+    }
+
+    throw error;
+  }
 }
 
 async function writeSummaryComment(

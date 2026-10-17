@@ -10,6 +10,7 @@ test('it writes the severity, verdict, title, body, fact, fix, id and marker of 
         unverifiedFact: 'Whether any caller passes an empty list.',
         fix: 'Start the loop at index 0.',
       }),
+      'b'.repeat(40),
     ),
   ).toMatchInlineSnapshot(`
     "**P2 · PLAUSIBLE** Return the total of every item
@@ -22,6 +23,6 @@ test('it writes the severity, verdict, title, body, fact, fix, id and marker of 
 
     noslop \`0123456789abcdef\` · correctness · wrong-behaviour-edge-path
     Reply with one of these as the first line: \`fixed <sha>\`, \`not-a-defect <reason>\`, \`deferred <issue>\` or \`accepted-risk <reason>\`.
-    <!-- noslop:finding {"id":"0123456789abcdef","title":"Return the total of every item","path":"src/a.ts","lens":"correctness","severity":"P2","riskClass":null,"writtenByChange":true} -->"
+    <!-- noslop:finding {"id":"0123456789abcdef","title":"Return the total of every item","path":"src/a.ts","lens":"correctness","severity":"P2","riskClass":null,"writtenByChange":true,"head":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"} -->"
   `);
 });

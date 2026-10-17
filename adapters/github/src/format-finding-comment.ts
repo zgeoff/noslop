@@ -7,7 +7,8 @@ export const DISPOSITION_FORMS =
 
 // the comment for one finding: the severity and the verdict, the title, the body, the fact a
 // PLAUSIBLE finding rests on, the fix, the finding's id and the accepted dispositions, then the marker
-export function formatFindingComment(finding: Finding): string {
+// with the head of the review that posts it
+export function formatFindingComment(finding: Finding, head: string): string {
   const lines = [`**${finding.severity} · ${finding.verdict}** ${finding.title}`, '', finding.body];
 
   if (finding.unverifiedFact !== undefined) {
@@ -22,13 +23,13 @@ export function formatFindingComment(finding: Finding): string {
     '',
     `noslop \`${finding.id}\` · ${finding.lens} · ${finding.rule ?? finding.criterion}`,
     DISPOSITION_FORMS,
-    formatMarker('finding', toFindingMarker(finding)),
+    formatMarker('finding', toFindingMarker(finding, head)),
   );
 
   return lines.join('\n');
 }
 
-function toFindingMarker(finding: Finding): FindingMarker {
+function toFindingMarker(finding: Finding, head: string): FindingMarker {
   return {
     id: finding.id,
     title: finding.title,
@@ -37,5 +38,6 @@ function toFindingMarker(finding: Finding): FindingMarker {
     severity: finding.severity,
     riskClass: finding.riskClass ?? null,
     writtenByChange: finding.writtenByChange,
+    head,
   };
 }

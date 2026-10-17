@@ -3,7 +3,6 @@ import type { CheckOutcome } from './build-check-outcome';
 import { buildCheckOutcome } from './build-check-outcome';
 import { createFormsReplies } from './create-forms-replies';
 import type { GitHubClient, GitHubConnection } from './create-github-connection';
-import { readFixedFindings } from './read-fixed-findings';
 import type { PullRequestState } from './read-pull-request-state';
 import { readPullRequestState } from './read-pull-request-state';
 import { readThreadDispositions } from './read-thread-dispositions';
@@ -34,7 +33,6 @@ export async function runGitHubCheck(
 
   const dispositions = await readThreadDispositions(client, pr, state.threads);
   const existingIssues = await readExistingIssues(client, pr, dispositions);
-  const fixChangesFile = await readFixedFindings(client, pr, state.threads, dispositions);
 
   const outcome = buildCheckOutcome({
     findings: state.threads.map((thread) => thread.marker),
@@ -43,7 +41,6 @@ export async function runGitHubCheck(
     currentHead: state.headSha,
     commits: state.commits,
     existingIssues,
-    fixChangesFile,
     failedReporters: options.failedReporters,
     unreadable: state.unreadable,
   });

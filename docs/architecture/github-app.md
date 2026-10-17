@@ -120,8 +120,8 @@ A reply in any other form is no disposition. Each time noslop sets the check, it
 reply once with the accepted forms, and the forms marker stops a later run answering it again. Each
 kind is valid under its own rule:
 
-- `fixed <commit>` is valid when the commit is on the branch, the commit changes the finding's file,
-  and a re-review that read the commit no longer reports the finding.
+- `fixed <commit>` is valid when the sha names exactly one commit on the branch and a re-review that
+  read the commit no longer reports the finding.
 - `not-a-defect <reason>` is valid with any reason.
 - `deferred <issue>` is valid when the change did not write the code, the finding is no P1, security
   or risk-class finding, and the issue exists. The issue is `#<number>` in the same repo,
@@ -136,13 +136,15 @@ it, its head becomes the base. Otherwise the base is the merge base of the pull 
 review covers the whole change. A review with a failed call therefore never narrows the next one,
 and a force push that drops the reviewed head brings a full review.
 
-A `fixed <commit>` disposition counts once a re-review whose range holds that commit, where the
-commit changes the finding's file, no longer reports the finding. The summary marker keeps each
-confirmed fix as the finding id and the commit, so a later delta that never touches the file keeps
-the confirmation. A fix that a re-review still reports stays unconfirmed, and a later delta that
-skips the file leaves it unconfirmed. The re-review reads the dispositions present when it runs, so
-a `fixed` reply posted after the re-review of its commit finds no review that read it, and the check
-keeps the finding open.
+A `fixed <commit>` disposition counts once a re-review whose range holds that commit no longer
+reports the finding. The commit may change any file, because a fix such as a missing test lands
+beside the finding's file. The commit must also come after the head of the review that posted the
+finding, which the finding's marker keeps, so a full review over the whole branch never confirms a
+fix through an older commit. The summary marker keeps each confirmed fix as the finding id and the
+commit, so a later delta without the commit keeps the confirmation. A fix that a re-review still
+reports stays unconfirmed, and a later delta without the commit leaves it unconfirmed. The re-review
+reads the dispositions present when it runs, so a `fixed` reply posted after the re-review of its
+commit finds no review that read it, and the check keeps the finding open.
 
 The re-check is the second review of a pull request. From the third review on, the reporter sends
 each new finding in code the change did not write to a follow-up issue. A security finding, and any

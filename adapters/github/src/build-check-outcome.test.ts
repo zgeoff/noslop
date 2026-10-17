@@ -54,7 +54,6 @@ test('it passes when the review ran on the head and every finding holds a valid 
     currentHead: 'f'.repeat(40),
     commits: ['abc1234'.padEnd(40, '0'), 'f'.repeat(40)],
     existingIssues: new Set(['#12']),
-    fixChangesFile: new Set(['1111111111111111']),
     failedReporters: [],
     unreadable: 0,
   });
@@ -165,7 +164,6 @@ test('it lists each finding whose disposition is not valid, with the reason', ()
     currentHead: 'f'.repeat(40),
     commits: ['f'.repeat(40)],
     existingIssues: new Set(['#12']),
-    fixChangesFile: new Set(),
     failedReporters: [],
     unreadable: 0,
   });
@@ -196,22 +194,13 @@ test('it lists each finding whose disposition is not valid, with the reason', ()
   ]);
 });
 
-test('it fails a fixed finding that is still found, misses its file or no re-review read', () => {
+test('it fails a fixed finding that is still found or that no re-review read', () => {
   const outcome = buildCheckOutcome({
     findings: [
       {
         id: '1111111111111111',
         title: 'Await the write',
         path: 'src/a.ts',
-        lens: 'correctness',
-        severity: 'P2',
-        riskClass: null,
-        writtenByChange: true,
-      },
-      {
-        id: '2222222222222222',
-        title: 'Lock the row',
-        path: 'src/rows.ts',
         lens: 'correctness',
         severity: 'P2',
         riskClass: null,
@@ -247,15 +236,6 @@ test('it fails a fixed finding that is still found, misses its file or no re-rev
         at: '2026-10-17T10:00:00.000Z',
       },
       {
-        findingID: '2222222222222222',
-        kind: 'fixed',
-        value: 'abc1234',
-        author: 'dev',
-        authorIsOwner: false,
-        source: 'github',
-        at: '2026-10-17T10:00:30.000Z',
-      },
-      {
         findingID: '4444444444444444',
         kind: 'fixed',
         value: 'abc1234',
@@ -285,16 +265,62 @@ test('it fails a fixed finding that is still found, misses its file or no re-rev
     currentHead: 'f'.repeat(40),
     commits: ['abc1234'.padEnd(40, '0'), 'f'.repeat(40)],
     existingIssues: new Set(),
-    fixChangesFile: new Set(['1111111111111111', '4444444444444444']),
     failedReporters: [],
     unreadable: 0,
   });
 
   expect(outcome.open.map((item) => item.reason)).toStrictEqual([
     'the re-review still finds it',
-    'the commit abc1234 does not change src/rows.ts',
     'the issue #99 does not exist',
     'no re-review has read the commit abc1234 yet',
+  ]);
+});
+
+test('it fails a fixed finding whose sha matches 2 commits on the branch', () => {
+  const outcome = buildCheckOutcome({
+    findings: [
+      {
+        id: '1111111111111111',
+        title: 'Await the write',
+        path: 'src/a.ts',
+        lens: 'correctness',
+        severity: 'P2',
+        riskClass: null,
+        writtenByChange: true,
+      },
+    ],
+    dispositions: [
+      {
+        findingID: '1111111111111111',
+        kind: 'fixed',
+        value: 'abc1234',
+        author: 'dev',
+        authorIsOwner: false,
+        source: 'github',
+        at: '2026-10-17T10:00:00.000Z',
+      },
+    ],
+    summary: {
+      head: 'f'.repeat(40),
+      reviews: 2,
+      reported: [],
+      failedCalls: 0,
+      followUps: [],
+      confirmed: ['1111111111111111:abc1234'],
+    },
+    currentHead: 'f'.repeat(40),
+    commits: ['abc1234'.padEnd(40, 'a'), 'abc1234'.padEnd(40, 'c'), 'f'.repeat(40)],
+    existingIssues: new Set(),
+    failedReporters: [],
+    unreadable: 0,
+  });
+
+  expect(outcome.open).toStrictEqual([
+    {
+      id: '1111111111111111',
+      title: 'Await the write',
+      reason: 'the sha abc1234 matches more than one commit on the branch, so give more of it',
+    },
   ]);
 });
 
@@ -313,7 +339,6 @@ test('it fails when a finding comment holds a marker noslop cannot read', () => 
     currentHead: 'f'.repeat(40),
     commits: ['f'.repeat(40)],
     existingIssues: new Set(),
-    fixChangesFile: new Set(),
     failedReporters: [],
     unreadable: 2,
   });
@@ -341,7 +366,6 @@ test('it fails when no review ran on the current head, a call failed or a report
     currentHead: 'f'.repeat(40),
     commits: [],
     existingIssues: new Set(),
-    fixChangesFile: new Set(),
     failedReporters: ['sqlite'],
     unreadable: 0,
   });
@@ -402,7 +426,6 @@ test('it judges a finding by its latest disposition', () => {
     currentHead: 'f'.repeat(40),
     commits: ['f'.repeat(40)],
     existingIssues: new Set(),
-    fixChangesFile: new Set(),
     failedReporters: [],
     unreadable: 0,
   });

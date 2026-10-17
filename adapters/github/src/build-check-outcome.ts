@@ -13,9 +13,6 @@ export interface CheckOutcomeInput {
 
   // the values of the `deferred` dispositions whose issue exists
   existingIssues: ReadonlySet<string>;
-
-  // the findings whose `fixed` commit changes the finding's file
-  fixChangesFile: ReadonlySet<string>;
   failedReporters: readonly string[];
 
   // the App's finding comments whose marker noslop cannot read
@@ -112,12 +109,14 @@ function findFixedReason(
   commit: string,
   input: CheckOutcomeInput,
 ): string | null {
-  if (!input.commits.some((sha) => sha.startsWith(commit))) {
+  const matches = input.commits.filter((sha) => sha.startsWith(commit));
+
+  if (matches.length === 0) {
     return `the commit ${commit} is not on the branch`;
   }
 
-  if (!input.fixChangesFile.has(finding.id)) {
-    return `the commit ${commit} does not change ${finding.path}`;
+  if (matches.length > 1) {
+    return `the sha ${commit} matches more than one commit on the branch, so give more of it`;
   }
 
   if (input.summary?.reported.includes(finding.id) === true) {

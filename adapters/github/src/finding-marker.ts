@@ -11,6 +11,13 @@ export const findingMarkerSchema = z.strictObject({
   severity: severitySchema,
   riskClass: z.string().min(1).nullable(),
   writtenByChange: z.boolean(),
+
+  // the head of the review that posted the finding, so only a commit after it confirms a fix; a
+  // marker posted before the field holds none
+  head: z
+    .string()
+    .regex(/^[0-9a-f]{40}$/u)
+    .optional(),
 });
 
 export type FindingMarker = z.infer<typeof findingMarkerSchema>;
