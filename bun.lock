@@ -71,6 +71,14 @@
         "@noslop/testing": "workspace:*",
       },
     },
+    "modules/lenses": {
+      "name": "@noslop/lenses",
+      "version": "0.0.0",
+      "dependencies": {
+        "@noslop/contract": "workspace:*",
+        "@noslop/static-stage": "workspace:*",
+      },
+    },
     "modules/static-stage": {
       "name": "@noslop/static-stage",
       "version": "0.0.0",
@@ -195,6 +203,8 @@
     "@noslop/contract": ["@noslop/contract@workspace:libs/contract"],
 
     "@noslop/eval": ["@noslop/eval@workspace:modules/eval"],
+
+    "@noslop/lenses": ["@noslop/lenses@workspace:modules/lenses"],
 
     "@noslop/runner": ["@noslop/runner@workspace:libs/runner"],
 
