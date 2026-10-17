@@ -4,11 +4,13 @@ import type {
   FindingLens,
   ModelFinding,
   ReviewConfig,
+  Thresholds,
 } from '@noslop/contract';
 import { CRITERION_SEVERITY, TITLE_MAX_LENGTH, findingSchema } from '@noslop/contract';
 import { buildChangedLines, isGlobMatch } from '@noslop/static-stage';
 import { buildFindingID } from './build-finding-id';
 import { normalizeTitle } from './normalize-title';
+import { splitTitleWords } from './split-title-words';
 
 export interface RawFinding {
   lens: FindingLens;
@@ -58,7 +60,7 @@ export function buildFindings(input: AssembleInput): AssembledFindings {
     }
   }
 
-  return { findings: buildUniqueIDs(mergeDuplicates(kept)), dropped };
+  return { findings: buildUniqueIDs(mergeDuplicates(kept, input.config.thresholds)), dropped };
 }
 
 function buildFinding(
@@ -151,13 +153,13 @@ function isOnChangedLine(
   return false;
 }
 
-// 2 findings are one defect when their anchors overlap and their titles match; the merged finding
-// keeps the higher severity
-function mergeDuplicates(findings: readonly Finding[]): Finding[] {
+// 2 findings are one defect when their anchors overlap and their titles say the same thing; the
+// merged finding keeps the higher severity
+function mergeDuplicates(findings: readonly Finding[], thresholds: Thresholds): Finding[] {
   const merged: Finding[] = [];
 
   for (const finding of findings) {
-    const index = merged.findIndex((other) => isSameDefect(other, finding));
+    const index = merged.findIndex((other) => isSameDefect(other, finding, thresholds));
     const other = merged[index];
 
     if (other === undefined) {
@@ -198,11 +200,28 @@ function buildPlacedFinding(finding: Finding, place: number): Finding {
   return { ...finding, id };
 }
 
-function isSameDefect(left: Finding, right: Finding): boolean {
+// lenses word one defect differently, so 2 titles match on their shared words; a test finding asks
+// for a test and a fix finding for a fix, so the 2 kinds never merge with each other
+function isSameDefect(left: Finding, right: Finding, thresholds: Thresholds): boolean {
   const overlaps =
     left.anchor.path === right.anchor.path &&
     left.anchor.startLine <= right.anchor.endLine &&
     right.anchor.startLine <= left.anchor.endLine;
 
-  return overlaps && normalizeTitle(left.title) === normalizeTitle(right.title);
+  if (!overlaps || (left.lens === 'tests') !== (right.lens === 'tests')) {
+    return false;
+  }
+
+  if (normalizeTitle(left.title) === normalizeTitle(right.title)) {
+    return true;
+  }
+
+  const leftWords = splitTitleWords(left.title);
+  const rightWords = splitTitleWords(right.title);
+  const shared = [...leftWords].filter((word) => rightWords.has(word)).length;
+  const smaller = Math.min(leftWords.size, rightWords.size);
+
+  return (
+    shared >= thresholds.mergeMinSharedWords && shared / smaller >= thresholds.mergeMinWordShare
+  );
 }

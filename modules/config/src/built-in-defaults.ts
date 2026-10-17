@@ -83,6 +83,8 @@ export const BUILT_IN_DEFAULTS: ReviewConfig = {
     concurrencyMinWrites: 2,
     reuseShortlistSize: 5,
     reuseMinScore: 0.5,
+    mergeMinSharedWords: 3,
+    mergeMinWordShare: 0.5,
     parallelCalls: 4,
     parallelCases: 4,
   },
