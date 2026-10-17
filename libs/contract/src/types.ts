@@ -8,19 +8,21 @@ import type { LensID } from './lens-id';
 import type { ReporterOptions } from './review-config';
 import type { PullRequestRef, ReviewResult } from './review-result';
 
-export interface CallRequest {
+// a lens call returns findings keyed by lens; a pass with an output of its own, such as the merge
+// pass, names its schema, and carries no lens
+export interface CallRequest<Output = CallOutput> {
   callID: string;
   lenses: readonly LensID[];
   prompt: string;
-  outputSchema: z.ZodType<CallOutput>;
+  outputSchema: z.ZodType<Output>;
   effort: Effort;
   model: string | null;
   cwd: string;
   timeoutMs: number | null;
 }
 
-export interface CallResult {
-  output: CallOutput;
+export interface CallResult<Output = CallOutput> {
+  output: Output;
   model: string | null;
   tokens: { input: number; output: number };
   durationMs: number;
@@ -38,7 +40,7 @@ export interface ReviewAdapter {
   id: string;
   defaultTimeoutMs: number;
   efforts: Readonly<Record<Effort, string>>;
-  runCall: (call: CallRequest, ctx: AdapterContext) => Promise<CallResult>;
+  runCall: <Output>(call: CallRequest<Output>, ctx: AdapterContext) => Promise<CallResult<Output>>;
 }
 
 export interface ReporterContext {

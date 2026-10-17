@@ -1,5 +1,5 @@
 import type { CallRequest, CallResult, ReviewAdapter } from '@noslop/contract';
-import { buildCallOutputJSONSchema } from '@noslop/contract';
+import { buildOutputJSONSchema } from '@noslop/contract';
 import type { Runner } from '@noslop/runner';
 import { z } from 'zod';
 
@@ -49,18 +49,18 @@ export function createClaudeAdapter(options: ClaudeAdapterOptions): ReviewAdapte
   return adapter;
 }
 
-async function runClaudeCall(
-  call: CallRequest,
+async function runClaudeCall<Output>(
+  call: CallRequest<Output>,
   adapter: ReviewAdapter,
   options: ClaudeAdapterOptions,
-): Promise<CallResult> {
+): Promise<CallResult<Output>> {
   const argv = [
     options.command ?? 'claude',
     '-p',
     '--output-format',
     'json',
     '--json-schema',
-    JSON.stringify(buildCallOutputJSONSchema(call.lenses)),
+    JSON.stringify(buildOutputJSONSchema(call.outputSchema)),
     '--tools',
     READ_TOOLS,
     '--allowedTools',

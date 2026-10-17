@@ -2,14 +2,15 @@ import { readdir } from 'node:fs/promises';
 import { join, relative, sep } from 'node:path';
 import type { CallOutput, CallRequest, ReviewAdapter } from '@noslop/contract';
 
-// one answer to one attempt of a call: the call's output, or the message of the error it throws
-export type StubCallAnswer = CallOutput | { error: string };
+// one answer to one attempt of a call: the call's output, which the call's own schema parses, such as
+// the findings of a lens call or the groups of the merge pass, or the message of the error it throws
+export type StubCallAnswer = CallOutput | { groups: string[][] } | { error: string };
 
 export interface StubAdapter {
   adapter: ReviewAdapter;
 
   // every request the adapter received, in order
-  requests: CallRequest[];
+  requests: CallRequest<unknown>[];
 
   // the files in each request's working directory when the call ran, sorted, so a test sees what a
   // model would read
@@ -26,7 +27,7 @@ export function buildStubAdapter(
   answers: Readonly<Record<string, readonly StubCallAnswer[]>>,
   delaysMs: Readonly<Record<string, number>> = {},
 ): StubAdapter {
-  const requests: CallRequest[] = [];
+  const requests: CallRequest<unknown>[] = [];
   const seenFiles: string[][] = [];
   const ended: string[] = [];
 

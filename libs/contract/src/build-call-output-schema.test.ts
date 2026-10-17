@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import type { CallOutput } from './build-call-output-schema';
-import { buildCallOutputJSONSchema, buildCallOutputSchema } from './build-call-output-schema';
+import { buildCallOutputSchema, buildOutputJSONSchema } from './build-call-output-schema';
 
 test('it accepts one findings list per fired lens', () => {
   const payload: CallOutput = {
@@ -71,7 +71,7 @@ test('it rejects a finding that leaves out a nullable key', () => {
 });
 
 test('it exports a JSON Schema that requires every key and allows no other', () => {
-  expect(buildCallOutputJSONSchema(['correctness'])).toMatchInlineSnapshot(`
+  expect(buildOutputJSONSchema(buildCallOutputSchema(['correctness']))).toMatchInlineSnapshot(`
     {
       "additionalProperties": false,
       "properties": {

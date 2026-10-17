@@ -41,14 +41,10 @@ export function buildCallOutputSchema(lenses: readonly LensID[]): z.ZodType<Call
   return z.strictObject({ findings: z.strictObject(shape) });
 }
 
-// the JSON Schema that an adapter passes to its CLI's schema flag, as plain JSON; it names no draft,
-// because Claude Code's validator refuses the 2020-12 meta-schema that zod names
-export function buildCallOutputJSONSchema(lenses: readonly LensID[]): Record<string, unknown> {
-  const {
-    '~standard': _standard,
-    $schema: _draft,
-    ...jsonSchema
-  } = z.toJSONSchema(buildCallOutputSchema(lenses));
+// the JSON Schema of a call's output that an adapter passes to its CLI's schema flag, as plain JSON;
+// it names no draft, because Claude Code's validator refuses the 2020-12 meta-schema that zod names
+export function buildOutputJSONSchema(schema: z.ZodType): Record<string, unknown> {
+  const { '~standard': _standard, $schema: _draft, ...jsonSchema } = z.toJSONSchema(schema);
 
   return jsonSchema;
 }

@@ -2,7 +2,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { CallRequest, CallResult, ReviewAdapter } from '@noslop/contract';
-import { buildCallOutputJSONSchema } from '@noslop/contract';
+import { buildOutputJSONSchema } from '@noslop/contract';
 import type { Runner } from '@noslop/runner';
 import { z } from 'zod';
 
@@ -70,12 +70,12 @@ export function createCodexAdapter(options: CodexAdapterOptions): ReviewAdapter 
   return adapter;
 }
 
-async function runCodexCall(
-  call: CallRequest,
+async function runCodexCall<Output>(
+  call: CallRequest<Output>,
   dir: string,
   adapter: ReviewAdapter,
   options: CodexAdapterOptions,
-): Promise<CallResult> {
+): Promise<CallResult<Output>> {
   const schemaPath = join(dir, 'output-schema.json');
   const lastPath = join(dir, 'last-message.json');
 
@@ -105,7 +105,7 @@ async function runCodexCall(
     );
   }
 
-  await Bun.write(schemaPath, JSON.stringify(buildCallOutputJSONSchema(call.lenses)));
+  await Bun.write(schemaPath, JSON.stringify(buildOutputJSONSchema(call.outputSchema)));
 
   const argv = [
     options.command ?? 'codex',
