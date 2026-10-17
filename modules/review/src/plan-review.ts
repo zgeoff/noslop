@@ -3,6 +3,7 @@ import type { Route, RouteInput } from '@noslop/routing';
 import { buildRoute } from '@noslop/routing';
 import type { StaticStageResult } from '@noslop/static-stage';
 import { readChange, runStaticStage } from '@noslop/static-stage';
+import { isLargeChange } from './is-large-change';
 import type { RunReviewOptions } from './run-review';
 
 export type PlanReviewOptions = Pick<
@@ -27,8 +28,7 @@ export interface ReviewPlan {
   routeInput: RouteInput;
   route: Route;
 
-  // the most calls the review can make: the planned calls, the verify call that Deep or a step-up from
-  // Standard adds, and the gap sweep that Deep can add
+  // the most calls the review can make: the planned calls and the passes its depth can add
   maxCalls: number;
 }
 
@@ -71,15 +71,19 @@ export async function planReview(options: PlanReviewOptions): Promise<ReviewPlan
 
   const route = buildRoute(routeInput);
 
-  return { change, stage, routeInput, route, maxCalls: countMaxCalls(route) };
+  return { change, stage, routeInput, route, maxCalls: countMaxCalls(route, change, options) };
 }
 
-const PASS_CALLS: Readonly<Record<Route['depth'], number>> = { light: 0, standard: 1, deep: 2 };
-
-function countMaxCalls(route: Route): number {
-  if (route.calls.length === 0) {
-    return 0;
+// Standard can add the verify call of a step-up, and Deep adds the verify call and, on a change large
+// enough for one, the gap sweep
+function countMaxCalls(route: Route, change: Change, options: PlanReviewOptions): number {
+  if (route.calls.length === 0 || route.depth === 'light') {
+    return route.calls.length;
   }
 
-  return route.calls.length + PASS_CALLS[route.depth];
+  if (route.depth === 'standard') {
+    return route.calls.length + 1;
+  }
+
+  return route.calls.length + (isLargeChange(change, options.config.thresholds) ? 2 : 1);
 }

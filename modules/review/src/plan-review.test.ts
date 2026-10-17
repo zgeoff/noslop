@@ -15,6 +15,38 @@ async function setupTest() {
   return { dir, runner: createRunner() };
 }
 
+test('it counts the gap sweep in the most calls of a Deep change large enough for one', async () => {
+  const ctx = await setupTest();
+
+  const files = Object.fromEntries(
+    ['a', 'b', 'c', 'd', 'e'].map((name) => [`src/auth/${name}.ts`, `export const ${name} = 2;\n`]),
+  );
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    {
+      message: 'base',
+      files: Object.fromEntries(Object.keys(files).map((path) => [path, 'export const x = 1;\n'])),
+    },
+    { message: 'head', files },
+  ]);
+
+  const plan = await planReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: repo.commits[0] ?? '',
+    head: repo.commits[1] ?? '',
+    config: BUILT_IN_DEFAULTS,
+    cacheDir: null,
+    title: 'Rename the auth constants',
+    body: '',
+    linkedIssue: null,
+    isPush: false,
+    pastEscapes: [],
+  });
+
+  expect([plan.route.depth, plan.route.calls.length, plan.maxCalls]).toStrictEqual(['deep', 2, 4]);
+});
+
 test('it plans the depth and the calls of a change with no model call', async () => {
   const ctx = await setupTest();
 
@@ -42,5 +74,5 @@ test('it plans the depth and the calls of a change with no model call', async ()
     plan.stage.signals.riskClasses,
     plan.route.calls.map((call) => call.callID),
     plan.maxCalls,
-  ]).toStrictEqual(['deep', ['auth'], ['A', 'B'], 4]);
+  ]).toStrictEqual(['deep', ['auth'], ['A', 'B'], 3]);
 });

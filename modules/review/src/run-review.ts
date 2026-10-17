@@ -20,6 +20,7 @@ import type { Runner } from '@noslop/runner';
 import type { StaticStageResult } from '@noslop/static-stage';
 import { buildGapTask } from './build-gap-task';
 import { buildVerifyTask } from './build-verify-task';
+import { isLargeChange } from './is-large-change';
 import { planReview } from './plan-review';
 import type { CallBatch, CallBatchInput } from './run-planned-calls';
 import { runPlannedCalls } from './run-planned-calls';
@@ -308,14 +309,7 @@ function runVerifyCall(ctx: PassContext, findings: readonly Finding[]): Promise<
 }
 
 function shouldSweepGaps(ctx: PassContext, batches: readonly CallBatch[]): boolean {
-  const lines = ctx.change.files.reduce(
-    (total, file) => total + file.addedLines + file.deletedLines,
-    0,
-  );
-
-  const isLarge =
-    ctx.change.files.length >= ctx.options.config.thresholds.gapSweepMinFiles ||
-    lines >= ctx.options.config.thresholds.gapSweepMinLines;
+  const isLarge = isLargeChange(ctx.change, ctx.options.config.thresholds);
 
   const hasBlocking = buildAssembled(ctx, batches).findings.some(
     (finding) =>
