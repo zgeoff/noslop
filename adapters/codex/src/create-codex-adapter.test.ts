@@ -133,6 +133,7 @@ test('it turns off every MCP server that the user or the reviewed repo names', a
     'mcp_servers.repo-tool.enabled=false',
     'features.hooks=false',
     'notify=[]',
+    'project_doc_max_bytes=0',
   ]);
 
   expect(record.args.find((arg) => arg.startsWith('developer_instructions='))).not.toInclude(
