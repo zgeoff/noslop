@@ -1,5 +1,5 @@
 import { writeFileSync } from 'node:fs';
-import { mkdir } from 'node:fs/promises';
+import { mkdir, rm } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { loadConfig } from '@noslop/config';
 import type { CaseRun, RunComparison } from '@noslop/eval';
@@ -14,6 +14,7 @@ import {
 import { buildConfiguredAdapter } from './build-configured-adapter';
 import type { CLIContext } from './cli-context';
 import { createNoslopReviewer } from './create-noslop-reviewer';
+import { resolveRepoDir } from './resolve-repo-dir';
 
 export interface EvalValues {
   corpus: string;
@@ -46,7 +47,8 @@ export async function runEvalCommand(values: EvalValues, ctx: CLIContext): Promi
 
   const reference = await loadReference(values.baseline, ctx, caseIDs);
   const noiseFloor = await loadNoiseFloor(values.noiseFloor, ctx, caseIDs);
-  const loaded = await loadConfig({ repoDir: ctx.cwd });
+  const repoDir = await resolveRepoDir(ctx);
+  const loaded = await loadConfig({ repoDir });
 
   const adapterID = values.adapter ?? loaded.config.adapter ?? 'codex';
 
@@ -96,6 +98,8 @@ export async function runEvalCommand(values: EvalValues, ctx: CLIContext): Promi
   });
 
   const summary = { outDir, score, reference: scoredReference?.score ?? null, noiseFloor };
+
+  await rm(workDir, { recursive: true, force: true });
 
   await Bun.write(join(outDir, 'report.md'), report);
   await Bun.write(join(outDir, 'score.json'), JSON.stringify(summary, null, 2));

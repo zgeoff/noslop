@@ -20,6 +20,9 @@ export interface NoslopReviewerOptions {
 export function createNoslopReviewer(options: NoslopReviewerOptions): CaseReviewer {
   return {
     id: `noslop-${options.adapter.id}`,
+
+    // the pipeline checks out the case's head in a worktree of its own
+    needsWorktree: false,
     reviewCase: async (corpusCase) => {
       const tempDir = await mkdtemp(join(options.tempDir, `${corpusCase.id}-`));
 

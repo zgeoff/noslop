@@ -250,3 +250,36 @@ test('it exits 1 and names the problem when a command fails', async () => {
   expect(code).toBe(1);
   expect(ctx.stderr.join('')).toStartWith('noslop: name a store query: yield-by-lens');
 });
+
+test('it puts an unknown option on stderr and keeps stdout empty', async () => {
+  const ctx = await setupTest();
+
+  const code = await runCLI(
+    ['review', '--no-such-flag', '--json'],
+    ctx.buildContext(ctx.dir, buildStubAdapter({}).adapter),
+  );
+
+  expect(code).toBe(1);
+  expect(ctx.stdout).toStrictEqual([]);
+  expect(ctx.stderr.join('')).toInclude('no-such-flag');
+});
+
+test('it reads the repo config when it runs from a subfolder', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    {
+      message: 'base',
+      files: { 'review.json': '{ "adapter": "claude" }\n', 'src/a.ts': 'export const a = 1;\n' },
+    },
+  ]);
+
+  await runCLI(
+    ['config', '--json'],
+    ctx.buildContext(join(repo.path, 'src'), buildStubAdapter({}).adapter),
+  );
+
+  const output: unknown = JSON.parse(ctx.stdout.join(''));
+
+  expect(output).toMatchObject({ config: { adapter: 'claude' } });
+});

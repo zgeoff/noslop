@@ -61,6 +61,49 @@ test('it reviews each case in a detached worktree of its head and removes the wo
   expect(left).toBe(false);
 });
 
+test('it hands a reviewer that checks out the head itself the repo and adds no worktree', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'a.ts': 'export const a = 1;\n' } },
+    { message: 'head', files: { 'a.ts': 'export const a = 2;\n' } },
+  ]);
+
+  const corpusCase: Case = {
+    id: 'case-1',
+    repo: repo.path,
+    base: repo.commits[0] ?? '',
+    head: repo.commits[1] ?? '',
+    title: 'feat: head',
+    body: '',
+    findings: [],
+    escapes: [],
+  };
+
+  const reviewCase = mock(() =>
+    Promise.resolve({
+      findings: [],
+      failed: false,
+      tokens: { input: 0, output: 0 },
+      durationMs: 1,
+      calls: 1,
+      depth: 'light' as const,
+    }),
+  );
+
+  await runEval({
+    cases: [corpusCase],
+    reviewer: { id: 'self', needsWorktree: false, reviewCase },
+    runner: ctx.runner,
+    workDir: ctx.workDir,
+  });
+
+  const made = await Bun.file(join(ctx.workDir, 'case-1-self', '.git')).exists();
+
+  expect(reviewCase).toHaveBeenCalledExactlyOnceWith(corpusCase, repo.path);
+  expect(made).toBe(false);
+});
+
 test('it records a failed review and reports it when the repo does not exist', async () => {
   const ctx = await setupTest();
 

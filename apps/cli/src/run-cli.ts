@@ -19,7 +19,7 @@ export async function runCLI(argv: readonly string[], ctx: CLIContext): Promise<
     try {
       code = await command();
     } catch (error) {
-      ctx.writeStderr(`noslop: ${error instanceof Error ? error.message : String(error)}\n`);
+      ctx.writeStderr(`noslop: ${formatError(error)}\n`);
 
       code = 1;
     }
@@ -114,13 +114,30 @@ export async function runCLI(argv: readonly string[], ctx: CLIContext): Promise<
       run(() => Promise.reject(new Error('name a command: review, config, eval or store'))),
   });
 
-  await cli([...argv], main, {
-    name: 'noslop',
-    version: '0.0.0',
-    renderHeader: null,
-    strict: true,
-    subCommands: { review, config, eval: evaluate, store },
-  });
+  // gunshi prints argument errors to stdout and then throws them, so it prints none, and the errors
+  // go to stderr here; stdout under --json holds only the JSON output
+  try {
+    await cli([...argv], main, {
+      name: 'noslop',
+      version: '0.0.0',
+      renderHeader: null,
+      renderValidationErrors: null,
+      strict: true,
+      subCommands: { review, config, eval: evaluate, store },
+    });
+  } catch (error) {
+    ctx.writeStderr(`noslop: ${formatError(error)}\n`);
+
+    return 1;
+  }
 
   return code;
+}
+
+function formatError(error: unknown): string {
+  if (error instanceof AggregateError) {
+    return error.errors.map((item: unknown) => formatError(item)).join('; ');
+  }
+
+  return error instanceof Error ? error.message : String(error);
 }

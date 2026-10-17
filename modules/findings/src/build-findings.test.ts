@@ -376,3 +376,53 @@ test('it anchors a deleted line to the head line after it, as the static stage d
     [],
   ]);
 });
+
+test('it gives one defect reported at 2 places of a file 2 different IDs', () => {
+  const file = buildMockChangedFile({
+    hunks: [
+      {
+        oldStart: 1,
+        oldLines: 0,
+        newStart: 1,
+        newLines: 3,
+        lines: [
+          { kind: 'added', text: 'write(a);', oldLine: null, newLine: 1 },
+          { kind: 'added', text: '', oldLine: null, newLine: 2 },
+          { kind: 'added', text: 'write(b);', oldLine: null, newLine: 3 },
+        ],
+      },
+    ],
+  });
+
+  const result = buildFindings({
+    raw: [1, 3].map((line) => ({
+      lens: 'correctness' as const,
+      callID: 'A',
+      finding: {
+        title: 'Await the write',
+        body: 'The write is not awaited, so its failure goes unseen.',
+        anchor: { path: 'src/a.ts', startLine: line, endLine: line },
+        secondLocation: null,
+        severity: 'P2' as const,
+        criterion: 'wrong-behaviour-edge-path' as const,
+        rule: null,
+        verdict: 'CONFIRMED' as const,
+        unverifiedFact: null,
+        missingChange: false,
+        fix: null,
+      },
+    })),
+    files: [file],
+    ruleNames: [],
+    riskClasses: [],
+    config: BUILT_IN_DEFAULTS,
+  });
+
+  const ids = result.findings.map((finding) => finding.id);
+
+  expect(ids[0]).toBe(
+    buildFindingID('correctness', 'src/a.ts', 'wrong-behaviour-edge-path', 'Await the write'),
+  );
+
+  expect(new Set(ids).size).toBe(2);
+});

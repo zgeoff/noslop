@@ -126,6 +126,73 @@ test('#open-findings lists the findings of the latest review with no disposition
   ]);
 });
 
+test('#open-findings reopens a fixed finding that a later review reports again', async () => {
+  const ctx = await setupTest();
+
+  await writeReview(
+    ctx.store,
+    buildMockReviewResult({
+      reviewID: 'review-1',
+      pullRequest: { owner: 'example', repo: 'app', number: 7 },
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+  );
+
+  await writeDispositions(ctx.store, [
+    {
+      findingID: '1111111111111111',
+      kind: 'fixed',
+      value: '1a2b3c4',
+      author: 'dev',
+      authorIsOwner: false,
+      source: 'github',
+      at: '2026-10-17T11:00:00.000Z',
+    },
+  ]);
+
+  await writeReview(
+    ctx.store,
+    buildMockReviewResult({
+      reviewID: 'review-2',
+      pullRequest: { owner: 'example', repo: 'app', number: 7 },
+      endedAt: '2026-10-17T12:01:00.000Z',
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+  );
+
+  const open = await runStoreQuery(ctx.store, 'open-findings');
+  const yields = await runStoreQuery(ctx.store, 'yield-by-lens');
+
+  expect(open.map((row) => row['id'])).toStrictEqual(['1111111111111111']);
+  expect(yields).toMatchObject([{ lens: 'correctness', fixed: 0, open: 1 }]);
+});
+
+test('#yield-by-lens counts one finding ID in 2 repos as 2 findings', async () => {
+  const ctx = await setupTest();
+
+  await writeReview(
+    ctx.store,
+    buildMockReviewResult({
+      reviewID: 'review-x',
+      repo: 'example/x',
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+  );
+
+  await writeReview(
+    ctx.store,
+    buildMockReviewResult({
+      reviewID: 'review-y',
+      repo: 'example/y',
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+  );
+
+  const rows = await runStoreQuery(ctx.store, 'yield-by-lens');
+
+  expect(rows).toMatchObject([{ lens: 'correctness', findings: 2, open: 2 }]);
+});
+
 test('#cost-by-depth sums the tokens of the calls at each depth', async () => {
   const ctx = await setupTest();
 

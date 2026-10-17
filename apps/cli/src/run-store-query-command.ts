@@ -3,6 +3,7 @@ import type { StoreQueryName } from '@noslop/sqlite';
 import { STORE_QUERY_NAMES, loadStore, runStoreQuery } from '@noslop/sqlite';
 import type { CLIContext } from './cli-context';
 import { getStorePath } from './get-store-path';
+import { resolveRepoDir } from './resolve-repo-dir';
 
 // runs one named query on the store that the config's sqlite reporter writes, and prints its rows
 export async function runStoreQueryCommand(
@@ -16,7 +17,8 @@ export async function runStoreQueryCommand(
     throw new Error(`name a store query: ${STORE_QUERY_NAMES.join(', ')}`);
   }
 
-  const loaded = await loadConfig({ repoDir: ctx.cwd });
+  const repoDir = await resolveRepoDir(ctx);
+  const loaded = await loadConfig({ repoDir });
   const store = await loadStore(getStorePath(loaded.config, ctx));
 
   try {

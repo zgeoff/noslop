@@ -17,6 +17,9 @@ export interface CaseReview {
 // the case's reviewed head from a detached worktree that the harness creates and removes
 export interface CaseReviewer {
   id: string;
+
+  // false for a reviewer that checks out the head on its own, so the harness adds no worktree
+  needsWorktree?: boolean;
   reviewCase: (corpusCase: Case, worktree: string) => Promise<CaseReview>;
 }
 

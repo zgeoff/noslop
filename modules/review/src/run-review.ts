@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import type { Logger } from '@logtape/logtape';
 import type {
+  CallRecord,
   Change,
   Depth,
   ModelFinding,
@@ -175,15 +176,45 @@ async function runCallPasses(ctx: PassContext): Promise<CallPasses> {
       const plan = planCalls(ctx.routeInput, ctx.route.lenses, 'deep');
 
       const deep = await runBatch(ctx, plan, 'deep', null);
-      const batches = await runDeepPasses(ctx, [first], plan, deep);
+      const batches = await runDeepPasses(ctx, [buildSupersededBatch(first)], plan, deep);
 
       return { depth: 'deep', steppedUpFrom: 'standard', batches };
     }
 
     return { depth: ctx.route.depth, steppedUpFrom: null, batches: [first] };
   } finally {
-    await ctx.options.runner.run(['git', 'worktree', 'remove', '--force', ctx.worktree], {
-      cwd: ctx.options.repoDir,
+    await removeWorktree(ctx);
+  }
+}
+
+const STANDARD_PREFIX = 'standard:';
+
+// the Deep rerun replaces the Standard pass's findings and failures; the Standard calls stay in the
+// result under their own IDs, for their cost
+function buildSupersededBatch(batch: CallBatch): CallBatch {
+  return {
+    records: batch.records.map((record) => buildRenamedRecord(record, STANDARD_PREFIX)),
+    failed: [],
+    raw: [],
+  };
+}
+
+function buildRenamedRecord(record: CallRecord, prefix: string): CallRecord {
+  return { ...record, id: `${prefix}${record.id}` };
+}
+
+// a worktree that git cannot remove leaves an entry in the repo's worktree list, so the review
+// logs it for the user to prune
+async function removeWorktree(ctx: PassContext): Promise<void> {
+  const result = await ctx.options.runner.run(
+    ['git', 'worktree', 'remove', '--force', ctx.worktree],
+    { cwd: ctx.options.repoDir },
+  );
+
+  if (result.exitCode !== 0) {
+    ctx.options.logger.warn('git could not remove the worktree {worktree}: {stderr}', {
+      worktree: ctx.worktree,
+      stderr: result.stderr.trim(),
     });
   }
 }
@@ -243,7 +274,7 @@ const VERIFY_PREFIX = 'verify:';
 
 // the verify pass re-derives the findings of each Deep call, and its findings replace that call's;
 // a call whose verify call failed keeps its own; the gap sweep then runs on a large change when no
-// P1 survives, because a surviving P1 already blocks the merge
+// blocking finding survives: a P1, a security finding or a risk-class finding
 async function runDeepPasses(
   ctx: PassContext,
   earlier: readonly CallBatch[],
@@ -278,9 +309,12 @@ async function runDeepPasses(
     ctx.change.files.length >= ctx.options.config.thresholds.gapSweepMinFiles ||
     lines >= ctx.options.config.thresholds.gapSweepMinLines;
 
-  const hasP1 = buildAssembled(ctx, batches).findings.some((finding) => finding.severity === 'P1');
+  const hasBlocking = buildAssembled(ctx, batches).findings.some(
+    (finding) =>
+      finding.severity === 'P1' || finding.lens === 'security' || finding.riskClass !== undefined,
+  );
 
-  if (!isLarge || hasP1) {
+  if (!isLarge || hasBlocking) {
     return batches;
   }
 

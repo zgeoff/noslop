@@ -233,9 +233,9 @@ test('it steps a Standard review up to Deep on a confirmed P1 and verifies the D
     'deep',
     'standard',
     [
-      ['A', 'standard', 'medium'],
-      ['C', 'standard', 'medium'],
-      ['E', 'standard', 'medium'],
+      ['standard:A', 'standard', 'medium'],
+      ['standard:C', 'standard', 'medium'],
+      ['standard:E', 'standard', 'medium'],
       ['A:correctness', 'deep', 'high'],
       ['A:failure-handling-and-observability', 'deep', 'high'],
       ['C', 'deep', 'high'],
@@ -246,7 +246,7 @@ test('it steps a Standard review up to Deep on a confirmed P1 and verifies the D
   ]);
 });
 
-test('it runs no call on a release bump and removes its worktree', async () => {
+test('it runs no call on a release bump', async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.dir, 'repo'), [
@@ -286,8 +286,200 @@ test('it runs no call on a release bump and removes its worktree', async () => {
   });
 
   expect([run.result.special, run.result.calls, stub.requests]).toStrictEqual(['release', [], []]);
+});
+
+test('it drops a stepped-up P1 that the verify pass rejects and removes the worktree', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'src/jobs.ts': 'export const jobs: string[] = [];\n' } },
+    {
+      message: 'head',
+      files: {
+        'src/jobs.ts': [
+          'export const jobs: string[] = [];',
+          '',
+          ...Array.from({ length: 70 }, (_, index) => `export const job${index} = ${index};`),
+          '',
+          'export function clearJobs(): void {',
+          '  jobs.length = 0;',
+          "  throw new Error('cleared');",
+          '}',
+          '',
+        ].join('\n'),
+      },
+    },
+  ]);
+
+  const p1 = {
+    title: 'Keep the jobs until the write succeeds',
+    body: 'The function empties the list before it throws, so the jobs are lost.',
+    anchor: { path: 'src/jobs.ts', startLine: 75, endLine: 75 },
+    secondLocation: null,
+    severity: 'P1',
+    criterion: 'data-loss',
+    rule: null,
+    verdict: 'CONFIRMED',
+    unverifiedFact: null,
+    missingChange: false,
+    fix: null,
+  } as const;
+
+  const stub = buildStubAdapter({
+    A: [{ findings: { correctness: [p1], 'failure-handling-and-observability': [] } }],
+    'A:correctness': [{ findings: { correctness: [p1] } }],
+    'A:failure-handling-and-observability': [
+      { findings: { 'failure-handling-and-observability': [] } },
+    ],
+    C: [
+      { findings: { 'naming-shape-and-comments': [] } },
+      { findings: { 'naming-shape-and-comments': [] } },
+    ],
+    E: [{ findings: { tests: [] } }, { findings: { tests: [] } }],
+    'verify:A:correctness': [{ findings: { correctness: [] } }],
+  });
+
+  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+
+  const run = await runReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/jobs',
+    base: repo.commits[0] ?? '',
+    head: repo.commits[1] ?? '',
+    config: BUILT_IN_DEFAULTS,
+    configHash: 'hash',
+    rules: null,
+    adapter: stub.adapter,
+    logger: ctx.logger,
+    tempDir: join(ctx.dir, 'temp'),
+    cacheDir: null,
+    title: 'Clear the jobs',
+    body: '',
+    linkedIssue: null,
+    pullRequest: null,
+    isPush: false,
+    pastEscapes: [],
+  });
 
   const left = await readdir(join(ctx.dir, 'temp'));
 
+  const worktrees = await ctx.runner.run(['git', 'worktree', 'list', '--porcelain'], {
+    cwd: repo.path,
+  });
+
+  expect([run.result.depth, run.result.findings]).toStrictEqual(['deep', []]);
   expect(left).toStrictEqual(['.keep']);
+  expect(worktrees.stdout.match(/^worktree /gmu)).toHaveLength(1);
+});
+
+test('it keeps a Deep call findings when its verify call fails twice', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'src/auth/session.ts': 'export const ttl = 60;\n' } },
+    { message: 'head', files: { 'src/auth/session.ts': 'export const ttl = 6000;\n' } },
+  ]);
+
+  const p2 = {
+    title: 'Keep the session lifetime short',
+    body: 'A lifetime of 6000 seconds keeps a stolen session open for hours.',
+    anchor: { path: 'src/auth/session.ts', startLine: 1, endLine: 1 },
+    secondLocation: null,
+    severity: 'P2',
+    criterion: 'wrong-behaviour-edge-path',
+    rule: null,
+    verdict: 'CONFIRMED',
+    unverifiedFact: null,
+    missingChange: false,
+    fix: null,
+  } as const;
+
+  const stub = buildStubAdapter({
+    'A:correctness': [{ findings: { correctness: [p2] } }],
+    B: [{ findings: { security: [] } }],
+    'verify:A:correctness': [{ error: 'claude timed out' }, { error: 'claude timed out' }],
+  });
+
+  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+
+  const run = await runReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/auth',
+    base: repo.commits[0] ?? '',
+    head: repo.commits[1] ?? '',
+    config: BUILT_IN_DEFAULTS,
+    configHash: 'hash',
+    rules: null,
+    adapter: stub.adapter,
+    logger: ctx.logger,
+    tempDir: join(ctx.dir, 'temp'),
+    cacheDir: null,
+    title: 'Lengthen the session',
+    body: '',
+    linkedIssue: null,
+    pullRequest: null,
+    isPush: false,
+    pastEscapes: [],
+  });
+
+  expect([
+    run.result.depth,
+    run.result.findings.map((finding) => finding.title),
+    run.result.failedCalls.map((call) => call.id),
+  ]).toStrictEqual(['deep', ['Keep the session lifetime short'], ['verify:A:correctness']]);
+});
+
+test('it sweeps a large Deep change for gaps when no blocking finding survives', async () => {
+  const ctx = await setupTest();
+
+  const files = Object.fromEntries(
+    ['a', 'b', 'c', 'd', 'e'].map((name) => [`src/auth/${name}.ts`, `export const ${name} = 2;\n`]),
+  );
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    {
+      message: 'base',
+      files: Object.fromEntries(Object.keys(files).map((path) => [path, 'export const x = 1;\n'])),
+    },
+    { message: 'head', files },
+  ]);
+
+  const stub = buildStubAdapter({
+    'A:correctness': [{ findings: { correctness: [] } }],
+    B: [{ findings: { security: [] } }],
+    'gap:A:correctness': [{ findings: { correctness: [] } }],
+    'gap:B': [{ findings: { security: [] } }],
+  });
+
+  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+
+  const run = await runReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/auth',
+    base: repo.commits[0] ?? '',
+    head: repo.commits[1] ?? '',
+    config: BUILT_IN_DEFAULTS,
+    configHash: 'hash',
+    rules: null,
+    adapter: stub.adapter,
+    logger: ctx.logger,
+    tempDir: join(ctx.dir, 'temp'),
+    cacheDir: null,
+    title: 'Rename the auth constants',
+    body: '',
+    linkedIssue: null,
+    pullRequest: null,
+    isPush: false,
+    pastEscapes: [],
+  });
+
+  expect(run.result.calls.map((call) => [call.id, call.status])).toStrictEqual([
+    ['A:correctness', 'ok'],
+    ['B', 'ok'],
+    ['gap:A:correctness', 'ok'],
+    ['gap:B', 'ok'],
+  ]);
 });

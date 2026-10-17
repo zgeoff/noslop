@@ -11,25 +11,36 @@ export const STORE_QUERY_NAMES = [
 
 export type StoreQueryName = (typeof STORE_QUERY_NAMES)[number];
 
-// each finding counts once, under its latest disposition; a finding that 2 reviews of one change
-// report shares its ID, so the queries count distinct IDs
-const LATEST = sql`
+// each finding of a repo counts once, under its latest disposition; 2 reviews of one change that
+// report one defect share its ID; a review that ends after a `fixed` disposition and still reports
+// the finding reopens it
+const OUTCOMES = sql`
   latest AS (
-    SELECT finding_id, kind FROM (
-      SELECT finding_id, kind, ROW_NUMBER() OVER (PARTITION BY finding_id ORDER BY at DESC) AS position
+    SELECT finding_id, kind, at FROM (
+      SELECT finding_id, kind, at, ROW_NUMBER() OVER (PARTITION BY finding_id ORDER BY at DESC) AS position
       FROM dispositions
     ) WHERE position = 1
+  ),
+  seen AS (
+    SELECT reviews.repo AS repo, findings.finding_id AS finding_id, MIN(findings.lens) AS lens,
+      MAX(reviews.ended_at) AS last_seen
+    FROM findings JOIN reviews USING (review_id)
+    GROUP BY reviews.repo, findings.finding_id
+  ),
+  outcomes AS (
+    SELECT seen.repo AS repo, seen.finding_id AS finding_id, seen.lens AS lens,
+      CASE
+        WHEN latest.kind IS NULL THEN 'open'
+        WHEN latest.kind = 'fixed' AND seen.last_seen > latest.at THEN 'open'
+        ELSE latest.kind
+      END AS kind
+    FROM seen LEFT JOIN latest USING (finding_id)
   )`;
 
 const QUERIES: Record<StoreQueryName, RawBuilder<Record<string, unknown>>> = {
   // the share of each lens's findings that end fixed, and the share that end not a defect
   'yield-by-lens': sql`
-    WITH ${LATEST},
-    unique_findings AS (SELECT DISTINCT finding_id, lens FROM findings),
-    outcomes AS (
-      SELECT unique_findings.lens AS lens, COALESCE(latest.kind, 'open') AS kind
-      FROM unique_findings LEFT JOIN latest USING (finding_id)
-    )
+    WITH ${OUTCOMES}
     SELECT
       lens,
       COUNT(*) AS findings,
@@ -42,13 +53,14 @@ const QUERIES: Record<StoreQueryName, RawBuilder<Record<string, unknown>>> = {
     GROUP BY lens
     ORDER BY lens`,
 
-  // each finding of each repo's latest review that holds no disposition, the most severe first
+  // each open finding of each change's latest review, the most severe first; a pull request is one
+  // change, and a local branch, which has no pull request, is one change per base
   'open-findings': sql`
-    WITH ${LATEST},
+    WITH ${OUTCOMES},
     last_reviews AS (
       SELECT review_id FROM (
         SELECT review_id, ROW_NUMBER() OVER (
-          PARTITION BY repo, COALESCE(pull_request, head) ORDER BY ended_at DESC
+          PARTITION BY repo, COALESCE(CAST(pull_request AS TEXT), base) ORDER BY ended_at DESC
         ) AS position
         FROM reviews
       ) WHERE position = 1
@@ -67,8 +79,8 @@ const QUERIES: Record<StoreQueryName, RawBuilder<Record<string, unknown>>> = {
     FROM findings
     JOIN last_reviews USING (review_id)
     JOIN reviews USING (review_id)
-    LEFT JOIN latest USING (finding_id)
-    WHERE latest.kind IS NULL
+    JOIN outcomes ON outcomes.repo = reviews.repo AND outcomes.finding_id = findings.finding_id
+    WHERE outcomes.kind = 'open'
     ORDER BY findings.severity, reviews.repo, findings.path, findings.start_line`,
 
   // what the calls at each depth cost, from the calls table

@@ -36,6 +36,12 @@ async function runCaseReview(
   worktree: string,
   options: RunEvalOptions,
 ): Promise<CaseReview> {
+  if (options.reviewer.needsWorktree === false) {
+    return options.reviewer
+      .reviewCase(corpusCase, corpusCase.repo)
+      .catch(() => buildFailedReview());
+  }
+
   const added = await options.runner
     .run(['git', 'worktree', 'add', '--detach', '--force', worktree, corpusCase.head], {
       cwd: corpusCase.repo,

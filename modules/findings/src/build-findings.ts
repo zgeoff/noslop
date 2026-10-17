@@ -58,7 +58,7 @@ export function buildFindings(input: AssembleInput): AssembledFindings {
     }
   }
 
-  return { findings: mergeDuplicates(kept), dropped };
+  return { findings: buildUniqueIDs(mergeDuplicates(kept)), dropped };
 }
 
 function buildFinding(
@@ -173,6 +173,29 @@ function mergeDuplicates(findings: readonly Finding[]): Finding[] {
       left.anchor.path.localeCompare(right.anchor.path) ||
       left.anchor.startLine - right.anchor.startLine,
   );
+}
+
+// one defect reported at 2 separate places of a file hashes to one ID, so each place after the first,
+// in anchor order, hashes its place number into its ID and every ID stays unique in the review
+function buildUniqueIDs(findings: readonly Finding[]): Finding[] {
+  const seen = new Map<string, number>();
+
+  return findings.map((finding) => {
+    const place = (seen.get(finding.id) ?? 0) + 1;
+
+    seen.set(finding.id, place);
+
+    return place === 1 ? finding : buildPlacedFinding(finding, place);
+  });
+}
+
+function buildPlacedFinding(finding: Finding, place: number): Finding {
+  const id = new Bun.CryptoHasher('sha256')
+    .update(`${finding.id}\n${place}`)
+    .digest('hex')
+    .slice(0, 16);
+
+  return { ...finding, id };
 }
 
 function isSameDefect(left: Finding, right: Finding): boolean {
