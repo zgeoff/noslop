@@ -74,16 +74,22 @@ export async function planReview(options: PlanReviewOptions): Promise<ReviewPlan
   return { change, stage, routeInput, route, maxCalls: countMaxCalls(route, change, options) };
 }
 
-// Standard can add the verify call of a step-up, and Deep adds the verify call and, on a change large
-// enough for one, the gap sweep
+// the merge pass can follow any calls; Standard can add the verify call of a step-up, and Deep adds
+// the verify call and, on a change large enough for one, the gap sweep
 function countMaxCalls(route: Route, change: Change, options: PlanReviewOptions): number {
-  if (route.calls.length === 0 || route.depth === 'light') {
-    return route.calls.length;
+  if (route.calls.length === 0) {
+    return 0;
+  }
+
+  const merge = options.config.mergePass.enabled ? 1 : 0;
+
+  if (route.depth === 'light') {
+    return route.calls.length + merge;
   }
 
   if (route.depth === 'standard') {
-    return route.calls.length + 1;
+    return route.calls.length + 1 + merge;
   }
 
-  return route.calls.length + (isLargeChange(change, options.config.thresholds) ? 2 : 1);
+  return route.calls.length + merge + (isLargeChange(change, options.config.thresholds) ? 2 : 1);
 }

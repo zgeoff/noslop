@@ -634,7 +634,7 @@ test('it replays the depth of each case with no model call under --static', asyn
   expect(stub.requests).toStrictEqual([]);
 
   expect(written).toMatchObject({
-    runs: [{ caseID: 'case-a', plan: { depth: 'light', calls: ['L'], maxCalls: 1 } }],
+    runs: [{ caseID: 'case-a', plan: { depth: 'light', calls: ['L'], maxCalls: 2 } }],
     score: { lightMisses: [{ caseID: 'case-a', kind: 'p1', text: 'Keep a at 1' }] },
   });
 });

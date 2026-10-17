@@ -15,7 +15,7 @@ async function setupTest() {
   return { dir, runner: createRunner() };
 }
 
-test('it counts the gap sweep in the most calls of a Deep change large enough for one', async () => {
+test('it counts the gap sweep, and no merge pass the config turns off, in the most calls of a large Deep change', async () => {
   const ctx = await setupTest();
 
   const files = Object.fromEntries(
@@ -35,7 +35,7 @@ test('it counts the gap sweep in the most calls of a Deep change large enough fo
     repoDir: repo.path,
     base: repo.commits[0] ?? '',
     head: repo.commits[1] ?? '',
-    config: BUILT_IN_DEFAULTS,
+    config: { ...BUILT_IN_DEFAULTS, mergePass: { enabled: false, effort: 'low' } },
     cacheDir: null,
     title: 'Rename the auth constants',
     body: '',
@@ -74,5 +74,5 @@ test('it plans the depth and the calls of a change with no model call', async ()
     plan.stage.signals.riskClasses,
     plan.route.calls.map((call) => call.callID),
     plan.maxCalls,
-  ]).toStrictEqual(['deep', ['auth'], ['A', 'B'], 3]);
+  ]).toStrictEqual(['deep', ['auth'], ['A', 'B'], 4]);
 });
