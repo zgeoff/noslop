@@ -1,7 +1,7 @@
 import { expect, onTestFinished, test } from 'bun:test';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import { BUILT_IN_DEFAULTS } from './built-in-defaults';
 import { loadConfig } from './load-config';
 
@@ -94,6 +94,19 @@ test('it loads the rules file named relative to the repo file', async () => {
   await Bun.write(join(ctx.dir, 'patterns.md'), '## No positional booleans\n\n1. Pass an object.');
 
   const loaded = await loadConfig({ repoDir: ctx.dir });
+
+  expect(loaded.rules).toStrictEqual([
+    { name: 'No positional booleans', body: '1. Pass an object.' },
+  ]);
+});
+
+test('it loads the rules file when the repo directory is a relative path', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(join(ctx.dir, 'review.json'), JSON.stringify({ rules: './patterns.md' }));
+  await Bun.write(join(ctx.dir, 'patterns.md'), '## No positional booleans\n\n1. Pass an object.');
+
+  const loaded = await loadConfig({ repoDir: relative(process.cwd(), ctx.dir) });
 
   expect(loaded.rules).toStrictEqual([
     { name: 'No positional booleans', body: '1. Pass an object.' },

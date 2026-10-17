@@ -155,7 +155,10 @@ function parseConfigFile(text: string, label: string): Record<string, unknown> {
 }
 
 async function readRulesFile(rules: string, options: LoadConfigOptions): Promise<string> {
-  const location = parseConfigLocation(rules, { kind: 'local', path: rules }, CONFIG_FILE);
+  // the chain has resolved a local rules path against the file that names it already
+  const location: ConfigLocation = rules.startsWith('github:')
+    ? parseConfigLocation(rules, { kind: 'local', path: rules }, CONFIG_FILE)
+    : { kind: 'local', path: rules };
 
   const text = await readLocation(location, options);
 

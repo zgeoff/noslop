@@ -43,6 +43,18 @@ test('it removes an inherited key that a later layer sets to null', () => {
   });
 });
 
+test('it drops a null inside an object that no earlier layer holds', () => {
+  expect(
+    mergeConfigLayers([
+      { source: 'defaults', value: { lenses: {} } },
+      { source: 'review.json', value: { lenses: { security: { model: 'small', effort: null } } } },
+    ]),
+  ).toStrictEqual({
+    value: { lenses: { security: { model: 'small' } } },
+    sources: { 'lenses.security.model': 'review.json' },
+  });
+});
+
 test('it replaces a scalar with an object and takes the object leaves from the later layer', () => {
   expect(
     mergeConfigLayers([

@@ -41,16 +41,22 @@ function mergeObject(
       continue;
     }
 
-    if (isPlainObject(next) && isPlainObject(current)) {
-      const child = mergeObject(
-        { value: current, sources: pickSourcesUnder(sources, path) },
-        next,
-        source,
-        path,
-      );
+    // a new object merges against an empty one, so a null inside it removes its key too
+    if (isPlainObject(next)) {
+      const inherited = isPlainObject(current)
+        ? { value: current, sources: pickSourcesUnder(sources, path) }
+        : { value: {}, sources: {} };
+
+      const child = mergeObject(inherited, next, source, path);
+
+      // an empty object is a leaf of its own; once it holds keys, its keys are the leaves
+      const childSources =
+        Object.keys(child.value).length === 0
+          ? { [path]: source }
+          : Object.fromEntries(Object.entries(child.sources).filter(([leaf]) => leaf !== path));
 
       value[key] = child.value;
-      sources = { ...removeSourcesUnder(sources, path), ...child.sources };
+      sources = { ...removeSourcesUnder(sources, path), ...childSources };
       continue;
     }
 

@@ -30,6 +30,14 @@ test('it keeps a heading inside a code block in the body of its rule', () => {
   ).toStrictEqual([{ name: 'Comment style', body: '```markdown\n## Not a rule\n```' }]);
 });
 
+test('it keeps a shorter fence inside a longer one in the body of its rule', () => {
+  expect(
+    parseRulesFile(
+      ['## Fences', '', '````markdown', '```', '## Not a rule', '```', '````'].join('\n'),
+    ),
+  ).toStrictEqual([{ name: 'Fences', body: '````markdown\n```\n## Not a rule\n```\n````' }]);
+});
+
 test('it reads a file with no rule headings as no rules', () => {
   expect(parseRulesFile('# Title\n\nSome prose.')).toStrictEqual([]);
 });

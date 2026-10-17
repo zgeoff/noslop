@@ -8,14 +8,24 @@ export interface Rule {
 export function parseRulesFile(markdown: string): Rule[] {
   const rules: Rule[] = [];
   let current: { name: string; lines: string[] } | null = null;
-  let inFence = false;
+  let fence: string | null = null;
 
   for (const line of markdown.split('\n')) {
-    if (/^\s*(?:```|~~~)/u.test(line)) {
-      inFence = !inFence;
+    const marker = /^\s*(?<marker>`{3,}|~{3,})/u.exec(line)?.groups?.['marker'];
+
+    // a fence closes only on a run of its own character at least as long as the one that opened it
+    if (marker !== undefined && fence === null) {
+      fence = marker;
+    } else if (
+      marker !== undefined &&
+      fence !== null &&
+      marker.startsWith(fence.charAt(0)) &&
+      marker.length >= fence.length
+    ) {
+      fence = null;
     }
 
-    const heading = inFence ? null : /^#{2,3}\s+(?<name>.+?)\s*#*\s*$/u.exec(line);
+    const heading = fence === null ? /^#{2,3}\s+(?<name>.+?)\s*#*\s*$/u.exec(line) : null;
     const name = heading?.groups?.['name'];
 
     if (name !== undefined) {
