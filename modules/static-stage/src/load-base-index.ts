@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { ReviewConfig } from '@noslop/contract';
 import type { Runner } from '@noslop/runner';
@@ -89,9 +89,14 @@ export async function loadBaseIndex(options: LoadBaseIndexOptions): Promise<Base
     }
   }
 
+  // the index lands under a name of its own and then moves into place, so a review that runs at the
+  // same time never reads a part-written cache file
   if (options.cacheDir !== null && cachePath !== null) {
+    const partPath = `${cachePath}.${crypto.randomUUID()}.part`;
+
     await mkdir(options.cacheDir, { recursive: true });
-    await writeFile(cachePath, JSON.stringify(index));
+    await writeFile(partPath, JSON.stringify(index));
+    await rename(partPath, cachePath);
   }
 
   return index;

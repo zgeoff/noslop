@@ -49,6 +49,31 @@ test('it runs every task when the limit is above the count of items', async () =
   expect(results).toStrictEqual([10, 20]);
 });
 
+test('it starts no task after one rejects, and rejects once the running tasks settle', () => {
+  const gate = Promise.withResolvers<null>();
+  const started: number[] = [];
+  const settled: number[] = [];
+
+  // task 1 rejects at once, and the others wait on the gate
+  const waits: Record<number, Promise<null>> = {
+    1: Promise.reject(new Error('the first task failed')),
+  };
+
+  const run = runConcurrently([1, 2, 3, 4], 2, async (item) => {
+    started.push(item);
+
+    await (waits[item] ?? gate.promise);
+
+    settled.push(item);
+  });
+
+  gate.resolve(null);
+
+  expect(run).rejects.toThrowWithMessage(Error, 'the first task failed');
+  expect(started).toStrictEqual([1, 2]);
+  expect(settled).toStrictEqual([2]);
+});
+
 test('it rejects a limit below 1', () => {
   expect(runConcurrently([1], 0, (item) => Promise.resolve(item))).rejects.toThrowWithMessage(
     Error,

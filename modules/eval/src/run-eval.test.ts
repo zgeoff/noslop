@@ -79,7 +79,14 @@ test('it replays cases at once and keeps their order when a later case ends firs
     depth: 'standard',
   };
 
-  const delaysMs: Record<string, number> = { 'case-1': 60, 'case-2': 0 };
+  // case-1 waits until a case has ended, so case-2 always ends first
+  const firstEnd = Promise.withResolvers<null>();
+
+  const waits: Record<string, Promise<null>> = {
+    'case-1': firstEnd.promise,
+    'case-2': Promise.resolve(null),
+  };
+
   const ended: string[] = [];
 
   const runs = await runEval({
@@ -108,7 +115,7 @@ test('it replays cases at once and keeps their order when a later case ends firs
     reviewer: {
       id: 'stub',
       reviewCase: async (corpusCase) => {
-        await Bun.sleep(delaysMs[corpusCase.id] ?? 0);
+        await waits[corpusCase.id];
 
         return review;
       },
@@ -118,6 +125,7 @@ test('it replays cases at once and keeps their order when a later case ends firs
     parallel: 2,
     onCase: (run) => {
       ended.push(run.caseID);
+      firstEnd.resolve(null);
     },
   });
 
