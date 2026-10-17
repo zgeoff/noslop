@@ -71,6 +71,66 @@ test('#yield-by-lens gives each lens its fixed and not-a-defect shares', async (
   ]);
 });
 
+test('#yield-by-depth counts each finding at the depth of the first review that reported it', async () => {
+  const ctx = await setupTest();
+
+  await writeReview(
+    ctx.store,
+    buildMockReviewResult({
+      reviewID: 'review-light',
+      depth: 'light',
+      endedAt: '2026-10-17T10:01:00.000Z',
+      findings: [buildMockFinding({ id: '1111111111111111', callID: null })],
+    }),
+  );
+
+  await writeReview(
+    ctx.store,
+    buildMockReviewResult({
+      reviewID: 'review-deep',
+      depth: 'deep',
+      endedAt: '2026-10-17T12:01:00.000Z',
+      calls: [],
+      findings: [
+        buildMockFinding({ id: '1111111111111111', callID: null }),
+        buildMockFinding({
+          id: '2222222222222222',
+          callID: null,
+          anchor: { path: 'src/b.ts', startLine: 2, endLine: 2 },
+        }),
+      ],
+    }),
+  );
+
+  await writeDispositions(ctx.store, 'example/app', [
+    {
+      findingID: '1111111111111111',
+      kind: 'fixed',
+      value: '1a2b3c4',
+      author: 'dev',
+      authorIsOwner: false,
+      source: 'github',
+      at: '2026-10-17T13:00:00.000Z',
+    },
+    {
+      findingID: '2222222222222222',
+      kind: 'not-a-defect',
+      value: 'the caller holds the lock',
+      author: 'dev',
+      authorIsOwner: false,
+      source: 'github',
+      at: '2026-10-17T13:00:00.000Z',
+    },
+  ]);
+
+  const rows = await runStoreQuery(ctx.store, 'yield-by-depth');
+
+  expect(rows).toStrictEqual([
+    { depth: 'deep', findings: 1, fixed: 0, notADefect: 1, open: 0, yield: 0, noise: 1 },
+    { depth: 'light', findings: 1, fixed: 1, notADefect: 0, open: 0, yield: 1, noise: 0 },
+  ]);
+});
+
 test('#open-findings lists the findings of the latest review with no disposition', async () => {
   const ctx = await setupTest();
 
@@ -297,5 +357,65 @@ test('#recall-by-lens counts the escapes whose lens ran on the change and report
   expect(rows).toStrictEqual([
     { lens: 'correctness', escapes: 1, lensRan: 1, lensReported: 1 },
     { lens: 'security', escapes: 1, lensRan: 0, lensReported: 0 },
+  ]);
+});
+
+test('#recall-by-depth counts each escape at the depth of the latest review of its change', async () => {
+  const ctx = await setupTest();
+
+  await writeReview(
+    ctx.store,
+    buildMockReviewResult({
+      reviewID: 'review-light',
+      depth: 'light',
+      endedAt: '2026-10-17T10:01:00.000Z',
+    }),
+  );
+
+  await writeReview(
+    ctx.store,
+    buildMockReviewResult({
+      reviewID: 'review-standard',
+      depth: 'standard',
+      endedAt: '2026-10-17T12:01:00.000Z',
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+  );
+
+  await ctx.store
+    .insertInto('escapes')
+    .values([
+      {
+        escape_id: 'escape-1',
+        repo: 'example/app',
+        issue: '#12',
+        head: 'b'.repeat(40),
+        lens: 'correctness',
+        defect: 'The total skips the first item',
+        path: 'src/a.ts',
+        start_line: 1,
+        end_line: 1,
+        recorded_at: '2026-10-18T00:00:00.000Z',
+      },
+      {
+        escape_id: 'escape-2',
+        repo: 'example/app',
+        issue: '#13',
+        head: 'c'.repeat(40),
+        lens: 'correctness',
+        defect: 'The count is off by one',
+        path: null,
+        start_line: null,
+        end_line: null,
+        recorded_at: '2026-10-18T00:00:00.000Z',
+      },
+    ])
+    .execute();
+
+  const rows = await runStoreQuery(ctx.store, 'recall-by-depth');
+
+  expect(rows).toStrictEqual([
+    { depth: null, escapes: 1, lensRan: 0, lensReported: 0 },
+    { depth: 'standard', escapes: 1, lensRan: 1, lensReported: 1 },
   ]);
 });

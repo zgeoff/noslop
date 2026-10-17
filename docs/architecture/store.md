@@ -61,11 +61,15 @@ fix the next review disproves never counts as yield.
 
 - `yield-by-lens` gives, per lens, the findings, how many ended `fixed`, `not-a-defect` or open, and
   the share that ended `fixed` (the yield) and `not-a-defect` (the noise).
+- `yield-by-depth` gives the same counts per depth. A finding counts at the depth of the first
+  review that reported it, since a later review of a fixed change can run at another depth.
 - `open-findings` lists each open finding of each change's latest review, the most severe first. A
   pull request is one change, and a local branch with no pull request is one change per base.
 - `cost-by-depth` gives, per depth, the calls, the failed calls, the tokens and the mean duration.
 - `recall-by-lens` gives, per lens, the escapes, how many of them came from a change the lens ran
   on, and how many of those changes got a finding from the lens on the escape's file.
+- `recall-by-depth` gives the same counts per depth, from the latest review of the change that
+  caused each escape. An escape on a change that no review saw counts under no depth.
 
 The query command prints the rows as text, or as JSON under `--json`. A query's row shape changes
 only with a CLI version, so a reader that pins the version reads one shape.

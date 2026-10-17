@@ -1,3 +1,4 @@
+import { STORE_QUERY_NAMES } from '@noslop/sqlite';
 import { cli, define } from 'gunshi';
 import type { CLIContext } from './cli-context';
 import { runCheckCommand } from './run-check-command';
@@ -123,7 +124,7 @@ export async function runCLI(argv: readonly string[], ctx: CLIContext): Promise<
     name: 'query',
     description: 'Run a named query on the findings store',
     args: {
-      name: { type: 'positional', description: 'The query: yield-by-lens or open-findings' },
+      name: { type: 'positional', description: `The query: ${STORE_QUERY_NAMES.join(', ')}` },
       json: JSON_ARG,
     },
     run: (command) =>

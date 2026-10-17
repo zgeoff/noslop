@@ -4,16 +4,18 @@ import type { Store } from './load-store';
 
 export const STORE_QUERY_NAMES = [
   'yield-by-lens',
+  'yield-by-depth',
   'open-findings',
   'cost-by-depth',
   'recall-by-lens',
+  'recall-by-depth',
 ] as const;
 
 export type StoreQueryName = (typeof STORE_QUERY_NAMES)[number];
 
-// each finding of a repo counts once, under its latest disposition; 2 reviews of one change that
-// report one defect share its ID; a review that ends after a `fixed` disposition and still reports
-// the finding reopens it
+// each finding of a repo counts once, under its latest disposition, and at the depth of the first
+// review that reported it; 2 reviews of one change that report one defect share its ID; a review
+// that ends after a `fixed` disposition and still reports the finding reopens it
 const OUTCOMES = sql`
   latest AS (
     SELECT repo, finding_id, kind, at FROM (
@@ -23,13 +25,18 @@ const OUTCOMES = sql`
     ) WHERE position = 1
   ),
   seen AS (
-    SELECT reviews.repo AS repo, findings.finding_id AS finding_id, MIN(findings.lens) AS lens,
-      MAX(reviews.ended_at) AS last_seen
-    FROM findings JOIN reviews USING (review_id)
-    GROUP BY reviews.repo, findings.finding_id
+    SELECT repo, finding_id, lens, depth, last_seen FROM (
+      SELECT reviews.repo AS repo, findings.finding_id AS finding_id,
+        MIN(findings.lens) OVER finding AS lens,
+        MAX(reviews.ended_at) OVER finding AS last_seen,
+        findings.depth AS depth,
+        ROW_NUMBER() OVER (finding ORDER BY reviews.ended_at, reviews.review_id) AS position
+      FROM findings JOIN reviews USING (review_id)
+      WINDOW finding AS (PARTITION BY reviews.repo, findings.finding_id)
+    ) WHERE position = 1
   ),
   outcomes AS (
-    SELECT seen.repo AS repo, seen.finding_id AS finding_id, seen.lens AS lens,
+    SELECT seen.repo AS repo, seen.finding_id AS finding_id, seen.lens AS lens, seen.depth AS depth,
       CASE
         WHEN latest.kind IS NULL THEN 'open'
         WHEN latest.kind = 'fixed' AND seen.last_seen > latest.at THEN 'open'
@@ -53,6 +60,21 @@ const QUERIES: Record<StoreQueryName, RawBuilder<Record<string, unknown>>> = {
     FROM outcomes
     GROUP BY lens
     ORDER BY lens`,
+
+  // the same shares at each depth, by the depth of the first review that reported each finding
+  'yield-by-depth': sql`
+    WITH ${OUTCOMES}
+    SELECT
+      depth,
+      COUNT(*) AS findings,
+      SUM(kind = 'fixed') AS fixed,
+      SUM(kind = 'not-a-defect') AS "notADefect",
+      SUM(kind = 'open') AS open,
+      ROUND(1.0 * SUM(kind = 'fixed') / COUNT(*), 3) AS yield,
+      ROUND(1.0 * SUM(kind = 'not-a-defect') / COUNT(*), 3) AS noise
+    FROM outcomes
+    GROUP BY depth
+    ORDER BY depth`,
 
   // each open finding of each change's latest review, the most severe first; a pull request is one
   // change, and a local branch, which has no pull request, is one change per base
@@ -117,6 +139,32 @@ const QUERIES: Record<StoreQueryName, RawBuilder<Record<string, unknown>>> = {
     FROM escapes
     GROUP BY escapes.lens
     ORDER BY escapes.lens`,
+
+  // each escape at the depth of the latest review of the change that caused it, with whether its lens
+  // ran there and reported on its file; an escape on a change no review saw has no depth
+  'recall-by-depth': sql`
+    WITH reviewed AS (
+      SELECT escapes.*, (
+        SELECT reviews.review_id FROM reviews
+        WHERE reviews.repo = escapes.repo AND reviews.head = escapes.head
+        ORDER BY reviews.ended_at DESC, reviews.review_id DESC LIMIT 1
+      ) AS review_id
+      FROM escapes
+    )
+    SELECT
+      reviews.depth AS depth,
+      COUNT(*) AS escapes,
+      SUM(EXISTS (
+        SELECT 1 FROM json_each(reviews.lenses) AS ran WHERE ran.value = reviewed.lens
+      )) AS "lensRan",
+      SUM(EXISTS (
+        SELECT 1 FROM findings
+        WHERE findings.review_id = reviewed.review_id AND findings.lens = reviewed.lens
+          AND (reviewed.path IS NULL OR findings.path = reviewed.path)
+      )) AS "lensReported"
+    FROM reviewed LEFT JOIN reviews USING (review_id)
+    GROUP BY reviews.depth
+    ORDER BY reviews.depth`,
 };
 
 // runs one of the store's named queries; a reader pins the CLI version and reads the same row shape
