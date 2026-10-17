@@ -17,7 +17,6 @@ export async function writeReview(store: Store, result: ReviewResult): Promise<v
         head: result.head,
         title: result.title,
         depth: result.depth,
-        stepped_up_from: result.steppedUpFrom,
         special: result.special,
         risk_classes: JSON.stringify(result.riskClasses),
         lenses: JSON.stringify(result.lenses),

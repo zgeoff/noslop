@@ -637,7 +637,7 @@ test('it keeps the planned order of the calls when they end in another order', a
   ]);
 });
 
-test('it steps a Standard review up to Deep on a confirmed P1 and verifies the Deep findings', async () => {
+test('it keeps a confirmed P1 at Standard and runs no call past the lens calls', async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.dir, 'repo'), [
@@ -678,7 +678,6 @@ test('it steps a Standard review up to Deep on a confirmed P1 and verifies the D
     A: [{ findings: { correctness: [p1], 'failure-handling-and-observability': [] } }],
     C: [{ findings: { 'naming-shape-and-comments': [] } }],
     E: [{ findings: { tests: [] } }],
-    verify: [{ findings: { correctness: [p1] } }],
   });
 
   await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
@@ -704,22 +703,28 @@ test('it steps a Standard review up to Deep on a confirmed P1 and verifies the D
     pastEscapes: [],
   });
 
+  const left = await readdir(join(ctx.dir, 'temp'));
+
+  const worktrees = await ctx.runner.run(['git', 'worktree', 'list', '--porcelain'], {
+    cwd: repo.path,
+  });
+
   expect([
     run.result.depth,
-    run.result.steppedUpFrom,
     run.result.calls.map((call) => [call.id, call.depth, call.effort]),
     run.result.findings.map((finding) => [finding.title, finding.severity]),
   ]).toStrictEqual([
-    'deep',
     'standard',
     [
       ['A', 'standard', 'medium'],
       ['C', 'standard', 'medium'],
       ['E', 'standard', 'medium'],
-      ['verify', 'deep', 'high'],
     ],
     [['Keep the jobs until the write succeeds', 'P1']],
   ]);
+
+  expect(left).toStrictEqual(['.keep']);
+  expect(worktrees.stdout.match(/^worktree /gmu)).toHaveLength(1);
 });
 
 test('it runs no call on a release bump', async () => {
@@ -764,278 +769,7 @@ test('it runs no call on a release bump', async () => {
   expect([run.result.special, run.result.calls, stub.requests]).toStrictEqual(['release', [], []]);
 });
 
-test('it drops a stepped-up P1 that the verify pass rejects and removes the worktree', async () => {
-  const ctx = await setupTest();
-
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
-    { message: 'base', files: { 'src/jobs.ts': 'export const jobs: string[] = [];\n' } },
-    {
-      message: 'head',
-      files: {
-        'src/jobs.ts': [
-          'export const jobs: string[] = [];',
-          '',
-          ...Array.from({ length: 420 }, (_, index) => `export const job${index} = ${index};`),
-          '',
-          'export function clearJobs(): void {',
-          '  jobs.length = 0;',
-          "  throw new Error('cleared');",
-          '}',
-          '',
-        ].join('\n'),
-      },
-    },
-  ]);
-
-  const p1 = {
-    title: 'Keep the jobs until the write succeeds',
-    body: 'The function empties the list before it throws, so the jobs are lost.',
-    anchor: { path: 'src/jobs.ts', startLine: 75, endLine: 75 },
-    secondLocation: null,
-    severity: 'P1',
-    criterion: 'data-loss',
-    rule: null,
-    verdict: 'CONFIRMED',
-    unverifiedFact: null,
-    missingChange: false,
-    fix: null,
-  } as const;
-
-  const stub = buildStubAdapter({
-    A: [{ findings: { correctness: [p1], 'failure-handling-and-observability': [] } }],
-    C: [{ findings: { 'naming-shape-and-comments': [] } }],
-    E: [{ findings: { tests: [] } }],
-    verify: [{ findings: { correctness: [] } }],
-  });
-
-  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
-
-  const run = await runReview({
-    runner: ctx.runner,
-    repoDir: repo.path,
-    repo: 'example/jobs',
-    base: repo.commits[0] ?? '',
-    head: repo.commits[1] ?? '',
-    config: BUILT_IN_DEFAULTS,
-    configHash: 'hash',
-    rules: null,
-    adapter: stub.adapter,
-    logger: ctx.logger,
-    tempDir: join(ctx.dir, 'temp'),
-    cacheDir: null,
-    title: 'Clear the jobs',
-    body: '',
-    linkedIssue: null,
-    pullRequest: null,
-    isPush: false,
-    pastEscapes: [],
-  });
-
-  const left = await readdir(join(ctx.dir, 'temp'));
-
-  const worktrees = await ctx.runner.run(['git', 'worktree', 'list', '--porcelain'], {
-    cwd: repo.path,
-  });
-
-  expect([run.result.depth, run.result.findings]).toStrictEqual(['deep', []]);
-  expect(left).toStrictEqual(['.keep']);
-  expect(worktrees.stdout.match(/^worktree /gmu)).toHaveLength(1);
-});
-
-test('it gives the verify call an ID of its own when a config group is named verify', async () => {
-  const ctx = await setupTest();
-
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
-    { message: 'base', files: { 'src/auth/session.ts': 'export const ttl = 60;\n' } },
-    { message: 'head', files: { 'src/auth/session.ts': 'export const ttl = 6000;\n' } },
-  ]);
-
-  const p1 = {
-    title: 'Expire a stolen session within the hour',
-    body: 'A session that lives 6000 seconds outlasts the token rotation, so a stolen one stays valid.',
-    anchor: { path: 'src/auth/session.ts', startLine: 1, endLine: 1 },
-    secondLocation: null,
-    severity: 'P1',
-    criterion: 'security-defect',
-    rule: null,
-    verdict: 'CONFIRMED',
-    unverifiedFact: null,
-    missingChange: false,
-    fix: null,
-  } as const;
-
-  const stub = buildStubAdapter({
-    A: [{ findings: { correctness: [] } }],
-    verify: [{ findings: { security: [p1] } }],
-    'verify-2': [{ findings: { security: [p1] } }],
-  });
-
-  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
-
-  const { B: security, ...calls } = BUILT_IN_DEFAULTS.calls;
-
-  const run = await runReview({
-    runner: ctx.runner,
-    repoDir: repo.path,
-    repo: 'example/auth',
-    base: repo.commits[0] ?? '',
-    head: repo.commits[1] ?? '',
-    config: { ...BUILT_IN_DEFAULTS, calls: { ...calls, verify: security ?? [] } },
-    configHash: 'hash',
-    rules: null,
-    adapter: stub.adapter,
-    logger: ctx.logger,
-    tempDir: join(ctx.dir, 'temp'),
-    cacheDir: null,
-    title: 'Lengthen the session',
-    body: '',
-    linkedIssue: null,
-    pullRequest: null,
-    isPush: false,
-    pastEscapes: [],
-  });
-
-  expect(run.result.calls.map((call) => call.id)).toStrictEqual(['A', 'verify', 'verify-2']);
-});
-
-test('it verifies the findings of every Deep call in one call over the merged list', async () => {
-  const ctx = await setupTest();
-
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
-    { message: 'base', files: { 'src/auth/session.ts': 'export const ttl = 60;\n' } },
-    { message: 'head', files: { 'src/auth/session.ts': 'export const ttl = 6000;\n' } },
-  ]);
-
-  const p2 = {
-    title: 'Keep the session lifetime short',
-    body: 'A lifetime of 6000 seconds keeps a stolen session open for hours.',
-    anchor: { path: 'src/auth/session.ts', startLine: 1, endLine: 1 },
-    secondLocation: null,
-    severity: 'P2',
-    criterion: 'wrong-behaviour-edge-path',
-    rule: null,
-    verdict: 'CONFIRMED',
-    unverifiedFact: null,
-    missingChange: false,
-    fix: null,
-  } as const;
-
-  const p1 = {
-    title: 'Expire a stolen session within the hour',
-    body: 'A session that lives 6000 seconds outlasts the token rotation, so a stolen one stays valid.',
-    anchor: { path: 'src/auth/session.ts', startLine: 1, endLine: 1 },
-    secondLocation: null,
-    severity: 'P1',
-    criterion: 'security-defect',
-    rule: null,
-    verdict: 'CONFIRMED',
-    unverifiedFact: null,
-    missingChange: false,
-    fix: null,
-  } as const;
-
-  const stub = buildStubAdapter({
-    A: [{ findings: { correctness: [p2] } }],
-    B: [{ findings: { security: [p1] } }],
-    verify: [{ findings: { correctness: [], security: [p1] } }],
-  });
-
-  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
-
-  const run = await runReview({
-    runner: ctx.runner,
-    repoDir: repo.path,
-    repo: 'example/auth',
-    base: repo.commits[0] ?? '',
-    head: repo.commits[1] ?? '',
-    config: BUILT_IN_DEFAULTS,
-    configHash: 'hash',
-    rules: null,
-    adapter: stub.adapter,
-    logger: ctx.logger,
-    tempDir: join(ctx.dir, 'temp'),
-    cacheDir: null,
-    title: 'Lengthen the session',
-    body: '',
-    linkedIssue: null,
-    pullRequest: null,
-    isPush: false,
-    pastEscapes: [],
-  });
-
-  expect(run.result.calls.map((call) => [call.id, call.lenses])).toStrictEqual([
-    ['A', ['correctness']],
-    ['B', ['security']],
-    ['verify', ['correctness', 'security']],
-  ]);
-
-  expect(run.result.findings.map((finding) => [finding.title, finding.callID])).toStrictEqual([
-    ['Expire a stolen session within the hour', 'verify'],
-  ]);
-});
-
-test('it keeps the Deep findings when the verify call fails twice', async () => {
-  const ctx = await setupTest();
-
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
-    { message: 'base', files: { 'src/auth/session.ts': 'export const ttl = 60;\n' } },
-    { message: 'head', files: { 'src/auth/session.ts': 'export const ttl = 6000;\n' } },
-  ]);
-
-  const p2 = {
-    title: 'Keep the session lifetime short',
-    body: 'A lifetime of 6000 seconds keeps a stolen session open for hours.',
-    anchor: { path: 'src/auth/session.ts', startLine: 1, endLine: 1 },
-    secondLocation: null,
-    severity: 'P2',
-    criterion: 'wrong-behaviour-edge-path',
-    rule: null,
-    verdict: 'CONFIRMED',
-    unverifiedFact: null,
-    missingChange: false,
-    fix: null,
-  } as const;
-
-  const stub = buildStubAdapter({
-    A: [{ findings: { correctness: [p2] } }],
-    B: [{ findings: { security: [] } }],
-    verify: [{ error: 'claude timed out' }, { error: 'claude timed out' }],
-  });
-
-  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
-
-  const run = await runReview({
-    runner: ctx.runner,
-    repoDir: repo.path,
-    repo: 'example/auth',
-    base: repo.commits[0] ?? '',
-    head: repo.commits[1] ?? '',
-    config: {
-      ...BUILT_IN_DEFAULTS,
-      thresholds: { ...BUILT_IN_DEFAULTS.thresholds, deepMinClassLines: 1 },
-    },
-    configHash: 'hash',
-    rules: null,
-    adapter: stub.adapter,
-    logger: ctx.logger,
-    tempDir: join(ctx.dir, 'temp'),
-    cacheDir: null,
-    title: 'Lengthen the session',
-    body: '',
-    linkedIssue: null,
-    pullRequest: null,
-    isPush: false,
-    pastEscapes: [],
-  });
-
-  expect([
-    run.result.depth,
-    run.result.findings.map((finding) => finding.title),
-    run.result.failedCalls.map((call) => call.id),
-  ]).toStrictEqual(['deep', ['Keep the session lifetime short'], ['verify']]);
-});
-
-test('it runs only the group calls on a large Deep change that holds no finding', async () => {
+test('it runs only the group calls on a risk class change that holds no finding', async () => {
   const ctx = await setupTest();
 
   const files = Object.fromEntries(

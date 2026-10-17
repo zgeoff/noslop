@@ -5,8 +5,6 @@ import type { Logger } from '@logtape/logtape';
 import type {
   Change,
   Depth,
-  Finding,
-  LensID,
   PullRequestRef,
   ReviewAdapter,
   ReviewConfig,
@@ -18,7 +16,6 @@ import { buildFindings } from '@noslop/findings';
 import type { PlannedCall, Route } from '@noslop/routing';
 import type { Runner } from '@noslop/runner';
 import type { StaticStageResult } from '@noslop/static-stage';
-import { buildVerifyTask } from './build-verify-task';
 import { planReview } from './plan-review';
 import { runMergePass } from './run-merge-pass';
 import type { CallBatch, CallBatchInput } from './run-planned-calls';
@@ -80,9 +77,9 @@ export async function runReview(options: RunReviewOptions): Promise<ReviewRun> {
     staticRaw: stage.findings.map((finding) => ({ lens: 'static', callID: null, finding })),
   };
 
-  const passes = await runCallPasses(ctx);
+  const batches = await runCalls(ctx);
 
-  const assembled = buildAssembled(ctx, passes.batches);
+  const assembled = buildAssembled(ctx, batches);
 
   const merged = await runMergePass({
     findings: assembled.findings,
@@ -90,13 +87,13 @@ export async function runReview(options: RunReviewOptions): Promise<ReviewRun> {
     adapter: options.adapter,
     model: options.mergeModel ?? null,
     callID: pickPassID(ctx, MERGE_CALL),
-    depth: passes.depth,
+    depth: ctx.route.depth,
     lenses: ctx.route.lenses,
     tempDir: options.tempDir,
     logger: options.logger,
   });
 
-  const records = passes.batches.flatMap((batch) => batch.records);
+  const records = batches.flatMap((batch) => batch.records);
 
   return {
     result: {
@@ -107,14 +104,13 @@ export async function runReview(options: RunReviewOptions): Promise<ReviewRun> {
       base: change.base,
       head: change.head,
       title: options.title === '' ? null : options.title,
-      depth: passes.depth,
-      steppedUpFrom: passes.steppedUpFrom,
+      depth: ctx.route.depth,
       special: ctx.route.special,
       riskClasses: stage.signals.riskClasses,
       lenses: ctx.route.lenses,
       calls: merged.record === null ? records : [...records, merged.record],
       findings: merged.findings,
-      failedCalls: passes.batches.flatMap((batch) => batch.failed),
+      failedCalls: batches.flatMap((batch) => batch.failed),
       configHash: options.configHash,
       startedAt,
       endedAt: now().toISOString(),
@@ -136,38 +132,17 @@ interface PassContext {
   staticRaw: RawFinding[];
 }
 
-interface CallPasses {
-  depth: Depth;
-  steppedUpFrom: Depth | null;
-  batches: CallBatch[];
-}
-
-// one call per fired lens group; Deep then adds one verify call over the merged findings, and a
-// confirmed P1 at Standard steps the review up to Deep by running that verify call on the findings it
-// has; a route with no calls runs none, and needs no worktree
-async function runCallPasses(ctx: PassContext): Promise<CallPasses> {
+// one call per fired lens group, at the effort of the route's depth; a route with no calls runs none,
+// and needs no worktree
+async function runCalls(ctx: PassContext): Promise<CallBatch[]> {
   if (ctx.route.calls.length === 0) {
-    return { depth: ctx.route.depth, steppedUpFrom: null, batches: [] };
+    return [];
   }
 
   await createWorktree(ctx);
 
   try {
-    const first = await runBatch(ctx, ctx.route.calls, ctx.route.depth, null);
-
-    if (ctx.route.depth === 'deep') {
-      const batches = await runDeepPasses(ctx, first);
-
-      return { depth: 'deep', steppedUpFrom: null, batches };
-    }
-
-    if (ctx.route.depth === 'standard' && hasConfirmedP1(buildAssembled(ctx, [first]))) {
-      const batches = await runDeepPasses(ctx, first);
-
-      return { depth: 'deep', steppedUpFrom: 'standard', batches };
-    }
-
-    return { depth: ctx.route.depth, steppedUpFrom: null, batches: [first] };
+    return [await runBatch(ctx, ctx.route.calls)];
   } finally {
     await removeWorktree(ctx);
   }
@@ -225,15 +200,10 @@ async function removeSecretFiles(ctx: PassContext): Promise<void> {
   );
 }
 
-function runBatch(
-  ctx: PassContext,
-  calls: readonly PlannedCall[],
-  depth: Depth,
-  task: CallBatchInput['task'],
-): Promise<CallBatch> {
+function runBatch(ctx: PassContext, calls: readonly PlannedCall[]): Promise<CallBatch> {
   return runPlannedCalls({
     calls,
-    depth,
+    depth: ctx.route.depth,
     adapter: ctx.options.adapter,
     worktree: ctx.worktree,
     tempDir: ctx.options.tempDir,
@@ -245,7 +215,6 @@ function runBatch(
     linkedIssue: ctx.options.linkedIssue,
     base: ctx.change.base,
     head: ctx.change.head,
-    task,
     parallel: ctx.options.config.thresholds.parallelCalls,
   });
 }
@@ -260,75 +229,10 @@ function buildAssembled(ctx: PassContext, batches: readonly CallBatch[]): Assemb
   });
 }
 
-function hasConfirmedP1(assembled: AssembledFindings): boolean {
-  return assembled.findings.some(
-    (finding) => finding.severity === 'P1' && finding.verdict === 'CONFIRMED',
-  );
-}
-
-const VERIFY_CALL = 'verify';
 const MERGE_CALL = 'merge';
 
-// the verify call re-derives every model finding of the first pass, after the merge, and its findings
-// replace them; a failed verify call keeps them
-async function runDeepPasses(ctx: PassContext, first: CallBatch): Promise<CallBatch[]> {
-  const merged = buildAssembled(ctx, [first]).findings.filter(
-    (finding) => finding.lens !== 'static',
-  );
-
-  const verified = await runVerifyCall(ctx, merged);
-
-  return buildVerifiedBatches(first, verified);
-}
-
-// the first pass's records stay for their cost; its findings give way to the verified ones, unless
-// the verify call failed or never ran
-function buildVerifiedBatches(first: CallBatch, verified: CallBatch | null): CallBatch[] {
-  if (verified === null) {
-    return [first];
-  }
-
-  if (verified.failed.length > 0) {
-    return [first, verified];
-  }
-
-  return [{ ...first, raw: [] }, verified];
-}
-
-// one call carries the lenses of every finding it verifies; with no finding there is nothing to verify
-function runVerifyCall(ctx: PassContext, findings: readonly Finding[]): Promise<CallBatch | null> {
-  const reported = new Set<string>(findings.map((finding) => finding.lens));
-
-  const lenses = ctx.route.lenses.filter((lens) => reported.has(lens));
-
-  if (lenses.length === 0) {
-    return Promise.resolve(null);
-  }
-
-  return runBatch(ctx, [buildPassCall(ctx, VERIFY_CALL, lenses)], 'deep', () =>
-    buildVerifyTask(findings),
-  );
-}
-
-// a pass call runs at Deep's effort on the adapter's model, with the longest timeout of the calls the
-// route planned
-function buildPassCall(ctx: PassContext, name: string, lenses: readonly LensID[]): PlannedCall {
-  const timeouts = ctx.route.calls.flatMap((call) =>
-    call.timeoutMs === null ? [] : [call.timeoutMs],
-  );
-
-  return {
-    callID: pickPassID(ctx, name),
-    lenses: [...lenses],
-    effort: 'high',
-    model: null,
-    timeoutMs: timeouts.length === 0 ? null : Math.max(...timeouts),
-    files: [...ctx.change.files],
-  };
-}
-
 // the first of name, name-2 and so on that no planned call holds, since a config can name a group
-// `verify`
+// `merge`
 function pickPassID(ctx: PassContext, name: string): string {
   const taken = new Set(ctx.route.calls.map((call) => call.callID));
 

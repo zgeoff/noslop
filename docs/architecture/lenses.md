@@ -46,7 +46,3 @@ back point at the reviewed head.
 When a lens reads the rules file and the repo names none, the prompt says so and tells the lenses to
 report no taste finding. A taste finding needs a rule from that file under 0003, so the prompt keeps
 the model from inventing one.
-
-A pass that is not a first review, such as the verify pass at Deep, adds a closing task to the
-prompt. The lens sections stay the same, so a finding the verify pass keeps meets the same rules as
-the first one.

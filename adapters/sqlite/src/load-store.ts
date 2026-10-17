@@ -242,4 +242,12 @@ const STORE_MIGRATIONS: Record<string, Migration> = {
         .execute();
     },
   },
+
+  // a review runs at the depth routing picks, with no step-up, so a review row has no depth it
+  // stepped up from
+  '0005-reviews-without-step-up': {
+    up: async (db) => {
+      await db.schema.alterTable('reviews').dropColumn('stepped_up_from').execute();
+    },
+  },
 };

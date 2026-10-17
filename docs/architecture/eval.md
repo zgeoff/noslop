@@ -114,5 +114,5 @@ The report counts the cases at each depth, the labelled P1 true positives and th
 cases hold, and the calls each depth plans. It lists every labelled P1 and escape on a case that
 routes to Light, because each one is a defect the Light rule lets through with the least effort. It
 gives each case its planned calls and the most calls its review can make once the passes count: the
-merge pass when the config turns it on, and the verify call at Deep or on a step-up. A label's
-anchor plays no part, so the replay skips the check that each labelled path names a file.
+merge pass when the config turns it on. A label's anchor plays no part, so the replay skips the
+check that each labelled path names a file.

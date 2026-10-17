@@ -74,15 +74,11 @@ export async function planReview(options: PlanReviewOptions): Promise<ReviewPlan
   return { change, stage, routeInput, route, maxCalls: countMaxCalls(route, options) };
 }
 
-// the merge pass can follow any calls, and Standard and Deep can add the verify call, Standard on a
-// step-up
+// the merge pass can follow any calls
 function countMaxCalls(route: Route, options: PlanReviewOptions): number {
   if (route.calls.length === 0) {
     return 0;
   }
 
-  const merge = options.config.mergePass.enabled ? 1 : 0;
-  const verify = route.depth === 'light' ? 0 : 1;
-
-  return route.calls.length + verify + merge;
+  return route.calls.length + (options.config.mergePass.enabled ? 1 : 0);
 }

@@ -26,10 +26,9 @@ A change is Deep when any of these holds:
 A risk class that does not reach Deep still fires the lenses it forces, at Standard. Each number
 here is a default that the config sets.
 
-Every other change is Standard. Deep adds 1 verify call, which re-derives every finding from the
-code after the findings merge. A confirmed P1 at Standard steps the review up to Deep once, by
-running only the verify call on the findings it has. At every depth, each call reads the whole
-change.
+Every other change is Standard. Deep runs the same lens calls as Standard at high effort, and adds
+no call. A review runs at the depth the score picks and never steps up to another one. At every
+depth, each call reads the whole change.
 
 At every depth, a review with 2 or more model findings ends with 1 merge pass call on a cheap model.
 The call groups the findings that report one defect, and the review keeps one finding of each group
@@ -40,8 +39,8 @@ in each file. The config can turn the pass off.
 - Effort costs time and tokens, so low-risk changes get less of it.
 - A deterministic score gives the same depth on every run.
 - A reviewer must see the whole change to judge it, so no call splits the diff.
-- A usable review beats the most thorough one, so Deep adds 2 calls at most, and fewer calls win a
-  tie.
+- A usable review beats the most thorough one, so Deep adds effort and no call, and fewer calls win
+  a tie.
 - A risk class path or detector alone marks most changes in a fleet of infra and tools repos, so
   Deep needs weight in the class's own paths. On a uniform sample of 200 merged pull requests, the
   rules route 40% Light, 50% Standard and 10% Deep. On the 266 corpus changes that hold a labelled
@@ -63,6 +62,10 @@ in each file. The config can turn the pass off.
 - **A gap sweep at Deep.** One call with every fired lens and the findings so far, asking for what
   they miss. On 6 corpus cases forced to Deep, it added 6 calls and 3.5M input tokens and found no
   labelled defect that the first pass missed.
+- **A verify call at Deep, and a step-up to it from Standard on a confirmed P1.** One call
+  re-derived each merged finding from the code, and its findings replaced the first pass's. On the 3
+  Deep corpus runs with findings, 11 findings went in, verify dropped none and reworded 1 title, so
+  the call cost a model call for no change in what the review reports.
 
 ## Consequences
 
@@ -85,3 +88,5 @@ in each file. The config can turn the pass off.
 - 2026-10-18: retuned the depth rules on a static replay. A marked risk class makes a change Deep
   only with 100 changed lines in its paths, a forced-path deletion only at 50 deleted lines, and
   packages only at 6. Light allows 2 packages and 400 code lines.
+- 2026-10-18: removed the verify call at Deep and the step-up from Standard. Deep is the same lens
+  calls at high effort. On 3 Deep runs, verify took 11 findings, dropped 0 and reworded 1 title.

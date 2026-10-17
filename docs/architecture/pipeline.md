@@ -11,7 +11,6 @@ model calls spend their tokens on judgement. The review module runs these stages
 ```mermaid
 flowchart LR
   load[Load] --> static[Static stage] --> route[Route] --> call[Call] --> assemble[Assemble] --> mergepass[Merge pass] --> report[Report]
-  assemble -. confirmed P1 at Standard .-> call
 ```
 
 ## The stages
@@ -51,20 +50,11 @@ reviewed code and never the user's working tree. The review creates the worktree
 holds a call, and removes it whether the calls pass or fail. A worktree that git cannot remove is
 logged for the user to prune.
 
-## Depth passes
+## Depth
 
-The depth that routing picks decides how many passes the Call and Assemble stages make. Light and
-Standard make one pass. Deep makes a first pass, then 1 verify call, under
-[0007](../decisions/0007-depth-and-models.md).
-
-A Standard review whose first pass holds a confirmed P1 steps up to Deep once by running only the
-verify call on the findings it has. The first pass's calls keep their Standard depth in the result,
-and the result records the depth it stepped up from.
-
-The verify call carries the lenses of every model finding of the first pass, after Assemble merges
-them, with a closing task to re-derive each one from the code. Its findings replace the first pass's
-model findings, so a finding the model cannot trace a second time drops out. When the verify call
-fails, the first pass's findings stay, because a failed check is no evidence against a finding.
+The depth that routing picks sets the effort of every call, and every depth makes one pass of the
+planned calls under [0007](../decisions/0007-depth-and-models.md). A review keeps the depth routing
+picks: a P1 that a call reports changes no depth and adds no call.
 
 ## The result
 

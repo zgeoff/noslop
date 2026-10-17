@@ -7,7 +7,7 @@ import { tokensSchema } from './tokens';
 
 // changes only with a breaking change to the output, so a consumer that pins a CLI version reads one
 // shape
-export const REVIEW_OUTPUT_VERSION = 3;
+export const REVIEW_OUTPUT_VERSION = 4;
 const commitSchema = z.string().regex(/^[0-9a-f]{40}$/u);
 
 export const callRecordSchema = z.strictObject({
@@ -54,7 +54,6 @@ export const reviewResultSchema = z.strictObject({
   head: commitSchema,
   title: z.string().nullable(),
   depth: depthSchema,
-  steppedUpFrom: depthSchema.nullable(),
   special: specialChangeSchema.nullable(),
   riskClasses: z.array(z.string().min(1)),
   lenses: z.array(lensIDSchema),

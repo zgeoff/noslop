@@ -2,7 +2,7 @@
 
 - Date: 2026-10-17
 - Status: decided
-- Updated: 2026-10-17
+- Updated: 2026-10-18
 
 A finding has one of 3 severities, and the lens names the criterion it applies:
 
@@ -55,11 +55,12 @@ P1 counts as a P1 until someone checks the fact. A lens lowers a severity only o
 
 ## Consequences
 
-- Severity orders the work, sets the step up to Deep, and sets blocking for code the pull request
-  did not write.
+- Severity orders the work and sets blocking for code the pull request did not write.
 - Severity never decides whether a finding may be deferred, under [0009](0009-the-merge-loop.md).
 
 ## Changes
 
 - 2026-10-17: named the criteria, each with the severity it sets, so a finding's severity follows
   from its criterion.
+- 2026-10-18: a P1 no longer steps a review up to Deep, since a review keeps the depth routing picks
+  under [0007](0007-depth-and-models.md).

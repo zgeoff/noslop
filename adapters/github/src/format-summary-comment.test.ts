@@ -7,7 +7,6 @@ test('it writes the head, depth, lenses, failed calls, fixes and marker of a re-
     base: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
     head: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
     depth: 'deep',
-    steppedUpFrom: 'standard',
     lenses: ['correctness', 'security'],
     failedCalls: [{ id: 'B', lenses: ['security'], reason: 'codex timed out' }],
   });
@@ -28,7 +27,7 @@ test('it writes the head, depth, lenses, failed calls, fixes and marker of a re-
   ).toMatchInlineSnapshot(`
     "### noslop
 
-    Re-reviewed (review 2) \`aaaaaaaaaaaa\` against \`bbbbbbbbbbbb\` at deep, stepped up from standard depth.
+    Re-reviewed (review 2) \`aaaaaaaaaaaa\` against \`bbbbbbbbbbbb\` at deep depth.
 
     - Lenses: correctness, security
     - Findings: 0

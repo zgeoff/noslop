@@ -50,7 +50,6 @@ test('it joins the header, each lens section in order and each slice once', () =
     linkedIssue: null,
     base: 'a'.repeat(40),
     head: 'b'.repeat(40),
-    task: null,
   });
 
   const input = prompt.slice(prompt.indexOf('# Input'));
@@ -147,11 +146,7 @@ test('it tells the lenses to report no taste finding when the repo names no rule
     linkedIssue: null,
     base: 'a'.repeat(40),
     head: 'b'.repeat(40),
-    task: 'Check each finding again.',
   });
 
-  expect([
-    prompt.includes('The repo names no rules file, so report no taste finding.'),
-    prompt.endsWith('# Task\n\nCheck each finding again.\n'),
-  ]).toStrictEqual([true, true]);
+  expect(prompt).toInclude('The repo names no rules file, so report no taste finding.');
 });

@@ -31,9 +31,6 @@ export interface CallBatchInput {
   base: string;
   head: string;
 
-  // a closing instruction for each call, given the call; null for a first review
-  task: ((call: PlannedCall) => string | null) | null;
-
   // how many calls run at once
   parallel: number;
 }
@@ -63,7 +60,6 @@ export async function runPlannedCalls(input: CallBatchInput): Promise<CallBatch>
       linkedIssue: input.linkedIssue,
       base: input.base,
       head: input.head,
-      task: input.task === null ? null : input.task(call),
     });
 
     const outcome = await runWithRetry(call, prompt, input);

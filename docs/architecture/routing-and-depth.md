@@ -79,34 +79,13 @@ small changes pass. The line count leaves out prose and instruction files, and t
 leaves generated files out of the change before routing reads it, so neither kind can push a change
 past Light.
 
-## The passes
+## The pass
 
-The review module runs the planned calls in passes, and the depth decides which passes run.
+The review module runs the planned calls in one pass at every depth, and the depth sets only the
+effort of each call. A review never changes depth: a P1 that a Standard or Light review finds stays
+in its result, and no call runs again. The [eval harness](./eval.md) counts the labelled P1s and
+escapes that its Light cases hold, so a Light rule that lets P1s through shows up on the corpus.
 
-```mermaid
-flowchart TD
-  first[First pass] --> light{Depth}
-  light -->|Light| done[Assemble]
-  light -->|Standard| p1{Confirmed P1?}
-  p1 -->|no| done
-  p1 -->|yes| verify[Verify call]
-  light -->|Deep| verify
-  verify --> done
-```
-
-A CONFIRMED P1 at Standard steps the review up to Deep once: the review module runs only the verify
-call on the findings the Standard pass has, and runs no call again. The result holds the depth it
-stepped up from.
-
-A Light review never steps up. A P1 that a Light review finds stays in its result, and the
-[eval harness](./eval.md) counts the labelled P1s and escapes that its Light cases hold, so a Light
-rule that lets P1s through shows up on the corpus.
-
-The verify call is 1 call over every model finding of the first pass, after the merge, with the
-lenses of those findings and a closing task to re-derive each one from the code. Its findings
-replace the first pass's model findings. When the verify call fails, the first pass's findings stay,
-so a verify failure never loses a finding.
-
-Each pass runs every call through the adapter, retrying a failed call once, under
-[adapters](./adapters.md). [Findings](./findings.md) covers how Assemble merges the findings of
-every pass.
+The pass runs every call through the adapter, retrying a failed call once, under
+[adapters](./adapters.md). [Findings](./findings.md) covers how Assemble merges the findings of the
+calls.

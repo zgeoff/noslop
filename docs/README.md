@@ -23,7 +23,7 @@ page gives the whole path from a change to a check result.
 - [Your own rules](architecture/your-own-rules.md): the rules file, stack patterns and risk classes
 - [The static stage](architecture/static-stage.md): slices, direct findings and the risk signals
 - [Routing and depth](architecture/routing-and-depth.md): which lenses fire, and at which depth
-- [Calls](architecture/calls.md): how fired lenses group into model calls, with retry and verify
+- [Calls](architecture/calls.md): how fired lenses group into model calls, with retry
 - [The lenses](architecture/lenses.md): one prompt per lens, and how a call's prompt is built
 - [Adapters](architecture/adapters.md): the Codex and Claude CLIs behind one read-only interface
 - [The CLI](architecture/cli.md): the `noslop` commands, their output and exit codes

@@ -48,6 +48,7 @@ test('it keys each disposition a store held before on the one repo whose reviews
   const database = new Database(ctx.path, { strict: true });
 
   database.run(`DELETE FROM kysely_migration WHERE name >= '0002'`);
+  database.run('ALTER TABLE reviews ADD COLUMN stepped_up_from text');
   database.run('ALTER TABLE calls ADD COLUMN chunk integer');
   database.run('ALTER TABLE calls DROP COLUMN cached_input_tokens');
   database.run('ALTER TABLE calls DROP COLUMN cache_write_tokens');
@@ -93,6 +94,7 @@ test('it gives a call the store held before no cache counts', async () => {
   const database = new Database(ctx.path, { strict: true });
 
   database.run(`DELETE FROM kysely_migration WHERE name >= '0004'`);
+  database.run('ALTER TABLE reviews ADD COLUMN stepped_up_from text');
   database.run('ALTER TABLE calls DROP COLUMN cached_input_tokens');
   database.run('ALTER TABLE calls DROP COLUMN cache_write_tokens');
   database.close();

@@ -2,11 +2,8 @@ import type { ReviewResult } from '@noslop/contract';
 
 // the review for a person: what ran, then each finding with its anchor, then each failed call
 export function formatReviewSummary(result: ReviewResult): string {
-  const depth =
-    result.steppedUpFrom === null ? result.depth : `${result.depth}, from ${result.steppedUpFrom}`;
-
   const lines = [
-    `noslop reviewed ${result.head.slice(0, 12)} at ${depth} with ${result.calls.length} calls`,
+    `noslop reviewed ${result.head.slice(0, 12)} at ${result.depth} with ${result.calls.length} calls`,
     `lenses: ${result.lenses.length === 0 ? 'none' : result.lenses.join(', ')}`,
     '',
   ];

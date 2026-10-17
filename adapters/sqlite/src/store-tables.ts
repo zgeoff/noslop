@@ -15,7 +15,6 @@ export interface ReviewRow {
   head: string;
   title: string | null;
   depth: string;
-  stepped_up_from: string | null;
   special: string | null;
   risk_classes: string;
   lenses: string;

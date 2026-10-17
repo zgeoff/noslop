@@ -12,7 +12,6 @@ export function buildMockReviewResult(overrides: Partial<ReviewResult> = {}): Re
     head: 'b'.repeat(40),
     title: 'Change the app',
     depth: 'light',
-    steppedUpFrom: null,
     special: null,
     riskClasses: [],
     lenses: ['correctness'],

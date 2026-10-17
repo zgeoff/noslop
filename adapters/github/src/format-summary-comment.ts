@@ -18,17 +18,12 @@ export function formatSummaryComment(
   marker: SummaryMarker,
   confirmations: readonly FixConfirmation[],
 ): string {
-  const depth =
-    result.steppedUpFrom === null
-      ? result.depth
-      : `${result.depth}, stepped up from ${result.steppedUpFrom}`;
-
   const kind = marker.reviews === 1 ? 'Reviewed' : `Re-reviewed (review ${marker.reviews})`;
 
   const lines = [
     '### noslop',
     '',
-    `${kind} \`${result.head.slice(0, 12)}\` against \`${result.base.slice(0, 12)}\` at ${depth} depth.`,
+    `${kind} \`${result.head.slice(0, 12)}\` against \`${result.base.slice(0, 12)}\` at ${result.depth} depth.`,
     '',
     `- Lenses: ${result.lenses.length === 0 ? 'none' : result.lenses.join(', ')}`,
     `- Findings: ${result.findings.length}`,

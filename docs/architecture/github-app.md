@@ -82,9 +82,8 @@ it posts anything.
    not write goes to a follow-up issue in the repo instead of the pull request. The summary marker
    keeps each filed id, so a later review files the issue once.
 4. It writes the summary comment, which it creates on the first review and edits in place after
-   that. The summary holds the reviewed head and base, the depth and any step up, the lenses, the
-   finding count, a special change, each failed call, and on a re-review whether each `fixed`
-   finding is fixed.
+   that. The summary holds the reviewed head and base, the depth, the lenses, the finding count, a
+   special change, each failed call, and on a re-review whether each `fixed` finding is fixed.
 5. It sets the check run.
 
 ## State in markers

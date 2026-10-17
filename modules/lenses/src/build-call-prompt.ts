@@ -15,9 +15,6 @@ export interface CallPromptInput {
   linkedIssue: string | null;
   base: string;
   head: string;
-
-  // a closing instruction for a pass that is not a first review, such as the verify pass
-  task: string | null;
 }
 
 // joins the shared header, one section per lens in the order given, and the input the lenses read:
@@ -61,10 +58,6 @@ export function buildCallPrompt(input: CallPromptInput): string {
     const slice = collectSliceItems(input.slices[name], paths);
 
     sections.push(`## Slice: ${name}\n\n\`\`\`json\n${JSON.stringify(slice, null, 2)}\n\`\`\``);
-  }
-
-  if (input.task !== null) {
-    sections.push(`# Task\n\n${input.task}`);
   }
 
   return `${sections.join('\n\n')}\n`;
