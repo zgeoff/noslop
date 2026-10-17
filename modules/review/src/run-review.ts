@@ -93,7 +93,6 @@ export async function runReview(options: RunReviewOptions): Promise<ReviewRun> {
     isSync: stage.isSync,
     isRelease: stage.isRelease,
     isPush: options.isPush,
-    packageDirs: stage.packageDirs,
   };
 
   const ctx: PassContext = {

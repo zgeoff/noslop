@@ -24,7 +24,6 @@ test('it accepts a review result with one call and no findings', () => {
         adapter: 'codex',
         model: null,
         effort: 'medium',
-        chunk: null,
         status: 'ok',
         attempts: 1,
         tokens: { input: 1200, output: 300 },

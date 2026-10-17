@@ -15,7 +15,6 @@ These are the terms the docs and the code use. Each term means one thing.
 | depth          | How hard a review works: Light, Standard or Deep                                                              |
 | risk score     | The set of signals, computed with no model, that picks the depth                                              |
 | risk class     | A named kind of risky change, such as auth or migrations, marked by a path glob or a detector                 |
-| chunk          | A group of hunks by file or package, sent to a lens when a diff passes 150 changed lines                      |
 
 ## Findings
 

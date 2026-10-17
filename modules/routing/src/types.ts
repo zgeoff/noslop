@@ -12,9 +12,6 @@ export interface RouteInput {
 
   // a review of a push to the default branch, with no pull request to hold its findings
   isPush: boolean;
-
-  // the folder of each package manifest at the head, so a chunk holds the files of one package
-  packageDirs: readonly string[];
 }
 
 export interface PlannedCall {

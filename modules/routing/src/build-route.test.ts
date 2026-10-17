@@ -16,7 +16,6 @@ test('it runs a small code change at Light in one call', () => {
     isSync: false,
     isRelease: false,
     isPush: false,
-    packageDirs: ['.'],
   });
 
   expect(route).toStrictEqual({
@@ -67,7 +66,6 @@ test('it fires each lens whose slice holds an entry and groups them by the defau
     isSync: false,
     isRelease: false,
     isPush: false,
-    packageDirs: ['.'],
   });
 
   expect([
@@ -109,7 +107,6 @@ test('it runs a marked risk class at Deep with the lenses it forces and call A s
     isSync: false,
     isRelease: false,
     isPush: false,
-    packageDirs: ['.'],
   });
 
   expect([route.depth, route.calls.map((call) => [call.callID, call.effort])]).toStrictEqual([
@@ -159,7 +156,6 @@ test('it keeps a lens the config turns off unless a risk class forces it', () =>
     isSync: false,
     isRelease: false,
     isPush: false,
-    packageDirs: ['.'],
   });
 
   expect(route.lenses).toStrictEqual(['correctness', 'security']);
@@ -186,7 +182,6 @@ test('it routes a change of prose alone to the documentation and instructions le
     isSync: false,
     isRelease: false,
     isPush: false,
-    packageDirs: ['.'],
   });
 
   expect([route.special, route.lenses]).toStrictEqual([
@@ -230,7 +225,6 @@ test.each<{ isSync: boolean; isRelease: boolean; path: string; special: SpecialC
     isSync: row.isSync,
     isRelease: row.isRelease,
     isPush: false,
-    packageDirs: ['.'],
   });
 
   expect([route.special, route.lenses, route.calls]).toStrictEqual([row.special, [], []]);
@@ -251,7 +245,6 @@ test('it marks a direct push and routes it like any change', () => {
     isSync: false,
     isRelease: false,
     isPush: true,
-    packageDirs: ['.'],
   });
 
   expect([route.special, route.lenses]).toStrictEqual(['direct-push', ['correctness']]);
@@ -286,7 +279,6 @@ test('it runs a lens with a model of its own in a call of its own, at its own ef
     isSync: false,
     isRelease: false,
     isPush: false,
-    packageDirs: ['.'],
   });
 
   expect(
@@ -303,33 +295,29 @@ test('it runs a lens with a model of its own in a call of its own, at its own ef
   ]);
 });
 
-test('it runs each call once per chunk of a large change', () => {
+test('it runs each call once over the whole of a large change across packages', () => {
   const route = buildRoute({
     change: {
       base: 'a'.repeat(40),
       head: 'b'.repeat(40),
       files: [
-        buildMockChangedFile({ path: 'apps/web/src/a.ts', addedLines: 100 }),
-        buildMockChangedFile({ path: 'modules/core/src/b.ts', addedLines: 100 }),
+        buildMockChangedFile({ path: 'apps/web/src/a.ts', addedLines: 400 }),
+        buildMockChangedFile({ path: 'modules/core/src/b.ts', addedLines: 400 }),
       ],
       excluded: [],
     },
     slices: buildMockSlices(),
-    signals: buildMockRiskSignals({ packagesTouched: 2, changedLines: 200 }),
+    signals: buildMockRiskSignals({ packagesTouched: 2, changedLines: 800 }),
     config: BUILT_IN_DEFAULTS,
     linkedIssue: null,
     isSync: false,
     isRelease: false,
     isPush: false,
-    packageDirs: ['.', 'apps/web', 'modules/core'],
   });
 
   expect(
     route.calls.map((call) => [call.callID, call.files.map((file) => file.path)]),
-  ).toStrictEqual([
-    ['A#1', ['apps/web/src/a.ts']],
-    ['A#2', ['modules/core/src/b.ts']],
-  ]);
+  ).toStrictEqual([['A', ['apps/web/src/a.ts', 'modules/core/src/b.ts']]]);
 });
 
 test('it runs the documentation lens on a one-line edit to a doc', () => {
@@ -347,7 +335,6 @@ test('it runs the documentation lens on a one-line edit to a doc', () => {
     isSync: false,
     isRelease: false,
     isPush: false,
-    packageDirs: ['.'],
   });
 
   expect([route.special, route.lenses]).toStrictEqual(['docs-only', ['documentation']]);
@@ -377,7 +364,6 @@ test('it keeps a small change with one write and an event out of Light', () => {
     isSync: false,
     isRelease: false,
     isPush: false,
-    packageDirs: ['.'],
   });
 
   expect([route.depth, route.lenses]).toStrictEqual([

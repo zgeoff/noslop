@@ -29,7 +29,6 @@ export type LensOverride = z.infer<typeof lensOverrideSchema>;
 export const thresholdsSchema = z.strictObject({
   lightMaxLines: z.int().nonnegative(),
   docsMinLines: z.int().nonnegative(),
-  chunkLines: z.int().positive(),
   complexityMin: z.int().positive(),
   deepMinPackages: z.int().positive(),
   gapSweepMinFiles: z.int().positive(),

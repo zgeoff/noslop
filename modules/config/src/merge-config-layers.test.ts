@@ -59,10 +59,10 @@ test('it replaces a scalar with an object and takes the object leaves from the l
   expect(
     mergeConfigLayers([
       { source: 'parent', value: { thresholds: 1 } },
-      { source: 'child', value: { thresholds: { chunkLines: 100 } } },
+      { source: 'child', value: { thresholds: { lightMaxLines: 100 } } },
     ]),
   ).toStrictEqual({
-    value: { thresholds: { chunkLines: 100 } },
-    sources: { 'thresholds.chunkLines': 'child' },
+    value: { thresholds: { lightMaxLines: 100 } },
+    sources: { 'thresholds.lightMaxLines': 'child' },
   });
 });

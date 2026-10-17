@@ -18,7 +18,7 @@ test('it runs the built-in defaults when the repo has no review.json', async () 
   const loaded = await loadConfig({ repoDir: ctx.dir });
 
   expect(loaded).toMatchObject({ config: BUILT_IN_DEFAULTS, chain: [], rules: null });
-  expect(loaded.sources['thresholds.chunkLines']).toBe('built-in');
+  expect(loaded.sources['thresholds.lightMaxLines']).toBe('built-in');
 });
 
 test('it merges the repo file over its local parent over the defaults', async () => {
@@ -56,7 +56,7 @@ test('it merges the repo file over its local parent over the defaults', async ()
   expect(loaded.sources).toMatchObject({
     'lenses.security.effort': join(ctx.dir, 'shared', 'base.json'),
     'lenses.reuse.model': join(ctx.dir, 'repo', 'review.json'),
-    'thresholds.chunkLines': 'built-in',
+    'thresholds.lightMaxLines': 'built-in',
   });
 });
 
@@ -69,7 +69,7 @@ test('it reads a parent from a github config repo through the remote reader', as
   );
 
   const remoteFiles: Record<string, string> = {
-    'review.json@v1': JSON.stringify({ rules: './patterns.md', thresholds: { chunkLines: 90 } }),
+    'review.json@v1': JSON.stringify({ rules: './patterns.md', thresholds: { lightMaxLines: 90 } }),
     'patterns.md@v1': '## Context goes last\n\n1. Take the context last.',
   };
 
@@ -79,7 +79,7 @@ test('it reads a parent from a github config repo through the remote reader', as
       Promise.resolve(remoteFiles[`${location.path}@${location.ref}`] ?? null),
   });
 
-  expect(loaded.config.thresholds.chunkLines).toBe(90);
+  expect(loaded.config.thresholds.lightMaxLines).toBe(90);
   expect(loaded.config.rules).toBe('github:example/noslop-config/patterns.md@v1');
 
   expect(loaded.rules).toStrictEqual([

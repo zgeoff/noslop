@@ -219,4 +219,11 @@ const STORE_MIGRATIONS: Record<string, Migration> = {
       await sql`ALTER TABLE dispositions_by_repo RENAME TO dispositions`.execute(db);
     },
   },
+
+  // each call reads the whole change, so a call record has no chunk
+  '0003-calls-without-chunks': {
+    up: async (db) => {
+      await db.schema.alterTable('calls').dropColumn('chunk').execute();
+    },
+  },
 };

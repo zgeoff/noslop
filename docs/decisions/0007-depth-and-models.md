@@ -2,6 +2,7 @@
 
 - Date: 2026-10-17
 - Status: decided
+- Updated: 2026-10-17
 
 A risk score picks one of 3 depths from signals that need no model. Depth sets the default model
 effort: low for Light, medium for Standard, high for Deep.
@@ -24,22 +25,29 @@ A change is Deep when any of these holds:
 
 Every other change is Standard. Deep adds a verify pass, which re-derives each finding from the
 code, and a gap sweep, which looks for what the other findings miss on a change of 5 or more files
-or 200 or more lines. A confirmed P1 at Standard steps the review up to Deep once. At every depth, a
-diff of more than 150 changed lines reaches each lens in chunks by file or package.
+or 200 or more lines. A confirmed P1 at Standard steps the review up to Deep once. At every depth,
+each call reads the whole change.
 
 ## Why
 
 - Effort costs time and tokens, so low-risk changes get less of it.
 - A deterministic score gives the same depth on every run.
-- Recall falls on large diffs, so chunks keep each lens's input small.
+- A reviewer must see the whole change to judge it, so no call splits the diff.
 
 ## Alternatives
 
 - **One depth for every change.** It overspends on small changes or underspends on risky ones.
 - **A model rates the risk.** It costs a call and can rate the same change differently.
+- **Chunks of 150 changed lines by file or package.** A lens then sees part of the change, and the
+  calls multiply: 93 calls on one corpus change, for no measured gain in recall.
 
 ## Consequences
 
 - The Light rule must pass a history test before it goes live: on a labelled corpus, Light holds
   about none of the past P1s and escapes.
 - Model and effort can be overridden per lens, under [0010](0010-the-reviewer-config.md).
+
+## Changes
+
+- 2026-10-17: dropped the 150-line chunk rule, so each call reads the whole change. A reviewer must
+  see the whole change, and chunking multiplied the calls for no measured gain.

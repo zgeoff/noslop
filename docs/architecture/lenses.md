@@ -35,9 +35,9 @@ Each lens declares what it reads beside its section: the kinds of changed file w
 the slices it needs, and whether it reads the rules file. Every call holds the pull request text and
 the linked issue, because every lens must tell a change made on purpose from a defect. A call joins
 the declarations of its lenses, so the prompt holds each slice once however many of its lenses read
-it. A slice that lists entries keeps only the entries on the files in the call, because a large
-change reaches the lenses in chunks of whole files, and a lens must not read about a file whose
-hunks it cannot see. The comment density covers the whole change and stays whole.
+it. A slice that lists entries keeps only the entries on the files in the call, so a lens never
+reads about a file whose hunks it cannot see. The comment density covers the whole change and stays
+whole.
 
 The hunks carry the head line number beside every line that the head commit holds, and a deleted
 line carries none. A lens anchors each finding to a line number it reads, so the anchors that come

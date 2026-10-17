@@ -32,7 +32,6 @@ export interface CallRow {
   adapter: string;
   model: string | null;
   effort: string;
-  chunk: number | null;
   status: string;
   attempts: number;
   input_tokens: number;

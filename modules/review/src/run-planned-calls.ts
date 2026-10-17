@@ -74,7 +74,6 @@ export async function runPlannedCalls(input: CallBatchInput): Promise<CallBatch>
   for (const ran of outcomes) {
     const call = ran.call;
     const outcome = ran.outcome;
-    const chunk = /#(?<chunk>\d+)$/u.exec(call.callID)?.groups?.['chunk'];
 
     const record: CallRecord = {
       id: call.callID,
@@ -83,7 +82,6 @@ export async function runPlannedCalls(input: CallBatchInput): Promise<CallBatch>
       adapter: input.adapter.id,
       model: outcome.result?.model ?? call.model,
       effort: call.effort,
-      chunk: chunk === undefined ? null : Number(chunk),
       status: outcome.result === null ? 'failed' : 'ok',
       attempts: outcome.attempts,
       tokens: outcome.result?.tokens ?? { input: 0, output: 0 },

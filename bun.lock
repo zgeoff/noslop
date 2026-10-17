@@ -216,7 +216,6 @@
       "version": "0.0.0",
       "dependencies": {
         "@noslop/contract": "workspace:*",
-        "@noslop/lenses": "workspace:*",
         "@noslop/static-stage": "workspace:*",
       },
       "devDependencies": {

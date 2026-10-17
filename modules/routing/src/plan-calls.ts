@@ -1,7 +1,5 @@
 import type { Depth, Effort, LensID } from '@noslop/contract';
 import { effortSchema } from '@noslop/contract';
-import { LENS_INPUTS } from '@noslop/lenses';
-import { buildChunks } from './build-chunks';
 import type { PlannedCall, RouteInput } from './types';
 
 const DEPTH_EFFORT: Readonly<Record<Depth, Effort>> = {
@@ -19,8 +17,8 @@ interface CallGroup {
 }
 
 // groups the fired lenses into calls by the config's grouping: one call at Light, call A split into
-// its lenses at Deep, and a lens with a model of its own in a call of its own; each call then runs once
-// per chunk whose files its lenses read
+// its lenses at Deep, and a lens with a model of its own in a call of its own; each call reads the
+// whole change, so a reviewer always sees every hunk its lenses read
 export function planCalls(
   input: RouteInput,
   lenses: readonly LensID[],
@@ -28,29 +26,14 @@ export function planCalls(
 ): PlannedCall[] {
   const groups = buildGroups(input, lenses, depth).flatMap((group) => splitByModel(group, input));
 
-  const chunks = buildChunks(
-    input.change.files,
-    input.packageDirs,
-    input.config.thresholds.chunkLines,
-  );
-
-  return groups.flatMap((group) => {
-    const kinds = new Set(group.lenses.flatMap((lens) => LENS_INPUTS[lens].hunks));
-
-    const read = chunks.filter((chunk) => chunk.some((file) => kinds.has(file.kind)));
-
-    // a call whose lenses read no hunks, such as reuse, reads its slices once
-    const parts = read.length === 0 ? [input.change.files] : read;
-
-    return parts.map((files, index) => ({
-      callID: parts.length === 1 ? group.callID : `${group.callID}#${index + 1}`,
-      lenses: group.lenses,
-      effort: pickEffort(group.lenses, depth, input),
-      model: input.config.lenses[group.lenses[0] ?? 'correctness']?.model ?? null,
-      timeoutMs: pickTimeout(group.lenses, input),
-      files: [...files],
-    }));
-  });
+  return groups.map((group) => ({
+    callID: group.callID,
+    lenses: group.lenses,
+    effort: pickEffort(group.lenses, depth, input),
+    model: input.config.lenses[group.lenses[0] ?? 'correctness']?.model ?? null,
+    timeoutMs: pickTimeout(group.lenses, input),
+    files: [...input.change.files],
+  }));
 }
 
 function buildGroups(input: RouteInput, lenses: readonly LensID[], depth: Depth): CallGroup[] {

@@ -24,7 +24,6 @@ export function buildMockReviewResult(overrides: Partial<ReviewResult> = {}): Re
         adapter: 'codex',
         model: null,
         effort: 'low',
-        chunk: null,
         status: 'ok',
         attempts: 1,
         tokens: { input: 100, output: 10 },

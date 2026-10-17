@@ -16,7 +16,6 @@ export const callRecordSchema = z.strictObject({
   adapter: z.string().min(1),
   model: z.string().min(1).nullable(),
   effort: effortSchema,
-  chunk: z.int().nonnegative().nullable(),
   status: z.enum(['ok', 'failed']),
   attempts: z.int().positive(),
   tokens: z.strictObject({ input: z.int().nonnegative(), output: z.int().nonnegative() }),

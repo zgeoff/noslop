@@ -1,8 +1,8 @@
 # Calls
 
 A call is one model request that carries several fired lenses at once. Routing groups the lenses
-that [routing and depth](./routing-and-depth.md) fired into calls by the config's call grouping,
-then splits the change into chunks, and each call runs once per chunk it needs. A call's effort,
+that [routing and depth](./routing-and-depth.md) fired into calls by the config's call grouping, and
+each call runs once on the whole change, so its lenses see every hunk they read. A call's effort,
 model and timeout come from its lenses and its depth.
 [0008](../decisions/0008-stacking-lenses-into-calls.md) records the default grouping and why each
 lens stays a separate unit inside a call. [Lenses](./lenses.md) covers how a call's prompt is built
@@ -45,17 +45,3 @@ its lenses:
 
 [Adapters](./adapters.md) covers how the adapter applies the model and the timeout and maps the
 effort onto its CLI.
-
-## Chunks
-
-A change with more changed lines than the chunk budget reaches the lenses in chunks, because recall
-falls as a diff grows. A chunk holds whole files of one package, up to the budget. Routing sorts the
-files by the package that owns them and closes a chunk when the next file would pass the budget or
-belongs to another package. A file larger than the budget is a chunk of its own. A change within the
-budget is one chunk at every depth.
-
-Each call runs once per chunk that holds a file of a kind its lenses read, so a call whose lenses
-read only code skips a chunk of prose. A call whose lenses read no hunks, such as reuse, runs once
-on the whole change and reads its slices. The prompt keeps only the slice entries on the chunk's
-files, under [lenses](./lenses.md). Each run of a call on a chunk is its own call in the review
-result, numbered by its chunk, and Assemble merges the findings of every chunk.

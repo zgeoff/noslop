@@ -42,9 +42,6 @@ export interface StaticStageResult {
   isSync: boolean;
   isRelease: boolean;
   files: AnalyzedFile[];
-
-  // the folder of each package manifest at the head, with `.` for the root
-  packageDirs: string[];
 }
 
 // reads the changed files at the head commit, walks each one once, and cuts the facts down to the
@@ -204,7 +201,6 @@ export async function runStaticStage(options: RunStaticStageOptions): Promise<St
     isSync,
     isRelease: isReleaseChange(change.files, baseTexts, headTexts),
     files: changed,
-    packageDirs: manifestPaths.map((path) => dirname(path)).toSorted(),
   };
 }
 

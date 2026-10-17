@@ -47,7 +47,8 @@ test('it keys each disposition a store held before on the one repo whose reviews
 
   const database = new Database(ctx.path, { strict: true });
 
-  database.run(`DELETE FROM kysely_migration WHERE name = '0002-dispositions-by-repo'`);
+  database.run(`DELETE FROM kysely_migration WHERE name >= '0002'`);
+  database.run('ALTER TABLE calls ADD COLUMN chunk integer');
   database.run('DROP TABLE dispositions');
 
   database.run(`CREATE TABLE dispositions (finding_id text NOT NULL, kind text NOT NULL,

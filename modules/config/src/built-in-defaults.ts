@@ -75,7 +75,6 @@ export const BUILT_IN_DEFAULTS: ReviewConfig = {
   thresholds: {
     lightMaxLines: 50,
     docsMinLines: 100,
-    chunkLines: 150,
     complexityMin: 5,
     deepMinPackages: 3,
     gapSweepMinFiles: 5,
