@@ -10,9 +10,13 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@faker-js/faker": "catalog:",
     "@logtape/logtape": "catalog:",
+    "@msw/data": "catalog:",
     "@noslop/contract": "workspace:*",
     "@noslop/runner": "workspace:*",
+    "@octokit/types": "catalog:",
+    "msw": "catalog:",
     "zod": "catalog:"
   }
 }

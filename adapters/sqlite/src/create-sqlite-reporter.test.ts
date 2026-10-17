@@ -22,7 +22,11 @@ test('it records a review with its calls and findings in the file its options na
 
   await reporter.report(
     buildMockReviewResult({ findings: [buildMockFinding({ id: '1111111111111111' })] }),
-    { logger: getLogger(['test']), options: { path: join(ctx.dir, 'nested', 'store.sqlite') } },
+    {
+      logger: getLogger(['test']),
+      options: { path: join(ctx.dir, 'nested', 'store.sqlite') },
+      failedReporters: [],
+    },
   );
 
   const store = await loadStore(join(ctx.dir, 'nested', 'store.sqlite'));
@@ -50,7 +54,7 @@ test('it keeps the first review when a second write of the same review fails', a
   const ctx = await setupTest();
 
   const reporter = createSQLiteReporter(join(ctx.dir, 'store.sqlite'));
-  const context = { logger: getLogger(['test']), options: {} };
+  const context = { logger: getLogger(['test']), options: {}, failedReporters: [] };
 
   await reporter.report(buildMockReviewResult(), context);
 

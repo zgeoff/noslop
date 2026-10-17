@@ -31,6 +31,15 @@ export async function runCLI(argv: readonly string[], ctx: CLIContext): Promise<
     args: {
       base: { type: 'string', description: 'The commit the change starts from' },
       head: { type: 'string', description: 'The commit to review, HEAD unless given' },
+      pr: { type: 'string', description: 'Review a pull request, from its base and head' },
+      repo: {
+        type: 'string',
+        description: 'The pull request repo as owner/name, origin unless given',
+      },
+      report: {
+        type: 'string',
+        description: 'The reporters to run, joined by commas, in place of the config',
+      },
       json: JSON_ARG,
       push: { type: 'boolean', description: 'Review a direct push to the default branch' },
       adapter: { type: 'string', description: 'The model adapter: codex or claude' },
@@ -41,6 +50,9 @@ export async function runCLI(argv: readonly string[], ctx: CLIContext): Promise<
           {
             base: command.values.base,
             head: command.values.head,
+            pr: command.values.pr,
+            repo: command.values.repo,
+            report: command.values.report,
             json: command.values.json === true,
             push: command.values.push === true,
             adapter: command.values.adapter,

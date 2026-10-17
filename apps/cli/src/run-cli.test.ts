@@ -5,9 +5,15 @@ import { join } from 'node:path';
 import { getLogger } from '@logtape/logtape';
 import type { ReviewAdapter } from '@noslop/contract';
 import { reviewResultSchema } from '@noslop/contract';
+import { createGitHubClient, createGitHubReporter } from '@noslop/github';
 import { createRunner } from '@noslop/runner';
 import { createSQLiteReporter } from '@noslop/sqlite';
-import { buildStubAdapter, createTestRepo } from '@noslop/testing';
+import {
+  buildStubAdapter,
+  buildStubAppKey,
+  createTestRepo,
+  githubCollections,
+} from '@noslop/testing';
 import type { CLIContext } from './cli-context';
 import { createJSONReporter } from './create-json-reporter';
 import { runCLI } from './run-cli';
@@ -39,8 +45,13 @@ async function setupTest() {
           stdout.push(text);
         }),
         sqlite: createSQLiteReporter(join(dir, 'data', 'store.sqlite')),
+        github: createGitHubReporter({ loadClient }),
       })[id] ?? null,
+    loadGitHubClient: loadClient,
   });
+
+  const privateKey = buildStubAppKey();
+  const loadClient = () => createGitHubClient({ appID: 1, privateKey, installationID: 7 });
 
   return { dir, stdout, stderr, buildContext };
 }
@@ -249,6 +260,91 @@ test('it exits 1 and names the problem when a command fails', async () => {
 
   expect(code).toBe(1);
   expect(ctx.stderr.join('')).toStartWith('noslop: name a store query: yield-by-lens');
+});
+
+test('it reviews a pull request from GitHub and posts its findings and the check', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
+    {
+      message: 'Add the total',
+      files: { 'src/total.ts': 'export const zero = 0;\nexport const one = zero - 1;\n' },
+    },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    title: 'Add the total',
+    body: 'Adds one.',
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[1] ?? '',
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[1] ?? '',
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/total.ts',
+    lines: [2],
+  });
+
+  const stub = buildStubAdapter({
+    L: [
+      {
+        findings: {
+          correctness: [
+            {
+              title: 'Add one, not subtract it',
+              body: 'The constant is named one but holds -1.',
+              anchor: { path: 'src/total.ts', startLine: 2, endLine: 2 },
+              secondLocation: null,
+              severity: 'P2',
+              criterion: 'wrong-behaviour-edge-path',
+              rule: null,
+              verdict: 'CONFIRMED',
+              unverifiedFact: null,
+              missingChange: false,
+              fix: null,
+            },
+          ],
+        },
+      },
+    ],
+  });
+
+  const code = await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'github', '--json'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  const result = reviewResultSchema.parse(JSON.parse(ctx.stdout.join('')));
+
+  expect(code).toBe(0);
+
+  expect([result.pullRequest, result.base, result.head, result.title]).toStrictEqual([
+    { owner: 'example', repo: 'app', number: 9 },
+    repo.commits[0] ?? '',
+    repo.commits[1] ?? '',
+    'Add the total',
+  ]);
+
+  expect(
+    githubCollections.reviewComments.all().map((comment) => [comment.path, comment.line]),
+  ).toStrictEqual([['src/total.ts', 2]]);
+
+  expect(githubCollections.checkRuns.all()).toMatchObject([
+    { name: 'noslop', headSha: repo.commits[1] ?? '', conclusion: 'failure' },
+  ]);
 });
 
 test('it puts an unknown option on stderr and keeps stdout empty', async () => {

@@ -16,9 +16,15 @@
       "libs/*"
     ],
     "catalog": {
+      "@faker-js/faker": "10.6.0",
       "@logtape/logtape": "2.4.0",
+      "@msw/data": "1.1.8",
+      "@octokit/app": "16.1.4",
+      "@octokit/core": "7.0.8",
+      "@octokit/types": "18.0.0",
       "gunshi": "1.0.0-rc.1",
       "kysely": "0.29.6",
+      "msw": "2.15.0",
       "oxc-parser": "0.153.0",
       "ts-pattern": "5.9.0",
       "zod": "4.6.5"

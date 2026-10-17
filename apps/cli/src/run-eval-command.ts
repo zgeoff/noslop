@@ -1,7 +1,6 @@
 import { writeFileSync } from 'node:fs';
 import { mkdir, rm } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
-import { loadConfig } from '@noslop/config';
 import type { CaseRun, RunComparison } from '@noslop/eval';
 import {
   buildRunComparison,
@@ -14,6 +13,7 @@ import {
 import { buildConfiguredAdapter } from './build-configured-adapter';
 import type { CLIContext } from './cli-context';
 import { createNoslopReviewer } from './create-noslop-reviewer';
+import { loadRepoConfig } from './load-repo-config';
 import { resolveRepoDir } from './resolve-repo-dir';
 
 export interface EvalValues {
@@ -48,7 +48,7 @@ export async function runEvalCommand(values: EvalValues, ctx: CLIContext): Promi
   const reference = await loadReference(values.baseline, ctx, caseIDs);
   const noiseFloor = await loadNoiseFloor(values.noiseFloor, ctx, caseIDs);
   const repoDir = await resolveRepoDir(ctx);
-  const loaded = await loadConfig({ repoDir });
+  const loaded = await loadRepoConfig(ctx, repoDir);
 
   const adapterID = values.adapter ?? loaded.config.adapter ?? 'codex';
 

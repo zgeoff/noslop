@@ -1,8 +1,8 @@
-import { loadConfig } from '@noslop/config';
 import type { StoreQueryName } from '@noslop/sqlite';
 import { STORE_QUERY_NAMES, loadStore, runStoreQuery } from '@noslop/sqlite';
 import type { CLIContext } from './cli-context';
 import { getStorePath } from './get-store-path';
+import { loadRepoConfig } from './load-repo-config';
 import { resolveRepoDir } from './resolve-repo-dir';
 
 // runs one named query on the store that the config's sqlite reporter writes, and prints its rows
@@ -18,7 +18,7 @@ export async function runStoreQueryCommand(
   }
 
   const repoDir = await resolveRepoDir(ctx);
-  const loaded = await loadConfig({ repoDir });
+  const loaded = await loadRepoConfig(ctx, repoDir);
   const store = await loadStore(getStorePath(loaded.config, ctx));
 
   try {

@@ -1,12 +1,12 @@
-import { loadConfig } from '@noslop/config';
 import type { CLIContext } from './cli-context';
+import { loadRepoConfig } from './load-repo-config';
 import { resolveRepoDir } from './resolve-repo-dir';
 
 // prints the merged config of the repo that holds the working directory, with the file each key
 // comes from
 export async function runConfigCommand(json: boolean, ctx: CLIContext): Promise<number> {
   const repoDir = await resolveRepoDir(ctx);
-  const loaded = await loadConfig({ repoDir });
+  const loaded = await loadRepoConfig(ctx, repoDir);
 
   if (json) {
     const output = {

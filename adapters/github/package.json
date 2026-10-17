@@ -1,0 +1,23 @@
+{
+  "name": "@noslop/github",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@noslop/config": "workspace:*",
+    "@noslop/contract": "workspace:*",
+    "@octokit/app": "catalog:",
+    "@octokit/core": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@logtape/logtape": "catalog:",
+    "@noslop/testing": "workspace:*"
+  }
+}

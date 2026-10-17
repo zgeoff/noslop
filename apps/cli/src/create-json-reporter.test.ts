@@ -26,6 +26,7 @@ test('it writes the result to the file its options name', async () => {
   await reporter.report(buildMockReviewResult(), {
     logger: getLogger(['test']),
     options: { path: join(ctx.dir, 'result.json') },
+    failedReporters: [],
   });
 
   const saved: unknown = await Bun.file(join(ctx.dir, 'result.json')).json();
@@ -40,7 +41,11 @@ test('it writes the result through the writer when its options name no file', as
     written.push(text);
   });
 
-  await reporter.report(buildMockReviewResult(), { logger: getLogger(['test']), options: {} });
+  await reporter.report(buildMockReviewResult(), {
+    logger: getLogger(['test']),
+    options: {},
+    failedReporters: [],
+  });
 
   expect(written).toStrictEqual([`${JSON.stringify(buildMockReviewResult(), null, 2)}\n`]);
 });

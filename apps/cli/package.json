@@ -19,9 +19,11 @@
     "@noslop/config": "workspace:*",
     "@noslop/contract": "workspace:*",
     "@noslop/eval": "workspace:*",
+    "@noslop/github": "workspace:*",
     "@noslop/review": "workspace:*",
     "@noslop/runner": "workspace:*",
     "@noslop/sqlite": "workspace:*",
+    "@noslop/webhook": "workspace:*",
     "gunshi": "catalog:"
   },
   "devDependencies": {

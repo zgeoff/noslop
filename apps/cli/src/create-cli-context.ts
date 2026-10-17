@@ -3,9 +3,12 @@ import { isAbsolute, join } from 'node:path';
 import { getLogger } from '@logtape/logtape';
 import { createClaudeAdapter } from '@noslop/claude';
 import { createCodexAdapter } from '@noslop/codex';
-import type { ReviewAdapter } from '@noslop/contract';
+import type { Reporter, ReviewAdapter } from '@noslop/contract';
+import type { GitHubClient } from '@noslop/github';
+import { createGitHubClient, createGitHubReporter, parseGitHubAppEnv } from '@noslop/github';
 import { createRunner } from '@noslop/runner';
 import { createSQLiteReporter } from '@noslop/sqlite';
+import { createWebhookReporter } from '@noslop/webhook';
 import type { CLIContext } from './cli-context';
 import { createJSONReporter } from './create-json-reporter';
 
@@ -19,6 +22,22 @@ export function createCLIContext(env: Readonly<Record<string, string | undefined
   const adapters: Record<string, () => ReviewAdapter> = {
     codex: () => createCodexAdapter({ runner }),
     claude: () => createClaudeAdapter({ runner }),
+  };
+
+  let client: Promise<GitHubClient> | null = null;
+
+  // one client per run, made on first use, so a command that never calls GitHub needs no App
+  const loadGitHubClient = () => {
+    client ??= createGitHubClient(parseGitHubAppEnv(env));
+
+    return client;
+  };
+
+  const reporters: Record<string, () => Reporter> = {
+    json: () => createJSONReporter(writeStdout),
+    sqlite: () => createSQLiteReporter(join(dataDir, 'store.sqlite')),
+    github: () => createGitHubReporter({ loadClient: loadGitHubClient }),
+    webhook: () => createWebhookReporter({ env }),
   };
 
   return {
@@ -40,13 +59,8 @@ export function createCLIContext(env: Readonly<Record<string, string | undefined
 
       return create();
     },
-    createReporter: (id) => {
-      if (id === 'json') {
-        return createJSONReporter(writeStdout);
-      }
-
-      return id === 'sqlite' ? createSQLiteReporter(join(dataDir, 'store.sqlite')) : null;
-    },
+    createReporter: (id) => reporters[id]?.() ?? null,
+    loadGitHubClient,
   };
 }
 

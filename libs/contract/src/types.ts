@@ -44,10 +44,16 @@ export interface ReviewAdapter {
 export interface ReporterContext {
   logger: Logger;
   options: ReporterOptions;
+
+  // the reporters that ran before this one and failed; a reporter that runs last reads it
+  failedReporters: readonly string[];
 }
 
 export interface Reporter {
   id: string;
+
+  // a reporter that gates on the others, such as the one that sets a check run, runs after them all
+  runsLast?: boolean;
   report: (result: ReviewResult, ctx: ReporterContext) => Promise<void>;
 }
 
