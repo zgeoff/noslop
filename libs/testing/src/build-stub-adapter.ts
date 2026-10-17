@@ -14,21 +14,28 @@ export interface StubAdapter {
   // the files in each request's working directory when the call ran, sorted, so a test sees what a
   // model would read
   seenFiles: string[][];
+
+  // the ID of each call as it answered, in the order the answers came
+  ended: string[];
 }
 
 // a model adapter that answers each call from the answers listed under its call ID, one per attempt,
-// in order; a call with no answer left throws, so a test sees each call it did not expect
+// in order; a call with no answer left throws, so a test sees each call it did not expect; a call
+// listed in the delays waits that many milliseconds before it answers, so calls can end out of order
 export function buildStubAdapter(
   answers: Readonly<Record<string, readonly StubCallAnswer[]>>,
+  delaysMs: Readonly<Record<string, number>> = {},
 ): StubAdapter {
   const requests: CallRequest[] = [];
   const seenFiles: string[][] = [];
+  const ended: string[] = [];
 
   const used = new Map<string, number>();
 
   return {
     requests,
     seenFiles,
+    ended,
     adapter: {
       id: 'stub',
       defaultTimeoutMs: 1000,
@@ -39,6 +46,10 @@ export function buildStubAdapter(
         const files = await readFiles(call.cwd);
 
         seenFiles.push(files);
+
+        await Bun.sleep(delaysMs[call.callID] ?? 0);
+
+        ended.push(call.callID);
 
         const index = used.get(call.callID) ?? 0;
         const answer = answers[call.callID]?.[index];

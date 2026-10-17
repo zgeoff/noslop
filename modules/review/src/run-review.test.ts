@@ -254,6 +254,88 @@ test('it retries a failed call once and lists a call that fails twice', async ()
   ]);
 });
 
+test('it keeps the planned order of the calls when they end in another order', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'src/jobs.ts': 'export const jobs: string[] = [];\n' } },
+    {
+      message: 'head',
+      files: {
+        'src/jobs.ts': [
+          'export const jobs: string[] = [];',
+          '',
+          ...Array.from({ length: 70 }, (_, index) => `export const job${index} = ${index};`),
+          '',
+          'export function clearJobs(): void {',
+          '  jobs.length = 0;',
+          '}',
+          '',
+        ].join('\n'),
+      },
+    },
+  ]);
+
+  const stub = buildStubAdapter(
+    {
+      A: [
+        {
+          findings: {
+            correctness: [
+              {
+                title: 'Keep the jobs a caller still reads',
+                body: 'The function empties the shared list, so a caller that holds it sees none.',
+                anchor: { path: 'src/jobs.ts', startLine: 75, endLine: 75 },
+                secondLocation: null,
+                severity: 'P2',
+                criterion: 'wrong-behaviour-edge-path',
+                rule: null,
+                verdict: 'CONFIRMED',
+                unverifiedFact: null,
+                missingChange: false,
+                fix: null,
+              },
+            ],
+          },
+        },
+      ],
+      C: [{ findings: { 'naming-shape-and-comments': [] } }],
+      E: [{ findings: { tests: [] } }],
+    },
+    { A: 60, C: 30 },
+  );
+
+  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+
+  const run = await runReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/jobs',
+    base: repo.commits[0] ?? '',
+    head: repo.commits[1] ?? '',
+    config: BUILT_IN_DEFAULTS,
+    configHash: 'hash',
+    rules: null,
+    adapter: stub.adapter,
+    logger: ctx.logger,
+    tempDir: join(ctx.dir, 'temp'),
+    cacheDir: null,
+    title: 'Clear the jobs',
+    body: '',
+    linkedIssue: null,
+    pullRequest: null,
+    isPush: false,
+    pastEscapes: [],
+  });
+
+  expect(stub.ended).toStrictEqual(['E', 'C', 'A']);
+  expect(run.result.calls.map((call) => call.id)).toStrictEqual(['A', 'C', 'E']);
+
+  expect(run.result.findings.map((finding) => [finding.title, finding.callID])).toStrictEqual([
+    ['Keep the jobs a caller still reads', 'A'],
+  ]);
+});
+
 test('it steps a Standard review up to Deep on a confirmed P1 and verifies the Deep findings', async () => {
   const ctx = await setupTest();
 

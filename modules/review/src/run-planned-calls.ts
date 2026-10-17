@@ -12,6 +12,7 @@ import type { RawFinding } from '@noslop/findings';
 import type { CallPromptInput } from '@noslop/lenses';
 import { buildCallPrompt } from '@noslop/lenses';
 import type { PlannedCall } from '@noslop/routing';
+import { runConcurrently } from '@noslop/runner';
 
 export interface CallBatchInput {
   calls: readonly PlannedCall[];
@@ -32,6 +33,9 @@ export interface CallBatchInput {
 
   // a closing instruction for each call, given the call; null for a first review
   task: ((call: PlannedCall) => string | null) | null;
+
+  // how many calls run at once
+  parallel: number;
 }
 
 export interface CallBatch {
@@ -42,12 +46,13 @@ export interface CallBatch {
 
 const ATTEMPTS = 2;
 
-// runs each planned call on the adapter, one after another, and retries a failed call once on the
-// same adapter; a call that fails twice is recorded as failed, and the batch goes on
+// runs the planned calls on the adapter, up to the parallel limit at once, and retries a failed call
+// once on the same adapter; a call that fails twice is recorded as failed, and the batch goes on; the
+// records and findings keep the order of the planned calls, whatever order the calls end in
 export async function runPlannedCalls(input: CallBatchInput): Promise<CallBatch> {
   const batch: CallBatch = { records: [], failed: [], raw: [] };
 
-  for (const call of input.calls) {
+  const outcomes = await runConcurrently(input.calls, input.parallel, async (call) => {
     const prompt = buildCallPrompt({
       lenses: call.lenses,
       files: call.files,
@@ -63,6 +68,12 @@ export async function runPlannedCalls(input: CallBatchInput): Promise<CallBatch>
 
     const outcome = await runWithRetry(call, prompt, input);
 
+    return { call, outcome };
+  });
+
+  for (const ran of outcomes) {
+    const call = ran.call;
+    const outcome = ran.outcome;
     const chunk = /#(?<chunk>\d+)$/u.exec(call.callID)?.groups?.['chunk'];
 
     const record: CallRecord = {

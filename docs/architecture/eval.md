@@ -92,6 +92,7 @@ its totals in a second column. With `--noise-floor <first>,<second>`, it matches
 findings on each case that both completed, and reports the agreement: the matched findings over the
 union of both runs' findings.
 
-The harness writes the runs file again as each case ends, so a replay that stops keeps the cases it
-finished. With `--resume`, a replay into the same out folder keeps those cases and replays only the
-rest.
+The harness replays cases at the same time, up to the config's parallel case limit, and keeps the
+runs in the corpus's order whatever order they end in. It writes the runs file again as each case
+ends, so a replay that stops keeps the cases it finished. With `--resume`, a replay into the same
+out folder keeps those cases and replays only the rest.

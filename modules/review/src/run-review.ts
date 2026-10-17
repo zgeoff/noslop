@@ -277,6 +277,7 @@ function runBatch(
     base: ctx.change.base,
     head: ctx.change.head,
     task,
+    parallel: ctx.options.config.thresholds.parallelCalls,
   });
 }
 

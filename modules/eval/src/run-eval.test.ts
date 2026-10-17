@@ -51,6 +51,7 @@ test('it reviews each case in a detached worktree of its head and removes the wo
     reviewer: { id: 'stub', reviewCase },
     runner: ctx.runner,
     workDir: ctx.workDir,
+    parallel: 1,
   });
 
   expect(runs).toStrictEqual([{ caseID: 'case-1', review }]);
@@ -59,6 +60,69 @@ test('it reviews each case in a detached worktree of its head and removes the wo
   const left = await Bun.file(join(ctx.workDir, 'case-1-stub', '.git')).exists();
 
   expect(left).toBe(false);
+});
+
+test('it replays cases at once and keeps their order when a later case ends first', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'a.ts': 'export const a = 1;\n' } },
+    { message: 'head', files: { 'a.ts': 'export const a = 2;\n' } },
+  ]);
+
+  const review: CaseReview = {
+    findings: [],
+    failed: false,
+    tokens: { input: 10, output: 2 },
+    durationMs: 5,
+    calls: 1,
+    depth: 'standard',
+  };
+
+  const delaysMs: Record<string, number> = { 'case-1': 60, 'case-2': 0 };
+  const ended: string[] = [];
+
+  const runs = await runEval({
+    cases: [
+      {
+        id: 'case-1',
+        repo: repo.path,
+        base: repo.commits[0] ?? '',
+        head: repo.commits[1] ?? '',
+        title: 'feat: head',
+        body: '',
+        findings: [],
+        escapes: [],
+      },
+      {
+        id: 'case-2',
+        repo: repo.path,
+        base: repo.commits[0] ?? '',
+        head: repo.commits[1] ?? '',
+        title: 'feat: head',
+        body: '',
+        findings: [],
+        escapes: [],
+      },
+    ],
+    reviewer: {
+      id: 'stub',
+      reviewCase: async (corpusCase) => {
+        await Bun.sleep(delaysMs[corpusCase.id] ?? 0);
+
+        return review;
+      },
+    },
+    runner: ctx.runner,
+    workDir: ctx.workDir,
+    parallel: 2,
+    onCase: (run) => {
+      ended.push(run.caseID);
+    },
+  });
+
+  expect(ended).toStrictEqual(['case-2', 'case-1']);
+  expect(runs.map((run) => run.caseID)).toStrictEqual(['case-1', 'case-2']);
 });
 
 test('it hands a reviewer that checks out the head itself the repo and adds no worktree', async () => {
@@ -96,6 +160,7 @@ test('it hands a reviewer that checks out the head itself the repo and adds no w
     reviewer: { id: 'self', needsWorktree: false, reviewCase },
     runner: ctx.runner,
     workDir: ctx.workDir,
+    parallel: 1,
   });
 
   const made = await Bun.file(join(ctx.workDir, 'case-1-self', '.git')).exists();
@@ -125,6 +190,7 @@ test('it records a failed review and reports it when the repo does not exist', a
     reviewer: { id: 'stub', reviewCase: mock() },
     runner: ctx.runner,
     workDir: ctx.workDir,
+    parallel: 1,
     onCase,
   });
 
@@ -155,6 +221,7 @@ test('it records a failed review when the head is not in the repo', async () => 
     reviewer: { id: 'stub', reviewCase: mock() },
     runner: ctx.runner,
     workDir: ctx.workDir,
+    parallel: 1,
   });
 
   expect(runs).toStrictEqual([

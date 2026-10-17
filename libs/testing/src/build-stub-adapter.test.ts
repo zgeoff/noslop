@@ -32,6 +32,32 @@ test('it answers each attempt of a call with the next answer under its ID', asyn
   expect(stub.requests.map((item) => item.callID)).toStrictEqual(['A', 'A']);
 });
 
+test('it holds a delayed call, so a later call answers first', async () => {
+  const stub = buildStubAdapter(
+    { A: [{ findings: { correctness: [] } }], B: [{ findings: { correctness: [] } }] },
+    { A: 30 },
+  );
+
+  const request = {
+    lenses: ['correctness'] as const,
+    prompt: 'Review the change.',
+    outputSchema: buildCallOutputSchema(['correctness']),
+    effort: 'medium' as const,
+    model: null,
+    cwd: 'missing-worktree',
+    timeoutMs: null,
+  };
+
+  const context = { tempDir: '.', logger: getLogger(['test']) };
+
+  await Promise.all([
+    stub.adapter.runCall({ ...request, callID: 'A' }, context),
+    stub.adapter.runCall({ ...request, callID: 'B' }, context),
+  ]);
+
+  expect(stub.ended).toStrictEqual(['B', 'A']);
+});
+
 test('it rejects a call that has no answer left', () => {
   const stub = buildStubAdapter({});
 

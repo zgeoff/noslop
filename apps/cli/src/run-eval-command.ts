@@ -85,6 +85,7 @@ export async function runEvalCommand(values: EvalValues, ctx: CLIContext): Promi
     reviewer,
     runner: ctx.runner,
     workDir,
+    parallel: loaded.config.thresholds.parallelCases,
     onCase: (run) => {
       done.push(run);
 
@@ -93,8 +94,11 @@ export async function runEvalCommand(values: EvalValues, ctx: CLIContext): Promi
         count: run.review.failed ? 'failed' : run.review.findings.length,
       });
 
-      // a synchronous write, so the file on disk always holds the cases that ended, in order
-      writeFileSync(join(outDir, 'runs.json'), JSON.stringify(done, null, 2));
+      // a synchronous write in the corpus's order, so the file on disk always holds the cases that
+      // ended, in the same order whatever order they ended in
+      const ordered = cases.flatMap((item) => done.filter((ended) => ended.caseID === item.id));
+
+      writeFileSync(join(outDir, 'runs.json'), JSON.stringify(ordered, null, 2));
     },
   });
 

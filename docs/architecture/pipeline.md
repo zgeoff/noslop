@@ -27,8 +27,10 @@ flowchart LR
    that carry them, from the static stage's output alone, so two runs on one change route it the
    same way.
 4. **Call.** For each planned call, the [lenses](./lenses.md) build one prompt, and the
-   [adapter](./adapters.md) sends it to a model CLI. A call that fails is retried once on the same
-   adapter. A call that fails again is recorded as failed, and the review goes on with the rest.
+   [adapter](./adapters.md) sends it to a model CLI. The calls run at the same time, up to the
+   config's parallel limit, and the review keeps their records and findings in the planned order,
+   whatever order they end in. A call that fails is retried once on the same adapter. A call that
+   fails again is recorded as failed, and the review goes on with the rest.
 5. **Assemble.** The findings module turns the raw output of every call, with the static stage's
    direct findings, into [findings](./findings.md): it drops a finding that breaks the finding rules
    and merges two reports of one defect.
