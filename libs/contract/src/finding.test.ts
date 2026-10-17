@@ -61,6 +61,23 @@ test('it rejects a PLAUSIBLE finding with no unverified fact', () => {
   expect(result.error?.issues).toPartiallyContain({ path: ['unverifiedFact'] });
 });
 
+test('it rejects a severity that its criterion does not set', () => {
+  const result = findingSchema.safeParse({
+    id: '0123456789abcdef',
+    lens: 'security',
+    callID: 'B',
+    title: 'Check the actor before the read',
+    body: 'The query reads any row.',
+    anchor: { path: 'src/db.ts', startLine: 4, endLine: 4 },
+    severity: 'P3',
+    criterion: 'security-defect',
+    verdict: 'CONFIRMED',
+    writtenByChange: true,
+  });
+
+  expect(result.error?.issues).toPartiallyContain({ path: ['severity'] });
+});
+
 test('it rejects a title longer than 80 characters', () => {
   const result = findingSchema.safeParse({
     id: '0123456789abcdef',

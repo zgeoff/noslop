@@ -61,6 +61,17 @@ test('it stops a process that runs past its timeout', async () => {
   expect(result).toMatchObject({ timedOut: true, durationMs: expect.toBeWithin(0, 2000) });
 });
 
+test('it stops the children of a process that runs past its timeout', async () => {
+  const ctx = await setupTest();
+
+  const result = await ctx.runner.run(['sh', '-c', 'sleep 5 & wait'], {
+    cwd: ctx.dir,
+    timeoutMs: 50,
+  });
+
+  expect(result).toMatchObject({ timedOut: true, durationMs: expect.toBeWithin(0, 2000) });
+});
+
 test('it rejects a binary that does not exist', async () => {
   const ctx = await setupTest();
 

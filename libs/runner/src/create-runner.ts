@@ -34,6 +34,10 @@ async function runProcess(argv: readonly string[], options: RunOptions): Promise
     stdin: options.stdin === undefined ? 'ignore' : new Blob([options.stdin]),
     stdout: 'pipe',
     stderr: 'pipe',
+
+    // its own process group, so a timeout stops the children a CLI starts, which would otherwise
+    // hold the output pipes open after the CLI exits
+    detached: true,
   });
 
   let timedOut = false;
@@ -44,11 +48,11 @@ async function runProcess(argv: readonly string[], options: RunOptions): Promise
       setTimeout(() => {
         timedOut = true;
 
-        proc.kill('SIGTERM');
+        stopGroup(proc.pid, 'SIGTERM');
 
         timers.push(
           setTimeout(() => {
-            proc.kill('SIGKILL');
+            stopGroup(proc.pid, 'SIGKILL');
           }, KILL_GRACE_MS),
         );
       }, options.timeoutMs),
@@ -72,4 +76,12 @@ async function runProcess(argv: readonly string[], options: RunOptions): Promise
     timedOut,
     durationMs: Math.round(performance.now() - startedAt),
   };
+}
+
+function stopGroup(pid: number, signal: NodeJS.Signals): void {
+  try {
+    process.kill(-pid, signal);
+  } catch {
+    // the group has already exited
+  }
 }

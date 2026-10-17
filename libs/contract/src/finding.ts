@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { criterionSchema } from './criterion';
+import { CRITERION_SEVERITY, criterionSchema } from './criterion';
 import { lensIDSchema } from './lens-id';
 import { severitySchema } from './severity';
 import { verdictSchema } from './verdict';
@@ -65,6 +65,10 @@ export const findingSchema = z
   .refine((finding) => finding.verdict === 'CONFIRMED' || finding.unverifiedFact !== undefined, {
     message: 'a PLAUSIBLE finding holds the fact its lens could not read',
     path: ['unverifiedFact'],
+  })
+  .refine((finding) => finding.severity === CRITERION_SEVERITY[finding.criterion], {
+    message: 'the severity is the one its criterion sets',
+    path: ['severity'],
   });
 
 export type Finding = z.infer<typeof findingSchema>;
