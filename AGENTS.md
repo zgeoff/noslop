@@ -87,3 +87,18 @@ so your setup never leaks through your work.
 
 Before you commit, grep the diff for `sk-ant`, `GOCSPX`, `AGE-SECRET-KEY`, `ops_`, `/home/` and
 `.ts.net`.
+
+## Toolchain
+
+- Bun is pinned in `.bun-version`. `bun run format` fixes formatting, and `bun run check` runs every
+  check that CI runs.
+- CI runs the shared Bun pull-request workflow from zgeoff/tools on each pull request and each push
+  to `main`. The `BUN_CHECK_SCRIPTS` repo variable holds its script list:
+  `audit deadcode format:check lint:full typecheck boundaries prose test`. A change to that list
+  changes `bun run check` in the same commit.
+- `lint:full` adds the type-aware rules and fails on an unused disable directive. It runs in CI and
+  in `bun run check`, never in a git hook.
+- lefthook runs oxlint, oxfmt, format-codemod and gitleaks before a commit, and commitlint on the
+  message. Before a push it runs boundaries and the prose check, then the shared pre-push baseline:
+  the format check and typecheck over the whole tree, and lint and the tests over what the branch
+  changes.
