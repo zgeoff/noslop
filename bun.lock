@@ -48,6 +48,40 @@
         "@noslop/testing": "workspace:*",
       },
     },
+    "adapters/sqlite": {
+      "name": "@noslop/sqlite",
+      "version": "0.0.0",
+      "dependencies": {
+        "@noslop/contract": "workspace:*",
+        "kysely": "catalog:",
+      },
+      "devDependencies": {
+        "@logtape/logtape": "catalog:",
+        "@noslop/testing": "workspace:*",
+      },
+    },
+    "apps/cli": {
+      "name": "@noslop/cli",
+      "version": "0.0.0",
+      "bin": {
+        "noslop": "./src/cli.ts",
+      },
+      "dependencies": {
+        "@logtape/logtape": "catalog:",
+        "@noslop/claude": "workspace:*",
+        "@noslop/codex": "workspace:*",
+        "@noslop/config": "workspace:*",
+        "@noslop/contract": "workspace:*",
+        "@noslop/eval": "workspace:*",
+        "@noslop/review": "workspace:*",
+        "@noslop/runner": "workspace:*",
+        "@noslop/sqlite": "workspace:*",
+        "gunshi": "catalog:",
+      },
+      "devDependencies": {
+        "@noslop/testing": "workspace:*",
+      },
+    },
     "libs/contract": {
       "name": "@noslop/contract",
       "version": "0.0.0",
@@ -157,6 +191,8 @@
   },
   "catalog": {
     "@logtape/logtape": "2.4.0",
+    "gunshi": "1.0.0-rc.1",
+    "kysely": "0.29.6",
     "oxc-parser": "0.153.0",
     "ts-pattern": "5.9.0",
     "zod": "4.6.5",
@@ -258,6 +294,8 @@
 
     "@noslop/claude": ["@noslop/claude@workspace:adapters/claude"],
 
+    "@noslop/cli": ["@noslop/cli@workspace:apps/cli"],
+
     "@noslop/codex": ["@noslop/codex@workspace:adapters/codex"],
 
     "@noslop/config": ["@noslop/config@workspace:modules/config"],
@@ -275,6 +313,8 @@
     "@noslop/routing": ["@noslop/routing@workspace:modules/routing"],
 
     "@noslop/runner": ["@noslop/runner@workspace:libs/runner"],
+
+    "@noslop/sqlite": ["@noslop/sqlite@workspace:adapters/sqlite"],
 
     "@noslop/static-stage": ["@noslop/static-stage@workspace:modules/static-stage"],
 
@@ -638,6 +678,8 @@
 
     "global-directory": ["global-directory@5.0.0", "", { "dependencies": { "ini": "6.0.0" } }, "sha512-1pgFdhK3J2LeM+dVf2Pd424yHx2ou338lC0ErNP2hPx4j8eW1Sp0XqSjNxtk6Tc4Kr5wlWtSvz8cn2yb7/SG/w=="],
 
+    "gunshi": ["gunshi@1.0.0-rc.1", "", {}, "sha512-/nSFKVrJHKg9O4ppBl+lOSLDQWmvJ5fG3ldVsdJX8KMtUV2uYwlx/a8OaOWuvniuV28bZDjsB8p6YFtDxSlMcw=="],
+
     "has-flag": ["has-flag@4.0.0", "", {}, "sha512-EykJT/Q1KjTWctppgIAgfSO0tKVuZUjhgMr17kqTumMl6Afv3EISleU7qZUzoXDFTAHTDC4NOoG/ZxU3EvlMPQ=="],
 
     "hashery": ["hashery@1.5.1", "", { "dependencies": { "hookified": "^1.15.0" } }, "sha512-iZyKG96/JwPz1N55vj2Ie2vXbhu440zfUfJvSwEqEbeLluk7NnapfGqa7LH0mOsnDxTF85Mx8/dyR6HfqcbmbQ=="],
@@ -683,6 +725,8 @@
     "keyv": ["keyv@5.6.0", "", { "dependencies": { "@keyv/serialize": "^1.1.1" } }, "sha512-CYDD3SOtsHtyXeEORYRx2qBtpDJFjRTGXUtmNEMGyzYOKj1TE3tycdlho7kA1Ufx9OYWZzg52QFBGALTirzDSw=="],
 
     "knip": ["knip@6.39.0", "", { "dependencies": { "fdir": "^6.5.0", "formatly": "^0.7.0", "get-tsconfig": "4.14.3", "jiti": "^2.7.0", "oxc-parser": "^0.150.0", "oxc-resolver": "11.24.2", "picomatch": "^4.0.7", "smol-toml": "^1.8.0", "strip-json-comments": "5.0.3", "tinyglobby": "^0.2.17", "unbash": "^4.0.11", "yaml": "^2.9.1", "zod": "^4.4.3" }, "bin": { "knip": "bin/knip.js", "knip-bun": "bin/knip-bun.js" } }, "sha512-Y7g6Ve1ATMox1u1v+gx3z9LTlvzVLTJISm/LVn9TgBU4qc7OoC63AWGO8qCFPVDDdaqlYdXkDDvvO1METBfTRw=="],
+
+    "kysely": ["kysely@0.29.6", "", {}, "sha512-hHaB8C/rfzDDtr/t8YZwxAuPJTT0zHyaPoVzcXwDYhYNAgH/4sIfVhi/XLLIY+bL/FqaIJnjATDbi8ObSELmxg=="],
 
     "lefthook": ["lefthook@2.1.14", "", { "optionalDependencies": { "lefthook-darwin-arm64": "2.1.14", "lefthook-darwin-x64": "2.1.14", "lefthook-freebsd-arm64": "2.1.14", "lefthook-freebsd-x64": "2.1.14", "lefthook-linux-arm64": "2.1.14", "lefthook-linux-x64": "2.1.14", "lefthook-openbsd-arm64": "2.1.14", "lefthook-openbsd-x64": "2.1.14", "lefthook-windows-arm64": "2.1.14", "lefthook-windows-x64": "2.1.14" }, "bin": { "lefthook": "bin/index.js" } }, "sha512-Y9TL1dmpRlIdSp73SJ6bb+xAZ4s2SinGTK3pgC9PRWMSjMr2iOfowPGnlSOfAo5fu6S5rdiItsQDxeLEWCGk4g=="],
 

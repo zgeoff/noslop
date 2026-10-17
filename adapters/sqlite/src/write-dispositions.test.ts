@@ -1,0 +1,49 @@
+import { expect, onTestFinished, test } from 'bun:test';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { loadStore } from './load-store';
+import { writeDispositions } from './write-dispositions';
+
+async function setupTest() {
+  const dir = await mkdtemp(join(tmpdir(), 'noslop-store-'));
+
+  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+
+  const store = await loadStore(join(dir, 'store.sqlite'));
+
+  onTestFinished(() => store.destroy());
+
+  return { store };
+}
+
+test('it records a disposition read twice from one source once', async () => {
+  const ctx = await setupTest();
+
+  const disposition = {
+    findingID: '1111111111111111',
+    kind: 'deferred',
+    value: '#123',
+    author: 'dev',
+    authorIsOwner: true,
+    source: 'github',
+    at: '2026-10-17T11:00:00.000Z',
+  } as const;
+
+  await writeDispositions(ctx.store, [disposition]);
+  await writeDispositions(ctx.store, [disposition]);
+
+  const rows = await ctx.store.selectFrom('dispositions').selectAll().execute();
+
+  expect(rows).toStrictEqual([
+    {
+      finding_id: '1111111111111111',
+      kind: 'deferred',
+      value: '#123',
+      author: 'dev',
+      author_is_owner: 1,
+      source: 'github',
+      at: '2026-10-17T11:00:00.000Z',
+    },
+  ]);
+});

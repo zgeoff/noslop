@@ -1,0 +1,20 @@
+{
+  "name": "@noslop/sqlite",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@noslop/contract": "workspace:*",
+    "kysely": "catalog:"
+  },
+  "devDependencies": {
+    "@logtape/logtape": "catalog:",
+    "@noslop/testing": "workspace:*"
+  }
+}
