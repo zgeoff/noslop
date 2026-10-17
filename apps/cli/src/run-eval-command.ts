@@ -10,6 +10,7 @@ import {
   readHeadFiles,
   renderEvalReport,
   resolveCasePaths,
+  resolveRunPaths,
   runEval,
 } from '@noslop/eval';
 import { buildConfiguredAdapter } from './build-configured-adapter';
@@ -46,18 +47,25 @@ export async function runEvalCommand(values: EvalValues, ctx: CLIContext): Promi
     throw new Error(`--limit takes a positive whole number, not ${values.limit ?? ''}`);
   }
 
-  const cases = await Promise.all(
+  const listed = await Promise.all(
     all.slice(0, limit).map(async (item) => {
       const files = await readHeadFiles(item, ctx.runner);
 
-      return resolveCasePaths(item, files);
+      return [item.id, files] as const;
     }),
   );
 
+  // labels and recorded findings resolve against the same files, so a path that matched still matches
+  const filesByCase = new Map(listed);
+
+  const cases = all
+    .slice(0, limit)
+    .map((item) => resolveCasePaths(item, filesByCase.get(item.id) ?? []));
+
   const caseIDs = new Set(cases.map((item) => item.id));
 
-  const reference = await loadReference(values.baseline, ctx, caseIDs);
-  const noiseFloor = await loadNoiseFloor(values.noiseFloor, ctx, caseIDs);
+  const reference = await loadReference(values.baseline, ctx, caseIDs, filesByCase);
+  const noiseFloor = await loadNoiseFloor(values.noiseFloor, ctx, caseIDs, filesByCase);
   const repoDir = await resolveRepoDir(ctx);
   const loaded = await loadRepoConfig(ctx, repoDir);
 
@@ -96,7 +104,7 @@ export async function runEvalCommand(values: EvalValues, ctx: CLIContext): Promi
     },
   });
 
-  const score = buildRunScore(cases, done, WINDOW_LINES);
+  const score = buildRunScore(cases, resolveRunPaths(done, filesByCase), WINDOW_LINES);
 
   const scoredReference =
     reference === null
@@ -142,6 +150,7 @@ async function loadReference(
   path: string | undefined,
   ctx: CLIContext,
   caseIDs: ReadonlySet<string>,
+  filesByCase: ReadonlyMap<string, readonly string[]>,
 ): Promise<CaseRun[] | null> {
   if (path === undefined) {
     return null;
@@ -149,7 +158,9 @@ async function loadReference(
 
   const runs = await loadRuns(resolve(ctx.cwd, path));
 
-  return runs.filter((run) => caseIDs.has(run.caseID));
+  const kept = runs.filter((run) => caseIDs.has(run.caseID));
+
+  return resolveRunPaths(kept, filesByCase);
 }
 
 // takes the 2 recorded runs as one value, their paths joined by a comma
@@ -157,6 +168,7 @@ async function loadNoiseFloor(
   paths: string | undefined,
   ctx: CLIContext,
   caseIDs: ReadonlySet<string>,
+  filesByCase: ReadonlyMap<string, readonly string[]>,
 ): Promise<RunComparison | null> {
   if (paths === undefined) {
     return null;
@@ -168,8 +180,8 @@ async function loadNoiseFloor(
     throw new Error('--noise-floor takes 2 recorded runs, joined by a comma');
   }
 
-  const firstRuns = await loadReference(first, ctx, caseIDs);
-  const secondRuns = await loadReference(second, ctx, caseIDs);
+  const firstRuns = await loadReference(first, ctx, caseIDs, filesByCase);
+  const secondRuns = await loadReference(second, ctx, caseIDs, filesByCase);
 
   return buildRunComparison(firstRuns ?? [], secondRuns ?? [], WINDOW_LINES);
 }

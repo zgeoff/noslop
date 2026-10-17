@@ -39,6 +39,26 @@ test('it reads every file at the head, in nested folders too', async () => {
   expect(files).toIncludeSameMembers(['a.ts', 'src/client/picker.ts']);
 });
 
+test('it reads no files when the clone is missing', async () => {
+  const ctx = await setupTest();
+
+  const files = await readHeadFiles(
+    {
+      id: 'case-1',
+      repo: join(ctx.dir, 'missing'),
+      base: 'a'.repeat(40),
+      head: 'b'.repeat(40),
+      title: 'feat: head',
+      body: '',
+      findings: [],
+      escapes: [],
+    },
+    ctx.runner,
+  );
+
+  expect(files).toStrictEqual([]);
+});
+
 test('it reads no files when the clone lacks the head', async () => {
   const ctx = await setupTest();
 

@@ -40,7 +40,8 @@ severity, the lens it belongs to when one fits, and its label: `true-positive`, 
 they are known. Before a run, the harness resolves each labelled path to the file that the path
 names at the head, because a reviewer that ran in a checkout folder records the path with that
 folder's prefix, and a short path leaves out leading folders. A path that matches no file, or that
-matches more than one, stays as the corpus wrote it.
+matches more than one, stays as the corpus wrote it. The harness resolves each recorded finding's
+path the same way before it scores, so a recorded path that matched its label still matches.
 
 ## A run
 
