@@ -15,7 +15,10 @@
       "adapters/*",
       "libs/*"
     ],
-    "catalog": {}
+    "catalog": {
+      "@logtape/logtape": "2.4.0",
+      "zod": "4.6.5"
+    }
   },
   "type": "module",
   "scripts": {
