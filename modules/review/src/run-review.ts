@@ -250,7 +250,10 @@ async function removeSecretFiles(ctx: PassContext): Promise<void> {
     .split('\0')
     .filter((path) => path !== '' && globs.some((glob) => glob.match(path)));
 
-  await Promise.all(secrets.map((path) => rm(join(ctx.worktree, path), { force: true })));
+  // a submodule lists as one path and checks out as a folder, so the removal is recursive
+  await Promise.all(
+    secrets.map((path) => rm(join(ctx.worktree, path), { recursive: true, force: true })),
+  );
 }
 
 function runBatch(

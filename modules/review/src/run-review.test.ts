@@ -154,6 +154,62 @@ test('it keeps the files of the secrets risk class out of the worktree the calls
   );
 });
 
+test('it removes a submodule folder that the secrets risk class names and runs the calls', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
+    {
+      message: 'head',
+      files: { 'src/total.ts': 'export const zero = 0;\nexport const one = 1;\n' },
+    },
+  ]);
+
+  await ctx.runner.run(
+    [
+      'git',
+      'update-index',
+      '--add',
+      '--cacheinfo',
+      `160000,${repo.commits[0] ?? ''},secrets-module`,
+    ],
+    { cwd: repo.path },
+  );
+
+  await ctx.runner.run(['git', 'commit', '--quiet', '-m', 'Add the secrets module'], {
+    cwd: repo.path,
+  });
+
+  const head = await ctx.runner.run(['git', 'rev-parse', 'HEAD'], { cwd: repo.path });
+
+  const stub = buildStubAdapter({});
+
+  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+
+  await runReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/total',
+    base: repo.commits[0] ?? '',
+    head: head.stdout.trim(),
+    config: BUILT_IN_DEFAULTS,
+    configHash: 'hash',
+    rules: null,
+    adapter: stub.adapter,
+    logger: ctx.logger,
+    tempDir: join(ctx.dir, 'temp'),
+    cacheDir: null,
+    title: 'Add one',
+    body: '',
+    linkedIssue: null,
+    pullRequest: null,
+    isPush: false,
+    pastEscapes: [],
+  });
+
+  expect(stub.requests).not.toBeEmpty();
+});
+
 test('it retries a failed call once and lists a call that fails twice', async () => {
   const ctx = await setupTest();
 

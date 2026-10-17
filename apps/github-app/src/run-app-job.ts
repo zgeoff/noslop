@@ -32,13 +32,17 @@ export async function runAppJob(event: AppEvent, options: AppJobOptions): Promis
   };
 
   const cli = ['bun', `--config=${options.bunConfigPath}`, options.cliPath];
+  const clone = join(options.reposDir, event.owner, event.repo);
+  const isCloned = existsSync(join(clone, '.git'));
 
+  // a check runs in the repo's clone when one exists, so it reads the repo's config and records the
+  // dispositions in the store that the repo's reviews went to
   if (event.kind === 'check') {
     await runChecked(
       options.runner,
       [...cli, 'check', '--pr', String(event.number), '--repo', repo],
       {
-        cwd: options.reposDir,
+        cwd: isCloned ? clone : options.reposDir,
         env: cliEnv,
       },
     );
@@ -49,9 +53,8 @@ export async function runAppJob(event: AppEvent, options: AppJobOptions): Promis
   const token = await options.mintToken(event.installationID);
 
   const gitEnv = buildGitAuthEnv(token);
-  const clone = join(options.reposDir, event.owner, event.repo);
 
-  await (existsSync(join(clone, '.git'))
+  await (isCloned
     ? runChecked(options.runner, ['git', 'fetch', '--quiet', 'origin'], { cwd: clone, env: gitEnv })
     : runChecked(
         options.runner,

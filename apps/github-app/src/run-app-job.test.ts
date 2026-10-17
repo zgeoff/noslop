@@ -127,6 +127,31 @@ test('it sets the check again with no clone after a reply', async () => {
   expect(stub.runs.map((run) => run.argv)).toStrictEqual([
     ['bun', '--config=/app/bunfig.toml', 'cli.ts', 'check', '--pr', '5', '--repo', 'example/app'],
   ]);
+
+  expect(stub.runs[0]?.options.cwd).toBe(ctx.dir);
+});
+
+test('it sets the check in the repo clone when one exists, so it reads the repo config', async () => {
+  const ctx = await setupTest();
+
+  await mkdir(join(ctx.dir, 'example', 'app', '.git'), { recursive: true });
+
+  const stub = buildStubRunner([{ argv: ['bun'], result: {} }]);
+
+  await runAppJob(
+    { kind: 'check', owner: 'example', repo: 'app', number: 5, installationID: 7 },
+    {
+      runner: stub.runner,
+      cliPath: 'cli.ts',
+      bunConfigPath: '/app/bunfig.toml',
+      reposDir: ctx.dir,
+      appID: 1,
+      privateKey: 'app-key',
+      mintToken: () => Promise.reject(new Error('a check mints no token')),
+    },
+  );
+
+  expect(stub.runs[0]?.options.cwd).toBe(join(ctx.dir, 'example', 'app'));
 });
 
 test('it fails the job when the review exits non-zero', async () => {
