@@ -70,6 +70,9 @@ export function createGitHubReporter(options: GitHubReporterOptions): Reporter {
         reported: result.findings.map((finding) => finding.id),
         failedCalls: result.failedCalls.length,
         followUps: [...filed, ...followUps.map((finding) => finding.id)],
+        confirmed: confirmations
+          .filter((item) => item.fixed)
+          .map((item) => `${item.id}:${item.commit}`),
       };
 
       await writeSummaryComment(
@@ -201,8 +204,9 @@ async function createFollowUpIssue(
   });
 }
 
-// a re-review confirms each finding whose latest disposition is `fixed`: fixed when the fix commit
-// changes the finding's file, so the re-review read it, and the re-review no longer reports it
+// a `fixed` finding is confirmed while no review reports it again, once a review whose range holds a
+// fix commit that changes the finding's file has read the fix; a fix outside the range keeps the
+// earlier review's word
 async function buildConfirmations(
   client: GitHubClient,
   pr: PullRequestRef,
@@ -211,17 +215,48 @@ async function buildConfirmations(
 ): Promise<FixConfirmation[]> {
   const dispositions = await readThreadDispositions(client, pr, before.threads);
   const changesFile = await readFixedFindings(client, pr, before.threads, dispositions);
+  const range = await readRangeCommits(client, pr, result.base, result.head);
 
   const latest = new Map(dispositions.map((item) => [item.findingID, item]));
   const reported = new Set(result.findings.map((finding) => finding.id));
+  const confirmed = new Set(before.summary?.marker.confirmed);
 
-  return before.threads
-    .filter((thread) => latest.get(thread.marker.id)?.kind === 'fixed')
-    .map((thread) => ({
-      id: thread.marker.id,
-      title: thread.marker.title,
-      fixed: changesFile.has(thread.marker.id) && !reported.has(thread.marker.id),
-    }));
+  return before.threads.flatMap((thread) => {
+    const disposition = latest.get(thread.marker.id);
+
+    if (disposition?.kind !== 'fixed') {
+      return [];
+    }
+
+    const commit = disposition.value;
+    const isRead = range.some((sha) => sha.startsWith(commit)) && changesFile.has(thread.marker.id);
+    const isHeld = confirmed.has(`${thread.marker.id}:${commit}`);
+
+    return [
+      {
+        id: thread.marker.id,
+        title: thread.marker.title,
+        commit,
+        fixed: !reported.has(thread.marker.id) && (isRead || isHeld),
+      },
+    ];
+  });
+}
+
+// the commits after the review's base up to its head
+async function readRangeCommits(
+  client: GitHubClient,
+  pr: PullRequestRef,
+  base: string,
+  head: string,
+): Promise<string[]> {
+  const response = await client.request('GET /repos/{owner}/{repo}/compare/{basehead}', {
+    owner: pr.owner,
+    repo: pr.repo,
+    basehead: `${base}...${head}`,
+  });
+
+  return response.data.commits.map((commit) => commit.sha);
 }
 
 async function writeSummaryComment(

@@ -43,7 +43,14 @@ test('it passes when the review ran on the head and every finding holds a valid 
         at: '2026-10-17T10:01:00.000Z',
       },
     ],
-    summary: { head: 'f'.repeat(40), reviews: 2, reported: [], failedCalls: 0, followUps: [] },
+    summary: {
+      head: 'f'.repeat(40),
+      reviews: 2,
+      reported: [],
+      failedCalls: 0,
+      followUps: [],
+      confirmed: ['1111111111111111:abc1234'],
+    },
     currentHead: 'f'.repeat(40),
     commits: ['abc1234'.padEnd(40, '0'), 'f'.repeat(40)],
     existingIssues: new Set(['#12']),
@@ -146,7 +153,14 @@ test('it lists each finding whose disposition is not valid, with the reason', ()
         at: '2026-10-17T10:03:00.000Z',
       },
     ],
-    summary: { head: 'f'.repeat(40), reviews: 2, reported: [], failedCalls: 0, followUps: [] },
+    summary: {
+      head: 'f'.repeat(40),
+      reviews: 2,
+      reported: [],
+      failedCalls: 0,
+      followUps: [],
+      confirmed: [],
+    },
     currentHead: 'f'.repeat(40),
     commits: ['f'.repeat(40)],
     existingIssues: new Set(['#12']),
@@ -180,7 +194,7 @@ test('it lists each finding whose disposition is not valid, with the reason', ()
   ]);
 });
 
-test('it fails a fixed finding that the re-review still finds or whose commit misses its file', () => {
+test('it fails a fixed finding that is still found, misses its file or no re-review read', () => {
   const outcome = buildCheckOutcome({
     findings: [
       {
@@ -210,6 +224,15 @@ test('it fails a fixed finding that the re-review still finds or whose commit mi
         riskClass: null,
         writtenByChange: false,
       },
+      {
+        id: '4444444444444444',
+        title: 'Close the file',
+        path: 'src/files.ts',
+        lens: 'correctness',
+        severity: 'P2',
+        riskClass: null,
+        writtenByChange: true,
+      },
     ],
     dispositions: [
       {
@@ -231,6 +254,15 @@ test('it fails a fixed finding that the re-review still finds or whose commit mi
         at: '2026-10-17T10:00:30.000Z',
       },
       {
+        findingID: '4444444444444444',
+        kind: 'fixed',
+        value: 'abc1234',
+        author: 'dev',
+        authorIsOwner: false,
+        source: 'github',
+        at: '2026-10-17T10:00:40.000Z',
+      },
+      {
         findingID: '3333333333333333',
         kind: 'deferred',
         value: '#99',
@@ -246,11 +278,12 @@ test('it fails a fixed finding that the re-review still finds or whose commit mi
       reported: ['1111111111111111'],
       failedCalls: 0,
       followUps: [],
+      confirmed: [],
     },
     currentHead: 'f'.repeat(40),
     commits: ['abc1234'.padEnd(40, '0'), 'f'.repeat(40)],
     existingIssues: new Set(),
-    fixChangesFile: new Set(['1111111111111111']),
+    fixChangesFile: new Set(['1111111111111111', '4444444444444444']),
     failedReporters: [],
   });
 
@@ -258,6 +291,7 @@ test('it fails a fixed finding that the re-review still finds or whose commit mi
     'the re-review still finds it',
     'the commit abc1234 does not change src/rows.ts',
     'the issue #99 does not exist',
+    'no re-review has read the commit abc1234 yet',
   ]);
 });
 
@@ -265,7 +299,14 @@ test('it fails when no review ran on the current head, a call failed or a report
   const outcome = buildCheckOutcome({
     findings: [],
     dispositions: [],
-    summary: { head: 'e'.repeat(40), reviews: 1, reported: [], failedCalls: 2, followUps: [] },
+    summary: {
+      head: 'e'.repeat(40),
+      reviews: 1,
+      reported: [],
+      failedCalls: 2,
+      followUps: [],
+      confirmed: [],
+    },
     currentHead: 'f'.repeat(40),
     commits: [],
     existingIssues: new Set(),
@@ -318,7 +359,14 @@ test('it judges a finding by its latest disposition', () => {
         at: '2026-10-17T11:00:00.000Z',
       },
     ],
-    summary: { head: 'f'.repeat(40), reviews: 1, reported: [], failedCalls: 0, followUps: [] },
+    summary: {
+      head: 'f'.repeat(40),
+      reviews: 1,
+      reported: [],
+      failedCalls: 0,
+      followUps: [],
+      confirmed: [],
+    },
     currentHead: 'f'.repeat(40),
     commits: ['f'.repeat(40)],
     existingIssues: new Set(),

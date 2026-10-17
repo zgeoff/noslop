@@ -117,6 +117,10 @@ function findFixedReason(
     return 'the re-review still finds it';
   }
 
+  if (input.summary?.confirmed.includes(`${finding.id}:${commit}`) !== true) {
+    return `no re-review has read the commit ${commit} yet`;
+  }
+
   return null;
 }
 

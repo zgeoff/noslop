@@ -114,6 +114,27 @@ export const githubHandlers = [
     },
   ),
 
+  // the pull request commits after the base up to the head, oldest first, as GitHub's compare lists
+  // the commits a merge of the head would bring onto the base
+  http.get<RepoParams & { basehead: string }>(
+    `${GITHUB_API_URL}/repos/:owner/:repo/compare/:basehead`,
+    (info) => {
+      const [base = '', head = ''] = info.params.basehead.split('...');
+
+      const commits = githubCollections.pullCommits
+        .findMany((q) => q.where({ owner: info.params.owner, repo: info.params.repo }))
+        .map((commit) => commit.sha);
+
+      const start = commits.indexOf(base) + 1;
+      const found = commits.indexOf(head);
+      const end = found === -1 ? commits.length : found + 1;
+
+      return HttpResponse.json({
+        commits: commits.slice(start, end).map((sha) => ({ sha })),
+      });
+    },
+  ),
+
   http.get<PullParams>(`${GITHUB_API_URL}/repos/:owner/:repo/pulls/:number`, (info) => {
     const pull = githubCollections.pullRequests.findFirst((q) =>
       q.where({

@@ -84,3 +84,44 @@ test('it gives a user with no collaborator record no permission', async () => {
 
   expect(permission).toStrictEqual({ permission: 'none' });
 });
+
+test('it compares 2 commits as the commits after the base up to the head', async () => {
+  for (const sha of ['a', 'b', 'c', 'd']) {
+    await githubCollections.pullCommits.create({
+      owner: 'example',
+      repo: 'app',
+      sha: sha.repeat(40),
+    });
+  }
+
+  const response = await fetch(
+    `${GITHUB_API_URL}/repos/example/app/compare/${'a'.repeat(40)}...${'c'.repeat(40)}`,
+  );
+
+  const compare: unknown = await response.json();
+
+  expect(compare).toStrictEqual({ commits: [{ sha: 'b'.repeat(40) }, { sha: 'c'.repeat(40) }] });
+});
+
+test('it lists the files a commit changes and answers an unknown commit with not found', async () => {
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    sha: 'a'.repeat(40),
+    files: ['src/a.ts'],
+  });
+
+  const known = await fetch(`${GITHUB_API_URL}/repos/example/app/commits/aaaaaaa`);
+  const unknown = await fetch(`${GITHUB_API_URL}/repos/example/app/commits/bbbbbbb`);
+  const commit: unknown = await known.json();
+
+  expect(commit).toStrictEqual({ sha: 'a'.repeat(40), files: [{ filename: 'src/a.ts' }] });
+  expect(unknown.status).toBe(404);
+});
+
+test('it names the App as its slug', async () => {
+  const response = await fetch(`${GITHUB_API_URL}/app`);
+  const app: unknown = await response.json();
+
+  expect(app).toStrictEqual({ slug: 'noslop-review' });
+});

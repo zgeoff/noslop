@@ -21,8 +21,9 @@ test('it writes the head, depth, lenses, failed calls, fixes and marker of a re-
         reported: [],
         failedCalls: 1,
         followUps: [],
+        confirmed: ['1111111111111111:abc1234'],
       },
-      [{ id: '1111111111111111', title: 'Await the write', fixed: true }],
+      [{ id: '1111111111111111', title: 'Await the write', commit: 'abc1234', fixed: true }],
     ),
   ).toMatchInlineSnapshot(`
     "### noslop
@@ -37,6 +38,6 @@ test('it writes the head, depth, lenses, failed calls, fixes and marker of a re-
 
     - \`1111111111111111\` Await the write: fixed
 
-    <!-- noslop:summary {"head":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","reviews":2,"reported":[],"failedCalls":1,"followUps":[]} -->"
+    <!-- noslop:summary {"head":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","reviews":2,"reported":[],"failedCalls":1,"followUps":[],"confirmed":["1111111111111111:abc1234"]} -->"
   `);
 });

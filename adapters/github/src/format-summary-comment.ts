@@ -5,6 +5,9 @@ import type { SummaryMarker } from './summary-marker';
 export interface FixConfirmation {
   id: string;
   title: string;
+
+  // the commit the `fixed` disposition names
+  commit: string;
   fixed: boolean;
 }
 
