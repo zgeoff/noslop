@@ -29,6 +29,17 @@
         "zod": "catalog:",
       },
     },
+    "libs/runner": {
+      "name": "@noslop/runner",
+      "version": "0.0.0",
+    },
+    "libs/testing": {
+      "name": "@noslop/testing",
+      "version": "0.0.0",
+      "dependencies": {
+        "@noslop/runner": "workspace:*",
+      },
+    },
   },
   "catalog": {
     "@logtape/logtape": "2.4.0",
@@ -130,6 +141,10 @@
     "@napi-rs/wasm-runtime": ["@napi-rs/wasm-runtime@1.2.5", "", { "dependencies": { "@tybys/wasm-util": "^0.10.3" }, "peerDependencies": { "@emnapi/core": "^1.7.1 || ^2.0.0-alpha.4", "@emnapi/runtime": "^1.7.1 || ^2.0.0-alpha.4" } }, "sha512-HshSvXzmBxNzqejd3k/KemgQ3hdREUYFRRrgxOZ+gPljDIsO2SDZrVZMd4Z/HsxudQbE62OVyVFE8z9BCurfjA=="],
 
     "@noslop/contract": ["@noslop/contract@workspace:libs/contract"],
+
+    "@noslop/runner": ["@noslop/runner@workspace:libs/runner"],
+
+    "@noslop/testing": ["@noslop/testing@workspace:libs/testing"],
 
     "@oxc-parser/binding-android-arm-eabi": ["@oxc-parser/binding-android-arm-eabi@0.137.0", "", { "os": "android", "cpu": "arm" }, "sha512-KDs+0VPdEmasOkpuJHW9V5WCF+cvYdMQv2Jd+aJXt+cxIx12NToRQRbXaRwUEDsZw+/jMk81Ve8ZFbjUkJTOwA=="],
 

@@ -34,7 +34,7 @@ apps/              deployables
   github-app/      the App that posts comments and the check run
 modules/           config, static-stage, routing, lenses, review, findings, eval
 adapters/          one outside system each: codex, claude, github, sqlite, webhook
-libs/              shared code that belongs to no domain: contract, testing
+libs/              shared code that belongs to no domain: contract, runner, testing
 docs/
   architecture/    what is built
   decisions/       numbered decision records
