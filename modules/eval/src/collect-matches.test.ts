@@ -75,6 +75,32 @@ test('it gives a target to the closest reported finding and matches each one onc
   ).toStrictEqual([{ target: 0, reported: 1, distance: 1 }]);
 });
 
+test('it matches as many targets as the window allows, whatever the listed order', () => {
+  const targets = [
+    { lens: null, anchor: { path: 'src/a.ts', startLine: 11, endLine: 11 } },
+    { lens: null, anchor: { path: 'src/a.ts', startLine: 13, endLine: 13 } },
+  ];
+
+  const near = {
+    lens: null,
+    anchor: { path: 'src/a.ts', startLine: 12, endLine: 12 },
+    title: 'Near',
+    severity: 'P2' as const,
+  };
+
+  const low = {
+    lens: null,
+    anchor: { path: 'src/a.ts', startLine: 10, endLine: 10 },
+    title: 'Low',
+    severity: 'P2' as const,
+  };
+
+  const forward = collectMatches(targets, [near, low], 1);
+  const backward = collectMatches(targets, [low, near], 1);
+
+  expect([forward.length, backward.length]).toStrictEqual([2, 2]);
+});
+
 test('it breaks a distance tie by the lens', () => {
   expect(
     collectMatches(

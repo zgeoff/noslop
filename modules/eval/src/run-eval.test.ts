@@ -61,6 +61,34 @@ test('it reviews each case in a detached worktree of its head and removes the wo
   expect(left).toBe(false);
 });
 
+test('it records a failed review and reports it when the repo does not exist', async () => {
+  const ctx = await setupTest();
+
+  const onCase = mock(() => {});
+
+  const runs = await runEval({
+    cases: [
+      {
+        id: 'case-1',
+        repo: join(ctx.dir, 'missing'),
+        base: 'a'.repeat(40),
+        head: 'b'.repeat(40),
+        title: 'feat: gone',
+        body: '',
+        findings: [],
+        escapes: [],
+      },
+    ],
+    reviewer: { id: 'stub', reviewCase: mock() },
+    runner: ctx.runner,
+    workDir: ctx.workDir,
+    onCase,
+  });
+
+  expect(runs.map((run) => run.review.failed)).toStrictEqual([true]);
+  expect(onCase).toHaveBeenCalledExactlyOnceWith(runs[0]);
+});
+
 test('it records a failed review when the head is not in the repo', async () => {
   const ctx = await setupTest();
 
