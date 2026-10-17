@@ -300,6 +300,47 @@ test('it gives 2 loads of the same config the same hash', async () => {
   expect(loads[0]?.hash).toBe(loads[1]?.hash ?? '');
 });
 
+test('it loads no rules from a repo: file or a reference that the repo does not hold', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(
+    join(ctx.dir, 'review.json'),
+    JSON.stringify({
+      rules: [
+        { path: 'repo:skills/code/SKILL.md', references: { 'references/nix.md': ['**/*.nix'] } },
+        'repo:skills/testing/SKILL.md',
+      ],
+    }),
+  );
+
+  await Bun.write(join(ctx.dir, 'skills/code/SKILL.md'), '## Naming\n\n1. Start with a verb.');
+
+  const loaded = await loadConfig({ repoDir: ctx.dir });
+
+  expect(loaded.rules).toStrictEqual([
+    { name: 'skills/code/SKILL.md: Naming', body: '1. Start with a verb.', paths: null },
+  ]);
+
+  expect(loaded.missingRules).toStrictEqual([
+    'skills/code/references/nix.md',
+    'skills/testing/SKILL.md',
+  ]);
+});
+
+test('it gives a missing repo: file and an empty one 2 hashes', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(join(ctx.dir, 'review.json'), JSON.stringify({ rules: ['repo:a.md'] }));
+
+  const missing = await loadConfig({ repoDir: ctx.dir });
+
+  await Bun.write(join(ctx.dir, 'a.md'), '');
+
+  const empty = await loadConfig({ repoDir: ctx.dir });
+
+  expect(missing.hash).not.toBe(empty.hash);
+});
+
 test.each([
   ['a repo: path above the repo', { rules: ['repo:../outside.md'] }],
   [

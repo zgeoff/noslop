@@ -13,6 +13,7 @@ export async function runConfigCommand(json: boolean, ctx: CLIContext): Promise<
       config: loaded.config,
       sources: loaded.sources,
       chain: loaded.chain,
+      missingRules: loaded.missingRules,
       hash: loaded.hash,
     };
 
@@ -29,6 +30,11 @@ export async function runConfigCommand(json: boolean, ctx: CLIContext): Promise<
 
   for (const [key, value] of Object.entries(loaded.config)) {
     lines.push(`${key} (${loaded.sources[key] ?? 'built-in'}): ${JSON.stringify(value)}`);
+  }
+
+  // a rules file the repo lacks loads no rule without failing, so the command names each one
+  for (const label of loaded.missingRules) {
+    lines.push(`rules file not in this repo, so no rules from it: ${label}`);
   }
 
   ctx.writeStdout(`${lines.join('\n')}\n`);

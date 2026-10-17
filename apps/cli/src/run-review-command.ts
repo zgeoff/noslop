@@ -30,6 +30,12 @@ export async function runReviewCommand(values: ReviewValues, ctx: CLIContext): P
   const repoDir = await readGitText(ctx, ctx.cwd, ['rev-parse', '--show-toplevel']);
   const loaded = await loadRepoConfig(ctx, repoDir);
 
+  for (const label of loaded.missingRules) {
+    ctx.logger.warn('the repo holds no rules file {label}, so the review reads no rules from it', {
+      label,
+    });
+  }
+
   const change =
     values.pr === undefined
       ? await resolveLocalChange(ctx, repoDir, values)

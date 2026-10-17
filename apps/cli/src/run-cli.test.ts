@@ -251,6 +251,22 @@ test('it prints the merged config with the source of each key', async () => {
   });
 });
 
+test('it names each repo: rules file that the repo does not hold', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'review.json': '{ "rules": ["repo:skills/tests/SKILL.md"] }\n' } },
+  ]);
+
+  const code = await runCLI(['config'], ctx.buildContext(repo.path, buildStubAdapter({}).adapter));
+
+  expect(code).toBe(0);
+
+  expect(ctx.stdout.join('')).toInclude(
+    'rules file not in this repo, so no rules from it: skills/tests/SKILL.md',
+  );
+});
+
 test('it exits 1 and names the problem when a command fails', async () => {
   const ctx = await setupTest();
 

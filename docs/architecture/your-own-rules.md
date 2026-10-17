@@ -32,7 +32,10 @@ so a rule for Nix files costs a TypeScript change nothing. A file's skip list ap
 references too.
 
 A path that starts with `repo:` resolves against the root of the reviewed repo, not the config file
-that names it. A shared config in its own repo names the skills that every repo holds this way.
+that names it. A shared config in its own repo names the synced skills this way. Each repo syncs
+only the skills and references it needs, so a `repo:` file or a reference that the repo lacks holds
+no rule, and the load goes on. Any other rules file that does not exist fails the load. A `repo:`
+path and a reference both stay inside the folder they resolve against.
 
 ```json
 {

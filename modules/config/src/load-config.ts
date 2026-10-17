@@ -25,6 +25,9 @@ export interface LoadedConfig {
   sources: Record<string, string>;
   chain: string[];
   rules: Rule[] | null;
+
+  // the labels of the `repo:` files and references the repo lacks, which hold no rule
+  missingRules: string[];
   hash: string;
 }
 
@@ -64,7 +67,8 @@ export async function loadConfig(options: LoadConfigOptions): Promise<LoadedConf
   const hash = createHash('sha256').update(JSON.stringify(config));
 
   for (const source of sources ?? []) {
-    hash.update(`\n${source.label}\n${source.text}`);
+    // a missing file and an empty one hash apart, so a file that appears changes the hash
+    hash.update(`\n${source.label}\n${source.text === null ? 'missing' : `text\n${source.text}`}`);
   }
 
   return {
@@ -72,6 +76,7 @@ export async function loadConfig(options: LoadConfigOptions): Promise<LoadedConf
     sources: merged.sources,
     chain: files.map((file) => formatConfigLocation(file.location)),
     rules: sources === null ? null : sources.flatMap((source) => buildRules(source)),
+    missingRules: (sources ?? []).flatMap((source) => (source.text === null ? [source.label] : [])),
     hash: hash.digest('hex').slice(0, 16),
   };
 }
@@ -198,13 +203,16 @@ function buildRulesLabel(path: string): string {
 
 interface RulesSource {
   label: string;
-  text: string;
+
+  // null for a `repo:` file or a reference that the repo lacks
+  text: string | null;
   skip: readonly string[];
   paths: readonly string[] | null;
 }
 
-// each rules file, then each of its references; a reference resolves against its file, and its
-// label sits beside the file's label, so one reference name under 2 files keeps 2 labels
+// a reference's label sits beside its file's label, so one reference name under 2 files stays apart;
+// a repo syncs only the skills and references it needs, so a `repo:` file or a reference it lacks
+// holds no rule, and any other missing file fails the load
 function readRulesSources(
   files: readonly RulesFile[],
   options: LoadConfigOptions,
@@ -215,7 +223,7 @@ function readRulesSources(
     const skip = file.skip ?? [];
 
     return [
-      { location, label, skip, paths: null },
+      { location, label, skip, paths: null, required: !file.path.startsWith(REPO_PREFIX) },
       ...Object.entries(file.references ?? {}).map(([reference, paths]) => ({
         location: parseConfigLocation(
           requireInnerPath(reference, 'reference'),
@@ -225,6 +233,7 @@ function readRulesSources(
         label: normalize(join(dirname(label), reference)),
         skip,
         paths,
+        required: false,
       })),
     ];
   });
@@ -233,7 +242,7 @@ function readRulesSources(
     sources.map(async (source) => {
       const text = await readLocation(source.location, options);
 
-      if (text === null) {
+      if (text === null && source.required) {
         throw new Error(`the rules file ${source.label} does not exist`);
       }
 
@@ -271,7 +280,7 @@ function requireInnerPath(path: string, kind: string): string {
 
 // a skipped heading names a section that holds no rule, such as how to load a skill
 function buildRules(source: RulesSource): Rule[] {
-  return parseRulesFile(source.text)
+  return parseRulesFile(source.text ?? '')
     .filter((section) => !source.skip.includes(section.name))
     .map((section) => ({
       name: `${source.label}: ${section.name}`,
