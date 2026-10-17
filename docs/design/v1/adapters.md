@@ -20,6 +20,19 @@ type ReviewAdapter = {
 The adapter validates the output against the schema. Output that fails the schema is a failed call,
 never a partial result.
 
+## Structured output
+
+Each call returns its findings as one JSON document that matches the call's output schema, through
+the CLI's own schema flag. noslop validates the document, and Assemble applies the finding rules to
+each finding.
+
+An MCP server that noslop runs, with a `report_finding` tool, is the tier 2 path. The model lodges
+each finding as it finds it, and noslop validates each one at once and returns the reason for a
+rejection, so the model can fix it. The tool runs in noslop's process, outside the CLI's sandbox.
+Lodged findings and structured output share one validation path. noslop adds the tool when the eval
+corpus shows that Assemble drops findings for a bad anchor, a missing second location or an unknown
+rule.
+
 ## Read-only configuration
 
 Each adapter starts its CLI read-only, in its own code:

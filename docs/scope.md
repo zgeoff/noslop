@@ -32,6 +32,7 @@ decision record that settles it.
 | The GitHub App: inline comments, a required check run, typed dispositions, re-review of the delta | [0009](decisions/0009-the-merge-loop.md)                                  |
 | The findings store, read by other tools                                                           | [0012](decisions/0012-the-findings-store.md)                              |
 | The eval harness, which replays a labelled corpus                                                 | [0012](decisions/0012-the-findings-store.md)                              |
+| An MCP tool through which a model lodges each finding, validated as it arrives                    | [0011](decisions/0011-model-adapters.md)                                  |
 
 ## Tier 3
 
