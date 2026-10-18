@@ -10,7 +10,8 @@
     ".": "./src/index.ts",
     "./contract": "./src/contract.ts",
     "./verify": "./src/verify.ts",
-    "./post": "./src/send-result.ts"
+    "./post": "./src/send-result.ts",
+    "./check": "./src/check.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

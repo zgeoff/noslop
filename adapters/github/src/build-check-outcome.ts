@@ -46,7 +46,7 @@ export function buildCheckOutcome(input: CheckOutcomeInput): CheckOutcome {
   const problems: string[] = [];
 
   if (input.summary?.head !== input.currentHead) {
-    problems.push(`No review ran on the current head ${input.currentHead.slice(0, 12)}.`);
+    problems.push(`No noslop review for this commit, ${input.currentHead.slice(0, 12)}.`);
   }
 
   if ((input.summary?.failedCalls ?? 0) > 0) {

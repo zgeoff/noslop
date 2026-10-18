@@ -372,9 +372,9 @@ test('it fails when no review ran on the current head, a call failed or a report
 
   expect(outcome).toStrictEqual({
     conclusion: 'failure',
-    title: 'No review ran on the current head ffffffffffff.',
+    title: 'No noslop review for this commit, ffffffffffff.',
     summary: [
-      'No review ran on the current head ffffffffffff.',
+      'No noslop review for this commit, ffffffffffff.',
       '2 calls of the review failed.',
       'These reporters failed: sqlite.',
     ].join('\n'),

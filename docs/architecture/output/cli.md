@@ -12,11 +12,15 @@ imports, the lens prompts included, so the workspace packages stay private. The 
 oxc-parser, whose native build npm installs for the user's platform. The workspace runs the CLI from
 its source.
 
-The package's library entries hold what code can import from it: the root export,
-`@noslop/cli/contract` with the review result schema and its types, so code that does not shell out
-reads results through the same contract, `@noslop/cli/verify`, which runs the check of
-[verifying a result](#verifying-a-result), and `@noslop/cli/post`, which posts a result as
-[posting a result](#posting-a-result) describes. Both take the App's keys from the caller. They
+The package's library entries hold what code can import from it, so code that does not shell out
+runs the same contract and checks as the CLI:
+
+- The root export and `@noslop/cli/contract` hold the review result schema and its types.
+- `@noslop/cli/verify` runs the check of [verifying a result](#verifying-a-result).
+- `@noslop/cli/post` posts a result, as [posting a result](#posting-a-result) describes.
+- `@noslop/cli/check` sets a pull request's check run, as `noslop check` does.
+
+The last 3 take the App's keys from the caller, never from the process environment. The entries
 leave zod to npm, so a caller's schemas and the package's declarations share one zod. tsdown writes
 each entry's declarations with TypeScript's own emit and inlines the types of the workspace packages
 they reach, so the published types import nothing but zod.
@@ -44,8 +48,10 @@ Every command takes `--json`, and `--verbose` lowers the log level to debug.
 
 Logs go to stderr, so stdout holds only a command's output. A command exits 0 when it completed. It
 exits 1 when it could not run, such as on a bad flag, a git failure or an adapter the CLI does not
-have, and `review` exits 1 when any reporter fails. `check` exits 0 whatever the check concludes,
-because its job is to set the check run, and the check run carries the conclusion.
+have, and `review` exits 1 when any reporter fails. `check` exits 0 whatever else the check
+concludes, because its job is to set the check run, and the check run carries the conclusion. One
+exception: `check` exits 1 when no noslop review covers the pull request's head, under
+[the check run](./github-app.md#the-check-run).
 
 ## Choosing the change
 
