@@ -1,5 +1,6 @@
 import type { Endpoints } from '@octokit/types';
 import { HttpResponse, http } from 'msw';
+import { collectRangeFiles } from './collect-range-files';
 import { githubCollections } from './github-collections';
 
 export const GITHUB_API_URL = 'https://api.github.com';
@@ -162,7 +163,7 @@ export const githubHandlers = [
       number: pull.number,
       title: pull.title,
       body: pull.body,
-      base: { sha: pull.baseSha },
+      base: { ref: pull.baseRef, sha: pull.baseSha },
       head: { sha: pull.headSha },
       user: { login: pull.authorLogin },
     });
@@ -414,9 +415,28 @@ export const githubHandlers = [
       number: Math.max(0, ...numbers) + 1,
       title: input.title,
       body: input.body ?? '',
+      authorLogin: STUB_APP_LOGIN,
     });
 
     return HttpResponse.json({ number: issue.number, title: issue.title }, { status: 201 });
+  }),
+
+  // every issue of the repo, open or closed, as GitHub pages them
+  http.get<RepoParams>(`${GITHUB_API_URL}/repos/:owner/:repo/issues`, (info) => {
+    const issues = githubCollections.issues.findMany((q) =>
+      q.where({ owner: info.params.owner, repo: info.params.repo }),
+    );
+
+    const page = toPage(info.request, issues);
+
+    return HttpResponse.json(
+      page.map((issue) => ({
+        number: issue.number,
+        title: issue.title,
+        body: issue.body,
+        user: { login: issue.authorLogin },
+      })),
+    );
   }),
 
   http.get<RepoParams & { login: string }>(
@@ -448,6 +468,23 @@ export const githubHandlers = [
       });
 
       return HttpResponse.json({ id: run.id, name: run.name }, { status: 201 });
+    },
+  ),
+
+  http.get<RepoParams & { branch: string[] }>(
+    `${GITHUB_API_URL}/repos/:owner/:repo/branches/:branch+`,
+    (info) => {
+      const name = info.params.branch.join('/');
+
+      const branch = githubCollections.branches.findFirst((q) =>
+        q.where({ owner: info.params.owner, repo: info.params.repo, name }),
+      );
+
+      if (branch === undefined) {
+        return buildNotFound();
+      }
+
+      return HttpResponse.json({ name: branch.name, commit: { sha: branch.sha } });
     },
   ),
 
@@ -552,35 +589,4 @@ function toIssueCommentData(
     created_at: comment.createdAt,
     user: { login: comment.authorLogin, type: comment.authorType },
   };
-}
-
-// the files a range of commits changes, as GitHub's compare lists them: each path once, and a file
-// renamed over the range names the path it had at the range's base
-function collectRangeFiles(
-  range: readonly { files: string[]; renames: Record<string, string> }[],
-): { filename: string; status?: string; previous_filename?: string }[] {
-  const origins = new Map<string, string>();
-  const paths = new Set<string>();
-
-  for (const commit of range) {
-    for (const path of commit.files) {
-      const previous = commit.renames[path];
-
-      if (previous !== undefined) {
-        origins.set(path, origins.get(previous) ?? previous);
-        origins.delete(previous);
-        paths.delete(previous);
-      }
-
-      paths.add(path);
-    }
-  }
-
-  return [...paths].map((filename) => {
-    const origin = origins.get(filename);
-
-    return origin === undefined
-      ? { filename }
-      : { filename, status: 'renamed', previous_filename: origin };
-  });
 }

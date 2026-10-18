@@ -4,13 +4,13 @@ import { getLogger } from '@logtape/logtape';
 import { createClaudeAdapter } from '@noslop/claude';
 import { createCodexAdapter } from '@noslop/codex';
 import type { Reporter, ReviewAdapter } from '@noslop/contract';
-import type { GitHubConnection } from '@noslop/github';
-import { createGitHubConnection, createGitHubReporter, parseGitHubAppEnv } from '@noslop/github';
+import { createGitHubReporter } from '@noslop/github';
 import { createRunner } from '@noslop/runner';
 import { createSQLiteReporter } from '@noslop/sqlite';
 import { createWebhookReporter } from '@noslop/webhook';
 import type { CLIContext } from './cli-context';
 import { createJSONReporter } from './create-json-reporter';
+import { makeGitHubConnectionLoader } from './make-github-connection-loader';
 
 // the context the installed CLI runs in: the real runner, the user's cache and data folders, stdout
 // and stderr, and the adapters and reporters noslop ships
@@ -24,14 +24,7 @@ export function createCLIContext(env: Readonly<Record<string, string | undefined
     claude: () => createClaudeAdapter({ runner }),
   };
 
-  let connection: Promise<GitHubConnection> | null = null;
-
-  // one connection per run, made on first use, so a command that never calls GitHub needs no App
-  const loadGitHubConnection = () => {
-    connection ??= createGitHubConnection(parseGitHubAppEnv(env));
-
-    return connection;
-  };
+  const loadGitHubConnection = makeGitHubConnectionLoader(env);
 
   const reporters: Record<string, () => Reporter> = {
     json: () => createJSONReporter(writeStdout),

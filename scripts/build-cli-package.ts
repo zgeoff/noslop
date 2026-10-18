@@ -18,7 +18,13 @@ const EXTERNAL = ['oxc-parser'] as const;
 const LIBRARY_EXTERNAL = ['zod'] as const;
 
 // Each subpath export of the package, by the CLI source file it builds from.
-const LIBRARY_ENTRIES = { '.': 'index', './contract': 'contract' } as const;
+const LIBRARY_ENTRIES = {
+  '.': 'index',
+  './contract': 'contract',
+  './verify': 'verify',
+  './post': 'send-result',
+  './check': 'check',
+} as const;
 
 export interface CLIPackageManifest {
   name: string;

@@ -12,24 +12,32 @@ imports, the lens prompts included, so the workspace packages stay private. The 
 oxc-parser, whose native build npm installs for the user's platform. The workspace runs the CLI from
 its source.
 
-The package's library entries hold what code can import from it: the root export, and
-`@noslop/cli/contract` with the review result schema and its types, so code that does not shell out
-reads results through the same contract. They leave zod to npm, so a caller's schemas and the
-package's declarations share one zod. tsdown writes each entry's declarations with TypeScript's own
-emit and inlines the types of the workspace packages they reach, so the published types import
-nothing but zod.
+The package's library entries hold what code can import from it, so code that does not shell out
+runs the same contract and checks as the CLI:
+
+- The root export and `@noslop/cli/contract` hold the review result schema and its types.
+- `@noslop/cli/verify` runs the check of [verifying a result](#verifying-a-result).
+- `@noslop/cli/post` posts a result, as [posting a result](#posting-a-result) describes.
+- `@noslop/cli/check` sets a pull request's check run, as `noslop check` does.
+
+The last 3 take the App's keys from the caller, never from the process environment. The entries
+leave zod to npm, so a caller's schemas and the package's declarations share one zod. tsdown writes
+each entry's declarations with TypeScript's own emit and inlines the types of the workspace packages
+they reach, so the published types import nothing but zod.
 
 ## Commands
 
-| Command                                                      | Does                                                                  |
-| ------------------------------------------------------------ | --------------------------------------------------------------------- |
-| `noslop review [--base <ref>] [--head <ref>]`                | Reviews the change between 2 commits of the current repo              |
-| `noslop review --pr <number> [--full] [--repo <owner/name>]` | Reviews a pull request, from its base and head                        |
-| `noslop check --pr <number> --repo <owner/name>`             | Sets a pull request's check run from its dispositions, with no review |
-| `noslop config`                                              | Prints the merged config and the file each key comes from             |
-| `noslop store query <name>`                                  | Runs a named query on the [findings store](../measurement/store.md)   |
-| `noslop store escape --repo --issue --head --defect`         | Records a defect that a review missed                                 |
-| `noslop eval --corpus <path>`                                | Replays a corpus through the current config and scores it per lens    |
+| Command                                                      | Does                                                                   |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| `noslop review [--base <ref>] [--head <ref>]`                | Reviews the change between 2 commits of the current repo               |
+| `noslop review --pr <number> [--full] [--repo <owner/name>]` | Reviews a pull request, from its base and head                         |
+| `noslop verify <file>`                                       | Checks a review result against its pull request's head and base config |
+| `noslop post <file> [--no-verify]`                           | Posts a verified review result to its pull request as the App          |
+| `noslop check --pr <number> --repo <owner/name>`             | Sets a pull request's check run from its dispositions, with no review  |
+| `noslop config`                                              | Prints the merged config and the file each key comes from              |
+| `noslop store query <name>`                                  | Runs a named query on the [findings store](../measurement/store.md)    |
+| `noslop store escape --repo --issue --head --defect`         | Records a defect that a review missed                                  |
+| `noslop eval --corpus <path>`                                | Replays a corpus through the current config and scores it per lens     |
 
 `review` also takes `--report <ids>`, a comma-separated list of reporters that replaces the config's
 list, `--adapter codex|claude`, which replaces the config's adapter, and `--push`, which reviews a
@@ -40,8 +48,10 @@ Every command takes `--json`, and `--verbose` lowers the log level to debug.
 
 Logs go to stderr, so stdout holds only a command's output. A command exits 0 when it completed. It
 exits 1 when it could not run, such as on a bad flag, a git failure or an adapter the CLI does not
-have, and `review` exits 1 when any reporter fails. `check` exits 0 whatever the check concludes,
-because its job is to set the check run, and the check run carries the conclusion.
+have, and `review` exits 1 when any reporter fails. `check` exits 0 whatever else the check
+concludes, because its job is to set the check run, and the check run carries the conclusion. One
+exception: `check` exits 1 when no noslop review covers the pull request's head, under
+[the check run](./github-app.md#the-check-run).
 
 ## Choosing the change
 
@@ -73,6 +83,32 @@ The review result follows the result schema in the contract package, and the CLI
 against it before printing it. The schema's version changes only with a breaking change to the
 output, so a consumer that pins a CLI version reads the same shape.
 [Findings](../review/findings.md) covers the finding schema inside it.
+
+## Verifying a result
+
+`verify` lets a service that receives a review result from someone else's machine trust it before it
+posts it. It parses the result against the result schema, then reads the result's pull request from
+GitHub and refuses the result unless both of these hold:
+
+- The result reviews the pull request's current head, so a push after the review voids it.
+- The result's config hash equals the hash of the config on the pull request's base branch, so
+  `verify` refuses a review that ran under any other config, such as one that a later change to the
+  base branch or to the parent config it extends has replaced.
+
+The CLI reads the commit the base branch points at, then loads that commit's config through GitHub's
+contents API, with no checkout, so a push during the load cannot mix 2 commits. It loads the config
+by the same rules a review loads a config by, so the 2 hashes match when the 2 configs match. A
+rules file outside the repo, which only the reviewer's machine holds, reads as missing, so a config
+that lists one never verifies. `verify` exits 1 and prints each mismatch to stderr.
+
+## Posting a result
+
+`post` posts a review result through the [GitHub reporter](./reporters.md) as the App: the findings,
+the summary and the check run, as a review with `--report github` posts them. It verifies the result
+first and posts nothing when the result fails, so a relay that posts with it posts only a review of
+the current head under the enforced config. `--no-verify` skips the verification, for a result the
+caller checked itself. `post` needs the App's keys in the environment, and refuses to run with an
+anonymous GitHub connection.
 
 ## Folders
 

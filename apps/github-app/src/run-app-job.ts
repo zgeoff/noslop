@@ -1,12 +1,12 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import type { RunOptions, Runner } from '@noslop/runner';
+import type { RunOptions, Runner } from './create-process-runner';
 import type { AppEvent } from './parse-app-event';
 
 export interface AppJobOptions {
   runner: Runner;
 
-  // the noslop CLI's entry file, which the job runs with Bun
+  // the `noslop` bin that @noslop/cli installs, which the job runs with Bun
   cliPath: string;
 
   // the Bun config the CLI runs under, so Bun never loads a reviewed repo's bunfig and its preloads

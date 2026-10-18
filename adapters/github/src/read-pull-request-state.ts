@@ -33,6 +33,9 @@ export interface FindingThread {
 export interface PullRequestState {
   title: string;
   body: string;
+
+  // the branch the pull request merges into
+  baseRef: string;
   baseSha: string;
   headSha: string;
   commits: string[];
@@ -193,6 +196,7 @@ export async function readPullRequestState(
   return {
     title: pull.data.title,
     body: pull.data.body ?? '',
+    baseRef: pull.data.base.ref,
     baseSha: pull.data.base.sha,
     headSha: pull.data.head.sha,
     commits: commits.map((commit) => commit.sha),

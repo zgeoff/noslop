@@ -27,7 +27,9 @@ flowchart LR
 
 ## The App server
 
-The server is an Elysia app in the `apps/github-app` package. Its webhook endpoint checks each
+The server is an Elysia app in the `apps/github-app` package. It builds only on what `@noslop/cli`
+publishes, the `noslop` bin and the library entries, as an org's own relay does, and a lint rule
+refuses an import of any other noslop package in its code. Its webhook endpoint checks each
 delivery's signature against the App's webhook secret and refuses an unsigned or wrongly signed one.
 A delivery the App acts on goes to the queue, and the endpoint answers at once, because GitHub
 counts a delivery as failed when the answer takes longer than its short timeout.
@@ -58,10 +60,11 @@ environment config, so it never appears in a command line that other processes c
 clone's config file. A check job runs `noslop check --pr <number> --repo <owner/name>`. Each job
 passes the App's credentials and the event's installation to the CLI through its environment.
 
-The reviewed repo's code never sees those credentials. A job runs the CLI under noslop's own Bun
-config, so Bun loads no preload from the repo, and the CLI removes the App's keys from its process
-environment before it spawns a model CLI or git. The server reads the App's id, private key, webhook
-secret and repos folder from its environment, and refuses to start when one is missing.
+The reviewed repo's code never sees those credentials. A job runs the `noslop` bin that the package
+installs under noslop's own Bun config, so Bun loads no preload from the repo, and the CLI removes
+the App's keys from its process environment before it spawns a model CLI or git. The server reads
+the App's id, private key, webhook secret and repos folder from its environment, and refuses to
+start when one is missing.
 
 ## What a review posts
 
@@ -81,7 +84,10 @@ it posts anything.
    id.
 3. After the one re-check, a new finding that is no security finding and sits in code the change did
    not write goes to a follow-up issue in the repo instead of the pull request. The summary marker
-   keeps each filed id, so a later review files the issue once.
+   keeps each filed id, so a later review files the issue once. Each follow-up issue holds a marker
+   with its finding and pull request, so a retried post that failed before the summary finds the
+   issue it opened and files none twice. The reporter runs one post of a pull request at a time in a
+   process, so 2 posts of one review cannot both miss the issue and both file it.
 4. It edits the comment of each finding whose fix the review confirms: it strikes the heading
    through, names the fix commit, and collapses the comment as posted under them, with the marker
    kept byte for byte. When a later review no longer confirms the fix, the reporter restores the
@@ -188,6 +194,8 @@ The check passes when all of these hold, and fails otherwise:
 The check's title states the first problem, and its text lists each finding with no valid
 disposition and the reason. The `github` reporter sets the check after each review, and
 `noslop check --pr <number> --repo <owner/name>` sets it again from what GitHub holds, with no new
-review. The command exits 0 whatever the check concludes, because a failing check is an answer, not
-an error. A reporter failure lives only in the run that saw it, so a later `noslop check` judges the
-pull request without it.
+review. The command exits 0 whatever else the check concludes, because a failing check is an answer,
+not an error. One exception: when no noslop review covers the current head, it prints
+`no noslop review for this commit` and exits 1, so a CI job that runs it fails until a review of the
+head is posted. A reporter failure lives only in the run that saw it, so a later `noslop check`
+judges the pull request without it.

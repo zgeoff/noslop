@@ -5,9 +5,11 @@ import type { CLIContext } from './cli-context';
 import { runCheckCommand } from './run-check-command';
 import { runConfigCommand } from './run-config-command';
 import { runEvalCommand } from './run-eval-command';
+import { runPostCommand } from './run-post-command';
 import { runReviewCommand } from './run-review-command';
 import { runStoreEscapeCommand } from './run-store-escape-command';
 import { runStoreQueryCommand } from './run-store-query-command';
+import { runVerifyCommand } from './run-verify-command';
 
 const JSON_ARG = {
   type: 'boolean',
@@ -200,11 +202,54 @@ export async function runCLI(argv: readonly string[], ctx: CLIContext): Promise<
       ),
   });
 
+  const verify = define({
+    name: 'verify',
+    description:
+      'Check a review result against its pull request: its head and the config of its base branch',
+    args: {
+      file: {
+        type: 'positional',
+        description: 'The file that holds the review result as JSON',
+        required: true,
+      },
+      json: JSON_ARG,
+    },
+    run: (command) =>
+      run(() =>
+        runVerifyCommand({ file: command.values.file, json: command.values.json === true }, ctx),
+      ),
+  });
+
+  const post = define({
+    name: 'post',
+    description: 'Post a review result to its pull request as the App, once it verifies',
+    args: {
+      file: {
+        type: 'positional',
+        description: 'The file that holds the review result as JSON',
+        required: true,
+      },
+      verify: {
+        type: 'boolean',
+        negatable: true,
+        description: 'Check the result before posting it; --no-verify posts it unchecked',
+      },
+    },
+    run: (command) =>
+      run(() =>
+        runPostCommand({ file: command.values.file, verify: command.values.verify !== false }, ctx),
+      ),
+  });
+
   const main = define({
     name: 'noslop',
     description: 'Review a pull request that a coding agent wrote',
     run: () =>
-      run(() => Promise.reject(new Error('name a command: review, check, config, eval or store'))),
+      run(() =>
+        Promise.reject(
+          new Error('name a command: review, verify, post, check, config, eval or store'),
+        ),
+      ),
   });
 
   // gunshi prints argument errors to stdout and then throws them, so it prints none, and the errors
@@ -216,7 +261,7 @@ export async function runCLI(argv: readonly string[], ctx: CLIContext): Promise<
       renderHeader: null,
       renderValidationErrors: null,
       strict: true,
-      subCommands: { review, check, config, eval: evaluate, store },
+      subCommands: { review, verify, post, check, config, eval: evaluate, store },
     });
   } catch (error) {
     ctx.writeStderr(`noslop: ${formatError(error)}\n`);

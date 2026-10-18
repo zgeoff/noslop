@@ -1,14 +1,23 @@
-import type { Finding, PullRequestRef, Reporter, ReviewResult } from '@noslop/contract';
+import type {
+  Finding,
+  PullRequestRef,
+  Reporter,
+  ReporterContext,
+  ReviewResult,
+} from '@noslop/contract';
 import type { GitHubClient, GitHubConnection } from './create-github-connection';
-import { expandSkippedPaths } from './expand-skipped-paths';
+import { followUpMarkerSchema } from './follow-up-marker';
 import { formatFindingComment } from './format-finding-comment';
 import { formatFixedFindingComment } from './format-fixed-finding-comment';
+import { formatMarker } from './format-marker';
 import type { FixConfirmation } from './format-summary-comment';
 import { formatSummaryComment } from './format-summary-comment';
-import type { CommitFile } from './has-skipped-file';
-import { hasSkippedFile } from './has-skipped-file';
+import { parseMarker } from './parse-marker';
+import { readAllPages } from './read-all-pages';
+import { readFixCoverage } from './read-fix-coverage';
 import type { FindingThread, PullRequestState } from './read-pull-request-state';
 import { readPullRequestState } from './read-pull-request-state';
+import { readRangeCommits } from './read-range-commits';
 import { readThreadDispositions } from './read-thread-dispositions';
 import { runGitHubCheck } from './run-github-check';
 
@@ -35,89 +44,152 @@ export function createGitHubReporter(options: GitHubReporterOptions): Reporter {
         );
       }
 
-      const connection = await options.loadConnection();
-
-      const client = connection.client;
-
-      const before = await readPullRequestState(connection, pr);
-
-      const filed = before.summary?.marker.followUps ?? [];
-
-      const posted = new Set([...before.threads.map((thread) => thread.marker.id), ...filed]);
-
-      const reviews = (before.summary?.marker.reviews ?? 0) + 1;
-      const fresh = result.findings.filter((finding) => !posted.has(finding.id));
-
-      const followUps =
-        reviews > RECHECKED_REVIEWS
-          ? fresh.filter((finding) => finding.lens !== 'security' && !finding.writtenByChange)
-          : [];
-
-      const inline = fresh.filter((finding) => !followUps.includes(finding));
-
-      const unanchored = await createReviewComments(client, pr, result.head, inline);
-
-      for (const finding of unanchored) {
-        await createIssueComment(client, pr, formatUnanchoredComment(finding, result.head));
-      }
-
-      for (const finding of followUps) {
-        await createFollowUpIssue(client, pr, finding);
-      }
-
-      const confirmations = await buildConfirmations(client, pr, before, result);
-
-      for (const item of confirmations) {
-        if (item.failure !== undefined) {
-          ctx.logger.warn('no fix confirmed for {id} in {commit}: {failure}', {
-            id: item.id,
-            commit: item.commit.slice(0, 12),
-            failure: item.failure,
-          });
-        }
-      }
-
-      await updateFixedComments(client, pr, before.threads, confirmations);
-
-      const after = await readPullRequestState(connection, pr);
-
-      const links = new Map(
-        after.threads.map((thread) => [thread.marker.id, toCommentURL(pr, thread)]),
+      await withPullRequestLock(`${pr.owner}/${pr.repo}#${pr.number}`, () =>
+        runReviewPost(options.loadConnection, pr, result, ctx),
       );
-
-      const marker = {
-        head: result.head,
-        reviews,
-        reported: result.findings.map((finding) => finding.id),
-        failedCalls: result.failedCalls.length,
-        followUps: [...filed, ...followUps.map((finding) => finding.id)],
-        confirmed: confirmations
-          .filter((item) => item.fixed)
-          .map((item) => `${item.id}:${item.commit}`),
-      };
-
-      await writeSummaryComment(
-        client,
-        pr,
-        before,
-        formatSummaryComment(
-          result,
-          marker,
-          { confirmations, posted: before.threads.length },
-          links,
-        ),
-      );
-
-      const outcome = await runGitHubCheck(connection, pr, {
-        failedReporters: ctx.failedReporters,
-      });
-
-      ctx.logger.info('the noslop check on {head}: {conclusion}', {
-        head: result.head.slice(0, 12),
-        conclusion: outcome.conclusion,
-      });
     },
   };
+}
+
+// the posts in flight in this process, by pull request, each one the tail of that pull request's chain
+const postChains = new Map<string, Promise<void>>();
+
+// runs one post of a pull request at a time in this process, in the order they came, so 2 posts of
+// one review cannot both find no follow-up issue and both file one; a failed post leaves the next one
+// to run
+async function withPullRequestLock(key: string, post: () => Promise<void>): Promise<void> {
+  const previous = postChains.get(key) ?? Promise.resolve();
+  const current = runAfter(previous, post);
+  const tail = waitForEnd(current);
+
+  postChains.set(key, tail);
+
+  try {
+    await current;
+  } finally {
+    if (postChains.get(key) === tail) {
+      postChains.delete(key);
+    }
+  }
+}
+
+async function runAfter(previous: Promise<void>, post: () => Promise<void>): Promise<void> {
+  await previous;
+  await post();
+}
+
+// the next post of the pull request runs once this one ends, failed or not; only the caller of a
+// failed post sees its failure
+async function waitForEnd(post: Promise<void>): Promise<void> {
+  await Promise.allSettled([post]);
+}
+
+async function runReviewPost(
+  loadConnection: () => Promise<GitHubConnection>,
+  pr: PullRequestRef,
+  result: ReviewResult,
+  ctx: ReporterContext,
+): Promise<void> {
+  const connection = await loadConnection();
+
+  const client = connection.client;
+
+  const before = await readPullRequestState(connection, pr);
+
+  const filed = before.summary?.marker.followUps ?? [];
+
+  const posted = new Set([...before.threads.map((thread) => thread.marker.id), ...filed]);
+
+  // a post of a result the summary already counted, such as a retry after a failed request, is the
+  // same review, so it never moves a pull request toward the re-check limit
+  const counted = before.summary?.marker.reviewIDs ?? [];
+  const isRepost = counted.includes(result.reviewID);
+  const reviews = (before.summary?.marker.reviews ?? 0) + (isRepost ? 0 : 1);
+
+  // a retry of a review that a later one followed posted everything before the later one did, so it
+  // leaves the later summary in place and only sets the check again from the current answers
+  if (isRepost && counted.at(-1) !== result.reviewID) {
+    await runCheck(connection, pr, result.head, ctx);
+
+    return;
+  }
+
+  const fresh = result.findings.filter((finding) => !posted.has(finding.id));
+
+  const followUps =
+    reviews > RECHECKED_REVIEWS
+      ? fresh.filter((finding) => finding.lens !== 'security' && !finding.writtenByChange)
+      : [];
+
+  const inline = fresh.filter((finding) => !followUps.includes(finding));
+
+  const unanchored = await createReviewComments(client, pr, result.head, inline);
+
+  for (const finding of unanchored) {
+    await createIssueComment(client, pr, formatUnanchoredComment(finding, result.head));
+  }
+
+  const unfiled =
+    followUps.length === 0 ? [] : await loadUnfiledFollowUps(connection, pr, followUps);
+
+  for (const finding of unfiled) {
+    await createFollowUpIssue(client, pr, finding);
+  }
+
+  const confirmations = await buildConfirmations(client, pr, before, result);
+
+  for (const item of confirmations) {
+    if (item.failure !== undefined) {
+      ctx.logger.warn('no fix confirmed for {id} in {commit}: {failure}', {
+        id: item.id,
+        commit: item.commit.slice(0, 12),
+        failure: item.failure,
+      });
+    }
+  }
+
+  await updateFixedComments(client, pr, before.threads, confirmations);
+
+  const after = await readPullRequestState(connection, pr);
+
+  const links = new Map(
+    after.threads.map((thread) => [thread.marker.id, toCommentURL(pr, thread)]),
+  );
+
+  const marker = {
+    head: result.head,
+    reviews,
+    reviewIDs: isRepost ? counted : [...counted, result.reviewID],
+    reported: result.findings.map((finding) => finding.id),
+    failedCalls: result.failedCalls.length,
+    followUps: [...filed, ...followUps.map((finding) => finding.id)],
+    confirmed: confirmations
+      .filter((item) => item.fixed)
+      .map((item) => `${item.id}:${item.commit}`),
+  };
+
+  await writeSummaryComment(
+    client,
+    pr,
+    before,
+    formatSummaryComment(result, marker, { confirmations, posted: before.threads.length }, links),
+  );
+
+  await runCheck(connection, pr, result.head, ctx);
+}
+
+async function runCheck(
+  connection: GitHubConnection,
+  pr: PullRequestRef,
+  head: string,
+  ctx: ReporterContext,
+): Promise<void> {
+  const outcome = await runGitHubCheck(connection, pr, { failedReporters: ctx.failedReporters });
+
+  ctx.logger.info('the noslop check on {head}: {conclusion}', {
+    head: head.slice(0, 12),
+    conclusion: outcome.conclusion,
+  });
 }
 
 // one review holds every inline comment; when GitHub refuses a line outside the diff, each comment is
@@ -211,6 +283,40 @@ async function createIssueComment(
   });
 }
 
+// the follow-ups that no issue of the App files yet: a retry after a post that failed past its issues,
+// such as on the summary write, finds each issue the first attempt opened by its marker
+async function loadUnfiledFollowUps(
+  connection: GitHubConnection,
+  pr: PullRequestRef,
+  followUps: readonly Finding[],
+): Promise<Finding[]> {
+  const issues = await readAllPages(async (page, perPage) => {
+    const response = await connection.client.request('GET /repos/{owner}/{repo}/issues', {
+      owner: pr.owner,
+      repo: pr.repo,
+      state: 'all',
+      page,
+      per_page: perPage,
+    });
+
+    return response.data;
+  });
+
+  const filed = new Set(
+    issues.flatMap((issue) => {
+      const isOwn = connection.appLogin !== null && issue.user?.login === connection.appLogin;
+
+      const marker = isOwn
+        ? parseMarker('follow-up', followUpMarkerSchema, issue.body ?? '')
+        : null;
+
+      return marker?.pullRequest === pr.number ? [marker.id] : [];
+    }),
+  );
+
+  return followUps.filter((finding) => !filed.has(finding.id));
+}
+
 async function createFollowUpIssue(
   client: GitHubClient,
   pr: PullRequestRef,
@@ -226,6 +332,8 @@ async function createFollowUpIssue(
       `At \`${finding.anchor.path}:${finding.anchor.startLine}-${finding.anchor.endLine}\`, ${finding.severity} ${finding.verdict}.`,
       '',
       finding.body,
+      '',
+      formatMarker('follow-up', { id: finding.id, pullRequest: pr.number }),
     ].join('\n'),
   });
 }
@@ -313,171 +421,6 @@ function findOneCommit(commits: readonly string[], sha: string): string | null {
   const matches = commits.filter((commit) => commit.startsWith(sha));
 
   return matches.length === 1 ? (matches[0] ?? null) : null;
-}
-
-// the commits after the base up to the head; a base that GitHub no longer holds, such as a head that
-// a force push dropped, gives none, so no fix counts through it
-async function readRangeCommits(
-  client: GitHubClient,
-  pr: PullRequestRef,
-  base: string,
-  head: string,
-): Promise<string[]> {
-  try {
-    const response = await client.request('GET /repos/{owner}/{repo}/compare/{basehead}', {
-      owner: pr.owner,
-      repo: pr.repo,
-      basehead: `${base}...${head}`,
-    });
-
-    return response.data.commits.map((commit) => commit.sha);
-  } catch (error) {
-    if (typeof error === 'object' && error !== null && 'status' in error && error.status === 404) {
-      return [];
-    }
-
-    throw error;
-  }
-}
-
-interface FixCoverage {
-  changesSkipped: boolean;
-
-  // why GitHub gave no whole file list, which the summary shows beside the unconfirmed fix
-  failure: string | null;
-}
-
-// whether the fix commit, or the finding's file, reaches a file the review left out: the fix commit's
-// own files and renames, and each rename after the fix up to the head, which moves a fixed file into
-// a skipped path; a file list GitHub could not give whole counts as one that does
-interface FixCoverageInput {
-  commit: string;
-  head: string;
-  skipped: ReadonlySet<string>;
-  findingPath: string;
-}
-
-async function readFixCoverage(
-  client: GitHubClient,
-  pr: PullRequestRef,
-  input: FixCoverageInput,
-): Promise<FixCoverage> {
-  const later = await readCompareFiles(client, pr, input.commit, input.head);
-
-  const fix = later.failure === null ? await readCommitFiles(client, pr, input.commit) : later;
-  const failure = later.failure ?? fix.failure;
-
-  if (failure !== null) {
-    return { changesSkipped: true, failure };
-  }
-
-  const paths = expandSkippedPaths(input.skipped, later.files);
-
-  return {
-    changesSkipped: paths.has(input.findingPath) || hasSkippedFile(fix.files, paths),
-    failure: null,
-  };
-}
-
-interface ReadCommitFiles {
-  files: CommitFile[];
-
-  // why GitHub gave no whole file list, which the summary shows beside the unconfirmed fix
-  failure: string | null;
-}
-
-// GitHub's compare lists at most 300 files of a range
-const COMPARE_FILES = 300;
-
-// reads the files a range of commits changes from GitHub's compare, with each rename's earlier path;
-// a failed read, or a range past the compare's file cap, gives the failure in place of a whole list
-async function readCompareFiles(
-  client: GitHubClient,
-  pr: PullRequestRef,
-  base: string,
-  head: string,
-): Promise<ReadCommitFiles> {
-  // a fix at the head has no later commit to rename its file
-  if (base === head) {
-    return { files: [], failure: null };
-  }
-
-  try {
-    const response = await client.request('GET /repos/{owner}/{repo}/compare/{basehead}', {
-      owner: pr.owner,
-      repo: pr.repo,
-      basehead: `${base}...${head}`,
-    });
-
-    const files = (response.data.files ?? []).map((file) => toCommitFile(file));
-
-    return files.length >= COMPARE_FILES
-      ? { files, failure: 'the commits after the fix change more files than GitHub lists' }
-      : { files, failure: null };
-  } catch (error) {
-    return {
-      files: [],
-      failure: `GitHub could not compare the fix commit with the head (${formatStatus(error)})`,
-    };
-  }
-}
-
-// GitHub lists at most 3,000 files of one commit, 100 to a page
-const COMMIT_FILES_PER_PAGE = 100;
-const COMMIT_FILE_PAGES = 30;
-
-// reads every file a commit changes from GitHub, page by page; a failed read, or a commit past
-// GitHub's file cap, gives the failure in place of a whole list
-async function readCommitFiles(
-  client: GitHubClient,
-  pr: PullRequestRef,
-  commit: string,
-): Promise<ReadCommitFiles> {
-  const files: CommitFile[] = [];
-
-  try {
-    for (let page = 1; page <= COMMIT_FILE_PAGES; page += 1) {
-      const response = await client.request('GET /repos/{owner}/{repo}/commits/{ref}', {
-        owner: pr.owner,
-        repo: pr.repo,
-        ref: commit,
-        per_page: COMMIT_FILES_PER_PAGE,
-        page,
-      });
-
-      const listed = response.data.files ?? [];
-
-      files.push(...listed.map((file) => toCommitFile(file)));
-
-      if (listed.length < COMMIT_FILES_PER_PAGE) {
-        return { files, failure: null };
-      }
-    }
-
-    return { files, failure: 'the fix commit changes more files than GitHub lists' };
-  } catch (error) {
-    return {
-      files,
-      failure: `GitHub could not list the files of the fix commit (${formatStatus(error)})`,
-    };
-  }
-}
-
-// GitHub's entry for a changed file holds more fields than the coverage check reads
-function toCommitFile(file: CommitFile): CommitFile {
-  return file.previous_filename === undefined
-    ? { filename: file.filename }
-    : { filename: file.filename, previous_filename: file.previous_filename };
-}
-
-// the HTTP status of a failed GitHub request, or the error itself when it carries none
-function formatStatus(error: unknown): string {
-  return typeof error === 'object' &&
-    error !== null &&
-    'status' in error &&
-    typeof error.status === 'number'
-    ? `HTTP ${error.status}`
-    : String(error);
 }
 
 // strikes the heading of each finding comment whose fix the review confirms, and restores a struck
