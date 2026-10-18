@@ -1274,6 +1274,66 @@ test('it refuses a result when the config on the base branch changed after the r
   );
 });
 
+test('it refuses a result that matches the config at the pull request base when the base branch moved on to a new config', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'review.json': '{}\n', 'src/a.ts': 'export const a = 1;\n' } },
+    { message: 'Change a', files: { 'src/a.ts': 'export const a = 2;\n' } },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[1] ?? '',
+  });
+
+  await githubCollections.branches.create({
+    owner: 'example',
+    repo: 'app',
+    name: 'main',
+    sha: 'e'.repeat(40),
+  });
+
+  await githubCollections.files.create({
+    owner: 'example',
+    repo: 'app',
+    ref: repo.commits[0] ?? '',
+    path: 'review.json',
+    content: '{}\n',
+  });
+
+  await githubCollections.files.create({
+    owner: 'example',
+    repo: 'app',
+    ref: 'e'.repeat(40),
+    path: 'review.json',
+    content: '{ "lenses": { "correctness": { "model": "stricter-model" } } }\n',
+  });
+
+  const stub = buildStubAdapter({ L: [{ findings: { correctness: [] } }] });
+
+  await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'json', '--json'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  await Bun.write(join(ctx.dir, 'result.json'), ctx.stdout.splice(0).join(''));
+
+  const code = await runCLI(
+    ['verify', join(ctx.dir, 'result.json')],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  expect(code).toBe(1);
+
+  expect(ctx.stderr.join('')).toMatch(
+    /^noslop: the result does not verify: its config hash [0-9a-f]{16} differs from [0-9a-f]{16}, the hash of the config on main\n$/u,
+  );
+});
+
 test('it refuses a result when the parent config the base branch extends changed after the review', async () => {
   const ctx = await setupTest();
 
