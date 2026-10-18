@@ -397,6 +397,11 @@ async function readCompareFiles(
   base: string,
   head: string,
 ): Promise<ReadCommitFiles> {
+  // a fix at the head has no later commit to rename its file
+  if (base === head) {
+    return { files: [], failure: null };
+  }
+
   try {
     const response = await client.request('GET /repos/{owner}/{repo}/compare/{basehead}', {
       owner: pr.owner,
