@@ -51,6 +51,11 @@ export async function runCLI(argv: readonly string[], ctx: CLIContext): Promise<
       json: JSON_ARG,
       push: { type: 'boolean', description: 'Review a direct push to the default branch' },
       adapter: { type: 'string', description: 'The model adapter: codex or claude' },
+      'issue-file': {
+        type: 'string',
+        description:
+          'A file whose text is the issue the change closes, in place of the issue the pull request body names',
+      },
     },
     run: (command) =>
       run(() =>
@@ -65,6 +70,7 @@ export async function runCLI(argv: readonly string[], ctx: CLIContext): Promise<
             json: command.values.json === true,
             push: command.values.push === true,
             adapter: command.values.adapter,
+            issueFile: command.values['issue-file'],
           },
           ctx,
         ),

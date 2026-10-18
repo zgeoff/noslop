@@ -432,6 +432,131 @@ test('it gives the calls the issue that the pull request body closes', async () 
   );
 });
 
+test('it fires the intent lens on a local change with the text of the issue file', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
+    {
+      message: 'Add one',
+      files: { 'src/total.ts': 'export const zero = 0;\nexport const one = 1;\n' },
+    },
+  ]);
+
+  await Bun.write(
+    join(ctx.dir, 'issue.md'),
+    'GEO-12 Export a constant for one\n\nCallers write 1.\n',
+  );
+
+  const stub = buildStubAdapter({
+    L: [{ findings: { correctness: [], intent: [] } }],
+  });
+
+  const code = await runCLI(
+    [
+      'review',
+      '--base',
+      repo.commits[0] ?? '',
+      '--issue-file',
+      join(ctx.dir, 'issue.md'),
+      '--report',
+      'json',
+      '--json',
+    ],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  const result = reviewResultSchema.parse(JSON.parse(ctx.stdout[0] ?? ''));
+
+  expect(code).toBe(0);
+  expect(result.lenses).toContain('intent');
+
+  expect(stub.requests[0]?.prompt).toInclude(
+    '## Linked issue\n\nGEO-12 Export a constant for one\n\nCallers write 1.',
+  );
+});
+
+test('it gives the calls the issue file in place of the issue the pull request body closes', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
+    {
+      message: 'Add one',
+      files: { 'src/total.ts': 'export const zero = 0;\nexport const one = 1;\n' },
+    },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    title: 'Add one',
+    body: 'Adds one.\n\nFixes #3',
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[1] ?? '',
+  });
+
+  await githubCollections.issues.create({
+    owner: 'example',
+    repo: 'app',
+    number: 3,
+    title: 'Export a constant for one',
+    body: 'Callers write 1 by hand.',
+  });
+
+  await Bun.write(join(ctx.dir, 'issue.md'), 'GEO-12 Export one from the totals module\n');
+
+  const stub = buildStubAdapter({
+    L: [{ findings: { correctness: [], intent: [] } }],
+  });
+
+  await runCLI(
+    [
+      'review',
+      '--pr',
+      '9',
+      '--repo',
+      'example/app',
+      '--issue-file',
+      join(ctx.dir, 'issue.md'),
+      '--report',
+      'json',
+      '--json',
+    ],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  expect(stub.requests[0]?.prompt).toInclude(
+    '## Linked issue\n\nGEO-12 Export one from the totals module',
+  );
+
+  expect(stub.requests[0]?.prompt).not.toInclude('Callers write 1 by hand.');
+});
+
+test('it fails the review when the issue file does not exist', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
+    {
+      message: 'Add one',
+      files: { 'src/total.ts': 'export const zero = 0;\nexport const one = 1;\n' },
+    },
+  ]);
+
+  const stub = buildStubAdapter({});
+
+  const code = await runCLI(
+    ['review', '--base', repo.commits[0] ?? '', '--issue-file', 'missing.md', '--json'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  expect(code).toBe(1);
+  expect(ctx.stderr.join('')).toInclude('--issue-file names no file: missing.md');
+  expect(stub.requests).toBeEmpty();
+});
+
 test('it reviews a pull request from the head of its last review', async () => {
   const ctx = await setupTest();
 

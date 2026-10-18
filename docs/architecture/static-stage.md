@@ -87,10 +87,11 @@ missing version bump, anchors to the code that needs it. The stage reports:
   hunk in a file the linked issue does not name, and a public package that changes paths the config
   ties to a version bump without bumping its version.
 
-The review takes the linked issue and a reader for consumer manifests from its caller. A review of a
-pull request reads the issue that its body closes, so the format-only check runs there. A local
-review links no issue. The CLI passes no reader, so the consumer-range check reads only the
-manifests in the repo itself.
+The review takes the linked issue and a reader for consumer manifests from its caller. The CLI takes
+the linked issue from `--issue-file` when it is given, so an issue that lives outside GitHub reaches
+the review with no tracker code in noslop. Without it, a review of a pull request reads the GitHub
+issue that its body closes, and a local review links no issue. The CLI passes no reader, so the
+consumer-range check reads only the manifests in the repo itself.
 
 ## Special changes and risk signals
 

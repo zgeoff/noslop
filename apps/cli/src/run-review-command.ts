@@ -1,5 +1,5 @@
 import { mkdir, mkdtemp, rm } from 'node:fs/promises';
-import { basename, join } from 'node:path';
+import { basename, join, resolve } from 'node:path';
 import type { PullRequestRef, ReviewResult } from '@noslop/contract';
 import { reviewResultSchema } from '@noslop/contract';
 import { readLinkedIssue, readPullRequestState } from '@noslop/github';
@@ -22,6 +22,10 @@ export interface ReviewValues {
   json: boolean;
   push: boolean;
   adapter: string | undefined;
+
+  // a file whose text is the linked issue, so an issue that lives outside GitHub reaches the intent
+  // lens; without it, a pull request's linked issue is the GitHub issue its body closes
+  issueFile: string | undefined;
 }
 
 // reviews the change between 2 commits of the repo that holds the working directory, or a pull
@@ -45,10 +49,13 @@ export async function runReviewCommand(values: ReviewValues, ctx: CLIContext): P
     ctx.logger.warn('{warning}', { warning });
   }
 
+  const issueText =
+    values.issueFile === undefined ? null : await readIssueFile(ctx, values.issueFile);
+
   const change =
     values.pr === undefined
       ? await resolveLocalChange(ctx, repoDir, values)
-      : await resolvePullRequestChange(ctx, repoDir, values);
+      : await resolvePullRequestChange(ctx, repoDir, values, issueText === null);
 
   const adapterID = values.adapter ?? loaded.config.adapter ?? 'codex';
 
@@ -84,7 +91,7 @@ export async function runReviewCommand(values: ReviewValues, ctx: CLIContext): P
       cacheDir: join(ctx.cacheDir, 'index'),
       title: change.title,
       body: change.body,
-      linkedIssue: change.linkedIssue,
+      linkedIssue: issueText ?? change.linkedIssue,
       pullRequest: change.pullRequest,
       isPush: values.push,
       pastEscapes,
@@ -160,6 +167,7 @@ async function resolvePullRequestChange(
   ctx: CLIContext,
   repoDir: string,
   values: ReviewValues,
+  shouldReadLinkedIssue: boolean,
 ): Promise<ResolvedChange> {
   if (values.base !== undefined || values.head !== undefined) {
     throw new Error(
@@ -215,7 +223,9 @@ async function resolvePullRequestChange(
 
   const isDelta = reviewed !== null && reviewed !== state.headSha && ancestry.exitCode === 0;
 
-  const linkedIssue = await readLinkedIssue(connection, pullRequest, state.body);
+  const linkedIssue = shouldReadLinkedIssue
+    ? await readLinkedIssue(connection, pullRequest, state.body)
+    : null;
 
   return {
     repo,
@@ -226,6 +236,21 @@ async function resolvePullRequestChange(
     linkedIssue,
     pullRequest,
   };
+}
+
+// a relative path resolves against the working directory, as the shell that passed it does
+async function readIssueFile(ctx: CLIContext, path: string): Promise<string> {
+  const file = Bun.file(resolve(ctx.cwd, path));
+
+  const exists = await file.exists();
+
+  if (!exists) {
+    throw new Error(`--issue-file names no file: ${path}`);
+  }
+
+  const text = await file.text();
+
+  return text.trim();
 }
 
 // the files of the repo where a defect escaped an earlier review, from the store; a user with no
