@@ -1,0 +1,16 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "release-type": "node",
+  "bootstrap-sha": "c978f9efdf46d0810dc10749e07b80ee02c7be6c",
+  "bump-minor-pre-major": true,
+  "bump-patch-for-minor-pre-major": true,
+  "include-component-in-tag": true,
+  "include-v-in-tag": false,
+  "tag-separator": "@",
+  "packages": {
+    ".": {
+      "component": "@noslop/cli",
+      "extra-files": [{ "type": "json", "path": "apps/cli/package.json", "jsonpath": "$.version" }]
+    }
+  }
+}

@@ -7,6 +7,11 @@ version, so other tools pin a CLI version and read one shape. [The GitHub App](.
 its reviews and its check updates through this CLI. [0011](../decisions/0011-model-adapters.md)
 records why noslop is a versioned CLI with JSON output.
 
+The npm package `@noslop/cli` holds one Bun bundle of the CLI and every workspace package it
+imports, the lens prompts included, so the workspace packages stay private. The bundle leaves out
+oxc-parser, whose native build npm installs for the user's platform. The workspace runs the CLI from
+its source.
+
 ## Commands
 
 | Command                                                      | Does                                                                  |

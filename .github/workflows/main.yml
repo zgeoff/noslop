@@ -1,20 +1,26 @@
 # Runs the shared Bun checks on every push to main, with the script list that
-# the BUN_CHECK_SCRIPTS repo variable sets for pull requests.
+# the BUN_CHECK_SCRIPTS repo variable sets for pull requests, then releases
+# @noslop/cli with release-please and publishes it to npm.
 name: main
 
 on:
   push:
     branches: [main]
+  # Recovery path for a release that tagged but failed to publish: skips the
+  # release-please steps and publishes the CLI at the dispatched ref. A version
+  # npm holds already is skipped.
+  workflow_dispatch:
 
 permissions:
   contents: read
 
-concurrency:
-  group: main
-  cancel-in-progress: true
-
 jobs:
   checks:
+    # A newer push makes an older run's checks moot. A publish run dispatched
+    # at a release tag has a ref of its own, so a push never cancels it.
+    concurrency:
+      group: checks-${{ github.ref }}
+      cancel-in-progress: true
     # GitHub checks the called workflow's job permissions even for its skipped
     # gitleaks job, which asks for pull-requests: write
     permissions:
@@ -25,3 +31,130 @@ jobs:
       scripts: ${{ vars.BUN_CHECK_SCRIPTS }}
       # the pull request that landed the commits already scanned them
       gitleaks: false
+
+  release:
+    needs: checks
+    # The release waits for its one-time setup: the first publish from a
+    # maintainer's machine, npm's trusted publisher, and Actions leave to open
+    # pull requests. The RELEASE_ENABLED repo variable marks it done.
+    if: vars.RELEASE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    # A cancelled run could stop a publish halfway, so release runs queue
+    # instead; queue: max keeps a waiting publish dispatch from being replaced.
+    concurrency:
+      group: release
+      cancel-in-progress: false
+      queue: max
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
+      # Dispatches the publish run at the release tag.
+      actions: write
+    env:
+      # bun install's prepare script installs git hooks that would reject this
+      # job's bot pushes.
+      LEFTHOOK: '0'
+    steps:
+      # A release takes two runs of this job. Run 1, after a releasable commit
+      # lands on main: release-please opens or updates the release PR. Run 2,
+      # after that PR merges: release-please tags the release, and the publish
+      # steps ship the CLI to npm through OIDC.
+      #
+      # GITHUB_TOKEN events start no workflow, so a release PR made with it gets
+      # no checks. With a GitHub App configured, its token makes the PR a normal
+      # one. Either way the release PR is merged by hand.
+      - name: Mint GitHub App token
+        id: app-token
+        if: github.event_name == 'push' && vars.RELEASE_APP_ID != ''
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
+      - name: Run release-please
+        id: release
+        if: github.event_name == 'push'
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          token: ${{ steps.app-token.outputs.token || github.token }}
+
+      # The release PR bumps a version that bun.lock records too, and writes
+      # files oxfmt would reformat; repair both so the PR passes the checks.
+      - name: Check out release PR
+        if: steps.release.outputs.prs_created == 'true'
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: release-please--branches--main
+          token: ${{ steps.app-token.outputs.token || github.token }}
+      - name: Set up bun
+        if: steps.release.outputs.prs_created == 'true'
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: .bun-version
+      - name: Sync lockfile and formatting on release PR
+        if: steps.release.outputs.prs_created == 'true'
+        run: |
+          bun install
+          bun run format
+          if ! git diff --quiet; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -am "chore: sync lockfile and format release files"
+            git push
+          fi
+
+      # npm provenance names GITHUB_SHA as the source commit. A run that waited
+      # in the release queue can find the release tagged on a later commit than
+      # its own, so it publishes only when it is the tagged commit; otherwise it
+      # dispatches a publish run at the tag.
+      - name: Resolve release commit
+        id: release-commit
+        if: steps.release.outputs.releases_created == 'true'
+        env:
+          SHA: ${{ steps.release.outputs.sha }}
+          TAG: ${{ steps.release.outputs.tag_name }}
+        run: |
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          if [ "$SHA" = "$GITHUB_SHA" ]; then echo "here=true"; else echo "here=false"; fi >> "$GITHUB_OUTPUT"
+      - name: Dispatch publish at the release tag
+        if: steps.release-commit.outputs.here == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release-commit.outputs.tag }}
+        run: |
+          echo "$TAG is not this run's commit ($GITHUB_SHA); publishing from a run at the tag"
+          gh workflow run main.yml --repo "$GITHUB_REPOSITORY" --ref "$TAG"
+
+      - name: Check out the release
+        if: steps.release-commit.outputs.here == 'true' || github.event_name == 'workflow_dispatch'
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: Set up bun for publish
+        if: steps.release-commit.outputs.here == 'true' || github.event_name == 'workflow_dispatch'
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: .bun-version
+      # npm publishes, not bun: trusted publishing (OIDC) needs npm 11.5.1 or
+      # later, which node 24 bundles, and bun publish has no OIDC support
+      # (oven-sh/bun#15601).
+      - name: Set up node
+        if: steps.release-commit.outputs.here == 'true' || github.event_name == 'workflow_dispatch'
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 24
+      - name: Install dependencies
+        if: steps.release-commit.outputs.here == 'true' || github.event_name == 'workflow_dispatch'
+        run: bun install --frozen-lockfile
+      - name: Publish the CLI
+        if: steps.release-commit.outputs.here == 'true' || github.event_name == 'workflow_dispatch'
+        run: |
+          bun scripts/build-cli-package.ts
+          cd apps/cli/dist
+          name=$(jq -r .name package.json)
+          version=$(jq -r .version package.json)
+          if [ "$(npm view "$name@$version" version 2>/dev/null)" = "$version" ]; then
+            echo "skipping $name@$version: already published"
+            exit 0
+          fi
+          bun pm pack
+          npm publish ./*.tgz --provenance --access public

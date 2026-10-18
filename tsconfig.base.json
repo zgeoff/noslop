@@ -1,6 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
   "extends": "@tsconfig/strictest/tsconfig.json",
+  "files": ["./modules/lenses/src/prompt-pages.d.ts"],
   "compilerOptions": {
     "target": "ESNext",
     "lib": ["ESNext"],

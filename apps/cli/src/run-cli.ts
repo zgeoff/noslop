@@ -1,5 +1,6 @@
 import { STORE_QUERY_NAMES } from '@noslop/sqlite';
 import { cli, define } from 'gunshi';
+import cliPackage from '../package.json' with { type: 'json' };
 import type { CLIContext } from './cli-context';
 import { runCheckCommand } from './run-check-command';
 import { runConfigCommand } from './run-config-command';
@@ -205,7 +206,7 @@ export async function runCLI(argv: readonly string[], ctx: CLIContext): Promise<
   try {
     await cli([...argv], main, {
       name: 'noslop',
-      version: '0.0.0',
+      version: cliPackage.version,
       renderHeader: null,
       renderValidationErrors: null,
       strict: true,
