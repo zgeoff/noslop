@@ -17,6 +17,7 @@
         "@zgeoff/oxlint-config": "0.2.2",
         "knip": "6.39.0",
         "lefthook": "2.1.14",
+        "msw": "catalog:",
         "oxfmt": "0.71.0",
         "oxlint": "1.86.0",
         "oxlint-tsgolint": "7.0.2003",
