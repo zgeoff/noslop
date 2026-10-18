@@ -388,6 +388,24 @@ test('it prints the merged config with the source of each key', async () => {
   });
 });
 
+test('it prints the config as JSON with only its config, sources, chain, missing rules and hash', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'review.json': '{ "adapter": "claude" }\n' } },
+  ]);
+
+  const code = await runCLI(
+    ['config', '--json'],
+    ctx.buildContext(repo.path, buildStubAdapter({}).adapter),
+  );
+
+  const output: unknown = JSON.parse(ctx.stdout.join(''));
+
+  expect(code).toBe(0);
+  expect(output).toContainAllKeys(['config', 'sources', 'chain', 'missingRules', 'hash']);
+});
+
 test('it names each repo: rules file that the repo does not hold', async () => {
   const ctx = await setupTest();
 
@@ -401,28 +419,6 @@ test('it names each repo: rules file that the repo does not hold', async () => {
 
   expect(ctx.stdout.join('')).toInclude(
     'rules file not in this repo, so no rules from it: skills/tests/SKILL.md',
-  );
-});
-
-test('it warns in the printed config on a rules file that lists skip', async () => {
-  const ctx = await setupTest();
-
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
-    {
-      message: 'base',
-      files: {
-        'review.json': '{ "rules": [{ "path": "RULES.md", "skip": ["Loading the skill"] }] }\n',
-        'RULES.md': '## Naming\n\n1. Start a function name with a verb.\n',
-      },
-    },
-  ]);
-
-  const code = await runCLI(['config'], ctx.buildContext(repo.path, buildStubAdapter({}).adapter));
-
-  expect(code).toBe(0);
-
-  expect(ctx.stdout.join('')).toInclude(
-    'warning: the rules file RULES.md lists skip, which noslop ignores, since it reads each rules file whole',
   );
 });
 

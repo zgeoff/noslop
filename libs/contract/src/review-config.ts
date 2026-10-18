@@ -161,7 +161,6 @@ const referenceGlobsSchema = z
   .min(1)
   .describe('Path globs; the reference loads only for a change that touches a match');
 
-// the load warns on a skip list and ignores it
 export const rulesFileSchema = z.strictObject({
   path: z
     .string()
@@ -178,7 +177,6 @@ export const rulesFileSchema = z.strictObject({
     .record(z.string().min(1), referenceGlobsSchema)
     .optional()
     .describe('Files beside the rules file, each one rule, by path, with the globs that load it'),
-  skip: z.array(z.string().min(1)).optional().describe('Ignored, with a warning'),
 });
 
 export type RulesFile = z.infer<typeof rulesFileSchema>;

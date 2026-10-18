@@ -58,14 +58,6 @@
                       },
                       "description": "Path globs; the reference loads only for a change that touches a match"
                     }
-                  },
-                  "skip": {
-                    "description": "Ignored, with a warning",
-                    "type": "array",
-                    "items": {
-                      "type": "string",
-                      "minLength": 1
-                    }
                   }
                 },
                 "required": ["path"],
