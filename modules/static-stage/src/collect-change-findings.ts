@@ -135,9 +135,11 @@ function collectSyncedEdits(inputs: ChangeFindingInputs): ModelFinding[] {
 }
 
 // the sync that delivers a workflow caller pins its call to the sync's own ref, so a change that only
-// moves that ref keeps the copy in step with the next sync instead of losing an edit to it
+// moves that ref keeps the copy in step with the next sync instead of losing an edit to it; a rename
+// is an edit the next sync undoes, so a renamed copy never counts
 function isWorkflowPinOnly(entry: AnalyzedFile): boolean {
   return (
+    entry.file.status === 'modified' &&
     entry.file.hunks.length > 0 &&
     entry.file.hunks.every((hunk) => {
       const deleted = hunk.lines.filter((line) => line.kind === 'deleted');

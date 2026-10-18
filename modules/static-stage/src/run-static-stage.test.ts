@@ -661,6 +661,72 @@ test('it reports a synced edit when a synced file only moves the ref of an actio
   );
 });
 
+test('it reports a synced edit when a synced caller is renamed and only moves the ref of its workflow call', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'ci/checks.yml': [
+          'jobs:',
+          '  checks:',
+          '    uses: example/shared-ci/.github/workflows/checks.yml@release-v2',
+          '    with:',
+          '      scripts: lint test',
+          '',
+        ].join('\n'),
+        'src/a.ts': 'export const a = 1;\n',
+      },
+    },
+    {
+      message: 'head',
+      files: {
+        'ci/checks.yml': null,
+        'ci/other.yml': [
+          'jobs:',
+          '  checks:',
+          '    uses: example/shared-ci/.github/workflows/checks.yml@release-v3',
+          '    with:',
+          '      scripts: lint test',
+          '',
+        ].join('\n'),
+        'src/a.ts': 'export const a = 2;\n',
+      },
+    },
+  ]);
+
+  const config = { ...BUILT_IN_DEFAULTS, synced: ['ci/**'] };
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config,
+    title: 'ci: pin the shared checks',
+    body: '',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(
+    result.findings.map((finding) => [
+      finding.title,
+      finding.anchor.path,
+      finding.anchor.startLine,
+    ]),
+  ).toStrictEqual([['Edit to the synced copy other.yml', 'ci/other.yml', 3]]);
+});
+
 test('it reports a version bump a workspace range refuses and a missing bump', async () => {
   const ctx = await setupTest();
 
