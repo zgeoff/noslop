@@ -14,6 +14,7 @@ test('it accepts one findings list per fired lens', () => {
           severity: 'P2',
           criterion: 'wrong-behaviour-edge-path',
           rule: null,
+          ruleQuote: null,
           verdict: 'CONFIRMED',
           unverifiedFact: null,
           missingChange: false,
@@ -57,6 +58,7 @@ test('it rejects a finding that leaves out a nullable key', () => {
           severity: 'P2',
           criterion: 'wrong-behaviour-edge-path',
           rule: null,
+          ruleQuote: null,
           verdict: 'CONFIRMED',
           missingChange: false,
           fix: null,
@@ -146,6 +148,12 @@ test('it exports a JSON Schema that requires every key and allows no other', () 
                       "null",
                     ],
                   },
+                  "ruleQuote": {
+                    "type": [
+                      "string",
+                      "null",
+                    ],
+                  },
                   "secondLocation": {
                     "anyOf": [
                       {
@@ -218,6 +226,7 @@ test('it exports a JSON Schema that requires every key and allows no other', () 
                   "severity",
                   "criterion",
                   "rule",
+                  "ruleQuote",
                   "verdict",
                   "unverifiedFact",
                   "missingChange",

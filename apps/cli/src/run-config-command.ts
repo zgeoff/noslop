@@ -14,6 +14,7 @@ export async function runConfigCommand(json: boolean, ctx: CLIContext): Promise<
       sources: loaded.sources,
       chain: loaded.chain,
       missingRules: loaded.missingRules,
+      warnings: loaded.warnings,
       hash: loaded.hash,
     };
 
@@ -35,6 +36,10 @@ export async function runConfigCommand(json: boolean, ctx: CLIContext): Promise<
   // a rules file the repo lacks loads no rule without failing, so the command names each one
   for (const label of loaded.missingRules) {
     lines.push(`rules file not in this repo, so no rules from it: ${label}`);
+  }
+
+  for (const warning of loaded.warnings) {
+    lines.push(`warning: ${warning}`);
   }
 
   ctx.writeStdout(`${lines.join('\n')}\n`);

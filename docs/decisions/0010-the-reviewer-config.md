@@ -12,7 +12,8 @@ A `review.json` can name a parent with `extends`, such as
 Merging follows 3 rules:
 
 1. Objects merge by key.
-2. Arrays replace.
+2. Arrays replace. One exception: `rules` entries append to the inherited ones, and an entry for an
+   inherited path replaces that entry.
 3. `null` removes an inherited key.
 
 The config holds:
@@ -20,9 +21,9 @@ The config holds:
 - **Risk classes:** each a name, path globs or a detector, and the lenses it forces on.
 - **Stack patterns:** what counts as a write, an I/O import or a procedure in this stack, as call
   names and import sources.
-- **Rules files:** one Markdown file of named taste rules, or a list of them, such as a repo's
-  skills. Each rule's name holds its file and its heading, and an entry can skip the headings that
-  hold no rule. An entry's references load only for a change that touches the paths they name, and a
+- **Rules files:** one Markdown file of taste rules, or a list of them, such as a repo's skills.
+  Each file loads whole, and a taste finding cites its file by an exact quote, which Assemble finds
+  in the file. An entry's references load only for a change that touches the paths they name, and a
   `repo:` path names a file in the reviewed repo.
 - **Model and effort per lens,** which override the depth's default.
 - **The call grouping,** under [0008](0008-stacking-lenses-into-calls.md).
@@ -31,6 +32,10 @@ The config holds:
 
 - A parent named in the file shows where every setting comes from.
 - Fixed merge rules make the result of a merge predictable.
+- Rules are taste that each layer adds to, so a repo that adds one project skill keeps the shared
+  ones. Every other array is a list a repo owns whole.
+- A skill's headings were written for agents, not as a contract with noslop, so a renamed heading
+  must not turn a section into a rule. A quote ties a finding to words the file holds.
 - Risk classes in config, with the lenses they force, make one mechanism serve both depth and
   routing.
 
@@ -53,3 +58,7 @@ The config holds:
 - 2026-10-18: a rules file names references that load only when the change touches their path globs,
   and a `repo:` path resolves against the reviewed repo, so one shared config can point every repo
   at its own synced skills.
+- 2026-10-18: each rules file loads whole, with no split by heading and no skip list, and a taste
+  finding cites its file by a quote that Assemble checks. `rules` appends across `extends`, so the
+  shared config saves each repo restating the shared skills. A `skip` list loads with a warning
+  until the configs drop it.

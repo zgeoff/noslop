@@ -86,7 +86,7 @@ test('it reads a parent from a github config repo through the remote reader', as
   ]);
 
   expect(loaded.rules).toStrictEqual([
-    { name: 'patterns.md: Context goes last', body: '1. Take the context last.', paths: null },
+    { name: 'patterns.md', body: '## Context goes last\n\n1. Take the context last.', paths: null },
   ]);
 });
 
@@ -99,11 +99,11 @@ test('it loads the rules file named relative to the repo file', async () => {
   const loaded = await loadConfig({ repoDir: ctx.dir });
 
   expect(loaded.rules).toStrictEqual([
-    { name: 'patterns.md: No positional booleans', body: '1. Pass an object.', paths: null },
+    { name: 'patterns.md', body: '## No positional booleans\n\n1. Pass an object.', paths: null },
   ]);
 });
 
-test('it loads each file of a rules list, keeping one heading in 2 files apart', async () => {
+test('it loads each file of a rules list as one rule under its path', async () => {
   const ctx = await setupTest();
 
   await Bun.write(
@@ -117,8 +117,8 @@ test('it loads each file of a rules list, keeping one heading in 2 files apart',
   const loaded = await loadConfig({ repoDir: ctx.dir });
 
   expect(loaded.rules).toStrictEqual([
-    { name: 'skills/code/SKILL.md: Naming', body: '1. Start with a verb.', paths: null },
-    { name: 'skills/tests/SKILL.md: Naming', body: '1. Start with "it".', paths: null },
+    { name: 'skills/code/SKILL.md', body: '## Naming\n\n1. Start with a verb.', paths: null },
+    { name: 'skills/tests/SKILL.md', body: '## Naming\n\n1. Start with "it".', paths: null },
   ]);
 });
 
@@ -135,11 +135,11 @@ test('it labels the rules of an absolute rules path with the file name alone', a
   const loaded = await loadConfig({ repoDir: join(ctx.dir, 'repo') });
 
   expect(loaded.rules).toStrictEqual([
-    { name: 'patterns.md: Naming', body: '1. Start with a verb.', paths: null },
+    { name: 'patterns.md', body: '## Naming\n\n1. Start with a verb.', paths: null },
   ]);
 });
 
-test('it leaves out the sections a rules file entry skips', async () => {
+test('it loads a rules file with a skip list whole', async () => {
   const ctx = await setupTest();
 
   await Bun.write(
@@ -155,8 +155,133 @@ test('it leaves out the sections a rules file entry skips', async () => {
   const loaded = await loadConfig({ repoDir: ctx.dir });
 
   expect(loaded.rules).toStrictEqual([
-    { name: 'SKILL.md: Naming', body: '1. Start with a verb.', paths: null },
+    {
+      name: 'SKILL.md',
+      body: '## Loading the skill\n\nLoad it first.\n\n## Naming\n\n1. Start with a verb.',
+      paths: null,
+    },
   ]);
+});
+
+test('it warns once for each rules file entry that lists skip', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(
+    join(ctx.dir, 'review.json'),
+    JSON.stringify({
+      rules: [
+        { path: 'a.md', skip: ['Loading the skill', 'References'] },
+        'b.md',
+        { path: 'c.md', skip: ['Loading the skill'] },
+      ],
+    }),
+  );
+
+  await Bun.write(join(ctx.dir, 'a.md'), '## Naming\n\n1. Start with a verb.');
+  await Bun.write(join(ctx.dir, 'b.md'), '## Naming\n\n1. Start with a verb.');
+  await Bun.write(join(ctx.dir, 'c.md'), '## Naming\n\n1. Start with a verb.');
+
+  const loaded = await loadConfig({ repoDir: ctx.dir });
+
+  expect(loaded.warnings).toStrictEqual([
+    'the rules file a.md lists skip, which noslop ignores, since it reads each rules file whole',
+    'the rules file c.md lists skip, which noslop ignores, since it reads each rules file whole',
+  ]);
+});
+
+test('it replaces an inherited repo: entry that the child writes with a leading ./', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(
+    join(ctx.dir, 'review.json'),
+    JSON.stringify({
+      extends: './shared/review.json',
+      rules: [{ path: 'repo:./skills/SKILL.md', references: { 'nix.md': ['**/*.nix'] } }],
+    }),
+  );
+
+  await Bun.write(
+    join(ctx.dir, 'shared', 'review.json'),
+    JSON.stringify({ rules: ['repo:skills/SKILL.md'] }),
+  );
+
+  await Bun.write(join(ctx.dir, 'skills/SKILL.md'), 'Use test.each.');
+  await Bun.write(join(ctx.dir, 'skills/nix.md'), 'Boot once.');
+
+  const loaded = await loadConfig({ repoDir: ctx.dir });
+
+  expect(loaded.config.rules).toStrictEqual([
+    {
+      label: 'skills/SKILL.md',
+      path: 'repo:skills/SKILL.md',
+      references: { 'nix.md': ['**/*.nix'] },
+    },
+  ]);
+});
+
+test('it appends the rules of a file to the rules it inherits', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(
+    join(ctx.dir, 'review.json'),
+    JSON.stringify({ extends: './shared/review.json', rules: ['skills/project/SKILL.md'] }),
+  );
+
+  await Bun.write(
+    join(ctx.dir, 'shared', 'review.json'),
+    JSON.stringify({ rules: ['code.md', 'tests.md'] }),
+  );
+
+  await Bun.write(join(ctx.dir, 'shared', 'code.md'), 'Start a name with a verb.');
+  await Bun.write(join(ctx.dir, 'shared', 'tests.md'), 'Title a test with it.');
+  await Bun.write(join(ctx.dir, 'skills/project/SKILL.md'), 'Keep the store in one file.');
+
+  const loaded = await loadConfig({ repoDir: ctx.dir });
+
+  expect(loaded.rules?.map((rule) => rule.name)).toStrictEqual([
+    'code.md',
+    'tests.md',
+    'skills/project/SKILL.md',
+  ]);
+});
+
+test('it replaces an inherited rules entry for the same path with the child entry', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(
+    join(ctx.dir, 'review.json'),
+    JSON.stringify({
+      extends: './shared/review.json',
+      rules: [{ path: './shared/SKILL.md', references: { 'nix.md': ['**/*.nix'] } }],
+    }),
+  );
+
+  await Bun.write(join(ctx.dir, 'shared', 'review.json'), JSON.stringify({ rules: ['SKILL.md'] }));
+  await Bun.write(join(ctx.dir, 'shared', 'SKILL.md'), 'Use test.each.');
+  await Bun.write(join(ctx.dir, 'shared', 'nix.md'), 'Boot once.');
+
+  const loaded = await loadConfig({ repoDir: ctx.dir });
+
+  expect(loaded.rules?.map((rule) => [rule.body, rule.paths])).toStrictEqual([
+    ['Use test.each.', null],
+    ['Boot once.', ['**/*.nix']],
+  ]);
+});
+
+test('it drops the inherited rules when a file sets rules to null', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(
+    join(ctx.dir, 'review.json'),
+    JSON.stringify({ extends: './shared/review.json', rules: null }),
+  );
+
+  await Bun.write(join(ctx.dir, 'shared', 'review.json'), JSON.stringify({ rules: ['code.md'] }));
+  await Bun.write(join(ctx.dir, 'shared', 'code.md'), 'Start a name with a verb.');
+
+  const loaded = await loadConfig({ repoDir: ctx.dir });
+
+  expect(loaded.rules).toBeNull();
 });
 
 test('it loads each reference of a rules file with the globs that gate it', async () => {
@@ -181,10 +306,10 @@ test('it loads each reference of a rules file with the globs that gate it', asyn
   const loaded = await loadConfig({ repoDir: ctx.dir });
 
   expect(loaded.rules).toStrictEqual([
-    { name: 'skills/testing/SKILL.md: Loops', body: '1. Use test.each.', paths: null },
+    { name: 'skills/testing/SKILL.md', body: '## Loops\n\n1. Use test.each.', paths: null },
     {
-      name: 'skills/testing/references/nix.md: VM tests',
-      body: '1. Boot once.',
+      name: 'skills/testing/references/nix.md',
+      body: '## VM tests\n\n1. Boot once.',
       paths: ['**/*.nix'],
     },
   ]);
@@ -210,7 +335,7 @@ test('it reads a repo: rules path from the reviewed repo when a remote parent na
   });
 
   expect(loaded.rules).toStrictEqual([
-    { name: 'skills/code/SKILL.md: Naming', body: '1. Start with a verb.', paths: null },
+    { name: 'skills/code/SKILL.md', body: '## Naming\n\n1. Start with a verb.', paths: null },
   ]);
 });
 
@@ -249,7 +374,7 @@ test('it loads the rules file when the repo directory is a relative path', async
   const loaded = await loadConfig({ repoDir: relative(process.cwd(), ctx.dir) });
 
   expect(loaded.rules).toStrictEqual([
-    { name: 'patterns.md: No positional booleans', body: '1. Pass an object.', paths: null },
+    { name: 'patterns.md', body: '## No positional booleans\n\n1. Pass an object.', paths: null },
   ]);
 });
 
@@ -318,7 +443,7 @@ test('it loads no rules from a repo: file or a reference that the repo does not 
   const loaded = await loadConfig({ repoDir: ctx.dir });
 
   expect(loaded.rules).toStrictEqual([
-    { name: 'skills/code/SKILL.md: Naming', body: '1. Start with a verb.', paths: null },
+    { name: 'skills/code/SKILL.md', body: '## Naming\n\n1. Start with a verb.', paths: null },
   ]);
 
   expect(loaded.missingRules).toStrictEqual([

@@ -41,6 +41,10 @@ export async function runReviewCommand(values: ReviewValues, ctx: CLIContext): P
     });
   }
 
+  for (const warning of loaded.warnings) {
+    ctx.logger.warn('{warning}', { warning });
+  }
+
   const change =
     values.pr === undefined
       ? await resolveLocalChange(ctx, repoDir, values)

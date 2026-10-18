@@ -29,7 +29,10 @@ the file nearest the repo wins. Three rules govern each merge:
 
 1. Objects merge by key, so a file that sets one risk class or one lens override keeps the inherited
    ones.
-2. Arrays replace, so a file that lists paths owns the whole list.
+2. Arrays replace, so a file that lists paths owns the whole list. One exception: `rules` entries
+   append to the inherited ones, because rules are taste that each layer adds to, while every other
+   array is a list a repo owns. An entry whose resolved path matches an inherited entry replaces it,
+   so a repo can change that file's references.
 3. `null` removes an inherited key. A key the defaults leave null, such as the rules file, reads as
    none once a file removes it. A key the schema requires fails the load once a file removes it.
 
@@ -44,13 +47,13 @@ The merged config is validated once, after the merge, because a single file is o
 config. A key the schema does not know fails the load, with the dotted path of the key, so a typo
 never passes as an empty setting.
 
-The `rules` value is one path, or a list whose entries are paths or objects with a `path`, a
-`references` map and a `skip` list of headings. Each path resolves against the file that names it,
-as `extends` does, so a parent in a shared config repo can name a rules file that sits beside it. A
-`repo:` path resolves against the reviewed repo instead, so that parent can name a file each repo
-holds. The module reads each file and its references, parses them into named rules, and drops the
-sections whose headings the entry skips. [Your own rules](./your-own-rules.md) covers how a review
-picks the rules that apply to its change.
+The `rules` value is one path, or a list whose entries are paths or objects with a `path` and a
+`references` map. Each path resolves against the file that names it, as `extends` does, so a parent
+in a shared config repo can name a rules file that sits beside it. A `repo:` path resolves against
+the reviewed repo instead, so that parent can name a file each repo holds. The module reads each
+file and each reference as one rule, whole. An entry may still hold a `skip` list: the load ignores
+it and warns, in `noslop config` and in the review's log. [Your own rules](./your-own-rules.md)
+covers how a review picks the rules that apply to its change.
 
 ## What a review records
 

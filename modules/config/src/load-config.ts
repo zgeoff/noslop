@@ -8,7 +8,6 @@ import type { ConfigLayer } from './merge-config-layers';
 import { mergeConfigLayers } from './merge-config-layers';
 import type { ConfigLocation } from './parse-config-location';
 import { parseConfigLocation } from './parse-config-location';
-import { parseRulesFile } from './parse-rules-file';
 
 export type GithubLocation = Extract<ConfigLocation, { kind: 'github' }>;
 
@@ -32,6 +31,9 @@ export interface LoadedConfig {
 
   // the labels of the `repo:` files and references the repo lacks, which hold no rule
   missingRules: string[];
+
+  // what the config holds that noslop ignores, such as a rules file's skip list
+  warnings: string[];
   hash: string;
 }
 
@@ -45,11 +47,21 @@ export async function loadConfig(options: LoadConfigOptions): Promise<LoadedConf
 
   const layers: ConfigLayer[] = [
     { source: BUILT_IN_SOURCE, value: { ...BUILT_IN_DEFAULTS } },
-    ...files.map((file) => ({ source: formatConfigLocation(file.location), value: file.value })),
+    ...files.map((file) => ({
+      source: formatConfigLocation(file.location),
+      value: Object.fromEntries(Object.entries(file.value).filter(([key]) => key !== 'rules')),
+    })),
   ];
 
   const merged = mergeConfigLayers(layers);
   const value: Record<string, unknown> = { ...merged.value };
+  const sources = { ...merged.sources };
+  const rulesLayer = mergeRulesLayers(files);
+
+  if (rulesLayer !== null) {
+    value['rules'] = rulesLayer.rules;
+    sources['rules'] = rulesLayer.source;
+  }
 
   // a nullable key that a layer removed means none, as in the defaults
   for (const [key, fallback] of Object.entries(BUILT_IN_DEFAULTS)) {
@@ -67,22 +79,78 @@ export async function loadConfig(options: LoadConfigOptions): Promise<LoadedConf
   }
 
   const config = parsed.data;
-  const sources = config.rules === null ? null : await readRulesSources(config.rules, options);
+  const rules = config.rules === null ? null : await readRulesSources(config.rules, options);
   const hash = createHash('sha256').update(JSON.stringify(config));
 
-  for (const source of sources ?? []) {
+  for (const source of rules ?? []) {
     // a missing file and an empty one hash apart, so a file that appears changes the hash
     hash.update(`\n${source.label}\n${source.text === null ? 'missing' : `text\n${source.text}`}`);
   }
 
   return {
     config,
-    sources: merged.sources,
+    sources,
     chain: files.map((file) => formatConfigLocation(file.location)),
-    rules: sources === null ? null : sources.flatMap((source) => buildRules(source)),
-    missingRules: (sources ?? []).flatMap((source) => (source.text === null ? [source.label] : [])),
+    rules: rules === null ? null : rules.flatMap((source) => buildRules(source)),
+    missingRules: (rules ?? []).flatMap((source) => (source.text === null ? [source.label] : [])),
+    warnings: (config.rules ?? []).flatMap((file) =>
+      file.skip === undefined
+        ? []
+        : [
+            `the rules file ${file.label ?? buildRulesLabel(file.path)} lists skip, which noslop ignores, since it reads each rules file whole`,
+          ],
+    ),
     hash: hash.digest('hex').slice(0, 16),
   };
+}
+
+// rules add up down the extends chain, since each is taste a repo adds to: a file's list appends to
+// the one it inherits, an entry for an inherited path replaces that entry, and null drops the list;
+// null when no file names rules
+function mergeRulesLayers(files: readonly ChainFile[]): { rules: unknown; source: string } | null {
+  let merged: { rules: unknown[] | null; source: string } | null = null;
+
+  for (const file of files) {
+    const next = file.value['rules'];
+
+    if (next === undefined) {
+      continue;
+    }
+
+    const source = formatConfigLocation(file.location);
+
+    if (!Array.isArray(next)) {
+      merged = { rules: null, source };
+      continue;
+    }
+
+    const rules: unknown[] = [...(merged?.rules ?? [])];
+
+    for (const entry of next) {
+      const index = rules.findIndex((inherited: unknown) => isSamePath(inherited, entry));
+
+      if (index === -1) {
+        rules.push(entry);
+      } else {
+        rules[index] = entry;
+      }
+    }
+
+    merged = { rules, source };
+  }
+
+  return merged;
+}
+
+function isSamePath(a: unknown, b: unknown): boolean {
+  const path: unknown = typeof a === 'object' && a !== null ? Reflect.get(a, 'path') : undefined;
+
+  return (
+    typeof path === 'string' &&
+    typeof b === 'object' &&
+    b !== null &&
+    Reflect.get(b, 'path') === path
+  );
 }
 
 interface ChainFile {
@@ -186,7 +254,7 @@ function resolveRulesFile(entry: unknown, from: ConfigLocation): unknown {
     label: buildRulesLabel(path),
     ...entry,
     path: path.startsWith(REPO_PREFIX)
-      ? path
+      ? `${REPO_PREFIX}${normalize(path.slice(REPO_PREFIX.length))}`
       : formatConfigLocation(parseConfigLocation(path, from, CONFIG_FILE)),
   };
 }
@@ -210,7 +278,6 @@ interface RulesSource {
 
   // null for a `repo:` file or a reference that the repo lacks
   text: string | null;
-  skip: readonly string[];
   paths: readonly string[] | null;
 }
 
@@ -224,10 +291,9 @@ function readRulesSources(
   const sources = files.flatMap((file) => {
     const label = file.label ?? buildRulesLabel(file.path);
     const location = resolveRulesLocation(file.path, options);
-    const skip = file.skip ?? [];
 
     return [
-      { location, label, skip, paths: null, required: !file.path.startsWith(REPO_PREFIX) },
+      { location, label, paths: null, required: !file.path.startsWith(REPO_PREFIX) },
       ...Object.entries(file.references ?? {}).map(([reference, paths]) => ({
         location: parseConfigLocation(
           requireInnerPath(reference, 'reference'),
@@ -235,7 +301,6 @@ function readRulesSources(
           CONFIG_FILE,
         ),
         label: normalize(join(dirname(label), reference)),
-        skip,
         paths,
         required: false,
       })),
@@ -250,7 +315,7 @@ function readRulesSources(
         throw new Error(`the rules file ${source.label} does not exist`);
       }
 
-      return { label: source.label, text, skip: source.skip, paths: source.paths };
+      return { label: source.label, text, paths: source.paths };
     }),
   );
 }
@@ -282,15 +347,12 @@ function requireInnerPath(path: string, kind: string): string {
   return inner;
 }
 
-// a skipped heading names a section that holds no rule, such as how to load a skill
+// each file is one rule under its label, whole: a skill's headings were written for agents, so they
+// mark no rule, and a finding cites its rule by a quote from the file instead
 function buildRules(source: RulesSource): Rule[] {
-  return parseRulesFile(source.text ?? '')
-    .filter((section) => !source.skip.includes(section.name))
-    .map((section) => ({
-      name: `${source.label}: ${section.name}`,
-      body: section.body,
-      paths: source.paths,
-    }));
+  const text = source.text?.trim() ?? '';
+
+  return text === '' ? [] : [{ name: source.label, body: text, paths: source.paths }];
 }
 
 async function readLocation(

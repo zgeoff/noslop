@@ -84,8 +84,8 @@ export type ReporterOptions = z.infer<typeof reporterOptionsSchema>;
 // the path globs that gate one reference: its rules load only for a change that touches a match
 const referenceGlobsSchema = z.array(z.string().min(1)).min(1);
 
-// one rules file and the references beside it; the skipped headings hold no rule, and the label
-// prefixes each rule's name, the path as written unless the config names one
+// one rules file and the references beside it, each a rule named by its label, the path as written
+// unless the config names one; the load warns on a skip list and ignores it
 export const rulesFileSchema = z.strictObject({
   path: z.string().min(1),
   label: z.string().min(1).optional(),

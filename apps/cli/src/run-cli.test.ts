@@ -90,6 +90,7 @@ test('it reviews the change between 2 commits and prints the result as JSON', as
               severity: 'P2',
               criterion: 'wrong-behaviour-edge-path',
               rule: null,
+              ruleQuote: null,
               verdict: 'CONFIRMED',
               unverifiedFact: null,
               missingChange: false,
@@ -201,6 +202,7 @@ test('it records the review in the store and answers a store query', async () =>
               severity: 'P2',
               criterion: 'wrong-behaviour-edge-path',
               rule: null,
+              ruleQuote: null,
               verdict: 'CONFIRMED',
               unverifiedFact: null,
               missingChange: false,
@@ -267,6 +269,28 @@ test('it names each repo: rules file that the repo does not hold', async () => {
   );
 });
 
+test('it warns in the printed config on a rules file that lists skip', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'review.json': '{ "rules": [{ "path": "RULES.md", "skip": ["Loading the skill"] }] }\n',
+        'RULES.md': '## Naming\n\n1. Start a function name with a verb.\n',
+      },
+    },
+  ]);
+
+  const code = await runCLI(['config'], ctx.buildContext(repo.path, buildStubAdapter({}).adapter));
+
+  expect(code).toBe(0);
+
+  expect(ctx.stdout.join('')).toInclude(
+    'warning: the rules file RULES.md lists skip, which noslop ignores, since it reads each rules file whole',
+  );
+});
+
 test('it exits 1 and names the problem when a command fails', async () => {
   const ctx = await setupTest();
 
@@ -328,6 +352,7 @@ test('it reviews a pull request from GitHub and posts its findings and the check
               severity: 'P2',
               criterion: 'wrong-behaviour-edge-path',
               rule: null,
+              ruleQuote: null,
               verdict: 'CONFIRMED',
               unverifiedFact: null,
               missingChange: false,
@@ -781,7 +806,8 @@ test("it reads the repo: rules of an eval case from the case's repo and records 
               secondLocation: null,
               severity: 'P2',
               criterion: 'taste-rule',
-              rule: 'RULES.md: Naming',
+              rule: 'RULES.md',
+              ruleQuote: 'Start a function name with a verb.',
               verdict: 'CONFIRMED',
               unverifiedFact: null,
               missingChange: false,
@@ -801,7 +827,7 @@ test("it reads the repo: rules of an eval case from the case's repo and records 
 
   const runs: unknown = await Bun.file(join(ctx.dir, 'out', 'runs.json')).json();
 
-  expect(stub.requests[0]?.prompt).toInclude('### RULES.md: Naming');
+  expect(stub.requests[0]?.prompt).toInclude('### RULES.md\n\n## Naming');
 
   expect(runs).toMatchObject([
     {

@@ -71,9 +71,8 @@ export interface DispositionSource {
   readDispositions: (review: ReviewRef, ctx: ReporterContext) => Promise<Disposition[]>;
 }
 
-// one taste rule: its name holds the label of its file and its heading, so 2 files can each hold a
-// rule under one heading; a rule from a reference holds the globs of the changed paths it applies to,
-// and every other rule applies to any change
+// one rules file, whole, named by its label; a rule from a reference holds the globs of the changed
+// paths it applies to, and every other rule applies to any change
 export interface Rule {
   name: string;
   body: string;

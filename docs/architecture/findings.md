@@ -35,8 +35,10 @@ drops each one that breaks a finding rule. The CLI logs every dropped finding wi
    context lines included, are the diff a finding may anchor to.
 2. A finding whose anchor holds no line the change touched is dropped, unless it carries a second
    location for the affected code, or it marks a missing change anchored to the code that needs it.
-3. A taste finding is dropped when it names no rule, or a rule the rules file does not hold, so a
-   model cannot invent a taste rule.
+3. A taste finding is dropped when it names no rules file, or quotes words that file does not hold,
+   so a model cannot invent a taste rule. The quote matches with whitespace collapsed and case kept,
+   so a quote across a line wrap still matches. The finding keeps the file and the nearest heading
+   above the quote as its rule, which labels each rule's yield.
 4. A PLAUSIBLE finding is dropped when it names no fact that the lens could not read, because that
    fact is what a reader must check.
 5. A finding that fails the finding schema is dropped.

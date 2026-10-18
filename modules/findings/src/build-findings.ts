@@ -4,11 +4,13 @@ import type {
   FindingLens,
   ModelFinding,
   ReviewConfig,
+  Rule,
   Thresholds,
 } from '@noslop/contract';
 import { CRITERION_SEVERITY, TITLE_MAX_LENGTH, findingSchema } from '@noslop/contract';
 import { buildChangedLines, isGlobMatch } from '@noslop/static-stage';
 import { buildFindingID } from './build-finding-id';
+import { findRuleCitation } from './find-rule-citation';
 import { normalizeTitle } from './normalize-title';
 import { splitTitleWords } from './split-title-words';
 
@@ -21,7 +23,7 @@ export interface RawFinding {
 export interface AssembleInput {
   raw: readonly RawFinding[];
   files: readonly ChangedFile[];
-  ruleNames: readonly string[];
+  rules: readonly Pick<Rule, 'name' | 'body'>[];
   riskClasses: readonly string[];
   config: ReviewConfig;
 }
@@ -45,13 +47,12 @@ const SEVERITY_RANK = { P1: 0, P2: 1, P3: 2 } as const;
 // defect at one anchor merge into the one with the higher severity
 export function buildFindings(input: AssembleInput): AssembledFindings {
   const files = new Map(input.files.map((file) => [file.path, file]));
-  const rules = new Set(input.ruleNames);
 
   const dropped: AssembledFindings['dropped'] = [];
   const kept: Finding[] = [];
 
   for (const raw of input.raw) {
-    const result = buildFinding(raw, files, rules, input);
+    const result = buildFinding(raw, files, input);
 
     if (typeof result === 'string') {
       dropped.push({ raw, reason: result });
@@ -66,7 +67,6 @@ export function buildFindings(input: AssembleInput): AssembledFindings {
 function buildFinding(
   raw: RawFinding,
   files: ReadonlyMap<string, ChangedFile>,
-  rules: ReadonlySet<string>,
   input: AssembleInput,
 ): Finding | DropReason {
   const model = raw.finding;
@@ -84,7 +84,12 @@ function buildFinding(
     return 'outside-diff-without-location';
   }
 
-  if (model.criterion === 'taste-rule' && (model.rule === null || !rules.has(model.rule))) {
+  const cited =
+    model.criterion === 'taste-rule'
+      ? findRuleCitation(input.rules, model.rule, model.ruleQuote)
+      : model.rule;
+
+  if (model.criterion === 'taste-rule' && cited === null) {
     return 'unknown-rule';
   }
 
@@ -103,7 +108,7 @@ function buildFinding(
 
   // an optional key appears only with a value, so 2 equal findings compare equal
   const parsed = findingSchema.safeParse({
-    id: buildFindingID(raw.lens, anchor.path, model.rule ?? model.criterion, title),
+    id: buildFindingID(raw.lens, anchor.path, cited ?? model.criterion, title),
     lens: raw.lens,
     callID: raw.callID,
     title,
@@ -112,7 +117,7 @@ function buildFinding(
     ...(secondLocation === undefined ? {} : { secondLocation }),
     severity: CRITERION_SEVERITY[model.criterion],
     criterion: model.criterion,
-    ...(model.criterion === 'taste-rule' && model.rule !== null ? { rule: model.rule } : {}),
+    ...(model.criterion === 'taste-rule' && cited !== null ? { rule: cited } : {}),
     verdict: model.verdict,
     ...(model.verdict === 'PLAUSIBLE' && model.unverifiedFact !== null
       ? { unverifiedFact: model.unverifiedFact }

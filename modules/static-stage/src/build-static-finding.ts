@@ -22,6 +22,7 @@ export function buildStaticFinding(fields: StaticFindingFields): ModelFinding {
     severity: CRITERION_SEVERITY[fields.criterion],
     criterion: fields.criterion,
     rule: null,
+    ruleQuote: null,
     verdict: 'CONFIRMED',
     unverifiedFact: null,
     missingChange: fields.missingChange ?? false,

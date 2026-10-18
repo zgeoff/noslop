@@ -22,6 +22,9 @@ export const modelFindingSchema = z.strictObject({
   severity: severitySchema,
   criterion: criterionSchema,
   rule: z.string().nullable(),
+
+  // the exact words of the rules file a taste finding rests on, which Assemble finds in that file
+  ruleQuote: z.string().nullable(),
   verdict: verdictSchema,
   unverifiedFact: z.string().nullable(),
   missingChange: z.boolean(),

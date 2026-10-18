@@ -245,7 +245,7 @@ function buildAssembled(ctx: PassContext, batches: readonly CallBatch[]): Assemb
   return buildFindings({
     raw: [...ctx.staticRaw, ...batches.flatMap((batch) => batch.raw)],
     files: ctx.change.files,
-    ruleNames: (ctx.rules ?? []).map((rule) => rule.name),
+    rules: ctx.rules ?? [],
     riskClasses: ctx.stage.signals.riskClasses,
     config: ctx.options.config,
   });
