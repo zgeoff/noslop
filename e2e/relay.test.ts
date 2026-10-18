@@ -118,10 +118,17 @@ test('it carries a review from a developer machine through the relay and passes 
     lines: [2],
   });
 
+  await githubCollections.branches.create({
+    owner: 'example',
+    repo: 'app',
+    name: 'main',
+    sha: repo.commits[0] ?? '',
+  });
+
   await githubCollections.files.create({
     owner: 'example',
     repo: 'app',
-    ref: 'main',
+    ref: repo.commits[0] ?? '',
     path: 'review.json',
     content: config,
   });
