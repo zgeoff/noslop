@@ -1,5 +1,6 @@
 import type { Endpoints } from '@octokit/types';
 import { HttpResponse, http } from 'msw';
+import { buildCommitFileData } from './build-commit-file-data';
 import { collectRangeFiles } from './collect-range-files';
 import { githubCollections } from './github-collections';
 
@@ -111,23 +112,15 @@ export const githubHandlers = [
       // GitHub pages the files of a commit, so a large commit lists them over several requests
       return HttpResponse.json({
         sha: commit.sha,
-        files: toPage(info.request, commit.files).map((filename) => {
-          const previous = commit.renames[filename];
-          const patch = commit.patches[filename];
-
-          const file =
-            previous === undefined
-              ? { filename }
-              : { filename, status: 'renamed', previous_filename: previous };
-
-          return patch === undefined ? file : Object.assign(file, { patch });
-        }),
+        files: toPage(info.request, commit.files).map((filename) =>
+          buildCommitFileData(commit, filename),
+        ),
       });
     },
   ),
 
   // the pull request commits after the base up to the head, oldest first, as GitHub's compare lists
-  // the commits a merge of the head would bring onto the base
+  // the commits a merge brings onto the base; the commits sit in one line, so a later head is ahead
   http.get<RepoParams & { basehead: string }>(
     `${GITHUB_API_URL}/repos/:owner/:repo/compare/:basehead`,
     (info) => {
@@ -142,8 +135,10 @@ export const githubHandlers = [
       const found = commits.indexOf(head);
       const end = found === -1 ? commits.length : found + 1;
       const range = records.slice(start, end);
+      const order = range.length > 0 ? 'ahead' : 'behind';
 
       return HttpResponse.json({
+        status: base === head ? 'identical' : order,
         commits: range.map((commit) => ({ sha: commit.sha })),
         files: collectRangeFiles(range),
       });

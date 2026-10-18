@@ -1,7 +1,6 @@
 import type { PullRequestRef } from '@noslop/contract';
 import type { GitHubClient } from './create-github-connection';
 import { readAllPages } from './read-all-pages';
-import { readRangeCommits } from './read-range-commits';
 
 export interface RewrittenFixInput {
   // the sha a `fixed` disposition names, which no commit on the branch starts with
@@ -53,9 +52,9 @@ export function makeRewrittenFixReader(
     // a full review after a rebase sees every rewritten commit as new, so the named commit itself must
     // come after the head that posted the finding
     if (input.posted !== undefined) {
-      const after = await readRangeCommits(client, pr, input.posted, named.sha);
+      const isAfter = await isDescendant(client, pr, input.posted, named.sha);
 
-      if (!after.includes(named.sha)) {
+      if (!isAfter) {
         return {
           commit: null,
           failure: `the commit ${input.sha} does not come after the review that posted the finding`,
@@ -149,6 +148,31 @@ function buildFingerprint(files: readonly PatchedFile[]): string | null {
     )
     .toSorted()
     .join('\n');
+}
+
+// whether the commit descends from the ancestor: GitHub's compare lists a commit of a diverged fork
+// too, so only its `ahead` status shows the ancestry; an ancestor GitHub no longer holds shows none
+async function isDescendant(
+  client: GitHubClient,
+  pr: PullRequestRef,
+  ancestor: string,
+  commit: string,
+): Promise<boolean> {
+  try {
+    const response = await client.request('GET /repos/{owner}/{repo}/compare/{basehead}', {
+      owner: pr.owner,
+      repo: pr.repo,
+      basehead: `${ancestor}...${commit}`,
+    });
+
+    return response.data.status === 'ahead';
+  } catch (error) {
+    if (isUnknownCommit(error)) {
+      return false;
+    }
+
+    throw error;
+  }
 }
 
 // GitHub answers 404 for a sha it holds no commit of, and 422 for a sha it cannot resolve
