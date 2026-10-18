@@ -160,9 +160,10 @@ function isWorkflowPinOnly(entry: AnalyzedFile): boolean {
 
 // a `uses:` line that calls a reusable workflow in another repo, as the line with its ref dropped
 function findWorkflowCall(text: string): string | null {
-  // a quoted call ends at its closing quote, so a # inside the quotes belongs to the ref
+  // a quoted call ends at its closing quote, and YAML starts a comment only at a # after whitespace,
+  // so a # inside the quotes or inside a bare ref belongs to the ref
   const match =
-    /^(?<head>\s*(?:-\s+)?uses:\s*)(?:"(?<double>[^\s"'@/]+\/[^\s"'@/]+\/\.github\/workflows\/[^\s"'@]+\.ya?ml)@[^"]+"|'(?<single>[^\s"'@/]+\/[^\s"'@/]+\/\.github\/workflows\/[^\s"'@]+\.ya?ml)@[^']+'|(?<bare>[^\s"'@/]+\/[^\s"'@/]+\/\.github\/workflows\/[^\s"'@]+\.ya?ml)@[^\s"'#]+)(?<tail>\s*(?:#.*)?)$/u.exec(
+    /^(?<head>\s*(?:-\s+)?uses:\s*)(?:"(?<double>[^\s"'@/]+\/[^\s"'@/]+\/\.github\/workflows\/[^\s"'@]+\.ya?ml)@[^"]+"|'(?<single>[^\s"'@/]+\/[^\s"'@/]+\/\.github\/workflows\/[^\s"'@]+\.ya?ml)@[^']+'|(?<bare>[^\s"'@/]+\/[^\s"'@/]+\/\.github\/workflows\/[^\s"'@]+\.ya?ml)@[^\s"']+)(?<tail>(?:\s+#.*)?\s*)$/u.exec(
       text,
     );
 
