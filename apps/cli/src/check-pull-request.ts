@@ -2,7 +2,6 @@ import type { PullRequestRef } from '@noslop/contract';
 import type { CheckOutcome, GitHubConnection } from '@noslop/github';
 import { readPullRequestState, runGitHubCheck } from '@noslop/github';
 
-// the check's outcome, and whether a review covers the pull request's current head
 export interface PullRequestCheck extends CheckOutcome {
   reviewed: boolean;
 }

@@ -1841,6 +1841,35 @@ test('it fails the check when no noslop review covers the head of the pull reque
   ]);
 });
 
+test('it fails the check when the pull request holds no noslop summary at all', async () => {
+  const ctx = await setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    headSha: 'b'.repeat(40),
+  });
+
+  const code = await runCLI(
+    ['check', '--pr', '9', '--repo', 'example/app'],
+    ctx.buildContext(ctx.dir, buildStubAdapter({}).adapter),
+  );
+
+  expect({ code, stderr: ctx.stderr.join('') }).toStrictEqual({
+    code: 1,
+    stderr: 'noslop: no noslop review for this commit\n',
+  });
+
+  expect(githubCollections.checkRuns.all()).toMatchObject([
+    {
+      headSha: 'b'.repeat(40),
+      conclusion: 'failure',
+      title: 'No noslop review for this commit, bbbbbbbbbbbb.',
+    },
+  ]);
+});
+
 test('it exits 0 and sets a failing check when a review covers the head but a call failed', async () => {
   const ctx = await setupTest();
 
