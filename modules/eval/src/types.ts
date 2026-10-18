@@ -11,6 +11,17 @@ export interface CaseReview {
 
   // the depth noslop picked; a reference reviewer has none
   depth: Depth | null;
+
+  // the findings noslop's Assemble dropped, with the reason; a reference reviewer drops none
+  dropped?: DroppedFinding[] | undefined;
+}
+
+export interface DroppedFinding {
+  lens: string;
+  title: string;
+  reason: string;
+  rule: string | null;
+  ruleQuote: string | null;
 }
 
 // a reviewer under test: noslop itself, or a reference reviewer whose runs set the baseline; it reads

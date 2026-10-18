@@ -25,6 +25,14 @@ const tokensSchema = z.strictObject({
   output: z.int().nonnegative(),
 });
 
+const droppedSchema = z.strictObject({
+  lens: z.string(),
+  title: z.string(),
+  reason: z.string(),
+  rule: z.string().nullable(),
+  ruleQuote: z.string().nullable(),
+});
+
 const caseRunSchema = z.strictObject({
   caseID: z.string().min(1),
   review: z.strictObject({
@@ -34,6 +42,7 @@ const caseRunSchema = z.strictObject({
     durationMs: z.number().nonnegative(),
     calls: z.int().nonnegative(),
     depth: depthSchema.nullable(),
+    dropped: z.array(droppedSchema).optional(),
   }),
 });
 

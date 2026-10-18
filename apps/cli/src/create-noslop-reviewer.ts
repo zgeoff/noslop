@@ -78,6 +78,7 @@ export function createNoslopReviewer(options: NoslopReviewerOptions): CaseReview
           durationMs: Math.round(performance.now() - started),
           calls: result.calls.length,
           depth: result.depth,
+          dropped: run.dropped,
         };
       } finally {
         await rm(tempDir, { recursive: true, force: true });

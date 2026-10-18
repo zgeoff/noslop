@@ -832,7 +832,105 @@ test("it reads the repo: rules of an eval case from the case's repo and records 
   expect(runs).toMatchObject([
     {
       caseID: 'case-a',
-      review: { findings: [{ criterion: 'taste-rule', rule: 'RULES.md: Naming' }] },
+      review: {
+        findings: [{ criterion: 'taste-rule', rule: 'RULES.md: Naming' }],
+        dropped: [],
+      },
+    },
+  ]);
+});
+
+test('it records in the eval run a taste finding whose quote the rules file does not hold', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'RULES.md': '## Naming\n\n1. Start a function name with a verb.\n',
+        'src/total.ts': 'export const zero = 0;\n',
+      },
+    },
+    {
+      message: 'head',
+      files: {
+        'src/total.ts': [
+          'export const zero = 0;',
+          '',
+          'export function total(items: number[]): number {',
+          '  return items.reduce((sum, item) => sum + item, 0);',
+          '}',
+          '',
+        ].join('\n'),
+      },
+    },
+  ]);
+
+  await Bun.write(join(ctx.dir, 'review.json'), JSON.stringify({ rules: ['repo:RULES.md'] }));
+
+  await Bun.write(
+    join(ctx.dir, 'corpus', 'case-a', 'case.json'),
+    JSON.stringify({
+      id: 'case-a',
+      repo: repo.path,
+      base: repo.commits[0],
+      head: repo.commits[1],
+      title: 'Add the total',
+      body: '',
+      findings: [],
+      escapes: [],
+    }),
+  );
+
+  const stub = buildStubAdapter({
+    L: [
+      {
+        findings: {
+          correctness: [],
+          'naming-shape-and-comments': [
+            {
+              title: 'Start "total" with a verb',
+              body: 'The rule asks each function name to start with a verb.',
+              anchor: { path: 'src/total.ts', startLine: 3, endLine: 3 },
+              secondLocation: null,
+              severity: 'P2',
+              criterion: 'taste-rule',
+              rule: 'RULES.md',
+              ruleQuote: 'Every function name starts with a verb.',
+              verdict: 'CONFIRMED',
+              unverifiedFact: null,
+              missingChange: false,
+              fix: 'Rename it to countTotal.',
+            },
+          ],
+          tests: [],
+        },
+      },
+    ],
+  });
+
+  await runCLI(
+    ['eval', '--corpus', join(ctx.dir, 'corpus'), '--out', join(ctx.dir, 'out')],
+    ctx.buildContext(ctx.dir, stub.adapter),
+  );
+
+  const runs: unknown = await Bun.file(join(ctx.dir, 'out', 'runs.json')).json();
+
+  expect(runs).toMatchObject([
+    {
+      caseID: 'case-a',
+      review: {
+        findings: [],
+        dropped: [
+          {
+            lens: 'naming-shape-and-comments',
+            title: 'Start "total" with a verb',
+            reason: 'unknown-rule',
+            rule: 'RULES.md',
+            ruleQuote: 'Every function name starts with a verb.',
+          },
+        ],
+      },
     },
   ]);
 });

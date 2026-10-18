@@ -55,7 +55,16 @@ export interface RunReviewOptions {
 
 export interface ReviewRun {
   result: ReviewResult;
-  dropped: { lens: string; title: string; reason: DropReason }[];
+
+  // each finding Assemble dropped, with the rule and the quote a taste finding cited, so an eval can
+  // tell a real finding that the quote check dropped from an invented one
+  dropped: {
+    lens: string;
+    title: string;
+    reason: DropReason;
+    rule: string | null;
+    ruleQuote: string | null;
+  }[];
 }
 
 // runs the pipeline on one change: the static stage, routing, the calls, and Assemble; the calls
@@ -121,6 +130,8 @@ export async function runReview(options: RunReviewOptions): Promise<ReviewRun> {
       lens: item.raw.lens,
       title: item.raw.finding.title,
       reason: item.reason,
+      rule: item.raw.finding.rule,
+      ruleQuote: item.raw.finding.ruleQuote,
     })),
   };
 }

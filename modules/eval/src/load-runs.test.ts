@@ -77,6 +77,42 @@ test('it reads the criterion and the rule of a taste finding', async () => {
   expect(runs[0]?.review.findings).toStrictEqual([finding]);
 });
 
+test('it reads the findings a review dropped, with the rule and the quote', async () => {
+  const ctx = await setupTest();
+
+  const dropped = [
+    {
+      lens: 'naming-shape-and-comments',
+      title: 'Start the name with a verb',
+      reason: 'unknown-rule',
+      rule: 'SKILL.md',
+      ruleQuote: 'Start every name with a verb.',
+    },
+  ];
+
+  await Bun.write(
+    join(ctx.dir, 'run.json'),
+    JSON.stringify([
+      {
+        caseID: 'case-1',
+        review: {
+          findings: [],
+          failed: false,
+          tokens: { input: 0, cachedInput: 0, cacheWrite: 0, output: 0 },
+          durationMs: 1200,
+          calls: 1,
+          depth: 'standard',
+          dropped,
+        },
+      },
+    ]),
+  );
+
+  const runs = await loadRuns(join(ctx.dir, 'run.json'));
+
+  expect(runs[0]?.review.dropped).toStrictEqual(dropped);
+});
+
 test('it reads no cache counts from a run recorded before them', async () => {
   const ctx = await setupTest();
 
