@@ -12,7 +12,8 @@ export interface PostOptions extends AppOptions {
 }
 
 // `@noslop/cli/post`: sends a review result to its pull request as the App, as `noslop post` does; it
-// verifies the result first, as `@noslop/cli/verify` does, and throws on one that does not verify
+// verifies the result first unless `verify` is false, and throws on one that does not verify before it
+// posts anything
 export function sendResult(input: unknown, options: PostOptions): Promise<ReviewResult> {
   return sendReviewResult(
     input,
