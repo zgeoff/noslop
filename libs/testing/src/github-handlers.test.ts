@@ -53,6 +53,32 @@ test('it stores the comments of a review as the App and serves them back in page
   ]);
 });
 
+test('it edits the body of a review comment in place', async () => {
+  const comment = await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    body: 'before',
+  });
+
+  const response = await fetch(`${GITHUB_API_URL}/repos/example/app/pulls/comments/${comment.id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ body: 'after' }),
+  });
+
+  expect(response.status).toBe(200);
+  expect(githubCollections.reviewComments.all().map((item) => item.body)).toStrictEqual(['after']);
+});
+
+test('it answers an edit of a review comment that does not exist with not found', async () => {
+  const response = await fetch(`${GITHUB_API_URL}/repos/example/app/pulls/comments/123`, {
+    method: 'PATCH',
+    body: JSON.stringify({ body: 'x' }),
+  });
+
+  expect(response.status).toBe(404);
+});
+
 test('it answers a reply to a comment that does not exist with not found', async () => {
   const response = await fetch(`${GITHUB_API_URL}/repos/example/app/pulls/5/comments/123/replies`, {
     method: 'POST',

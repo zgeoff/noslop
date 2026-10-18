@@ -20,6 +20,9 @@ export interface Reply {
 export interface FindingThread {
   source: 'review' | 'issue';
   commentID: number;
+
+  // the comment as posted, so a confirmed fix rewrites it around the same marker
+  body: string;
   marker: FindingMarker;
   replies: Reply[];
 
@@ -105,7 +108,7 @@ export async function readPullRequestState(
     }
 
     if (marker !== null && comment.in_reply_to_id === undefined) {
-      const thread = buildThread('review', Number(comment.id), marker);
+      const thread = buildThread('review', Number(comment.id), comment.body, marker);
 
       threads.set(Number(comment.id), thread);
       byFindingID.set(marker.id, thread);
@@ -150,7 +153,7 @@ export async function readPullRequestState(
       }
 
       if (marker !== null) {
-        byFindingID.set(marker.id, buildThread('issue', Number(comment.id), marker));
+        byFindingID.set(marker.id, buildThread('issue', Number(comment.id), body, marker));
       }
 
       if (summaryMarker !== null) {
@@ -208,9 +211,10 @@ interface GitHubComment {
 function buildThread(
   source: FindingThread['source'],
   commentID: number,
+  body: string,
   marker: FindingMarker,
 ): FindingThread {
-  return { source, commentID, marker, replies: [], answered: new Set() };
+  return { source, commentID, body, marker, replies: [], answered: new Set() };
 }
 
 function toReply(comment: GitHubComment, body: string): Reply {

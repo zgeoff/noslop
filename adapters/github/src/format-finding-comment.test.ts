@@ -2,10 +2,11 @@ import { expect, test } from 'bun:test';
 import { buildMockFinding } from '@noslop/testing';
 import { formatFindingComment } from './format-finding-comment';
 
-test('it writes the severity, verdict, title, body, fact, fix, id and marker of a finding', () => {
+test('it writes the heading, body, fact, fix, reply options, details and marker of a finding', () => {
   expect(
     formatFindingComment(
       buildMockFinding({
+        lens: 'naming-shape-and-comments',
         verdict: 'PLAUSIBLE',
         unverifiedFact: 'Whether any caller passes an empty list.',
         fix: 'Start the loop at index 0.',
@@ -13,16 +14,45 @@ test('it writes the severity, verdict, title, body, fact, fix, id and marker of 
       'b'.repeat(40),
     ),
   ).toMatchInlineSnapshot(`
-    "**P2 · PLAUSIBLE** Return the total of every item
+    "**P2 · Naming shape and comments** · Return the total of every item
 
     The loop skips the first item.
 
-    **Unverified fact:** Whether any caller passes an empty list.
+    **Not checked:** Whether any caller passes an empty list.
 
     **Fix:** Start the loop at index 0.
 
-    noslop \`0123456789abcdef\` · correctness · wrong-behaviour-edge-path
-    Reply with one of these as the first line: \`fixed <sha>\`, \`not-a-defect <reason>\`, \`deferred <issue>\` or \`accepted-risk <reason>\`.
-    <!-- noslop:finding {"id":"0123456789abcdef","title":"Return the total of every item","path":"src/a.ts","lens":"correctness","severity":"P2","riskClass":null,"writtenByChange":true,"head":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"} -->"
+    <details><summary>Reply options</summary>
+
+    Start your reply with one of: \`fixed <sha>\`, \`not-a-defect <reason>\`, \`deferred <issue>\`, \`accepted-risk <reason>\`.
+    </details>
+    <details><summary>Details</summary>
+
+    Finding \`0123456789abcdef\` · lens naming-shape-and-comments · criterion wrong-behaviour-edge-path · rule none
+    </details>
+    <!-- noslop:finding {"id":"0123456789abcdef","title":"Return the total of every item","path":"src/a.ts","lens":"naming-shape-and-comments","severity":"P2","riskClass":null,"writtenByChange":true,"head":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"} -->"
   `);
+});
+
+test('it leaves out the fact and the fix of a CONFIRMED finding without a fix', () => {
+  expect(formatFindingComment(buildMockFinding(), 'b'.repeat(40))).toStartWith(
+    [
+      '**P2 · Correctness** · Return the total of every item',
+      '',
+      'The loop skips the first item.',
+      '',
+      '<details><summary>Reply options</summary>',
+    ].join('\n'),
+  );
+});
+
+test('it names the rule of a finding in its details', () => {
+  expect(
+    formatFindingComment(
+      buildMockFinding({ criterion: 'taste-rule', rule: 'Name each retry' }),
+      'b'.repeat(40),
+    ),
+  ).toInclude(
+    'Finding `0123456789abcdef` · lens correctness · criterion taste-rule · rule Name each retry',
+  );
 });

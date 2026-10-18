@@ -1,4 +1,5 @@
-import type { ReviewResult } from '@noslop/contract';
+import { basename } from 'node:path';
+import type { Finding, ReviewResult, Severity } from '@noslop/contract';
 import { formatMarker } from './format-marker';
 import type { SummaryMarker } from './summary-marker';
 
@@ -11,41 +12,140 @@ export interface FixConfirmation {
   fixed: boolean;
 }
 
-// the summary comment: the reviewed head, the depth, the lenses that ran, any failed call, and on a
-// re-review whether each `fixed` finding is fixed, then the marker the next run reads
+// the fixes a re-review judged, and how many findings earlier reviews posted
+export interface FixStatus {
+  confirmations: readonly FixConfirmation[];
+  posted: number;
+}
+
+const SEVERITIES: readonly Severity[] = ['P1', 'P2', 'P3'];
+
+// the summary comment, written for a person: the count and risk of this review's findings, its failed
+// calls, whether each `fixed` finding is fixed, a table that links each finding to its comment, then
+// the review's details collapsed and the marker the next run reads
 export function formatSummaryComment(
   result: ReviewResult,
   marker: SummaryMarker,
-  confirmations: readonly FixConfirmation[],
+  fixes: FixStatus,
+  links: ReadonlyMap<string, string>,
 ): string {
-  const kind = marker.reviews === 1 ? 'Reviewed' : `Re-reviewed (review ${marker.reviews})`;
+  const confirmations = fixes.confirmations;
+  const lines = [`### noslop: ${formatHeadline(result.findings, fixes, marker.reviews)}`];
 
-  const lines = [
-    '### noslop',
-    '',
-    `${kind} \`${result.head.slice(0, 12)}\` against \`${result.base.slice(0, 12)}\` at ${result.depth} depth.`,
-    '',
-    `- Lenses: ${result.lenses.length === 0 ? 'none' : result.lenses.join(', ')}`,
-    `- Findings: ${result.findings.length}`,
-  ];
-
-  if (result.special !== null) {
-    lines.push(`- Special change: ${result.special}`);
+  if (result.findings.length > 0) {
+    lines.push('', `**Risk: ${pickRisk(result.findings)}.**`);
   }
 
-  for (const call of result.failedCalls) {
-    lines.push(`- Failed call \`${call.id}\` (${call.lenses.join(', ')}): ${call.reason}`);
+  if (result.failedCalls.length > 0) {
+    const count = result.failedCalls.length;
+
+    lines.push(
+      '',
+      `⚠️ ${count} lens ${count === 1 ? 'call' : 'calls'} failed, so this review is partial.`,
+    );
   }
 
   if (confirmations.length > 0) {
-    lines.push('', '**Fixes**', '');
+    lines.push('');
 
     for (const item of confirmations) {
-      lines.push(`- \`${item.id}\` ${item.title}: ${item.fixed ? 'fixed' : 'not fixed'}`);
+      const sha = `\`${item.commit.slice(0, 7)}\``;
+
+      const line = item.fixed
+        ? `✅ ${item.title}: fixed in ${sha}`
+        : `❌ ${item.title}: not fixed in ${sha}`;
+
+      lines.push(line);
     }
   }
 
-  lines.push('', formatMarker('summary', marker));
+  if (result.findings.length > 0) {
+    lines.push('', '| | Finding | File |', '|---|---|---|');
+
+    for (const finding of sortFindings(result.findings)) {
+      const title = finding.title.replaceAll('|', String.raw`\|`);
+      const link = links.get(finding.id);
+      const file = `\`${basename(finding.anchor.path)}:${finding.anchor.startLine}\``;
+
+      lines.push(
+        `| ${finding.severity} | ${link === undefined ? title : `[${title}](${link})`} | ${file} |`,
+      );
+    }
+  }
+
+  lines.push('', '<details><summary>Review details</summary>', '', formatDetails(result, marker));
+
+  for (const call of result.failedCalls) {
+    lines.push('', `Failed call \`${call.id}\` (${call.lenses.join(', ')}): ${call.reason}`);
+  }
+
+  lines.push('</details>', formatMarker('summary', marker));
 
   return lines.join('\n');
+}
+
+// "2 findings, both P2", "3 findings: 1 P1, 2 P3", "all 2 findings fixed" once every finding an
+// earlier review posted is, or "no findings", which a re-review writes as "no new findings"
+function formatHeadline(findings: readonly Finding[], fixes: FixStatus, reviews: number): string {
+  const fixed = fixes.confirmations.filter((item) => item.fixed).length;
+
+  if (findings.length === 0 && fixed > 0 && fixed === fixes.posted) {
+    return fixed === 1 ? '1 finding fixed' : `all ${fixed} findings fixed`;
+  }
+
+  if (findings.length === 0) {
+    return reviews > 1 ? 'no new findings' : 'no findings';
+  }
+
+  const counts = SEVERITIES.map(
+    (severity) =>
+      [severity, findings.filter((finding) => finding.severity === severity).length] as const,
+  ).filter(([, count]) => count > 0);
+
+  const total = findings.length === 1 ? '1 finding' : `${findings.length} findings`;
+  const [only] = counts;
+
+  if (counts.length === 1 && only !== undefined) {
+    const [severity] = only;
+
+    if (findings.length === 1) {
+      return `${total}, ${severity}`;
+    }
+
+    return `${total}, ${findings.length === 2 ? 'both' : 'all'} ${severity}`;
+  }
+
+  return `${total}: ${counts.map(([severity, count]) => `${count} ${severity}`).join(', ')}`;
+}
+
+// high with any P1 or any finding in a marked risk class, medium with any P2, and low otherwise
+function pickRisk(findings: readonly Finding[]): 'high' | 'medium' | 'low' {
+  if (findings.some((finding) => finding.severity === 'P1' || finding.riskClass !== undefined)) {
+    return 'high';
+  }
+
+  return findings.some((finding) => finding.severity === 'P2') ? 'medium' : 'low';
+}
+
+function sortFindings(findings: readonly Finding[]): Finding[] {
+  return findings.toSorted(
+    (a, b) =>
+      SEVERITIES.indexOf(a.severity) - SEVERITIES.indexOf(b.severity) ||
+      a.anchor.path.localeCompare(b.anchor.path),
+  );
+}
+
+function formatDetails(result: ReviewResult, marker: SummaryMarker): string {
+  const parts = [
+    `Review ${marker.reviews}`,
+    `\`${result.head.slice(0, 12)}\` against \`${result.base.slice(0, 12)}\``,
+    `${result.depth} depth`,
+    `lenses ${result.lenses.length === 0 ? 'none' : result.lenses.join(', ')}`,
+  ];
+
+  if (result.special !== null) {
+    parts.push(`special change: ${result.special}`);
+  }
+
+  return parts.join(' · ');
 }

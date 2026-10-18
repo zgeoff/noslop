@@ -1,9 +1,10 @@
 import type { Finding, PullRequestRef, Reporter, ReviewResult } from '@noslop/contract';
 import type { GitHubClient, GitHubConnection } from './create-github-connection';
 import { formatFindingComment } from './format-finding-comment';
+import { formatFixedFindingComment } from './format-fixed-finding-comment';
 import type { FixConfirmation } from './format-summary-comment';
 import { formatSummaryComment } from './format-summary-comment';
-import type { PullRequestState } from './read-pull-request-state';
+import type { FindingThread, PullRequestState } from './read-pull-request-state';
 import { readPullRequestState } from './read-pull-request-state';
 import { readThreadDispositions } from './read-thread-dispositions';
 import { runGitHubCheck } from './run-github-check';
@@ -63,6 +64,14 @@ export function createGitHubReporter(options: GitHubReporterOptions): Reporter {
 
       const confirmations = await buildConfirmations(client, pr, before, result);
 
+      await updateFixedComments(client, pr, before.threads, confirmations);
+
+      const after = await readPullRequestState(connection, pr);
+
+      const links = new Map(
+        after.threads.map((thread) => [thread.marker.id, toCommentURL(pr, thread)]),
+      );
+
       const marker = {
         head: result.head,
         reviews,
@@ -78,7 +87,12 @@ export function createGitHubReporter(options: GitHubReporterOptions): Reporter {
         client,
         pr,
         before,
-        formatSummaryComment(result, marker, confirmations),
+        formatSummaryComment(
+          result,
+          marker,
+          { confirmations, posted: before.threads.length },
+          links,
+        ),
       );
 
       const outcome = await runGitHubCheck(connection, pr, {
@@ -290,6 +304,40 @@ async function readRangeCommits(
 
     throw error;
   }
+}
+
+// strikes the heading of each finding comment whose fix the review confirms, and restores a struck
+// comment whose fix no longer holds, around the same marker
+async function updateFixedComments(
+  client: GitHubClient,
+  pr: PullRequestRef,
+  threads: readonly FindingThread[],
+  confirmations: readonly FixConfirmation[],
+): Promise<void> {
+  for (const thread of threads) {
+    const confirmation = confirmations.find((item) => item.id === thread.marker.id && item.fixed);
+    const commit = confirmation?.commit ?? null;
+    const body = formatFixedFindingComment(thread.body, thread.marker, commit);
+
+    if (body === thread.body) {
+      continue;
+    }
+
+    const params = { owner: pr.owner, repo: pr.repo, comment_id: thread.commentID, body };
+
+    await (thread.source === 'review'
+      ? client.request('PATCH /repos/{owner}/{repo}/pulls/comments/{comment_id}', params)
+      : client.request('PATCH /repos/{owner}/{repo}/issues/comments/{comment_id}', params));
+  }
+}
+
+function toCommentURL(pr: PullRequestRef, thread: FindingThread): string {
+  const anchor =
+    thread.source === 'review'
+      ? `discussion_r${thread.commentID}`
+      : `issuecomment-${thread.commentID}`;
+
+  return `https://github.com/${pr.owner}/${pr.repo}/pull/${pr.number}#${anchor}`;
 }
 
 async function writeSummaryComment(

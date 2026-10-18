@@ -1,18 +1,23 @@
 import type { Finding } from '@noslop/contract';
 import type { FindingMarker } from './finding-marker';
+import { formatFindingHeading } from './format-finding-heading';
 import { formatMarker } from './format-marker';
 
 export const DISPOSITION_FORMS =
   'Reply with one of these as the first line: `fixed <sha>`, `not-a-defect <reason>`, `deferred <issue>` or `accepted-risk <reason>`.';
 
-// the comment for one finding: the severity and the verdict, the title, the body, the fact a
-// PLAUSIBLE finding rests on, the fix, the finding's id and the accepted dispositions, then the marker
-// with the head of the review that posts it
+// the comment for one finding, written for a person: the heading, the body, a PLAUSIBLE finding's fact
+// and the fix, then the reply forms and the id, lens, criterion and rule collapsed, and last the
+// marker with the head of the review that posts it
 export function formatFindingComment(finding: Finding, head: string): string {
-  const lines = [`**${finding.severity} · ${finding.verdict}** ${finding.title}`, '', finding.body];
+  const lines = [
+    formatFindingHeading(finding.severity, finding.lens, finding.title),
+    '',
+    finding.body,
+  ];
 
   if (finding.unverifiedFact !== undefined) {
-    lines.push('', `**Unverified fact:** ${finding.unverifiedFact}`);
+    lines.push('', `**Not checked:** ${finding.unverifiedFact}`);
   }
 
   if (finding.fix !== undefined) {
@@ -21,8 +26,14 @@ export function formatFindingComment(finding: Finding, head: string): string {
 
   lines.push(
     '',
-    `noslop \`${finding.id}\` · ${finding.lens} · ${finding.rule ?? finding.criterion}`,
-    DISPOSITION_FORMS,
+    '<details><summary>Reply options</summary>',
+    '',
+    'Start your reply with one of: `fixed <sha>`, `not-a-defect <reason>`, `deferred <issue>`, `accepted-risk <reason>`.',
+    '</details>',
+    '<details><summary>Details</summary>',
+    '',
+    `Finding \`${finding.id}\` · lens ${finding.lens} · criterion ${finding.criterion} · rule ${finding.rule ?? 'none'}`,
+    '</details>',
     formatMarker('finding', toFindingMarker(finding, head)),
   );
 

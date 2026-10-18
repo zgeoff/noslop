@@ -290,6 +290,33 @@ export const githubHandlers = [
   ),
 
   http.patch<Omit<CommentParams, 'number'>, BodyInput>(
+    `${GITHUB_API_URL}/repos/:owner/:repo/pulls/comments/:commentID`,
+    async (info) => {
+      const input = await info.request.json();
+
+      const comment = await githubCollections.reviewComments.update(
+        (q) =>
+          q.where({
+            owner: info.params.owner,
+            repo: info.params.repo,
+            id: Number(info.params.commentID),
+          }),
+        {
+          data(record) {
+            record.body = input.body;
+          },
+        },
+      );
+
+      if (comment === undefined) {
+        return buildNotFound();
+      }
+
+      return HttpResponse.json(toReviewCommentData(comment));
+    },
+  ),
+
+  http.patch<Omit<CommentParams, 'number'>, BodyInput>(
     `${GITHUB_API_URL}/repos/:owner/:repo/issues/comments/:commentID`,
     async (info) => {
       const input = await info.request.json();

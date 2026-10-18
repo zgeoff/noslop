@@ -9,6 +9,7 @@ import {
 } from '@noslop/testing';
 import { createGitHubConnection } from './create-github-connection';
 import { createGitHubReporter } from './create-github-reporter';
+import { readPullRequestState } from './read-pull-request-state';
 
 function setupTest() {
   const privateKey = buildStubAppKey();
@@ -197,12 +198,248 @@ test('it confirms a fixed finding on the re-review and passes the check', async 
   const summary = githubCollections.issueComments.all().map((comment) => comment.body);
 
   expect(summary).toHaveLength(1);
-  expect(summary[0]).toInclude('`1111111111111111` Return the total of every item: fixed');
+  expect(summary[0]).toInclude('✅ Return the total of every item: fixed in');
 
   expect(githubCollections.checkRuns.all().map((run) => run.conclusion)).toStrictEqual([
     'failure',
     'success',
   ]);
+});
+
+test('it strikes the comment of a confirmed fix and keeps its marker for the check', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'c'.repeat(40),
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    sha: 'b'.repeat(40),
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    sha: 'c'.repeat(40),
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/a.ts',
+    lines: [1],
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'b'.repeat(40),
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const [thread] = githubCollections.reviewComments.all();
+  const posted = thread?.body ?? '';
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    body: `fixed ${'c'.repeat(7)}`,
+    authorLogin: 'dev',
+    inReplyToID: thread?.id ?? null,
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      base: 'b'.repeat(40),
+      head: 'c'.repeat(40),
+      findings: [],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const struck = githubCollections.reviewComments.findFirst((q) =>
+    q.where({ id: thread?.id ?? -1 }),
+  );
+
+  const connection = await createGitHubConnection({
+    appID: 1,
+    privateKey: buildStubAppKey(),
+    installationID: 7,
+  });
+
+  const state = await readPullRequestState(connection, {
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+  });
+
+  expect(struck?.body).toStartWith(
+    '~~**P2 · Correctness** · Return the total of every item~~\n✅ Fixed in `ccccccc`\n',
+  );
+
+  expect(struck?.body.slice(struck.body.indexOf('<!-- noslop:finding '))).toBe(
+    posted.slice(posted.indexOf('<!-- noslop:finding ')),
+  );
+
+  expect(state.threads.map((item) => item.marker.id)).toStrictEqual(['1111111111111111']);
+  expect(state.unreadable).toBe(0);
+
+  expect(githubCollections.checkRuns.all().map((run) => run.conclusion)).toStrictEqual([
+    'failure',
+    'success',
+  ]);
+});
+
+test('it restores the comment of a confirmed fix once a later review reports the finding again', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'd'.repeat(40),
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    sha: 'b'.repeat(40),
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    sha: 'c'.repeat(40),
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    sha: 'd'.repeat(40),
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/a.ts',
+    lines: [1],
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'b'.repeat(40),
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const [thread] = githubCollections.reviewComments.all();
+  const posted = thread?.body ?? '';
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    body: `fixed ${'c'.repeat(7)}`,
+    authorLogin: 'dev',
+    inReplyToID: thread?.id ?? null,
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      base: 'b'.repeat(40),
+      head: 'c'.repeat(40),
+      findings: [],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      base: 'c'.repeat(40),
+      head: 'd'.repeat(40),
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const restored = githubCollections.reviewComments.findFirst((q) =>
+    q.where({ id: thread?.id ?? -1 }),
+  );
+
+  expect(restored?.body).toBe(posted);
+});
+
+test('it links each finding in the summary table to its comment', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'b'.repeat(40),
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/a.ts',
+    lines: [1],
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'b'.repeat(40),
+      findings: [
+        buildMockFinding({ id: '1111111111111111' }),
+        buildMockFinding({
+          id: '2222222222222222',
+          title: 'Close the consumer',
+          anchor: { path: 'src/consumer.ts', startLine: 40, endLine: 40 },
+        }),
+      ],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const [inline] = githubCollections.reviewComments.all();
+
+  const unanchored = githubCollections.issueComments.findFirst((q) =>
+    q.where({ body: (body) => body.includes('<!-- noslop:finding ') }),
+  );
+
+  const summary = githubCollections.issueComments.findFirst((q) =>
+    q.where({ body: (body) => body.includes('<!-- noslop:summary ') }),
+  );
+
+  expect(summary?.body).toInclude(
+    `| P2 | [Return the total of every item](https://github.com/example/app/pull/5#discussion_r${inline?.id}) | \`a.ts:1\` |`,
+  );
+
+  expect(summary?.body).toInclude(
+    `| P2 | [Close the consumer](https://github.com/example/app/pull/5#issuecomment-${unanchored?.id}) | \`consumer.ts:40\` |`,
+  );
 });
 
 test('it fails the check when the re-review still finds a fixed finding, and posts it once', async () => {
@@ -537,7 +774,7 @@ test('it confirms a fix whose commit changes only another file, such as a test',
 
   const summary = githubCollections.issueComments.all().map((comment) => comment.body);
 
-  expect(summary[0]).toInclude('`1111111111111111` Return the total of every item: fixed');
+  expect(summary[0]).toInclude('✅ Return the total of every item: fixed in');
   expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('success');
 });
 
@@ -603,7 +840,7 @@ test('it confirms no fix whose commit the re-review range does not hold', async 
 
   const summary = githubCollections.issueComments.all().map((comment) => comment.body);
 
-  expect(summary[0]).toInclude('`1111111111111111` Return the total of every item: not fixed');
+  expect(summary[0]).toInclude('❌ Return the total of every item: not fixed in');
   expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('failure');
 });
 
@@ -667,7 +904,7 @@ test('it confirms no fix through a commit before the head that posted the findin
 
   const summary = githubCollections.issueComments.all().map((comment) => comment.body);
 
-  expect(summary[0]).toInclude('`1111111111111111` Return the total of every item: not fixed');
+  expect(summary[0]).toInclude('❌ Return the total of every item: not fixed in');
   expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('failure');
 });
 
@@ -731,7 +968,7 @@ test('it confirms no fix whose sha matches 2 commits on the branch', async () =>
 
   const summary = githubCollections.issueComments.all().map((comment) => comment.body);
 
-  expect(summary[0]).toInclude('`1111111111111111` Return the total of every item: not fixed');
+  expect(summary[0]).toInclude('❌ Return the total of every item: not fixed in');
   expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('failure');
 });
 
@@ -818,7 +1055,7 @@ test('it drops a confirmed fix once a later commit shares its sha', async () => 
 
   const summary = githubCollections.issueComments.all().map((comment) => comment.body);
 
-  expect(summary[0]).toInclude('`1111111111111111` Return the total of every item: not fixed');
+  expect(summary[0]).toInclude('❌ Return the total of every item: not fixed in');
 });
 
 test('it keeps a rejected fix open after a later delta without the fix commit', async () => {
@@ -897,7 +1134,7 @@ test('it keeps a rejected fix open after a later delta without the fix commit', 
 
   const summary = githubCollections.issueComments.all().map((comment) => comment.body);
 
-  expect(summary[0]).toInclude('`1111111111111111` Return the total of every item: not fixed');
+  expect(summary[0]).toInclude('❌ Return the total of every item: not fixed in');
   expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('failure');
 });
 

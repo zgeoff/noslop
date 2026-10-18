@@ -71,9 +71,10 @@ it posts anything.
 
 1. It posts one pull request review at the reviewed head, with one inline comment per new finding at
    the finding's anchor. A finding is new when no finding comment or filed follow-up holds its id,
-   so a finding that a re-review reports again keeps its first thread. Each comment holds the
-   severity, the verdict, the title, the body, the fact a PLAUSIBLE finding rests on, the fix, the
-   finding id with its lens and rule, the accepted disposition forms, and the finding marker.
+   so a finding that a re-review reports again keeps its first thread. Each comment opens with the
+   severity, the lens and the title, then the body, the fact a PLAUSIBLE finding rests on and the
+   fix. The accepted disposition forms and the finding id with its lens, criterion and rule sit in
+   collapsed blocks, so a person reads the finding first. The finding marker comes last.
 2. When GitHub refuses the review because a line sits outside the diff, the reporter posts each
    comment on its own. A finding GitHub still refuses goes into an issue comment on the pull request
    that names its anchor. A person answers it with an issue comment that starts with the finding's
@@ -81,10 +82,18 @@ it posts anything.
 3. After the one re-check, a new finding that is no security finding and sits in code the change did
    not write goes to a follow-up issue in the repo instead of the pull request. The summary marker
    keeps each filed id, so a later review files the issue once.
-4. It writes the summary comment, which it creates on the first review and edits in place after
-   that. The summary holds the reviewed head and base, the depth, the lenses, the finding count, a
-   special change, each failed call, and on a re-review whether each `fixed` finding is fixed.
-5. It sets the check run.
+4. It edits the comment of each finding whose fix the review confirms: it strikes the heading
+   through, names the fix commit, and collapses the comment as posted under them, with the marker
+   kept byte for byte. When a later review no longer confirms the fix, the reporter restores the
+   comment as posted.
+5. It writes the summary comment, which it creates on the first review and edits in place after
+   that. The summary opens with the count of the findings this review reports and a risk level: high
+   with any P1 or risk-class finding, medium with any P2, and low otherwise. A review with a failed
+   call says it is partial. On a re-review the summary lists whether each `fixed` finding is fixed,
+   and its headline says all findings are fixed only when every finding an earlier review posted
+   holds a confirmed fix. A table links each finding to its comment, and the reviewed head and base,
+   the depth, the lenses, a special change and each failed call sit in a collapsed block.
+6. It sets the check run.
 
 ## State in markers
 

@@ -34,7 +34,8 @@ would fix if told. Follow these rules for every finding:
 Write each finding in this form:
 
 1. `title`: an imperative sentence of at most 80 characters that says what to fix.
-2. `body`: one paragraph with the defect, the inputs or state that trigger it, and the consequence.
+2. `body`: one paragraph of plain sentences for a person, in this order: what is wrong, the concrete
+   inputs or state that show it, and why it matters.
 3. `fix`: one instruction for the fix, or null.
 
 Name one criterion for each finding. The criterion sets the severity, and `severity` must equal the
