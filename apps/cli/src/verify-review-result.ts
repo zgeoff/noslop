@@ -1,4 +1,4 @@
-import { relative, sep } from 'node:path';
+import { isAbsolute, relative, sep } from 'node:path';
 import type { ReadLocalFile, ReadRemoteFile } from '@noslop/config';
 import { loadConfig } from '@noslop/config';
 import type { PullRequestRef, ReviewResult } from '@noslop/contract';
@@ -84,7 +84,7 @@ function makeCommitFileReader(
   return (path) => {
     const inner = relative(BASE_BRANCH_DIR, path);
 
-    if (inner === '' || inner.split(sep)[0] === '..') {
+    if (inner === '' || isAbsolute(inner) || inner.split(sep)[0] === '..') {
       return Promise.resolve(null);
     }
 

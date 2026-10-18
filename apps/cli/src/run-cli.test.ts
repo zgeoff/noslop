@@ -1,4 +1,4 @@
-import { expect, onTestFinished, test } from 'bun:test';
+import { expect, mock, onTestFinished, test } from 'bun:test';
 import { mkdtemp, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -15,6 +15,7 @@ import {
   buildStubAppKey,
   createTestRepo,
   githubCollections,
+  githubServer,
 } from '@noslop/testing';
 import type { CLIContext } from './cli-context';
 import { createJSONReporter } from './create-json-reporter';
@@ -1446,6 +1447,73 @@ test('it refuses to verify a result file that is not valid JSON', async () => {
     code: 1,
     stderr: 'noslop: the review result file result.json is not valid JSON\n',
   });
+});
+
+test('it refuses a result whose config names a rules file outside the repo and never asks GitHub for it', async () => {
+  const ctx = await setupTest();
+
+  const config = '{ "rules": ["../shared/taste.md"] }\n';
+
+  await Bun.write(join(ctx.dir, 'shared', 'taste.md'), 'Name each total for what it sums.\n');
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'review.json': config, 'src/a.ts': 'export const a = 1;\n' } },
+    { message: 'Change a', files: { 'src/a.ts': 'export const a = 2;\n' } },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[1] ?? '',
+  });
+
+  await githubCollections.branches.create({
+    owner: 'example',
+    repo: 'app',
+    name: 'main',
+    sha: repo.commits[0] ?? '',
+  });
+
+  await githubCollections.files.create({
+    owner: 'example',
+    repo: 'app',
+    ref: repo.commits[0] ?? '',
+    path: 'review.json',
+    content: config,
+  });
+
+  const stub = buildStubAdapter({ L: [{ findings: { correctness: [] } }] });
+
+  await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'json', '--json'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  await Bun.write(join(ctx.dir, 'result.json'), ctx.stdout.splice(0).join(''));
+
+  const requested = mock<(path: string) => void>();
+
+  githubServer.events.on('request:start', (event) => {
+    requested(decodeURIComponent(new URL(event.request.url).pathname));
+  });
+
+  onTestFinished(() => {
+    githubServer.events.removeAllListeners('request:start');
+  });
+
+  const code = await runCLI(
+    ['verify', join(ctx.dir, 'result.json')],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  expect({ code, stderr: ctx.stderr.join('') }).toStrictEqual({
+    code: 1,
+    stderr: 'noslop: the rules file ../shared/taste.md does not exist\n',
+  });
+
+  expect(requested).not.toHaveBeenCalledWith(expect.stringContaining('shared/taste.md'));
 });
 
 test('it refuses to verify a result that reviews no pull request', async () => {
