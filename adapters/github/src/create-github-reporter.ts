@@ -260,11 +260,17 @@ async function buildConfirmations(
     // is a fix of it; a marker without that head leaves the review's range alone to decide
     const after = posted === undefined ? range : await readSincePosted(posted);
 
-    const isRead =
+    const isInRange =
       range.includes(match ?? '') &&
       after.includes(match ?? '') &&
       !skipped.has(thread.marker.path);
 
+    const skipsNone =
+      isInRange && match !== null && skipped.size > 0
+        ? await hasNoSkippedFile(client, pr, match, skipped)
+        : true;
+
+    const isRead = isInRange && skipsNone;
     const isHeld = confirmed.has(`${thread.marker.id}:${commit}`);
 
     return [
@@ -311,6 +317,45 @@ async function readRangeCommits(
     }
 
     throw error;
+  }
+}
+
+// GitHub lists at most 3,000 files of one commit, 100 to a page
+const COMMIT_FILES_PER_PAGE = 100;
+const COMMIT_FILE_PAGES = 30;
+
+// a fix commit that changes a file the review left out was not read whole, so it confirms nothing;
+// a commit GitHub cannot list counts as one that does
+async function hasNoSkippedFile(
+  client: GitHubClient,
+  pr: PullRequestRef,
+  commit: string,
+  skipped: ReadonlySet<string>,
+): Promise<boolean> {
+  try {
+    for (let page = 1; page <= COMMIT_FILE_PAGES; page += 1) {
+      const response = await client.request('GET /repos/{owner}/{repo}/commits/{ref}', {
+        owner: pr.owner,
+        repo: pr.repo,
+        ref: commit,
+        per_page: COMMIT_FILES_PER_PAGE,
+        page,
+      });
+
+      const files = response.data.files ?? [];
+
+      if (files.some((file) => skipped.has(file.filename))) {
+        return false;
+      }
+
+      if (files.length < COMMIT_FILES_PER_PAGE) {
+        return true;
+      }
+    }
+
+    return false;
+  } catch {
+    return false;
   }
 }
 

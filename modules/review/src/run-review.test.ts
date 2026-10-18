@@ -971,6 +971,13 @@ test('it splits a change over the prompt limit into calls that each fit and list
     (length: number) => length <= 1_000_000,
   );
 
+  const prompts = new Map(stub.requests.map((request) => [request.callID, request.prompt]));
+
+  expect(prompts.get('L')).toInclude(`export const a = '${'a'.repeat(400_000)}';`);
+  expect(prompts.get('L')).not.toInclude(`'${'c'.repeat(1000)}`);
+  expect(prompts.get('L-part-2')).toInclude(`export const c = '${'c'.repeat(400_000)}';`);
+  expect(prompts.get('L-part-2')).not.toInclude(`'${'a'.repeat(1000)}`);
+
   expect(
     run.result.findings.map((finding) => [finding.callID, finding.title, finding.anchor.path]),
   ).toStrictEqual([['L-part-2', 'Load the table from a file', 'src/c.ts']]);

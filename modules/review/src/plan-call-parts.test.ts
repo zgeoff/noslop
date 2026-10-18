@@ -160,6 +160,104 @@ test('it names the files of the other parts in each part prompt', () => {
   ]);
 });
 
+test('it sends each part the hunks and slice items of its own files only', () => {
+  const shared = {
+    slices: buildMockSlices({
+      functions: [
+        {
+          location: { path: 'src/a.ts', startLine: 1, endLine: 1 },
+          name: 'buildAlphaTable',
+          params: [],
+          exported: true,
+          isNew: true,
+          complexity: 1,
+          ioCalls: [],
+          writes: [],
+        },
+        {
+          location: { path: 'src/b.ts', startLine: 1, endLine: 1 },
+          name: 'buildBetaTable',
+          params: [],
+          exported: true,
+          isNew: true,
+          complexity: 1,
+          ioCalls: [],
+          writes: [],
+        },
+      ],
+    }),
+    rules: null,
+    title: 'feat: add the tables',
+    body: '',
+    linkedIssue: null,
+    base: 'a'.repeat(40),
+    head: 'b'.repeat(40),
+    isIncremental: false,
+  };
+
+  const files = [
+    buildMockChangedFile({
+      path: 'src/a.ts',
+      hunks: [
+        {
+          oldStart: 0,
+          oldLines: 0,
+          newStart: 1,
+          newLines: 1,
+          lines: [{ kind: 'added', text: `alpha${'x'.repeat(5000)}`, oldLine: null, newLine: 1 }],
+        },
+      ],
+    }),
+    buildMockChangedFile({
+      path: 'src/b.ts',
+      hunks: [
+        {
+          oldStart: 0,
+          oldLines: 0,
+          newStart: 1,
+          newLines: 1,
+          lines: [{ kind: 'added', text: `beta${'y'.repeat(5000)}`, oldLine: null, newLine: 1 }],
+        },
+      ],
+    }),
+  ];
+
+  const base = buildCallPrompt({
+    ...shared,
+    slices: buildMockSlices(),
+    lenses: ['correctness'],
+    files: [],
+    leftOut: files.map((file) => ({ path: file.path, reason: 'other-part' })),
+  });
+
+  const planned = planCallParts({
+    call: {
+      callID: 'A',
+      lenses: ['correctness'],
+      effort: 'medium',
+      model: null,
+      timeoutMs: null,
+      files,
+    },
+    shared,
+    data: [],
+    maxCallChars: base.length + 6000,
+    maxFileChars: 250_000,
+    taken: new Set(['A']),
+  });
+
+  const [first, second] = planned.parts.map((part) => part.prompt);
+
+  expect(first).toInclude(`alpha${'x'.repeat(5000)}`);
+  expect(first).toInclude('"name": "buildAlphaTable"');
+  expect(first).not.toInclude('beta');
+  expect(first).not.toInclude('buildBetaTable');
+  expect(second).toInclude(`beta${'y'.repeat(5000)}`);
+  expect(second).toInclude('"name": "buildBetaTable"');
+  expect(second).not.toInclude('alpha');
+  expect(second).not.toInclude('buildAlphaTable');
+});
+
 test('it gives a later part an ID that no configured call holds', () => {
   const shared = {
     slices: buildMockSlices(),
