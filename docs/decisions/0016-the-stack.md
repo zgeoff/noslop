@@ -2,7 +2,7 @@
 
 - Date: 2026-10-17
 - Status: decided
-- Updated: 2026-10-17
+- Updated: 2026-10-18
 
 noslop builds on this stack:
 
@@ -12,7 +12,6 @@ noslop builds on this stack:
 | CLI                       | gunshi                                               |
 | Schemas and validation    | zod                                                  |
 | Branching on variants     | ts-pattern, with `switch` only for a concrete reason |
-| Assertions                | tiny-invariant                                       |
 | Logging                   | LogTape                                              |
 | Parsing                   | oxc-parser                                           |
 | The findings store        | Kysely on `bun:sqlite`                               |
@@ -20,8 +19,6 @@ noslop builds on this stack:
 | GitHub's API and webhooks | `@octokit/app`, `@octokit/webhooks`, `@octokit/core` |
 | GitHub's API types        | `@octokit/types`                                     |
 | The GitHub test stand-in  | msw 2.15.0 with `@msw/data`                          |
-| Retries, caches, IDs      | p-retry, lru-cache, nanoid                           |
-| Lifecycles                | XState, only where a real lifecycle exists           |
 | Spawning a CLI            | One injected runner on `Bun.spawn`                   |
 
 ## Why
@@ -53,3 +50,5 @@ noslop builds on this stack:
 
 - 2026-10-17: added `@octokit/core` and `@octokit/types` for the typed GitHub client, and msw 2.15.0
   with `@msw/data` for the GitHub and webhook test stand-in.
+- 2026-10-18: dropped tiny-invariant, p-retry, lru-cache, nanoid and XState, which no package
+  imports.

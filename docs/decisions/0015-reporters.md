@@ -2,11 +2,13 @@
 
 - Date: 2026-10-17
 - Status: decided
+- Updated: 2026-10-18
 
-A review produces one result, and a list of reporters sends it out. Each reporter is an adapter
-package with one interface, `report(result, ctx)`, and every reporter receives the same result. The
-config picks the reporters, such as `"report": ["github", "sqlite"]`. With no config, only `json`
-runs.
+A review produces one result, and a list of reporters sends it out. Every reporter has one
+interface, `report(result, ctx)`, and receives the same result. A reporter that talks to an outside
+system is an adapter package. The `json` reporter is the CLI's own output, so it lives in the CLI.
+The config picks the reporters, such as `"report": ["github", "sqlite"]`. With no config, only
+`json` runs.
 
 | Reporter  | Sends the result to                                  |
 | --------- | ---------------------------------------------------- |
@@ -34,3 +36,8 @@ and a disposition source. The findings store records dispositions from any sourc
 
 - The store is the `sqlite` reporter plus the queries that read it.
 - A host that is not GitHub needs its own reporter and disposition source.
+
+## Changes
+
+- 2026-10-18: an adapter package holds each reporter that talks to an outside system, and the `json`
+  reporter lives in the CLI.
