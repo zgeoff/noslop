@@ -16,7 +16,7 @@ export interface CallPartsInput {
   maxFileChars: number;
 }
 
-export interface CallPart {
+interface CallPart {
   call: PlannedCall;
   prompt: string;
 }
