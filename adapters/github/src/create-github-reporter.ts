@@ -76,7 +76,8 @@ async function runAfter(previous: Promise<void>, post: () => Promise<void>): Pro
   await post();
 }
 
-// the caller of a failed post sees its failure, so the chain only waits for the post to end
+// the next post of the pull request runs once this one ends, failed or not; only the caller of a
+// failed post sees its failure
 async function waitForEnd(post: Promise<void>): Promise<void> {
   await Promise.allSettled([post]);
 }

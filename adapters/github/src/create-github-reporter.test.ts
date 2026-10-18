@@ -661,6 +661,51 @@ test('it counts a retry of an earlier review as no new review after another revi
   expect(summaries[0]).toInclude('"reviews":2,"reviewIDs":["review-a","review-b"]');
 });
 
+test('it runs a queued post of a pull request after the post before it fails at the summary', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'b'.repeat(40),
+  });
+
+  githubServer.use(
+    http.post(
+      `${GITHUB_API_URL}/repos/:owner/:repo/issues/:number/comments`,
+      () => new HttpResponse(null, { status: 500 }),
+      { once: true },
+    ),
+  );
+
+  const first = buildMockReviewResult({
+    reviewID: 'review-a',
+    pullRequest: { owner: 'example', repo: 'app', number: 5 },
+    head: 'b'.repeat(40),
+    findings: [],
+  });
+
+  const second = buildMockReviewResult({
+    reviewID: 'review-b',
+    pullRequest: { owner: 'example', repo: 'app', number: 5 },
+    head: 'b'.repeat(40),
+    findings: [],
+  });
+
+  const [failed, queued] = await Promise.allSettled([
+    ctx.reporter.report(first, { logger: ctx.logger, options: {}, failedReporters: [] }),
+    ctx.reporter.report(second, { logger: ctx.logger, options: {}, failedReporters: [] }),
+  ]);
+
+  const summaries = githubCollections.issueComments.all().map((comment) => comment.body);
+
+  expect(failed).toMatchObject({ status: 'rejected', reason: { status: 500 } });
+  expect(queued).toStrictEqual({ status: 'fulfilled', value: undefined });
+  expect(summaries).toHaveLength(1);
+  expect(summaries[0]).toInclude('"reviews":1,"reviewIDs":["review-b"]');
+});
+
 test('it files one follow-up issue when 2 posts of one review run at once', async () => {
   const ctx = setupTest();
 
