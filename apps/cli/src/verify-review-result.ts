@@ -23,17 +23,10 @@ export async function verifyReviewResult(
   const connection = await loadConnection();
   const state = await readPullRequestState(connection, pr);
 
-  const readRemoteFile = createGitHubFileReader({ loadConnection });
-
   // every file reads from the one commit the branch points at now, so a push to the base branch while
   // the config loads cannot mix files of 2 commits
   const baseCommit = await readBranchHead(connection, pr, state.baseRef);
-
-  const loaded = await loadConfig({
-    repoDir: BASE_BRANCH_DIR,
-    readRemoteFile,
-    readLocalFile: makeCommitFileReader(readRemoteFile, pr, baseCommit),
-  });
+  const loaded = await loadCommitConfig(loadConnection, pr, baseCommit);
 
   const problems: string[] = [];
 
@@ -73,6 +66,20 @@ async function readBranchHead(
 // the folder the base branch's files stand at while its config loads with no checkout; the hash
 // takes each local rules path relative to it, as it takes one relative to a checkout
 const BASE_BRANCH_DIR = '/base-branch';
+
+function loadCommitConfig(
+  loadConnection: () => Promise<GitHubConnection>,
+  pr: PullRequestRef,
+  commit: string,
+): ReturnType<typeof loadConfig> {
+  const readRemoteFile = createGitHubFileReader({ loadConnection });
+
+  return loadConfig({
+    repoDir: BASE_BRANCH_DIR,
+    readRemoteFile,
+    readLocalFile: makeCommitFileReader(readRemoteFile, pr, commit),
+  });
+}
 
 // a file inside the base branch's folder reads from the commit on GitHub; a file outside it, such as
 // a rules file on the reviewer's own machine, reads as missing, because the relay cannot see it
