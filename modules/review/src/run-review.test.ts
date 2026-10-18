@@ -885,6 +885,60 @@ test('it gives the calls only the reference rules whose globs match a changed pa
   expect(prompt).not.toInclude('references/nix.md');
 });
 
+test('it lists a file over the file limit as too large in the review result', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'src/zero.ts': 'export const zero = 0;\n' } },
+    {
+      message: 'head',
+      files: {
+        'src/zero.ts': 'export const zero = 0;\n',
+        'src/a.ts': 'export const a = 1;\n',
+        'src/big.ts': `export const big = '${'g'.repeat(5000)}';\n`,
+      },
+    },
+  ]);
+
+  const stub = buildStubAdapter({ L: [{ findings: { correctness: [] } }] });
+
+  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+
+  const run = await runReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/tables',
+    base: repo.commits[0] ?? '',
+    head: repo.commits[1] ?? '',
+    config: {
+      ...BUILT_IN_DEFAULTS,
+      mergePass: { enabled: false, effort: 'low' },
+      thresholds: { ...BUILT_IN_DEFAULTS.thresholds, maxFileChars: 2000 },
+    },
+    configHash: 'hash',
+    rules: null,
+    adapter: stub.adapter,
+    logger: ctx.logger,
+    tempDir: join(ctx.dir, 'temp'),
+    cacheDir: null,
+    title: 'Add the tables',
+    body: '',
+    linkedIssue: null,
+    pullRequest: null,
+    isPush: false,
+    pastEscapes: [],
+  });
+
+  expect(run.result.calls.map((call) => [call.id, call.status])).toStrictEqual([['L', 'ok']]);
+
+  expect(stub.requests.map((request) => request.prompt)).toStrictEqual([
+    expect.toInclude('- `src/big.ts`: too large for one call'),
+  ]);
+
+  expect(stub.requests[0]?.prompt).not.toInclude('g'.repeat(1000));
+  expect(run.result.notReviewed).toStrictEqual([{ path: 'src/big.ts', reason: 'too-large' }]);
+});
+
 test('it lists the data file of a change that runs no call', async () => {
   const ctx = await setupTest();
 

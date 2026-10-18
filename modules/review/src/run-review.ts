@@ -284,8 +284,8 @@ function pickPassID(ctx: PassContext, name: string): string {
   );
 }
 
-// the files no call read, and each data file of the change, which no call reads either, so a route
-// that runs no call still lists them
+// the files the call batch left out, as too large or as data, and each data file of the change, which
+// no call reads either, so a route that runs no call still lists them
 function collectNotReviewed(ctx: PassContext, batches: readonly CallBatch[]): NotReviewedFile[] {
   const listed = batches.flatMap((batch) => batch.notReviewed);
 
