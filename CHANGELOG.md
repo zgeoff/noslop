@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.2.0...@noslop/cli@0.2.1) (2026-10-18)
+
+### Features
+
+- **cli:** export the review contract with its declarations
+  ([492cd40](https://github.com/zgeoff/noslop/commit/492cd4002500b4d98c5874c81d87ac2cf80cab07))
+
 ## [0.2.0](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.1.0...@noslop/cli@0.2.0) (2026-10-18)
 
 ### ⚠ BREAKING CHANGES
