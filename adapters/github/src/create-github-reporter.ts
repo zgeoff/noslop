@@ -158,7 +158,9 @@ async function runReviewPost(
   );
 
   const rewritten = confirmations.flatMap((item) =>
-    item.rewrittenTo === undefined ? [] : [`${item.commit}:${item.rewrittenTo}`],
+    item.rewrittenTo === undefined
+      ? []
+      : [{ id: item.id, named: item.commit, branch: item.rewrittenTo }],
   );
 
   const marker = {
@@ -364,8 +366,8 @@ async function buildConfirmations(
   // unconfirmed, and its open finding fails the check
   const skipped = new Set(result.notReviewed.map((file) => file.path));
   const confirmed = new Set(before.summary?.marker.confirmed);
-  const rewrites = new Map(before.summary?.marker.rewritten?.map((entry) => splitRewrite(entry)));
 
+  const rewrites = before.summary?.marker.rewritten ?? [];
   const readRewrittenFix = makeRewrittenFixReader(client, pr);
 
   const sincePosted = new Map<string, Promise<string[]>>();
@@ -388,10 +390,13 @@ async function buildConfirmations(
     const commit = disposition.value;
     const posted = thread.marker.head;
     const isOnBranch = before.commits.some((sha) => sha.startsWith(commit));
-    const held = rewrites.get(commit);
+
+    const held = rewrites.find(
+      (entry) => entry.id === thread.marker.id && entry.named === commit,
+    )?.branch;
 
     // a sha no branch commit starts with may name a commit that a rebase rewrote: an earlier review's
-    // match holds while its commit stays on the branch, and the reader looks for one otherwise
+    // match for this finding holds while its commit stays on the branch, and the reader looks otherwise
     const rewrite =
       isOnBranch || (held !== undefined && before.commits.includes(held))
         ? { commit: isOnBranch ? null : (held ?? null), failure: null }
@@ -444,13 +449,6 @@ async function buildConfirmations(
   const all = await Promise.all(confirmations);
 
   return all.flat();
-}
-
-// a `<named sha>:<branch commit>` entry of the summary marker, as a pair
-function splitRewrite(entry: string): [string, string] {
-  const [named = '', commit = ''] = entry.split(':');
-
-  return [named, commit];
 }
 
 // the one branch commit a `fixed` sha names; a prefix that 2 commits share names neither

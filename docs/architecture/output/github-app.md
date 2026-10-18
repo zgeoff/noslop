@@ -183,9 +183,10 @@ in the review's range whose patch to the same files matches the named commit's p
 numbers of each hunk left out, because a rebase shifts them. The named commit must come after the
 head that posted the finding, which the reporter checks on the commits before the rebase. A commit
 that GitHub no longer serves, a file GitHub gives no patch of, or a match with none or several
-branch commits leaves the fix unconfirmed. The summary marker keeps each match as the named sha and
-the branch commit, so the check reads the branch commit in place of the named sha, and a later delta
-keeps the match while that commit stays on the branch.
+branch commits leaves the fix unconfirmed. The summary marker keeps each match per finding, because
+each finding checks the named commit against the head that posted it. The check reads a finding's
+matched branch commit in place of the named sha, and a later delta keeps the match while that commit
+stays on the branch.
 
 The re-check is the second review of a pull request. From the third review on, the reporter sends
 each new finding in code the change did not write to a follow-up issue. A security finding, and any

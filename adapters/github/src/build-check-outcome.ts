@@ -112,8 +112,11 @@ function findFixedReason(
   const named = input.commits.filter((sha) => sha.startsWith(commit));
 
   // a sha a rebase rewrote stands for the branch commit that a review matched to its change
-  const rewrite = input.summary?.rewritten?.find((entry) => entry.startsWith(`${commit}:`));
-  const rewritten = rewrite?.slice(commit.length + 1) ?? '';
+  const rewrite = input.summary?.rewritten?.find(
+    (entry) => entry.id === finding.id && entry.named === commit,
+  );
+
+  const rewritten = rewrite?.branch ?? '';
   const matches = named.length === 0 && input.commits.includes(rewritten) ? [rewritten] : named;
 
   if (matches.length === 0) {
