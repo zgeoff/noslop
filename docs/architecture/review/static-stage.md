@@ -89,7 +89,10 @@ needs it. The stage reports:
 - Defects in the change as a whole: a version bump that a consumer's range refuses, a schema bound
   above the published limit the config names, an edit to a synced copy outside a sync, a format-only
   hunk in a file the linked issue does not name, and a public package that changes paths the config
-  ties to a version bump without bumping its version.
+  ties to a version bump without bumping its version. One exception to the synced-copy check: a
+  synced file whose only change moves the ref of a `uses:` line that calls a workflow in another
+  repo gets no finding, because the sync that delivers a workflow caller pins that call to its own
+  ref.
 
 The review takes the linked issue and a reader for consumer manifests from its caller. The CLI takes
 the linked issue from `--issue-file` when it is given, so an issue that lives outside GitHub reaches

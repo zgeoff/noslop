@@ -117,7 +117,12 @@ function collectSyncedEdits(inputs: ChangeFindingInputs): ModelFinding[] {
   }
 
   return inputs.files
-    .filter((entry) => !entry.isContext && isGlobMatch(entry.file.path, inputs.config.synced))
+    .filter(
+      (entry) =>
+        !entry.isContext &&
+        isGlobMatch(entry.file.path, inputs.config.synced) &&
+        !isWorkflowPinOnly(entry),
+    )
     .map((entry) =>
       buildStaticFinding({
         title: `Edit to the synced copy ${basename(entry.file.path)}`,
@@ -127,6 +132,39 @@ function collectSyncedEdits(inputs: ChangeFindingInputs): ModelFinding[] {
         fix: 'Make the change in the source repo, and let the sync bring it here.',
       }),
     );
+}
+
+// the sync that delivers a workflow caller pins its call to the sync's own ref, so a change that only
+// moves that ref keeps the copy in step with the next sync instead of losing an edit to it
+function isWorkflowPinOnly(entry: AnalyzedFile): boolean {
+  return (
+    entry.file.hunks.length > 0 &&
+    entry.file.hunks.every((hunk) => {
+      const deleted = hunk.lines.filter((line) => line.kind === 'deleted');
+      const added = hunk.lines.filter((line) => line.kind === 'added');
+
+      return (
+        deleted.length === added.length &&
+        deleted.every((line, index) => {
+          const before = findWorkflowCall(line.text);
+          const after = findWorkflowCall(added[index]?.text ?? '');
+
+          return before !== null && before === after;
+        })
+      );
+    })
+  );
+}
+
+// a `uses:` line that calls a reusable workflow in another repo, as the line with its ref dropped
+function findWorkflowCall(text: string): string | null {
+  const isCall =
+    /^\s*(?:-\s+)?uses:\s*["']?[^\s"'@/]+\/[^\s"'@/]+\/\.github\/workflows\/[^\s"'@]+\.ya?ml@[^\s"'#]+["']?\s*(?:#.*)?$/u.test(
+      text,
+    );
+
+  // the call's path holds no @, so the first one starts the ref
+  return isCall ? text.replace(/@[^\s"'#]+/u, '@') : null;
 }
 
 function collectStrayFormatHunks(inputs: ChangeFindingInputs): ModelFinding[] {
