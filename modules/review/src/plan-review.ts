@@ -28,7 +28,8 @@ export interface ReviewPlan {
   routeInput: RouteInput;
   route: Route;
 
-  // the most calls the review can make: the planned calls and the passes its depth can add
+  // the most calls the review can make before a call over the prompt limit splits into parts: the
+  // planned calls and the passes its depth can add
   maxCalls: number;
 }
 

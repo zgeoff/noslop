@@ -96,6 +96,18 @@ export const thresholdsSchema = z.strictObject({
       '2 findings on overlapping lines merge when every word of one title, and at least this many, is in the other title',
     ),
   parallelCalls: z.int().positive().describe('How many calls of one review run at once'),
+  maxCallChars: z
+    .int()
+    .positive()
+    .describe(
+      'The most characters one call prompt may hold; a call over it splits by file into parts that fit',
+    ),
+  maxFileChars: z
+    .int()
+    .positive()
+    .describe(
+      'The most characters one file may add to a call prompt; a larger file is left out and listed as not reviewed',
+    ),
   parallelCases: z.int().positive().describe('How many cases of one eval run at once'),
 });
 
@@ -217,6 +229,11 @@ export const reviewConfigSchema = z.strictObject({
   generated: z
     .array(z.string().min(1))
     .describe('Path globs of generated files, lockfiles among them, which a review skips'),
+  data: z
+    .array(z.string().min(1))
+    .describe(
+      'Path globs of data files, such as corpora and fixtures, which a review leaves out and lists as not reviewed',
+    ),
   instructions: z
     .array(z.string().min(1))
     .describe('Path globs of the instruction files an agent loads'),

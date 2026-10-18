@@ -32,6 +32,7 @@ export function buildMockReviewResult(overrides: Partial<ReviewResult> = {}): Re
     findings: [],
     dropped: [],
     failedCalls: [],
+    notReviewed: [],
     configHash: 'config-hash',
     startedAt: '2026-10-17T10:00:00.000Z',
     endedAt: '2026-10-17T10:01:00.000Z',

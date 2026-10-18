@@ -4,15 +4,16 @@ import type {
   CallResult,
   Depth,
   FailedCall,
+  NotReviewedFile,
   ReviewAdapter,
   Slices,
 } from '@noslop/contract';
 import { buildCallOutputSchema } from '@noslop/contract';
 import type { RawFinding } from '@noslop/findings';
 import type { CallPromptInput } from '@noslop/lenses';
-import { buildCallPrompt } from '@noslop/lenses';
 import type { PlannedCall } from '@noslop/routing';
 import { runConcurrently } from '@noslop/runner';
+import { planCallBatch } from './plan-call-batch';
 
 export interface CallBatchInput {
   calls: readonly PlannedCall[];
@@ -34,39 +35,36 @@ export interface CallBatchInput {
 
   // how many calls run at once
   parallel: number;
+
+  // the config's data globs and the size limits that split a call into parts
+  data: readonly string[];
+  maxCallChars: number;
+  maxFileChars: number;
 }
 
 export interface CallBatch {
   records: CallRecord[];
   failed: FailedCall[];
   raw: RawFinding[];
+
+  // each changed file that no call read, once
+  notReviewed: NotReviewedFile[];
 }
 
 const ATTEMPTS = 2;
 
-// runs the planned calls on the adapter, up to the parallel limit at once, and retries a failed call
-// once on the same adapter; a call that fails twice is recorded as failed, and the batch goes on; the
-// records and findings keep the order of the planned calls, whatever order the calls end in
+// runs the planned calls, each as parts that fit the prompt limit, up to the parallel limit at once;
+// a failed call retries once, a call that fails twice is recorded as failed, and the records keep the
+// planned order whatever order the calls end in
 export async function runPlannedCalls(input: CallBatchInput): Promise<CallBatch> {
-  const batch: CallBatch = { records: [], failed: [], raw: [] };
+  const plan = planCallBatch(input);
+  const parts = plan.parts;
+  const batch: CallBatch = { records: [], failed: [], raw: [], notReviewed: plan.notReviewed };
 
-  const outcomes = await runConcurrently(input.calls, input.parallel, async (call) => {
-    const prompt = buildCallPrompt({
-      lenses: call.lenses,
-      files: call.files,
-      slices: input.slices,
-      rules: input.rules,
-      title: input.title,
-      body: input.body,
-      linkedIssue: input.linkedIssue,
-      base: input.base,
-      head: input.head,
-      isIncremental: input.isIncremental,
-    });
+  const outcomes = await runConcurrently(parts, input.parallel, async (part) => {
+    const outcome = await runWithRetry(part.call, part.prompt, input);
 
-    const outcome = await runWithRetry(call, prompt, input);
-
-    return { call, outcome };
+    return { call: part.call, outcome };
   });
 
   for (const ran of outcomes) {

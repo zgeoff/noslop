@@ -1,9 +1,17 @@
-import type { LensID } from '@noslop/contract';
+import type { LensID, NotReviewedFile } from '@noslop/contract';
+import { formatPathCode } from '@noslop/contract';
 import type { ChangedFile, Slices } from '@noslop/static-stage';
 import { getLensPrompt } from './get-lens-prompt';
 import { LENS_INPUTS } from './lens-inputs';
 import { renderCriteria } from './render-criteria';
 import { renderHunks } from './render-hunks';
+
+// a changed file a call's input leaves out: a data file, a file too large for a call, or a file that
+// another part of a split call reads
+export interface LeftOutFile {
+  path: string;
+  reason: NotReviewedFile['reason'] | 'other-part';
+}
 
 export interface CallPromptInput {
   lenses: readonly LensID[];
@@ -13,6 +21,9 @@ export interface CallPromptInput {
   title: string;
   body: string;
   linkedIssue: string | null;
+
+  // the changed files the call leaves out, so a lens never reports their missing hunks
+  leftOut: readonly LeftOutFile[];
   base: string;
   head: string;
 
@@ -29,7 +40,7 @@ const INCREMENTAL_NOTE = [
 
 // joins the shared header, one section per lens in the order given, and the input the lenses read:
 // the pull request, the hunks of the files in the call, each slice once and cut to those files, and
-// the rules file when a lens reads it
+// the rules file when a lens reads it, and the changed files the call leaves out
 export function buildCallPrompt(input: CallPromptInput): string {
   const lensInputs = input.lenses.map((lens) => LENS_INPUTS[lens]);
 
@@ -76,6 +87,10 @@ export function buildCallPrompt(input: CallPromptInput): string {
     sections.push(`## Slice: ${name}\n\n\`\`\`json\n${JSON.stringify(slice, null, 2)}\n\`\`\``);
   }
 
+  if (input.leftOut.length > 0) {
+    sections.push(renderLeftOut(input.leftOut));
+  }
+
   return `${sections.join('\n\n')}\n`;
 }
 
@@ -119,4 +134,20 @@ function findItemPath(item: unknown): string | null {
   }
 
   return 'function' in item ? findItemPath(item.function) : null;
+}
+
+const LEFT_OUT_REASONS: Readonly<Record<LeftOutFile['reason'], string>> = {
+  data: 'a data file the config names',
+  'too-large': 'too large for one call',
+  'other-part': 'read by another call of this review',
+};
+
+function renderLeftOut(files: readonly LeftOutFile[]): string {
+  return [
+    '## Files left out',
+    'The change holds these files, but this input leaves out their hunks and slices. Report no finding on what they hold, and no finding that their change is missing.',
+    files
+      .map((file) => `- ${formatPathCode(file.path)}: ${LEFT_OUT_REASONS[file.reason]}`)
+      .join('\n'),
+  ].join('\n\n');
 }

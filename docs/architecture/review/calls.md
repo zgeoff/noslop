@@ -41,3 +41,33 @@ its lenses:
 
 [Adapters](./adapters.md) covers how the adapter applies the model and the timeout and maps the
 effort onto its CLI.
+
+## Fitting a call to the input limit
+
+A model CLI refuses an input past its own length limit, so a call's prompt has to fit under the
+config's prompt limit before it is sent. The review builds each call's prompt in three steps:
+
+1. A changed file that matches the config's data globs goes into no call. Corpora, fixtures and
+   other generated data change in bulk, and a lens reads no defect in them line by line.
+2. A changed file whose input passes the config's file limit goes into the call's left-out list. The
+   input counts the file's hunks and its slice items, because both go into the prompt.
+3. A call whose prompt still passes the prompt limit splits by file into parts. The parts keep the
+   files in order and each part's prompt fits the limit. A file that overflows a part on its own
+   goes into no part.
+
+Each part runs as a call of its own, with its own record, retry and failure. The first part keeps
+the call's ID. Each later part takes the ID with a part number after it, and a count follows when
+another call of the review holds that ID, so every call record of a review has its own ID. A part
+holds the call's lenses and the slice items on its own files, so a lens in one part never sees the
+hunks of another part. When every file of a call overflows a part on its own, the call runs no part.
+
+Each prompt names every changed file of its call that it leaves out, with the reason: a data file,
+too large, or read by another call. A lens therefore never reports those hunks as missing. The fit
+measures each part with that list at its longest, so the list never pushes a part past the limit.
+When the input around the files overflows alone, such as a pull request body over the limit, the
+call runs whole and its failure shows in the review.
+
+A file that a call leaves out can still be in another call, because each call reads the hunks and
+slices of its own lenses. The result's not-reviewed list holds each file that no call reads, with
+its reason. [The CLI](../output/cli.md) and [the GitHub App](../output/github-app.md) show the list,
+so a reader sees what the review did not cover.

@@ -1,6 +1,7 @@
 import type { ReviewResult } from '@noslop/contract';
 
-// the review for a person: what ran, then each finding with its anchor, then each failed call
+// the review for a person: what ran, then each finding with its anchor, then each failed call and
+// each file no call read
 export function formatReviewSummary(result: ReviewResult): string {
   const lines = [
     `noslop reviewed ${result.head.slice(0, 12)} at ${result.depth} with ${result.calls.length} calls`,
@@ -24,5 +25,20 @@ export function formatReviewSummary(result: ReviewResult): string {
     lines.push(`failed call ${call.id} (${call.lenses.join(', ')}): ${call.reason}`);
   }
 
+  for (const file of result.notReviewed) {
+    lines.push(
+      `not reviewed: ${file.reason === 'data' ? 'data file' : 'too large'}: ${formatPath(file.path)}`,
+    );
+  }
+
   return `${lines.join('\n')}\n`;
+}
+
+// a path comes from the change under review, so each control character, such as a line break or a
+// terminal escape, prints as an escape and never reaches the terminal raw
+function formatPath(path: string): string {
+  return path.replaceAll(
+    /\p{Cc}/gu,
+    (char) => `\\u${(char.codePointAt(0) ?? 0).toString(16).padStart(4, '0')}`,
+  );
 }

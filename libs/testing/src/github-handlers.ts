@@ -1,5 +1,6 @@
 import type { Endpoints } from '@octokit/types';
 import { HttpResponse, http } from 'msw';
+import { collectRangeFiles } from './collect-range-files';
 import { githubCollections } from './github-collections';
 
 export const GITHUB_API_URL = 'https://api.github.com';
@@ -107,9 +108,16 @@ export const githubHandlers = [
         return buildNotFound();
       }
 
+      // GitHub pages the files of a commit, so a large commit lists them over several requests
       return HttpResponse.json({
         sha: commit.sha,
-        files: commit.files.map((filename) => ({ filename })),
+        files: toPage(info.request, commit.files).map((filename) => {
+          const previous = commit.renames[filename];
+
+          return previous === undefined
+            ? { filename }
+            : { filename, status: 'renamed', previous_filename: previous };
+        }),
       });
     },
   ),
@@ -121,16 +129,19 @@ export const githubHandlers = [
     (info) => {
       const [base = '', head = ''] = info.params.basehead.split('...');
 
-      const commits = githubCollections.pullCommits
-        .findMany((q) => q.where({ owner: info.params.owner, repo: info.params.repo }))
-        .map((commit) => commit.sha);
+      const records = githubCollections.pullCommits.findMany((q) =>
+        q.where({ owner: info.params.owner, repo: info.params.repo }),
+      );
 
+      const commits = records.map((commit) => commit.sha);
       const start = commits.indexOf(base) + 1;
       const found = commits.indexOf(head);
       const end = found === -1 ? commits.length : found + 1;
+      const range = records.slice(start, end);
 
       return HttpResponse.json({
-        commits: commits.slice(start, end).map((sha) => ({ sha })),
+        commits: range.map((commit) => ({ sha: commit.sha })),
+        files: collectRangeFiles(range),
       });
     },
   ),

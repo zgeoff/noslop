@@ -8,7 +8,7 @@ import { tokensSchema } from './tokens';
 
 // changes only with a breaking change to the output, so a consumer that pins a CLI version reads one
 // shape
-export const REVIEW_OUTPUT_VERSION = 5;
+export const REVIEW_OUTPUT_VERSION = 6;
 const commitSchema = z.string().regex(/^[0-9a-f]{40}$/u);
 
 export const callRecordSchema = z.strictObject({
@@ -33,6 +33,15 @@ export const failedCallSchema = z.strictObject({
 });
 
 export type FailedCall = z.infer<typeof failedCallSchema>;
+
+// a changed file that no call read: a match of the config's data globs, or a file too large for a
+// call
+export const notReviewedFileSchema = z.strictObject({
+  path: z.string().min(1),
+  reason: z.enum(['data', 'too-large']),
+});
+
+export type NotReviewedFile = z.infer<typeof notReviewedFileSchema>;
 
 export const specialChangeSchema = z.enum(['sync', 'release', 'docs-only', 'direct-push']);
 
@@ -62,6 +71,7 @@ export const reviewResultSchema = z.strictObject({
   findings: z.array(findingSchema),
   dropped: z.array(droppedFindingSchema),
   failedCalls: z.array(failedCallSchema),
+  notReviewed: z.array(notReviewedFileSchema),
   configHash: z.string().min(1),
   startedAt: z.iso.datetime(),
   endedAt: z.iso.datetime(),

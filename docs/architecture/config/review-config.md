@@ -98,6 +98,6 @@ covers how the depth sets the default effort, and [calls](../review/calls.md) co
 override's model and effort shape the calls.
 
 The other groups of keys belong to the parts that read them: the thresholds to routing and depth,
-the call grouping to calls, the adapter options to adapters, the merge pass switch and effort to
-[the pipeline](../review/pipeline.md), and the reporter list and options to
-[reporters](../output/reporters.md).
+the call grouping, the data globs and the prompt and file limits to calls, the adapter options to
+adapters, the merge pass switch and effort to [the pipeline](../review/pipeline.md), and the
+reporter list and options to [reporters](../output/reporters.md).

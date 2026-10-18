@@ -14,8 +14,10 @@ import type { FixConfirmation } from './format-summary-comment';
 import { formatSummaryComment } from './format-summary-comment';
 import { parseMarker } from './parse-marker';
 import { readAllPages } from './read-all-pages';
+import { readFixCoverage } from './read-fix-coverage';
 import type { FindingThread, PullRequestState } from './read-pull-request-state';
 import { readPullRequestState } from './read-pull-request-state';
+import { readRangeCommits } from './read-range-commits';
 import { readThreadDispositions } from './read-thread-dispositions';
 import { runGitHubCheck } from './run-github-check';
 
@@ -135,6 +137,16 @@ async function runReviewPost(
   }
 
   const confirmations = await buildConfirmations(client, pr, before, result);
+
+  for (const item of confirmations) {
+    if (item.failure !== undefined) {
+      ctx.logger.warn('no fix confirmed for {id} in {commit}: {failure}', {
+        id: item.id,
+        commit: item.commit.slice(0, 12),
+        failure: item.failure,
+      });
+    }
+  }
 
   await updateFixedComments(client, pr, before.threads, confirmations);
 
@@ -340,6 +352,11 @@ async function buildConfirmations(
 
   const latest = new Map(dispositions.map((item) => [item.findingID, item]));
   const reported = new Set(result.findings.map((finding) => finding.id));
+
+  // a review that left the finding's file out read nothing of it, so its silence confirms no fix; a
+  // not-reviewed file never fails the check alone, but a pending fix that reaches one stays
+  // unconfirmed, and its open finding fails the check
+  const skipped = new Set(result.notReviewed.map((file) => file.path));
   const confirmed = new Set(before.summary?.marker.confirmed);
   const sincePosted = new Map<string, Promise<string[]>>();
 
@@ -365,15 +382,33 @@ async function buildConfirmations(
     // a full review covers the whole branch, so only a commit after the head that posted the finding
     // is a fix of it; a marker without that head leaves the review's range alone to decide
     const after = posted === undefined ? range : await readSincePosted(posted);
-    const isRead = range.includes(match ?? '') && after.includes(match ?? '');
+
+    const isInRange =
+      range.includes(match ?? '') &&
+      after.includes(match ?? '') &&
+      !skipped.has(thread.marker.path);
+
+    const coverage =
+      isInRange && match !== null && skipped.size > 0
+        ? await readFixCoverage(client, pr, {
+            commit: match,
+            head: result.head,
+            skipped,
+            findingPath: thread.marker.path,
+          })
+        : { changesSkipped: false, failure: null };
+
+    const isRead = isInRange && !coverage.changesSkipped;
     const isHeld = confirmed.has(`${thread.marker.id}:${commit}`);
+    const fixed = !reported.has(thread.marker.id) && match !== null && (isRead || isHeld);
 
     return [
       {
         id: thread.marker.id,
         title: thread.marker.title,
         commit,
-        fixed: !reported.has(thread.marker.id) && match !== null && (isRead || isHeld),
+        fixed,
+        ...(fixed || coverage.failure === null ? {} : { failure: coverage.failure }),
       },
     ];
   });
@@ -388,31 +423,6 @@ function findOneCommit(commits: readonly string[], sha: string): string | null {
   const matches = commits.filter((commit) => commit.startsWith(sha));
 
   return matches.length === 1 ? (matches[0] ?? null) : null;
-}
-
-// the commits after the base up to the head; a base that GitHub no longer holds, such as a head that
-// a force push dropped, gives none, so no fix counts through it
-async function readRangeCommits(
-  client: GitHubClient,
-  pr: PullRequestRef,
-  base: string,
-  head: string,
-): Promise<string[]> {
-  try {
-    const response = await client.request('GET /repos/{owner}/{repo}/compare/{basehead}', {
-      owner: pr.owner,
-      repo: pr.repo,
-      basehead: `${base}...${head}`,
-    });
-
-    return response.data.commits.map((commit) => commit.sha);
-  } catch (error) {
-    if (typeof error === 'object' && error !== null && 'status' in error && error.status === 404) {
-      return [];
-    }
-
-    throw error;
-  }
 }
 
 // strikes the heading of each finding comment whose fix the review confirms, and restores a struck

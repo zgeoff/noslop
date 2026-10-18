@@ -87,6 +87,10 @@ export const BUILT_IN_DEFAULTS: ReviewConfig = {
     reuseMinScore: 0.5,
     mergeMinSharedWords: 3,
     parallelCalls: 4,
+
+    // Codex refuses an input over 1,048,576 characters, so a prompt stays under it with room to spare
+    maxCallChars: 1_000_000,
+    maxFileChars: 250_000,
     parallelCases: 4,
   },
   consumers: [],
@@ -104,6 +108,7 @@ export const BUILT_IN_DEFAULTS: ReviewConfig = {
     '**/*.generated.*',
     '**/__generated__/**',
   ],
+  data: [],
   instructions: [
     '**/AGENTS.md',
     '**/CLAUDE.md',

@@ -63,9 +63,9 @@ planned calls under [0007](../../decisions/0007-depth-and-models.md).
 ## The result
 
 The review result holds the commits, the depth, the special route if any, the marked risk classes,
-the fired lenses, a record of every call, the findings, the failed calls, and a hash of the merged
-config and rules text. The record of each call holds its lenses, depth, model, effort, attempts,
-tokens and duration, so the [findings store](../measurement/store.md) and the
+the fired lenses that a call ran, a record of every call, the findings, the failed calls, and a hash
+of the merged config and rules text. The record of each call holds its lenses, depth, model, effort,
+attempts, tokens and duration, so the [findings store](../measurement/store.md) and the
 [eval harness](../measurement/eval.md) can price a review and tell which call found what. The
 contract package holds the schema, and its version changes only with a breaking change, so a
 consumer that pins a CLI version reads one shape.

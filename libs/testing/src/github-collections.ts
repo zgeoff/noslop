@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 const lineNumbersSchema = z.array(z.int());
 const pathsSchema = z.array(z.string());
+const renamesSchema = z.record(z.string(), z.string());
 
 // the state of the stand-in GitHub API: each collection holds one kind of record the API serves, and
 // a test seeds the records its case needs
@@ -22,7 +23,8 @@ export const githubCollections = {
     }),
   }),
 
-  // the commits of a pull request, oldest first, with the files each one changes
+  // the commits of a pull request, oldest first, with the files each one changes and the renames among
+  // them
   pullCommits: new Collection({
     schema: z.object({
       owner: z.string().default('example'),
@@ -30,6 +32,9 @@ export const githubCollections = {
       number: z.int().default(1),
       sha: z.string().default(buildSha),
       files: pathsSchema.default(buildNoPaths),
+
+      // the path each renamed file had before the commit, by its path after it
+      renames: renamesSchema.default(buildNoRenames),
     }),
   }),
 
@@ -159,4 +164,8 @@ function buildFirstLine(): number[] {
 
 function buildNoPaths(): string[] {
   return [];
+}
+
+function buildNoRenames(): Record<string, string> {
+  return {};
 }

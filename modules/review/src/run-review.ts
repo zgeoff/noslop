@@ -3,8 +3,11 @@ import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { Logger } from '@logtape/logtape';
 import type {
+  CallRecord,
   Change,
   Depth,
+  LensID,
+  NotReviewedFile,
   PullRequestRef,
   ReviewAdapter,
   ReviewConfig,
@@ -112,7 +115,7 @@ export async function runReview(options: RunReviewOptions): Promise<ReviewRun> {
       depth: ctx.route.depth,
       special: ctx.route.special,
       riskClasses: stage.signals.riskClasses,
-      lenses: ctx.route.lenses,
+      lenses: collectRunLenses(ctx.route.lenses, records),
       calls: merged.record === null ? records : [...records, merged.record],
       findings: merged.findings,
 
@@ -129,6 +132,9 @@ export async function runReview(options: RunReviewOptions): Promise<ReviewRun> {
         ruleQuote: item.raw.finding.ruleQuote,
       })),
       failedCalls: batches.flatMap((batch) => batch.failed),
+
+      // a reporter reads no fix as confirmed on a file that no call read
+      notReviewed: collectNotReviewed(ctx, batches),
       configHash: options.configHash,
       startedAt,
       endedAt: now().toISOString(),
@@ -250,6 +256,9 @@ function runBatch(ctx: PassContext, calls: readonly PlannedCall[]): Promise<Call
     head: ctx.change.head,
     isIncremental: ctx.options.isIncremental ?? false,
     parallel: ctx.options.config.thresholds.parallelCalls,
+    data: ctx.options.config.data,
+    maxCallChars: ctx.options.config.thresholds.maxCallChars,
+    maxFileChars: ctx.options.config.thresholds.maxFileChars,
   });
 }
 
@@ -275,4 +284,28 @@ function pickPassID(ctx: PassContext, name: string): string {
       (id) => !taken.has(id),
     ) ?? name
   );
+}
+
+// the files the call batch left out, as too large or as data, and each data file of the change, which
+// no call reads either, so a route that runs no call still lists them
+function collectNotReviewed(ctx: PassContext, batches: readonly CallBatch[]): NotReviewedFile[] {
+  const listed = batches.flatMap((batch) => batch.notReviewed);
+
+  const paths = new Set(listed.map((file) => file.path));
+
+  const globs = ctx.options.config.data.map((glob) => new Bun.Glob(glob));
+
+  const data = ctx.change.files
+    .filter((file) => !paths.has(file.path) && globs.some((glob) => glob.match(file.path)))
+    .map((file): NotReviewedFile => ({ path: file.path, reason: 'data' }));
+
+  return [...listed, ...data];
+}
+
+// the fired lenses that a call ran, in the route's order; a call whose files each overflow a call
+// alone runs no part, so its lenses never ran and the store counts none of them
+function collectRunLenses(lenses: readonly LensID[], records: readonly CallRecord[]): LensID[] {
+  const ran = new Set(records.flatMap((record) => record.lenses));
+
+  return lenses.filter((lens) => ran.has(lens));
 }

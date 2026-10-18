@@ -1,5 +1,6 @@
 import { basename } from 'node:path';
-import type { Finding, ReviewResult, Severity } from '@noslop/contract';
+import type { Finding, NotReviewedFile, ReviewResult, Severity } from '@noslop/contract';
+import { formatPathCode } from '@noslop/contract';
 import { formatMarker } from './format-marker';
 import type { SummaryMarker } from './summary-marker';
 
@@ -10,6 +11,9 @@ export interface FixConfirmation {
   // the commit the `fixed` disposition names
   commit: string;
   fixed: boolean;
+
+  // why the review could not judge the fix, on a fix it leaves unconfirmed
+  failure?: string;
 }
 
 // the fixes a re-review judged, and how many findings earlier reviews posted
@@ -21,7 +25,7 @@ export interface FixStatus {
 const SEVERITIES: readonly Severity[] = ['P1', 'P2', 'P3'];
 
 // the summary comment, written for a person: the count and risk of this review's findings, its failed
-// calls, whether each `fixed` finding is fixed, a table that links each finding to its comment, then
+// calls, the files it did not review, whether each `fixed` finding is fixed, a table that links each finding to its comment, then
 // the review's details collapsed and the marker the next run reads
 export function formatSummaryComment(
   result: ReviewResult,
@@ -45,6 +49,10 @@ export function formatSummaryComment(
     );
   }
 
+  if (result.notReviewed.length > 0) {
+    lines.push('', formatNotReviewed(result.notReviewed));
+  }
+
   if (confirmations.length > 0) {
     lines.push('');
 
@@ -53,7 +61,7 @@ export function formatSummaryComment(
 
       const line = item.fixed
         ? `✅ ${item.title}: fixed in ${sha}`
-        : `❌ ${item.title}: not fixed in ${sha}`;
+        : `❌ ${item.title}: not fixed in ${sha}${item.failure === undefined ? '' : ` (${item.failure})`}`;
 
       lines.push(line);
     }
@@ -125,6 +133,34 @@ function pickRisk(findings: readonly Finding[]): 'high' | 'medium' | 'low' {
   }
 
   return findings.some((finding) => finding.severity === 'P2') ? 'medium' : 'low';
+}
+
+const NOT_REVIEWED_REASONS: Readonly<Record<NotReviewedFile['reason'], string>> = {
+  data: 'data file',
+  'too-large': 'too large',
+};
+
+// GitHub refuses a comment body past its length limit, so the summary names the first files and
+// counts the rest, and cuts a long path
+const NOT_REVIEWED_SHOWN = 20;
+const PATH_SHOWN = 200;
+
+// a file left out of every call is named, so a reader sees what the review did not cover
+function formatNotReviewed(files: readonly NotReviewedFile[]): string {
+  const count = files.length === 1 ? '1 file' : `${files.length} files`;
+  const rest = files.length - NOT_REVIEWED_SHOWN;
+
+  const lines = files.slice(0, NOT_REVIEWED_SHOWN).map((file) => {
+    const path = file.path.length > PATH_SHOWN ? `${file.path.slice(0, PATH_SHOWN)}…` : file.path;
+
+    return `- ${formatPathCode(path)}: not reviewed: ${NOT_REVIEWED_REASONS[file.reason]}`;
+  });
+
+  if (rest > 0) {
+    lines.push(`- and ${rest} more`);
+  }
+
+  return [`⚠️ ${count} left out of the review:`, ...lines].join('\n');
 }
 
 function sortFindings(findings: readonly Finding[]): Finding[] {
