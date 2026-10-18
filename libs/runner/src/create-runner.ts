@@ -1,3 +1,5 @@
+import { buildChildEnv } from './build-child-env';
+
 export interface RunOptions {
   cwd: string;
   stdin?: string;
@@ -30,7 +32,7 @@ async function runProcess(argv: readonly string[], options: RunOptions): Promise
 
   const proc = Bun.spawn([...argv], {
     cwd: options.cwd,
-    env: { ...process.env, ...options.env },
+    env: { ...buildChildEnv(process.env), ...options.env },
     stdin: options.stdin === undefined ? 'ignore' : new Blob([options.stdin]),
     stdout: 'pipe',
     stderr: 'pipe',

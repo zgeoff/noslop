@@ -1,5 +1,6 @@
 import { mkdir, rm } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
+import { buildChildEnv } from '@noslop/runner';
 
 export interface TestCommit {
   message: string;
@@ -13,14 +14,19 @@ export interface TestRepo {
   commits: string[];
 }
 
-// creates a git repo at the path with one commit per entry, in order, and returns each commit's sha
+// creates a git repo at the path with one commit per entry, in order, and returns each commit's sha;
+// git runs without the git repo variables, so a test that runs inside a git hook, which sets GIT_DIR,
+// never commits into the hook's repo
 export async function createTestRepo(
   path: string,
   commits: readonly TestCommit[],
 ): Promise<TestRepo> {
+  // a shell of its own, since setting the env of Bun.$ changes it for every caller
+  const $ = new Bun.$.Shell().env(buildChildEnv(process.env));
+
   await mkdir(path, { recursive: true });
 
-  await Bun.$`git init -q -b main ${path}`.quiet();
+  await $`git init -q -b main ${path}`.quiet();
 
   const shas: string[] = [];
 
@@ -39,10 +45,10 @@ export async function createTestRepo(
       await Bun.write(target, content);
     }
 
-    await Bun.$`git -C ${path} add -A`.quiet();
-    await Bun.$`git -C ${path} -c user.email=test@example.com -c user.name=test commit -q --allow-empty -m ${commit.message}`.quiet();
+    await $`git -C ${path} add -A`.quiet();
+    await $`git -C ${path} -c user.email=test@example.com -c user.name=test commit -q --allow-empty -m ${commit.message}`.quiet();
 
-    const sha = await Bun.$`git -C ${path} rev-parse HEAD`.text();
+    const sha = await $`git -C ${path} rev-parse HEAD`.text();
 
     shas.push(sha.trim());
   }
