@@ -81,7 +81,9 @@ it posts anything.
    id.
 3. After the one re-check, a new finding that is no security finding and sits in code the change did
    not write goes to a follow-up issue in the repo instead of the pull request. The summary marker
-   keeps each filed id, so a later review files the issue once.
+   keeps each filed id, so a later review files the issue once. Each follow-up issue holds a marker
+   with its finding and pull request, so a retried post that failed before the summary finds the
+   issue it opened and files none twice.
 4. It edits the comment of each finding whose fix the review confirms: it strikes the heading
    through, names the fix commit, and collapses the comment as posted under them, with the marker
    kept byte for byte. When a later review no longer confirms the fix, the reporter restores the

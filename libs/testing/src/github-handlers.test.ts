@@ -161,6 +161,40 @@ test('it serves the commit a branch points at and answers an unknown branch with
   expect(unknown.status).toBe(404);
 });
 
+test('it lists the issues of a repo with their authors, the App for an issue it opened', async () => {
+  await githubCollections.issues.create({
+    owner: 'example',
+    repo: 'app',
+    number: 1,
+    title: 'Close the old file',
+    body: 'Found after the re-check.',
+    authorLogin: 'dev',
+  });
+
+  await fetch(`${GITHUB_API_URL}/repos/example/app/issues`, {
+    method: 'POST',
+    body: JSON.stringify({ title: 'Await the write', body: 'Filed by the App.' }),
+  });
+
+  const response = await fetch(`${GITHUB_API_URL}/repos/example/app/issues?page=1&per_page=30`);
+  const issues: unknown = await response.json();
+
+  expect(issues).toStrictEqual([
+    {
+      number: 1,
+      title: 'Close the old file',
+      body: 'Found after the re-check.',
+      user: { login: 'dev' },
+    },
+    {
+      number: 2,
+      title: 'Await the write',
+      body: 'Filed by the App.',
+      user: { login: STUB_APP_LOGIN },
+    },
+  ]);
+});
+
 test('it names the App as its slug', async () => {
   const response = await fetch(`${GITHUB_API_URL}/app`);
   const app: unknown = await response.json();

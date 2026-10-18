@@ -94,6 +94,7 @@ export const githubCollections = {
       number: z.int().default(() => faker.number.int({ min: 1, max: 9999 })),
       title: z.string().default(() => faker.lorem.sentence()),
       body: z.string().default(''),
+      authorLogin: z.string().default(() => faker.internet.username()),
     }),
   }),
 

@@ -1,12 +1,15 @@
 import { expect, test } from 'bun:test';
 import { getLogger } from '@logtape/logtape';
 import {
+  GITHUB_API_URL,
   STUB_APP_LOGIN,
   buildMockFinding,
   buildMockReviewResult,
   buildStubAppKey,
   githubCollections,
+  githubServer,
 } from '@noslop/testing';
+import { HttpResponse, http } from 'msw';
 import { createGitHubConnection } from './create-github-connection';
 import { createGitHubReporter } from './create-github-reporter';
 import { readPullRequestState } from './read-pull-request-state';
@@ -587,6 +590,68 @@ test('it counts a second post of one review result as one review', async () => {
 
   expect(summaries).toHaveLength(1);
   expect(summaries[0]).toInclude('"reviews":1,"reviewID":"review-7"');
+});
+
+test('it files a follow-up issue once when a post that opened it fails at the summary and is retried', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'd'.repeat(40),
+  });
+
+  for (const head of ['b', 'c']) {
+    await ctx.reporter.report(
+      buildMockReviewResult({
+        reviewID: `review-${head}`,
+        pullRequest: { owner: 'example', repo: 'app', number: 5 },
+        head: head.repeat(40),
+        findings: [],
+      }),
+      { logger: ctx.logger, options: {}, failedReporters: [] },
+    );
+  }
+
+  githubServer.use(
+    http.patch(
+      `${GITHUB_API_URL}/repos/:owner/:repo/issues/comments/:commentID`,
+      () => new HttpResponse(null, { status: 500 }),
+      { once: true },
+    ),
+  );
+
+  const result = buildMockReviewResult({
+    reviewID: 'review-d',
+    pullRequest: { owner: 'example', repo: 'app', number: 5 },
+    head: 'd'.repeat(40),
+    findings: [
+      buildMockFinding({
+        id: '1111111111111111',
+        title: 'Close the old file',
+        writtenByChange: false,
+      }),
+    ],
+  });
+
+  const failed = await ctx.reporter
+    .report(result, { logger: ctx.logger, options: {}, failedReporters: [] })
+    .then(
+      () => null,
+      (error: unknown) => error,
+    );
+
+  const filedBeforeRetry = githubCollections.issues.all().map((issue) => issue.title);
+
+  await ctx.reporter.report(result, { logger: ctx.logger, options: {}, failedReporters: [] });
+
+  expect(failed).toMatchObject({ status: 500 });
+  expect(filedBeforeRetry).toStrictEqual(['Close the old file']);
+
+  expect(githubCollections.issues.all().map((issue) => issue.title)).toStrictEqual([
+    'Close the old file',
+  ]);
 });
 
 test('it answers a free-text reply once with the accepted forms', async () => {

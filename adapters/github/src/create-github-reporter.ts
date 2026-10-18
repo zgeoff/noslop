@@ -1,9 +1,13 @@
 import type { Finding, PullRequestRef, Reporter, ReviewResult } from '@noslop/contract';
 import type { GitHubClient, GitHubConnection } from './create-github-connection';
+import { followUpMarkerSchema } from './follow-up-marker';
 import { formatFindingComment } from './format-finding-comment';
 import { formatFixedFindingComment } from './format-fixed-finding-comment';
+import { formatMarker } from './format-marker';
 import type { FixConfirmation } from './format-summary-comment';
 import { formatSummaryComment } from './format-summary-comment';
+import { parseMarker } from './parse-marker';
+import { readAllPages } from './read-all-pages';
 import type { FindingThread, PullRequestState } from './read-pull-request-state';
 import { readPullRequestState } from './read-pull-request-state';
 import { readThreadDispositions } from './read-thread-dispositions';
@@ -61,7 +65,10 @@ export function createGitHubReporter(options: GitHubReporterOptions): Reporter {
         await createIssueComment(client, pr, formatUnanchoredComment(finding, result.head));
       }
 
-      for (const finding of followUps) {
+      const unfiled =
+        followUps.length === 0 ? [] : await findUnfiledFollowUps(connection, pr, followUps);
+
+      for (const finding of unfiled) {
         await createFollowUpIssue(client, pr, finding);
       }
 
@@ -202,6 +209,40 @@ async function createIssueComment(
   });
 }
 
+// the follow-ups that no issue of the App files yet: a retry after a post that failed past its issues,
+// such as on the summary write, finds each issue the first attempt opened by its marker
+async function findUnfiledFollowUps(
+  connection: GitHubConnection,
+  pr: PullRequestRef,
+  followUps: readonly Finding[],
+): Promise<Finding[]> {
+  const issues = await readAllPages(async (page, perPage) => {
+    const response = await connection.client.request('GET /repos/{owner}/{repo}/issues', {
+      owner: pr.owner,
+      repo: pr.repo,
+      state: 'all',
+      page,
+      per_page: perPage,
+    });
+
+    return response.data;
+  });
+
+  const filed = new Set(
+    issues.flatMap((issue) => {
+      const isOwn = connection.appLogin !== null && issue.user?.login === connection.appLogin;
+
+      const marker = isOwn
+        ? parseMarker('follow-up', followUpMarkerSchema, issue.body ?? '')
+        : null;
+
+      return marker?.pullRequest === pr.number ? [marker.id] : [];
+    }),
+  );
+
+  return followUps.filter((finding) => !filed.has(finding.id));
+}
+
 async function createFollowUpIssue(
   client: GitHubClient,
   pr: PullRequestRef,
@@ -217,6 +258,8 @@ async function createFollowUpIssue(
       `At \`${finding.anchor.path}:${finding.anchor.startLine}-${finding.anchor.endLine}\`, ${finding.severity} ${finding.verdict}.`,
       '',
       finding.body,
+      '',
+      formatMarker('follow-up', { id: finding.id, pullRequest: pr.number }),
     ].join('\n'),
   });
 }

@@ -404,9 +404,28 @@ export const githubHandlers = [
       number: Math.max(0, ...numbers) + 1,
       title: input.title,
       body: input.body ?? '',
+      authorLogin: STUB_APP_LOGIN,
     });
 
     return HttpResponse.json({ number: issue.number, title: issue.title }, { status: 201 });
+  }),
+
+  // every issue of the repo, open or closed, as GitHub pages them
+  http.get<RepoParams>(`${GITHUB_API_URL}/repos/:owner/:repo/issues`, (info) => {
+    const issues = githubCollections.issues.findMany((q) =>
+      q.where({ owner: info.params.owner, repo: info.params.repo }),
+    );
+
+    const page = toPage(info.request, issues);
+
+    return HttpResponse.json(
+      page.map((issue) => ({
+        number: issue.number,
+        title: issue.title,
+        body: issue.body,
+        user: { login: issue.authorLogin },
+      })),
+    );
   }),
 
   http.get<RepoParams & { login: string }>(
