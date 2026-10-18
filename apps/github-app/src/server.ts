@@ -3,6 +3,7 @@ import { configure, getConsoleSink, getLogger } from '@logtape/logtape';
 import { createAppServer } from './create-app-server';
 import { createJobQueue } from './create-job-queue';
 import { createProcessRunner } from './create-process-runner';
+import { getCLIPath } from './get-cli-path';
 import { makeTokenMinter } from './make-token-minter';
 import { parseAppServerEnv } from './parse-app-server-env';
 import { runAppJob } from './run-app-job';
@@ -21,7 +22,7 @@ const queue = createJobQueue(
   (event) =>
     runAppJob(event, {
       runner,
-      cliPath: join(import.meta.dir, '..', 'node_modules', '.bin', 'noslop'),
+      cliPath: getCLIPath(),
       bunConfigPath: join(import.meta.dir, '..', '..', '..', 'bunfig.toml'),
       reposDir: env.reposDir,
       appID: env.appID,
