@@ -28,8 +28,6 @@ A risk class in config can force a lens on for its paths. Some changes route dif
   review.
 - A release bump gets only the version checks.
 - A docs-only change gets only the documentation and instructions lenses.
-- A direct push to the default branch fires lenses by their triggers like any other change, and the
-  review result marks it as a direct push.
 
 ## Why
 
@@ -50,3 +48,5 @@ A risk class in config can force a lens on for its paths. Some changes route dif
 
 - 2026-10-18: a direct push routes by the triggers and its result marks it as a direct push. Filing
   its findings as issues is no part of routing.
+- 2026-10-18: dropped the direct-push line. A direct push routes by the triggers like any other
+  change, so routing holds no rule for it.

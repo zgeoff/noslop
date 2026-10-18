@@ -16,7 +16,8 @@ The rules a task needs are not repeated here. Load the skill for the work before
 
 ## Operations
 
-- Commit and push straight to `main`. Open no PR until the owner says so.
+- Every change reaches `main` through a pull request, and the pull request merges only once CI
+  passes. Work on a branch, push the branch, and open a pull request with the repo's template.
 - Use [Conventional Commits](https://www.conventionalcommits.org/) for all commit messages, with a
   lowercase header of at most 72 characters.
 - Commit subjects use the imperative mood ("add X", never "added X" or a bare noun phrase).
