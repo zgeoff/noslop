@@ -1,5 +1,5 @@
 import type { NotReviewedFile } from '@noslop/contract';
-import type { CallPromptInput } from '@noslop/lenses';
+import type { CallPromptInput, LeftOutFile } from '@noslop/lenses';
 import { buildCallPrompt } from '@noslop/lenses';
 import type { PlannedCall } from '@noslop/routing';
 import type { ChangedFile } from '@noslop/static-stage';
@@ -14,6 +14,9 @@ export interface CallPartsInput {
   data: readonly string[];
   maxCallChars: number;
   maxFileChars: number;
+
+  // the call IDs the review holds already, which no part takes
+  taken: ReadonlySet<string>;
 }
 
 interface CallPart {
@@ -43,6 +46,7 @@ export function planCallParts(input: CallPartsInput): CallParts {
       continue;
     }
 
+    // the size counts the file's hunks and its slice items, since both go into the prompt
     const size = buildPartPrompt(input, [file], []).length - empty.length;
 
     if (size > input.maxFileChars) {
@@ -53,25 +57,25 @@ export function planCallParts(input: CallPartsInput): CallParts {
     kept.push({ file, size });
   }
 
-  const whole = buildPartPrompt(
-    input,
-    kept.map((item) => item.file),
-    leftOut,
-  );
-
   const keptCall = { ...input.call, files: kept.map((item) => item.file) };
+  const whole = buildPartPrompt(input, keptCall.files, leftOut);
 
   if (whole.length <= input.maxCallChars) {
     return { parts: [{ call: keptCall, prompt: whole }], notReviewed: leftOut };
   }
 
-  const fitted = splitFiles(input, leftOut, kept);
+  // each part lists every file of the call it leaves out, so the fit measures a list of every file
+  // under the longest reason, which no part's own list passes
+  const bound = pickLongestLeftOut(input);
+  const base = buildPartPrompt(input, [], bound).length;
 
-  // with no file that fits, the input around the files overflows alone, such as a pull request body
-  // over the limit; the call runs whole, so its failure shows in the review
-  if (fitted.groups.length === 0) {
+  // the input around the files overflows alone, such as a pull request body over the limit; the call
+  // runs whole, so its failure shows in the review
+  if (base > input.maxCallChars) {
     return { parts: [{ call: keptCall, prompt: whole }], notReviewed: leftOut };
   }
+
+  const fitted = splitFiles(input, bound, base, kept);
 
   const overflow = new Set(fitted.overflow.map((file) => file.path));
 
@@ -85,14 +89,26 @@ export function planCallParts(input: CallPartsInput): CallParts {
     return overflow.has(file.path) ? [{ path: file.path, reason: 'too-large' }] : [];
   });
 
-  const parts = fitted.groups.map((group, index) => ({
-    call: {
-      ...input.call,
-      callID: index === 0 ? input.call.callID : `${input.call.callID}-part-${index + 1}`,
-      files: group.files,
-    },
-    prompt: group.prompt,
-  }));
+  const ids = pickPartIDs(input.call.callID, fitted.groups.length, input.taken);
+
+  const parts = fitted.groups.map((files, index) => {
+    const paths = new Set(files.map((file) => file.path));
+
+    const partLeftOut = input.call.files
+      .filter((file) => !paths.has(file.path))
+      .map(
+        (file): LeftOutFile =>
+          notReviewed.find((item) => item.path === file.path) ?? {
+            path: file.path,
+            reason: 'other-part',
+          },
+      );
+
+    return {
+      call: { ...input.call, callID: ids[index] ?? input.call.callID, files },
+      prompt: buildPartPrompt(input, files, partLeftOut),
+    };
+  });
 
   return { parts, notReviewed };
 }
@@ -100,18 +116,29 @@ export function planCallParts(input: CallPartsInput): CallParts {
 function buildPartPrompt(
   input: CallPartsInput,
   files: readonly ChangedFile[],
-  leftOut: readonly NotReviewedFile[],
+  leftOut: readonly LeftOutFile[],
 ): string {
   return buildCallPrompt({ ...input.shared, lenses: input.call.lenses, files, leftOut });
 }
 
-interface FittedGroup {
-  files: ChangedFile[];
-  prompt: string;
+const LEFT_OUT_REASONS = [
+  'data',
+  'too-large',
+  'other-part',
+] as const satisfies readonly LeftOutFile['reason'][];
+
+function pickLongestLeftOut(input: CallPartsInput): LeftOutFile[] {
+  const lists = LEFT_OUT_REASONS.map((reason) =>
+    input.call.files.map((file) => ({ path: file.path, reason })),
+  );
+
+  const sized = lists.map((list) => ({ list, size: buildPartPrompt(input, [], list).length }));
+
+  return sized.toSorted((a, b) => b.size - a.size)[0]?.list ?? [];
 }
 
 interface FittedFiles {
-  groups: FittedGroup[];
+  groups: ChangedFile[][];
 
   // the files that overflow a call even alone
   overflow: ChangedFile[];
@@ -122,10 +149,10 @@ interface FittedFiles {
 // a group can share slice items
 function splitFiles(
   input: CallPartsInput,
-  leftOut: readonly NotReviewedFile[],
+  bound: readonly LeftOutFile[],
+  base: number,
   kept: readonly { file: ChangedFile; size: number }[],
 ): FittedFiles {
-  const base = buildPartPrompt(input, [], leftOut).length;
   const packed: ChangedFile[][] = [];
   let current: ChangedFile[] = [];
   let total = base;
@@ -147,39 +174,59 @@ function splitFiles(
     packed.push(current);
   }
 
-  const fitted: FittedFiles = { groups: [], overflow: [] };
+  const halves = packed.map((files) => splitOverflowingGroup(input, bound, files));
 
-  for (const files of packed) {
-    collectFittedGroups(input, leftOut, files, fitted);
-  }
-
-  return fitted;
+  return {
+    groups: halves.flatMap((half) => half.groups),
+    overflow: halves.flatMap((half) => half.overflow),
+  };
 }
 
-function collectFittedGroups(
+function splitOverflowingGroup(
   input: CallPartsInput,
-  leftOut: readonly NotReviewedFile[],
+  bound: readonly LeftOutFile[],
   files: readonly ChangedFile[],
-  fitted: FittedFiles,
-): void {
-  const prompt = buildPartPrompt(input, files, leftOut);
-
-  if (prompt.length <= input.maxCallChars) {
-    fitted.groups.push({ files: [...files], prompt });
-
-    return;
+): FittedFiles {
+  if (buildPartPrompt(input, files, bound).length <= input.maxCallChars) {
+    return { groups: [[...files]], overflow: [] };
   }
 
   const [only] = files;
 
   if (files.length === 1 && only !== undefined) {
-    fitted.overflow.push(only);
-
-    return;
+    return { groups: [], overflow: [only] };
   }
 
   const half = Math.ceil(files.length / 2);
+  const first = splitOverflowingGroup(input, bound, files.slice(0, half));
+  const second = splitOverflowingGroup(input, bound, files.slice(half));
 
-  collectFittedGroups(input, leftOut, files.slice(0, half), fitted);
-  collectFittedGroups(input, leftOut, files.slice(half), fitted);
+  return {
+    groups: [...first.groups, ...second.groups],
+    overflow: [...first.overflow, ...second.overflow],
+  };
+}
+
+// the first part keeps the call's ID, and each later part takes the ID with its part number, with a
+// count after it when the review holds that ID already, such as a configured call named that way
+function pickPartIDs(callID: string, count: number, taken: ReadonlySet<string>): string[] {
+  const ids: string[] = [];
+
+  for (let index = 0; index < count; index += 1) {
+    if (index === 0) {
+      ids.push(callID);
+      continue;
+    }
+
+    const name = `${callID}-part-${index + 1}`;
+    let id = name;
+
+    for (let suffix = 2; taken.has(id) || ids.includes(id); suffix += 1) {
+      id = `${name}-${suffix}`;
+    }
+
+    ids.push(id);
+  }
+
+  return ids;
 }

@@ -119,6 +119,34 @@ test('it writes the severity mix, the failed calls and each fix of a re-review',
   `);
 });
 
+test('it names the first 20 files the review did not read and counts the rest', () => {
+  const result = buildMockReviewResult({
+    notReviewed: Array.from({ length: 500 }, (_, index) => ({
+      path: `samples/${'d'.repeat(300)}/corpus-${index}.jsonl`,
+      reason: 'data' as const,
+    })),
+  });
+
+  const body = formatSummaryComment(
+    result,
+    {
+      head: 'b'.repeat(40),
+      reviews: 1,
+      reported: [],
+      failedCalls: 0,
+      followUps: [],
+      confirmed: [],
+    },
+    { confirmations: [], posted: 0 },
+    new Map(),
+  );
+
+  expect(body.match(/: not reviewed: data file$/gmu)).toHaveLength(20);
+  expect(body).toInclude('\n- and 480 more\n');
+  expect(body).toInclude(`- \`samples/${'d'.repeat(192)}…\`: not reviewed: data file`);
+  expect(body.length).toBeLessThan(10_000);
+});
+
 test('it names each file the review did not read beneath the headline', () => {
   const result = buildMockReviewResult({
     notReviewed: [

@@ -136,16 +136,27 @@ const NOT_REVIEWED_REASONS: Readonly<Record<NotReviewedFile['reason'], string>> 
   'too-large': 'too large',
 };
 
+// GitHub refuses a comment body past its length limit, so the summary names the first files and
+// counts the rest, and cuts a long path
+const NOT_REVIEWED_SHOWN = 20;
+const PATH_SHOWN = 200;
+
 // a file left out of every call is named, so a reader sees what the review did not cover
 function formatNotReviewed(files: readonly NotReviewedFile[]): string {
   const count = files.length === 1 ? '1 file' : `${files.length} files`;
+  const rest = files.length - NOT_REVIEWED_SHOWN;
 
-  return [
-    `⚠️ ${count} left out of the review:`,
-    ...files.map(
-      (file) => `- \`${file.path}\`: not reviewed: ${NOT_REVIEWED_REASONS[file.reason]}`,
-    ),
-  ].join('\n');
+  const lines = files.slice(0, NOT_REVIEWED_SHOWN).map((file) => {
+    const path = file.path.length > PATH_SHOWN ? `${file.path.slice(0, PATH_SHOWN)}…` : file.path;
+
+    return `- \`${path}\`: not reviewed: ${NOT_REVIEWED_REASONS[file.reason]}`;
+  });
+
+  if (rest > 0) {
+    lines.push(`- and ${rest} more`);
+  }
+
+  return [`⚠️ ${count} left out of the review:`, ...lines].join('\n');
 }
 
 function sortFindings(findings: readonly Finding[]): Finding[] {

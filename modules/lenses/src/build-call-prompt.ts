@@ -5,6 +5,13 @@ import { LENS_INPUTS } from './lens-inputs';
 import { renderCriteria } from './render-criteria';
 import { renderHunks } from './render-hunks';
 
+// a changed file a call's input leaves out: a data file, a file too large for a call, or a file that
+// another part of a split call reads
+export interface LeftOutFile {
+  path: string;
+  reason: NotReviewedFile['reason'] | 'other-part';
+}
+
 export interface CallPromptInput {
   lenses: readonly LensID[];
   files: readonly ChangedFile[];
@@ -15,7 +22,7 @@ export interface CallPromptInput {
   linkedIssue: string | null;
 
   // the changed files the call leaves out, so a lens never reports their missing hunks
-  leftOut: readonly NotReviewedFile[];
+  leftOut: readonly LeftOutFile[];
   base: string;
   head: string;
 
@@ -86,12 +93,13 @@ export function buildCallPrompt(input: CallPromptInput): string {
   return `${sections.join('\n\n')}\n`;
 }
 
-const LEFT_OUT_REASONS: Readonly<Record<NotReviewedFile['reason'], string>> = {
+const LEFT_OUT_REASONS: Readonly<Record<LeftOutFile['reason'], string>> = {
   data: 'a data file the config names',
   'too-large': 'too large for one call',
+  'other-part': 'read by another call of this review',
 };
 
-function renderLeftOut(files: readonly NotReviewedFile[]): string {
+function renderLeftOut(files: readonly LeftOutFile[]): string {
   return [
     '## Files left out',
     'The change holds these files, but this input leaves out their hunks and slices. Report no finding on what they hold, and no finding that their change is missing.',

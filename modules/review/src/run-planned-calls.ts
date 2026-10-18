@@ -57,8 +57,10 @@ const ATTEMPTS = 2;
 // a failed call retries once, a call that fails twice is recorded as failed, and the records keep the
 // planned order whatever order the calls end in
 export async function runPlannedCalls(input: CallBatchInput): Promise<CallBatch> {
-  const planned = input.calls.map((call) =>
-    planCallParts({
+  const taken = new Set(input.calls.map((call) => call.callID));
+
+  const planned = input.calls.map((call) => {
+    const parts = planCallParts({
       call,
       shared: {
         slices: input.slices,
@@ -73,15 +75,30 @@ export async function runPlannedCalls(input: CallBatchInput): Promise<CallBatch>
       data: input.data,
       maxCallChars: input.maxCallChars,
       maxFileChars: input.maxFileChars,
-    }),
-  );
+      taken,
+    });
+
+    for (const part of parts.parts) {
+      taken.add(part.call.callID);
+    }
+
+    return parts;
+  });
+
+  const parts = planned.flatMap((item) => item.parts);
+
+  // a file one call leaves out can be read by another call, so a file is not reviewed only when no
+  // part of any call reads it
+  const read = new Set(parts.flatMap((part) => part.call.files.map((file) => file.path)));
 
   const listed = new Map(
-    planned.flatMap((item) => item.notReviewed).map((file) => [file.path, file] as const),
+    planned
+      .flatMap((item) => item.notReviewed)
+      .filter((file) => !read.has(file.path))
+      .map((file) => [file.path, file] as const),
   );
 
   const batch: CallBatch = { records: [], failed: [], raw: [], notReviewed: [...listed.values()] };
-  const parts = planned.flatMap((item) => item.parts);
 
   const outcomes = await runConcurrently(parts, input.parallel, async (part) => {
     const outcome = await runWithRetry(part.call, part.prompt, input);

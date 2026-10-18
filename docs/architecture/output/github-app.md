@@ -89,11 +89,12 @@ it posts anything.
 5. It writes the summary comment, which it creates on the first review and edits in place after
    that. The summary opens with the count of the findings this review reports and a risk level: high
    with any P1 or risk-class finding, medium with any P2, and low otherwise. A review with a failed
-   call says it is partial, and the summary names each file that no call read, with its reason. On a
-   re-review the summary lists whether each `fixed` finding is fixed, and its headline says all
-   findings are fixed only when every finding an earlier review posted holds a confirmed fix. A
-   table links each finding to its comment, and the reviewed head and base, the depth, the lenses, a
-   special change and each failed call sit in a collapsed block.
+   call says it is partial, and the summary names the first files that no call read, with their
+   reasons, and counts the rest, so the comment stays under GitHub's length limit. On a re-review
+   the summary lists whether each `fixed` finding is fixed, and its headline says all findings are
+   fixed only when every finding an earlier review posted holds a confirmed fix. A table links each
+   finding to its comment, and the reviewed head and base, the depth, the lenses, a special change
+   and each failed call sit in a collapsed block.
 6. It sets the check run.
 
 ## State in markers
