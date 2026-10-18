@@ -5,6 +5,7 @@ import type { Logger } from '@logtape/logtape';
 import type {
   Change,
   Depth,
+  NotReviewedFile,
   PullRequestRef,
   ReviewAdapter,
   ReviewConfig,
@@ -131,7 +132,7 @@ export async function runReview(options: RunReviewOptions): Promise<ReviewRun> {
       failedCalls: batches.flatMap((batch) => batch.failed),
 
       // a reporter reads no fix as confirmed on a file that no call read
-      notReviewed: batches.flatMap((batch) => batch.notReviewed),
+      notReviewed: collectNotReviewed(ctx, batches),
       configHash: options.configHash,
       startedAt,
       endedAt: now().toISOString(),
@@ -281,4 +282,20 @@ function pickPassID(ctx: PassContext, name: string): string {
       (id) => !taken.has(id),
     ) ?? name
   );
+}
+
+// the files no call read, and each data file of the change, which no call reads either, so a route
+// that runs no call still lists them
+function collectNotReviewed(ctx: PassContext, batches: readonly CallBatch[]): NotReviewedFile[] {
+  const listed = batches.flatMap((batch) => batch.notReviewed);
+
+  const paths = new Set(listed.map((file) => file.path));
+
+  const globs = ctx.options.config.data.map((glob) => new Bun.Glob(glob));
+
+  const data = ctx.change.files
+    .filter((file) => !paths.has(file.path) && globs.some((glob) => glob.match(file.path)))
+    .map((file): NotReviewedFile => ({ path: file.path, reason: 'data' }));
+
+  return [...listed, ...data];
 }

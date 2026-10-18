@@ -885,6 +885,46 @@ test('it gives the calls only the reference rules whose globs match a changed pa
   expect(prompt).not.toInclude('references/nix.md');
 });
 
+test('it lists the data file of a change that runs no call', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'samples/corpus.jsonl': '{"text":"one"}\n' } },
+    {
+      message: 'head',
+      files: { 'samples/corpus.jsonl': '{"text":"one"}\n{"text":"two"}\n' },
+    },
+  ]);
+
+  const stub = buildStubAdapter({});
+
+  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+
+  const run = await runReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/corpus',
+    base: repo.commits[0] ?? '',
+    head: repo.commits[1] ?? '',
+    config: { ...BUILT_IN_DEFAULTS, data: ['samples/**'] },
+    configHash: 'hash',
+    rules: null,
+    adapter: stub.adapter,
+    logger: ctx.logger,
+    tempDir: join(ctx.dir, 'temp'),
+    cacheDir: null,
+    title: 'Refresh the corpus',
+    body: '',
+    linkedIssue: null,
+    pullRequest: null,
+    isPush: false,
+    pastEscapes: [],
+  });
+
+  expect(run.result.calls).toStrictEqual([]);
+  expect(run.result.notReviewed).toStrictEqual([{ path: 'samples/corpus.jsonl', reason: 'data' }]);
+});
+
 test('it splits a change over the prompt limit into calls that each fit and lists the data file it leaves out', async () => {
   const ctx = await setupTest();
 

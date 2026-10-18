@@ -145,6 +145,23 @@ test('it lists the files a commit changes and answers an unknown commit with not
   expect(unknown.status).toBe(404);
 });
 
+test('it serves the files of a commit in pages', async () => {
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    sha: 'a'.repeat(40),
+    files: ['src/a.ts', 'src/b.ts', 'src/c.ts'],
+  });
+
+  const response = await fetch(
+    `${GITHUB_API_URL}/repos/example/app/commits/aaaaaaa?page=2&per_page=2`,
+  );
+
+  const commit: unknown = await response.json();
+
+  expect(commit).toStrictEqual({ sha: 'a'.repeat(40), files: [{ filename: 'src/c.ts' }] });
+});
+
 test('it names the App as its slug', async () => {
   const response = await fetch(`${GITHUB_API_URL}/app`);
   const app: unknown = await response.json();

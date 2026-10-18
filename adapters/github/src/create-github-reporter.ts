@@ -265,12 +265,12 @@ async function buildConfirmations(
       after.includes(match ?? '') &&
       !skipped.has(thread.marker.path);
 
-    const skipsNone =
+    const changesSkipped =
       isInRange && match !== null && skipped.size > 0
-        ? await hasNoSkippedFile(client, pr, match, skipped)
-        : true;
+        ? await readChangesSkippedFile(client, pr, match, skipped)
+        : false;
 
-    const isRead = isInRange && skipsNone;
+    const isRead = isInRange && !changesSkipped;
     const isHeld = confirmed.has(`${thread.marker.id}:${commit}`);
 
     return [
@@ -324,9 +324,10 @@ async function readRangeCommits(
 const COMMIT_FILES_PER_PAGE = 100;
 const COMMIT_FILE_PAGES = 30;
 
-// a fix commit that changes a file the review left out was not read whole, so it confirms nothing;
-// a commit GitHub cannot list counts as one that does
-async function hasNoSkippedFile(
+// reads the files of a fix commit from GitHub, page by page, and gives true when the commit changes a
+// file the review left out, which the review did not read whole; a failed read, or a commit past
+// GitHub's file cap, also gives true, so no fix is confirmed on a list noslop could not read
+async function readChangesSkippedFile(
   client: GitHubClient,
   pr: PullRequestRef,
   commit: string,
@@ -345,17 +346,17 @@ async function hasNoSkippedFile(
       const files = response.data.files ?? [];
 
       if (files.some((file) => skipped.has(file.filename))) {
-        return false;
+        return true;
       }
 
       if (files.length < COMMIT_FILES_PER_PAGE) {
-        return true;
+        return false;
       }
     }
 
-    return false;
+    return true;
   } catch {
-    return false;
+    return true;
   }
 }
 

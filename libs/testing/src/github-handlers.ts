@@ -107,9 +107,10 @@ export const githubHandlers = [
         return buildNotFound();
       }
 
+      // GitHub pages the files of a commit, so a large commit lists them over several requests
       return HttpResponse.json({
         sha: commit.sha,
-        files: commit.files.map((filename) => ({ filename })),
+        files: toPage(info.request, commit.files).map((filename) => ({ filename })),
       });
     },
   ),
