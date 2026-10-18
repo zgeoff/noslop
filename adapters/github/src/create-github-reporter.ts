@@ -105,7 +105,7 @@ async function runReviewPost(
   const reviews = (before.summary?.marker.reviews ?? 0) + (isRepost ? 0 : 1);
 
   // a retry of a review that a later one followed posted everything before the later one did, so it
-  // writes nothing and leaves the later summary in place
+  // leaves the later summary in place and only sets the check again from the current answers
   if (isRepost && counted.at(-1) !== result.reviewID) {
     await runCheck(connection, pr, result.head, ctx);
 

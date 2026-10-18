@@ -592,6 +592,64 @@ test('it counts a second post of one review result as one review', async () => {
   expect(summaries[0]).toInclude('"reviews":1,"reviewIDs":["review-7"]');
 });
 
+test('it sets the check from the current answers when an earlier review is retried after a later one', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'b'.repeat(40),
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/a.ts',
+    lines: [1],
+  });
+
+  const first = buildMockReviewResult({
+    reviewID: 'review-a',
+    pullRequest: { owner: 'example', repo: 'app', number: 5 },
+    head: 'b'.repeat(40),
+    findings: [buildMockFinding({ id: '1111111111111111' })],
+  });
+
+  const second = buildMockReviewResult({
+    reviewID: 'review-b',
+    pullRequest: { owner: 'example', repo: 'app', number: 5 },
+    head: 'b'.repeat(40),
+    findings: [],
+  });
+
+  await ctx.reporter.report(first, { logger: ctx.logger, options: {}, failedReporters: [] });
+  await ctx.reporter.report(second, { logger: ctx.logger, options: {}, failedReporters: [] });
+
+  const [thread] = githubCollections.reviewComments.all();
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    body: 'not-a-defect The total already leaves refunds out.',
+    authorLogin: 'dev',
+    inReplyToID: thread?.id ?? null,
+  });
+
+  const before = githubCollections.checkRuns.all().at(-1)?.conclusion;
+
+  await ctx.reporter.report(first, { logger: ctx.logger, options: {}, failedReporters: [] });
+
+  const summaries = githubCollections.issueComments.all().map((comment) => comment.body);
+
+  expect(before).toBe('failure');
+  expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('success');
+  expect(summaries).toHaveLength(1);
+  expect(summaries[0]).toInclude('"reviewIDs":["review-a","review-b"],"reported":[]');
+});
+
 test('it keeps the later summary when an earlier review is retried after it', async () => {
   const ctx = setupTest();
 
