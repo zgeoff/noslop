@@ -21,6 +21,13 @@ test('it runs the built-in defaults when the repo has no review.json', async () 
   expect(loaded.sources['thresholds.lightMaxLines']).toBe('built-in');
 });
 
+test('it returns only the config, sources, chain, rules, missing rules and hash', async () => {
+  const ctx = await setupTest();
+  const loaded = await loadConfig({ repoDir: ctx.dir });
+
+  expect(loaded).toContainAllKeys(['config', 'sources', 'chain', 'rules', 'missingRules', 'hash']);
+});
+
 test('it merges the repo file over its local parent over the defaults', async () => {
   const ctx = await setupTest();
 
