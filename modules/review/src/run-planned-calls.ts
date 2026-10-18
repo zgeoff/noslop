@@ -11,6 +11,7 @@ import type {
 import { buildCallOutputSchema } from '@noslop/contract';
 import type { RawFinding } from '@noslop/findings';
 import type { CallPromptInput } from '@noslop/lenses';
+import { LENS_INPUTS } from '@noslop/lenses';
 import type { PlannedCall } from '@noslop/routing';
 import { runConcurrently } from '@noslop/runner';
 import { planCallParts } from './plan-call-parts';
@@ -88,8 +89,14 @@ export async function runPlannedCalls(input: CallBatchInput): Promise<CallBatch>
   const parts = planned.flatMap((item) => item.parts);
 
   // a file one call leaves out can be read by another call, so a file is not reviewed only when no
-  // part of any call reads it
-  const read = new Set(parts.flatMap((part) => part.call.files.map((file) => file.path)));
+  // part of any call puts its hunks in a prompt
+  const read = new Set(
+    parts.flatMap((part) => {
+      const kinds = new Set(part.call.lenses.flatMap((lens) => LENS_INPUTS[lens].hunks));
+
+      return part.call.files.filter((file) => kinds.has(file.kind)).map((file) => file.path);
+    }),
+  );
 
   const listed = new Map(
     planned

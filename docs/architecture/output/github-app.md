@@ -161,8 +161,9 @@ A `fixed <commit>` disposition counts once a re-review whose range holds that co
 reports the finding. The commit may change any file, because a fix such as a missing test lands
 beside the finding's file. The commit must also come after the head of the review that posted the
 finding, which the finding's marker keeps, so a full review over the whole branch never confirms a
-fix through an older commit. The summary marker keeps each confirmed fix as the finding id and the
-commit, so a later delta without the commit keeps the confirmation. A fix that a re-review still
+fix through an older commit. A re-review that left the finding's file out of every call read nothing
+of the fix, so it confirms none. The summary marker keeps each confirmed fix as the finding id and
+the commit, so a later delta without the commit keeps the confirmation. A fix that a re-review still
 reports stays unconfirmed, and a later delta without the commit leaves it unconfirmed. The re-review
 reads the dispositions present when it runs, so a `fixed` reply posted after the re-review of its
 commit finds no review that read it, and the check keeps the finding open.

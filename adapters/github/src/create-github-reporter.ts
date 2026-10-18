@@ -231,6 +231,9 @@ async function buildConfirmations(
 
   const latest = new Map(dispositions.map((item) => [item.findingID, item]));
   const reported = new Set(result.findings.map((finding) => finding.id));
+
+  // a review that left the finding's file out read nothing of it, so its silence confirms no fix
+  const skipped = new Set(result.notReviewed.map((file) => file.path));
   const confirmed = new Set(before.summary?.marker.confirmed);
   const sincePosted = new Map<string, Promise<string[]>>();
 
@@ -256,7 +259,12 @@ async function buildConfirmations(
     // a full review covers the whole branch, so only a commit after the head that posted the finding
     // is a fix of it; a marker without that head leaves the review's range alone to decide
     const after = posted === undefined ? range : await readSincePosted(posted);
-    const isRead = range.includes(match ?? '') && after.includes(match ?? '');
+
+    const isRead =
+      range.includes(match ?? '') &&
+      after.includes(match ?? '') &&
+      !skipped.has(thread.marker.path);
+
     const isHeld = confirmed.has(`${thread.marker.id}:${commit}`);
 
     return [

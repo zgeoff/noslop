@@ -904,7 +904,28 @@ test('it splits a change over the prompt limit into calls that each fit and list
 
   const stub = buildStubAdapter({
     L: [{ findings: { correctness: [] } }],
-    'L-part-2': [{ findings: { correctness: [] } }],
+    'L-part-2': [
+      {
+        findings: {
+          correctness: [
+            {
+              title: 'Load the table from a file',
+              body: 'The table sits inline in the module, so every import parses it.',
+              anchor: { path: 'src/c.ts', startLine: 1, endLine: 1 },
+              secondLocation: null,
+              severity: 'P2',
+              criterion: 'wrong-behaviour-edge-path',
+              rule: null,
+              ruleQuote: null,
+              verdict: 'CONFIRMED',
+              unverifiedFact: null,
+              missingChange: false,
+              fix: null,
+            },
+          ],
+        },
+      },
+    ],
   });
 
   await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
@@ -917,6 +938,7 @@ test('it splits a change over the prompt limit into calls that each fit and list
     head: repo.commits[1] ?? '',
     config: {
       ...BUILT_IN_DEFAULTS,
+      mergePass: { enabled: false, effort: 'low' },
       data: ['samples/**'],
       thresholds: {
         ...BUILT_IN_DEFAULTS.thresholds,
@@ -948,6 +970,10 @@ test('it splits a change over the prompt limit into calls that each fit and list
   expect(stub.requests.map((request) => request.prompt.length)).toSatisfyAll(
     (length: number) => length <= 1_000_000,
   );
+
+  expect(
+    run.result.findings.map((finding) => [finding.callID, finding.title, finding.anchor.path]),
+  ).toStrictEqual([['L-part-2', 'Load the table from a file', 'src/c.ts']]);
 
   expect(run.result.notReviewed).toStrictEqual([{ path: 'samples/corpus.jsonl', reason: 'data' }]);
 });

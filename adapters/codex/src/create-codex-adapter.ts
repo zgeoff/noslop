@@ -44,6 +44,10 @@ const configSchema = z.looseObject({
   mcp_servers: z.record(z.string(), z.unknown()).optional(),
 });
 
+// a file name holds at most 255 bytes, and a call ID can run past it, so the folder name holds the
+// start of the ID; mkdtemp's random suffix keeps 2 folders apart
+const CALL_ID_IN_DIR = 64;
+
 // runs a call on `codex exec` in its read-only sandbox, with the output schema on Codex's own schema
 // flag; the call's prompt goes on stdin, and noslop's instructions follow the user's own developer
 // instructions, so a user's setup keeps applying
@@ -53,7 +57,9 @@ export function createCodexAdapter(options: CodexAdapterOptions): ReviewAdapter 
     defaultTimeoutMs: 1_200_000,
     efforts: { low: 'low', medium: 'medium', high: 'high' },
     runCall: async (call, ctx) => {
-      const dir = await mkdtemp(join(ctx.tempDir, `codex-${call.callID}-`));
+      const dir = await mkdtemp(
+        join(ctx.tempDir, `codex-${call.callID.slice(0, CALL_ID_IN_DIR)}-`),
+      );
 
       try {
         return await runCodexCall(call, dir, adapter, options);

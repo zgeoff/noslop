@@ -228,6 +228,45 @@ test('it rejects output that breaks the schema and leaves no temp files', async 
   expect(left).toStrictEqual(['.keep']);
 });
 
+test('it runs a call whose part ID passes the file name limit', async () => {
+  const ctx = await setupTest();
+
+  const stub = await createStubCLI(ctx.dir, {
+    outputFlag: '-o',
+    lastMessage: '{"findings":{"correctness":[]}}',
+    stdout: '',
+    stderr: '',
+    exitCode: 0,
+    delayMs: 0,
+  });
+
+  const adapter = createCodexAdapter({
+    runner: ctx.runner,
+    command: stub.path,
+    codexHome: join(ctx.dir, 'no-home'),
+  });
+
+  const tempDir = join(ctx.dir, 'temp');
+
+  await Bun.write(join(tempDir, '.keep'), '');
+
+  const result = await adapter.runCall(
+    {
+      callID: `${'a'.repeat(240)}-part-2`,
+      lenses: ['correctness'],
+      prompt: 'Review the change.',
+      outputSchema: buildCallOutputSchema(['correctness']),
+      effort: 'low',
+      model: 'small',
+      cwd: ctx.dir,
+      timeoutMs: 10_000,
+    },
+    { tempDir, logger: ctx.logger },
+  );
+
+  expect(result.output).toStrictEqual({ findings: { correctness: [] } });
+});
+
 test('it rejects a call that codex fails', async () => {
   const ctx = await setupTest();
 

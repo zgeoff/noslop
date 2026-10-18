@@ -162,3 +162,67 @@ test('it lists no file as not reviewed when another call reads it', async () => 
   expect(stub.requests.map((request) => request.callID)).toStrictEqual(['A', 'E']);
   expect(batch.notReviewed).toStrictEqual([]);
 });
+
+test('it lists a file as not reviewed when the only call that keeps it reads no hunks of its kind', async () => {
+  const ctx = await setupTest();
+
+  const table = buildMockChangedFile({
+    path: 'src/table.ts',
+    hunks: [
+      {
+        oldStart: 0,
+        oldLines: 0,
+        newStart: 1,
+        newLines: 1,
+        lines: [{ kind: 'added', text: 'x'.repeat(3000), oldLine: null, newLine: 1 }],
+      },
+    ],
+  });
+
+  const readme = buildMockChangedFile({ path: 'README.md', kind: 'prose' });
+
+  const stub = buildStubAdapter({
+    A: [{ findings: { correctness: [] } }],
+    H: [{ findings: { documentation: [] } }],
+  });
+
+  const batch = await runPlannedCalls({
+    calls: [
+      {
+        callID: 'A',
+        lenses: ['correctness'],
+        effort: 'medium',
+        model: null,
+        timeoutMs: null,
+        files: [table, readme],
+      },
+      {
+        callID: 'H',
+        lenses: ['documentation'],
+        effort: 'medium',
+        model: null,
+        timeoutMs: null,
+        files: [table, readme],
+      },
+    ],
+    depth: 'standard',
+    adapter: stub.adapter,
+    worktree: ctx.dir,
+    tempDir: ctx.dir,
+    logger: ctx.logger,
+    slices: buildMockSlices(),
+    rules: null,
+    title: 'feat: add the table and its readme',
+    body: '',
+    linkedIssue: null,
+    base: 'a'.repeat(40),
+    head: 'b'.repeat(40),
+    isIncremental: false,
+    parallel: 1,
+    data: [],
+    maxCallChars: 1_000_000,
+    maxFileChars: 2000,
+  });
+
+  expect(batch.notReviewed).toStrictEqual([{ path: 'src/table.ts', reason: 'too-large' }]);
+});

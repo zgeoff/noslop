@@ -93,20 +93,6 @@ export function buildCallPrompt(input: CallPromptInput): string {
   return `${sections.join('\n\n')}\n`;
 }
 
-const LEFT_OUT_REASONS: Readonly<Record<LeftOutFile['reason'], string>> = {
-  data: 'a data file the config names',
-  'too-large': 'too large for one call',
-  'other-part': 'read by another call of this review',
-};
-
-function renderLeftOut(files: readonly LeftOutFile[]): string {
-  return [
-    '## Files left out',
-    'The change holds these files, but this input leaves out their hunks and slices. Report no finding on what they hold, and no finding that their change is missing.',
-    files.map((file) => `- ${file.path}: ${LEFT_OUT_REASONS[file.reason]}`).join('\n'),
-  ].join('\n\n');
-}
-
 function renderRules(rules: CallPromptInput['rules']): string {
   if (rules === null || rules.length === 0) {
     return '## Rules file\n\nThe repo names no rules file, so report no taste finding.';
@@ -147,4 +133,18 @@ function findItemPath(item: unknown): string | null {
   }
 
   return 'function' in item ? findItemPath(item.function) : null;
+}
+
+const LEFT_OUT_REASONS: Readonly<Record<LeftOutFile['reason'], string>> = {
+  data: 'a data file the config names',
+  'too-large': 'too large for one call',
+  'other-part': 'read by another call of this review',
+};
+
+function renderLeftOut(files: readonly LeftOutFile[]): string {
+  return [
+    '## Files left out',
+    'The change holds these files, but this input leaves out their hunks and slices. Report no finding on what they hold, and no finding that their change is missing.',
+    files.map((file) => `- ${file.path}: ${LEFT_OUT_REASONS[file.reason]}`).join('\n'),
+  ].join('\n\n');
 }
