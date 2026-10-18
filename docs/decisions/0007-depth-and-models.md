@@ -73,6 +73,7 @@ in each file. The config can turn the pass off.
 - The static eval replays the depth rules on a labelled corpus with no model call, so a change to
   them shows which past P1s and escapes Light would hold.
 - Model and effort can be overridden per lens, under [0010](0010-the-reviewer-config.md).
+- Tuning of the depth rules and the efforts continues on live reviews, not on a larger eval.
 
 ## Changes
 
@@ -99,3 +100,4 @@ in each file. The config can turn the pass off.
   Light, holding 6 labelled P1s and 25 escapes. Chunks had made 93 calls on one corpus change. On
   the corpus, 5 of the 6 labelled defects that Light held under a 50-line limit were on infra
   changes.
+- 2026-10-18: tuning continues on live reviews.

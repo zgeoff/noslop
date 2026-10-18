@@ -16,6 +16,10 @@ Merging follows 3 rules:
    inherited path replaces that entry.
 3. `null` removes an inherited key.
 
+A review reads its config and rules files from the commit its change starts from, never from the
+change itself. `noslop config` reads the working tree, so a config change can be tried before it
+lands.
+
 The config holds:
 
 - **Risk classes:** each a name, path globs or a detector, and the lenses it forces on.
@@ -31,6 +35,8 @@ The config holds:
 ## Why
 
 - A parent named in the file shows where every setting comes from.
+- A pull request must not weaken its own review, so its edit to the config applies only after it
+  merges.
 - Fixed merge rules make the result of a merge predictable.
 - Rules are taste that each layer adds to, so a repo that adds one project skill keeps the shared
   ones. Every other array is a list a repo owns whole.
@@ -64,3 +70,5 @@ The config holds:
   until the configs drop it.
 - 2026-10-18: with no adapter in the config, noslop runs the Codex adapter. noslop does not look for
   which model CLIs are installed, so the same config runs the same adapter on every machine.
+- 2026-10-18: a review reads its config from the base commit, so a pull request cannot weaken its
+  own review, and `noslop config` reads the working tree for local trials.

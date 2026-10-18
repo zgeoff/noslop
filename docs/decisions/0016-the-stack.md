@@ -41,6 +41,8 @@ noslop builds on this stack:
   host wants it.
 - **execa for spawning.** It adds start-up cost and a second way to spawn.
 - **citty for the CLI.** It has had no release in months, and gunshi covers its features.
+- **TypeScript 6 for the declarations.** It keeps the JavaScript API that older declaration bundlers
+  call, but it holds the package's build one major version behind the typecheck.
 
 ## Consequences
 
@@ -56,3 +58,4 @@ noslop builds on this stack:
 - 2026-10-18: dropped tiny-invariant, p-retry, lru-cache, nanoid and XState, which no package
   imports.
 - 2026-10-18: added tsdown, which writes the npm package's declarations on TypeScript 7.
+- 2026-10-18: the declarations build on TypeScript 7, with no TypeScript 6 holdback.
