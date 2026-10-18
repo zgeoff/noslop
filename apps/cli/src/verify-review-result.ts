@@ -29,10 +29,14 @@ export async function verifyReviewResult(
 
   const readRemoteFile = createGitHubFileReader({ loadConnection });
 
+  // every file reads from the one commit the branch points at now, so a push to the base branch while
+  // the config loads cannot mix files of 2 commits
+  const baseCommit = await readBranchHead(connection, pr, state.baseRef);
+
   const loaded = await loadConfig({
     repoDir: BASE_BRANCH_DIR,
     readRemoteFile,
-    readLocalFile: makeBranchFileReader(readRemoteFile, pr, state.baseRef),
+    readLocalFile: makeCommitFileReader(readRemoteFile, pr, baseCommit),
   });
 
   const problems: string[] = [];
@@ -56,12 +60,26 @@ export async function verifyReviewResult(
   return result;
 }
 
-// a file inside the base branch's folder reads from the branch on GitHub; a file outside it, such as
-// a rules file on the reviewer's own machine, reads as missing, because the relay cannot see it
-function makeBranchFileReader(
-  readRemoteFile: ReadRemoteFile,
+async function readBranchHead(
+  connection: GitHubConnection,
   pr: PullRequestRef,
   branch: string,
+): Promise<string> {
+  const response = await connection.client.request('GET /repos/{owner}/{repo}/branches/{branch}', {
+    owner: pr.owner,
+    repo: pr.repo,
+    branch,
+  });
+
+  return response.data.commit.sha;
+}
+
+// a file inside the base branch's folder reads from the commit on GitHub; a file outside it, such as
+// a rules file on the reviewer's own machine, reads as missing, because the relay cannot see it
+function makeCommitFileReader(
+  readRemoteFile: ReadRemoteFile,
+  pr: PullRequestRef,
+  commit: string,
 ): ReadLocalFile {
   return (path) => {
     const inner = relative(BASE_BRANCH_DIR, path);
@@ -75,7 +93,7 @@ function makeBranchFileReader(
       owner: pr.owner,
       repo: pr.repo,
       path: inner.split(sep).join('/'),
-      ref: branch,
+      ref: commit,
     });
   };
 }

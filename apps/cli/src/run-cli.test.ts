@@ -1106,10 +1106,17 @@ test('it verifies a pull request review against its head and the config of its b
     headSha: repo.commits[1] ?? '',
   });
 
+  await githubCollections.branches.create({
+    owner: 'example',
+    repo: 'app',
+    name: 'main',
+    sha: repo.commits[0] ?? '',
+  });
+
   await githubCollections.files.create({
     owner: 'example',
     repo: 'app',
-    ref: 'main',
+    ref: repo.commits[0] ?? '',
     path: 'review.json',
     content: config,
   });
@@ -1117,7 +1124,7 @@ test('it verifies a pull request review against its head and the config of its b
   await githubCollections.files.create({
     owner: 'example',
     repo: 'app',
-    ref: 'main',
+    ref: repo.commits[0] ?? '',
     path: 'rules/taste.md',
     content: taste,
   });
@@ -1173,10 +1180,17 @@ test('it refuses a result whose head is no longer the head of the pull request',
     headSha: repo.commits[1] ?? '',
   });
 
+  await githubCollections.branches.create({
+    owner: 'example',
+    repo: 'app',
+    name: 'main',
+    sha: repo.commits[0] ?? '',
+  });
+
   await githubCollections.files.create({
     owner: 'example',
     repo: 'app',
-    ref: 'main',
+    ref: repo.commits[0] ?? '',
     path: 'review.json',
     content: '{}\n',
   });
@@ -1223,10 +1237,17 @@ test('it refuses a result when the config on the base branch changed after the r
     headSha: repo.commits[1] ?? '',
   });
 
+  await githubCollections.branches.create({
+    owner: 'example',
+    repo: 'app',
+    name: 'main',
+    sha: repo.commits[0] ?? '',
+  });
+
   await githubCollections.files.create({
     owner: 'example',
     repo: 'app',
-    ref: 'main',
+    ref: repo.commits[0] ?? '',
     path: 'review.json',
     content: '{ "lenses": { "correctness": { "model": "stricter-model" } } }\n',
   });
@@ -1270,10 +1291,17 @@ test('it refuses a result when the parent config the base branch extends changed
     headSha: repo.commits[1] ?? '',
   });
 
+  await githubCollections.branches.create({
+    owner: 'example',
+    repo: 'app',
+    name: 'main',
+    sha: repo.commits[0] ?? '',
+  });
+
   await githubCollections.files.create({
     owner: 'example',
     repo: 'app',
-    ref: 'main',
+    ref: repo.commits[0] ?? '',
     path: 'review.json',
     content: config,
   });
@@ -1311,6 +1339,113 @@ test('it refuses a result when the parent config the base branch extends changed
   expect(ctx.stderr.join('')).toMatch(
     /^noslop: the result does not verify: its config hash [0-9a-f]{16} differs from [0-9a-f]{16}, the hash of the config on main\n$/u,
   );
+});
+
+test('it verifies a result against the config of the base branch the pull request names', async () => {
+  const ctx = await setupTest();
+
+  const release = '{ "lenses": { "correctness": { "model": "release-model" } } }\n';
+  const main = '{ "lenses": { "correctness": { "model": "main-model" } } }\n';
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'review.json': release, 'src/a.ts': 'export const a = 1;\n' } },
+    { message: 'Change a', files: { 'src/a.ts': 'export const a = 2;\n' } },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    baseRef: 'release',
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[1] ?? '',
+  });
+
+  await githubCollections.branches.create({
+    owner: 'example',
+    repo: 'app',
+    name: 'release',
+    sha: 'e'.repeat(40),
+  });
+
+  await githubCollections.branches.create({
+    owner: 'example',
+    repo: 'app',
+    name: 'main',
+    sha: 'f'.repeat(40),
+  });
+
+  await githubCollections.files.create({
+    owner: 'example',
+    repo: 'app',
+    ref: 'e'.repeat(40),
+    path: 'review.json',
+    content: release,
+  });
+
+  await githubCollections.files.create({
+    owner: 'example',
+    repo: 'app',
+    ref: 'f'.repeat(40),
+    path: 'review.json',
+    content: main,
+  });
+
+  const stub = buildStubAdapter({ L: [{ findings: { correctness: [] } }] });
+
+  await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'json', '--json'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  await Bun.write(join(ctx.dir, 'result.json'), ctx.stdout.splice(0).join(''));
+
+  const code = await runCLI(
+    ['verify', join(ctx.dir, 'result.json')],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  expect({ code, stderr: ctx.stderr.join('') }).toStrictEqual({ code: 0, stderr: '' });
+});
+
+test('it refuses to verify when no result file is named', async () => {
+  const ctx = await setupTest();
+  const code = await runCLI(['verify'], ctx.buildContext(ctx.dir, buildStubAdapter({}).adapter));
+
+  expect({ code, stderr: ctx.stderr.join('') }).toStrictEqual({
+    code: 1,
+    stderr: "noslop: Positional argument 'file' is required\n",
+  });
+});
+
+test('it refuses to verify a result file that does not exist', async () => {
+  const ctx = await setupTest();
+
+  const code = await runCLI(
+    ['verify', 'missing.json'],
+    ctx.buildContext(ctx.dir, buildStubAdapter({}).adapter),
+  );
+
+  expect({ code, stderr: ctx.stderr.join('') }).toStrictEqual({
+    code: 1,
+    stderr: 'noslop: no review result file at missing.json\n',
+  });
+});
+
+test('it refuses to verify a result file that is not valid JSON', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(join(ctx.dir, 'result.json'), '{ "version": ');
+
+  const code = await runCLI(
+    ['verify', 'result.json'],
+    ctx.buildContext(ctx.dir, buildStubAdapter({}).adapter),
+  );
+
+  expect({ code, stderr: ctx.stderr.join('') }).toStrictEqual({
+    code: 1,
+    stderr: 'noslop: the review result file result.json is not valid JSON\n',
+  });
 });
 
 test('it refuses to verify a result that reviews no pull request', async () => {

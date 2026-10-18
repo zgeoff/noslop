@@ -441,6 +441,23 @@ export const githubHandlers = [
     },
   ),
 
+  http.get<RepoParams & { branch: string[] }>(
+    `${GITHUB_API_URL}/repos/:owner/:repo/branches/:branch+`,
+    (info) => {
+      const name = info.params.branch.join('/');
+
+      const branch = githubCollections.branches.findFirst((q) =>
+        q.where({ owner: info.params.owner, repo: info.params.repo, name }),
+      );
+
+      if (branch === undefined) {
+        return buildNotFound();
+      }
+
+      return HttpResponse.json({ name: branch.name, commit: { sha: branch.sha } });
+    },
+  ),
+
   http.get<RepoParams & { path: string[] }>(
     `${GITHUB_API_URL}/repos/:owner/:repo/contents/:path+`,
     (info) => {

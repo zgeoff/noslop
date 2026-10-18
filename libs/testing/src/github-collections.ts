@@ -122,6 +122,16 @@ export const githubCollections = {
     }),
   }),
 
+  // the commit each branch of a repo points at
+  branches: new Collection({
+    schema: z.object({
+      owner: z.string().default('example'),
+      repo: z.string().default('app'),
+      name: z.string().default('main'),
+      sha: z.string().default(buildSha),
+    }),
+  }),
+
   // a file in a repo at a ref, for the contents endpoint
   files: new Collection({
     schema: z.object({

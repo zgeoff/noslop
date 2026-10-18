@@ -3,11 +3,7 @@ import type { CLIContext } from './cli-context';
 
 // the JSON in the file the command names; a relative path resolves against the working directory, as
 // the shell that passed it does
-export async function readResultFile(ctx: CLIContext, path: string | undefined): Promise<unknown> {
-  if (path === undefined) {
-    throw new Error('name the file that holds the review result');
-  }
-
+export async function loadResultFile(ctx: CLIContext, path: string): Promise<unknown> {
   const file = Bun.file(resolve(ctx.cwd, path));
 
   const exists = await file.exists();

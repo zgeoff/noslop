@@ -145,6 +145,22 @@ test('it lists the files a commit changes and answers an unknown commit with not
   expect(unknown.status).toBe(404);
 });
 
+test('it serves the commit a branch points at and answers an unknown branch with not found', async () => {
+  await githubCollections.branches.create({
+    owner: 'example',
+    repo: 'app',
+    name: 'release/1',
+    sha: 'a'.repeat(40),
+  });
+
+  const known = await fetch(`${GITHUB_API_URL}/repos/example/app/branches/release/1`);
+  const unknown = await fetch(`${GITHUB_API_URL}/repos/example/app/branches/main`);
+  const branch: unknown = await known.json();
+
+  expect(branch).toStrictEqual({ name: 'release/1', commit: { sha: 'a'.repeat(40) } });
+  expect(unknown.status).toBe(404);
+});
+
 test('it names the App as its slug', async () => {
   const response = await fetch(`${GITHUB_API_URL}/app`);
   const app: unknown = await response.json();

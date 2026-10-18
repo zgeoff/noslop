@@ -206,7 +206,11 @@ export async function runCLI(argv: readonly string[], ctx: CLIContext): Promise<
     description:
       'Check a review result against its pull request: its head and the config of its base branch',
     args: {
-      file: { type: 'positional', description: 'The file that holds the review result as JSON' },
+      file: {
+        type: 'positional',
+        description: 'The file that holds the review result as JSON',
+        required: true,
+      },
       json: JSON_ARG,
     },
     run: (command) =>
