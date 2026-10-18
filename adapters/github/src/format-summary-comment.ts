@@ -10,6 +10,9 @@ export interface FixConfirmation {
   // the commit the `fixed` disposition names
   commit: string;
   fixed: boolean;
+
+  // why the review could not judge the fix, on a fix it leaves unconfirmed
+  failure?: string;
 }
 
 // the fixes a re-review judged, and how many findings earlier reviews posted
@@ -57,7 +60,7 @@ export function formatSummaryComment(
 
       const line = item.fixed
         ? `✅ ${item.title}: fixed in ${sha}`
-        : `❌ ${item.title}: not fixed in ${sha}`;
+        : `❌ ${item.title}: not fixed in ${sha}${item.failure === undefined ? '' : ` (${item.failure})`}`;
 
       lines.push(line);
     }

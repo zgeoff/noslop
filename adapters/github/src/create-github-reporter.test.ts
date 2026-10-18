@@ -1,12 +1,15 @@
 import { expect, test } from 'bun:test';
 import { getLogger } from '@logtape/logtape';
 import {
+  GITHUB_API_URL,
   STUB_APP_LOGIN,
   buildMockFinding,
   buildMockReviewResult,
   buildStubAppKey,
   githubCollections,
+  githubServer,
 } from '@noslop/testing';
+import { HttpResponse, http } from 'msw';
 import { createGitHubConnection } from './create-github-connection';
 import { createGitHubReporter } from './create-github-reporter';
 import { readPullRequestState } from './read-pull-request-state';
@@ -1053,6 +1056,156 @@ test('it confirms a fix whose commit lists its files over 2 pages and changes no
 
   expect(summary[0]).toInclude('✅ Return the total of every item: fixed in');
   expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('success');
+});
+
+test('it confirms no fix and names the failure when GitHub cannot list the files of the fix commit', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'c'.repeat(40),
+  });
+
+  for (const commit of [
+    { sha: 'b'.repeat(40), files: ['src/a.ts'] },
+    { sha: 'c'.repeat(40), files: ['src/a.ts'] },
+  ]) {
+    await githubCollections.pullCommits.create({
+      owner: 'example',
+      repo: 'app',
+      number: 5,
+      ...commit,
+    });
+  }
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/a.ts',
+    lines: [1],
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'b'.repeat(40),
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const [thread] = githubCollections.reviewComments.all();
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    body: `fixed ${'c'.repeat(7)}`,
+    authorLogin: 'dev',
+    inReplyToID: thread?.id ?? null,
+  });
+
+  githubServer.use(
+    http.get(
+      `${GITHUB_API_URL}/repos/:owner/:repo/commits/:ref`,
+      () => new HttpResponse(null, { status: 500 }),
+    ),
+  );
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      base: 'b'.repeat(40),
+      head: 'c'.repeat(40),
+      findings: [],
+      notReviewed: [{ path: 'samples/corpus.jsonl', reason: 'data' }],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const summary = githubCollections.issueComments.all().map((comment) => comment.body);
+
+  expect(summary[0]).toInclude(
+    '❌ Return the total of every item: not fixed in `ccccccc` (GitHub could not list the files of the fix commit (HTTP 500))',
+  );
+
+  expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('failure');
+});
+
+test('it confirms no fix whose commit lists more files than GitHub pages', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'c'.repeat(40),
+  });
+
+  for (const commit of [
+    { sha: 'b'.repeat(40), files: ['src/a.ts'] },
+    {
+      sha: 'c'.repeat(40),
+      files: Array.from({ length: 3000 }, (_, index) => `src/table-${index}.ts`),
+    },
+  ]) {
+    await githubCollections.pullCommits.create({
+      owner: 'example',
+      repo: 'app',
+      number: 5,
+      ...commit,
+    });
+  }
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/a.ts',
+    lines: [1],
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'b'.repeat(40),
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const [thread] = githubCollections.reviewComments.all();
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    body: `fixed ${'c'.repeat(7)}`,
+    authorLogin: 'dev',
+    inReplyToID: thread?.id ?? null,
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      base: 'b'.repeat(40),
+      head: 'c'.repeat(40),
+      findings: [],
+      notReviewed: [{ path: 'samples/corpus.jsonl', reason: 'data' }],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const summary = githubCollections.issueComments.all().map((comment) => comment.body);
+
+  expect(summary[0]).toInclude(
+    '❌ Return the total of every item: not fixed in `ccccccc` (the fix commit changes more files than GitHub lists)',
+  );
+
+  expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('failure');
 });
 
 test('it confirms no fix whose commit the re-review range does not hold', async () => {

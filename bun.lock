@@ -65,6 +65,7 @@
       "devDependencies": {
         "@logtape/logtape": "catalog:",
         "@noslop/testing": "workspace:*",
+        "msw": "catalog:",
       },
     },
     "adapters/sqlite": {

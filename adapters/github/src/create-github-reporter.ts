@@ -64,6 +64,16 @@ export function createGitHubReporter(options: GitHubReporterOptions): Reporter {
 
       const confirmations = await buildConfirmations(client, pr, before, result);
 
+      for (const item of confirmations) {
+        if (item.failure !== undefined) {
+          ctx.logger.warn('no fix confirmed for {id} in {commit}: {failure}', {
+            id: item.id,
+            commit: item.commit.slice(0, 12),
+            failure: item.failure,
+          });
+        }
+      }
+
       await updateFixedComments(client, pr, before.threads, confirmations);
 
       const after = await readPullRequestState(connection, pr);
@@ -265,20 +275,22 @@ async function buildConfirmations(
       after.includes(match ?? '') &&
       !skipped.has(thread.marker.path);
 
-    const changesSkipped =
+    const fixFiles =
       isInRange && match !== null && skipped.size > 0
-        ? await readChangesSkippedFile(client, pr, match, skipped)
-        : false;
+        ? await readFixFiles(client, pr, match, skipped)
+        : { changesSkipped: false, failure: null };
 
-    const isRead = isInRange && !changesSkipped;
+    const isRead = isInRange && !fixFiles.changesSkipped;
     const isHeld = confirmed.has(`${thread.marker.id}:${commit}`);
+    const fixed = !reported.has(thread.marker.id) && match !== null && (isRead || isHeld);
 
     return [
       {
         id: thread.marker.id,
         title: thread.marker.title,
         commit,
-        fixed: !reported.has(thread.marker.id) && match !== null && (isRead || isHeld),
+        fixed,
+        ...(fixed || fixFiles.failure === null ? {} : { failure: fixFiles.failure }),
       },
     ];
   });
@@ -324,15 +336,22 @@ async function readRangeCommits(
 const COMMIT_FILES_PER_PAGE = 100;
 const COMMIT_FILE_PAGES = 30;
 
-// reads the files of a fix commit from GitHub, page by page, and gives true when the commit changes a
-// file the review left out, which the review did not read whole; a failed read, or a commit past
-// GitHub's file cap, also gives true, so no fix is confirmed on a list noslop could not read
-async function readChangesSkippedFile(
+interface FixFiles {
+  changesSkipped: boolean;
+
+  // why GitHub gave no whole file list, which the summary shows beside the unconfirmed fix
+  failure: string | null;
+}
+
+// reads a fix commit's files from GitHub page by page; a failed read, or a commit past GitHub's
+// file cap, counts as one that changes a skipped file and carries its failure, so no fix is confirmed
+// on a file list noslop could not read whole
+async function readFixFiles(
   client: GitHubClient,
   pr: PullRequestRef,
   commit: string,
   skipped: ReadonlySet<string>,
-): Promise<boolean> {
+): Promise<FixFiles> {
   try {
     for (let page = 1; page <= COMMIT_FILE_PAGES; page += 1) {
       const response = await client.request('GET /repos/{owner}/{repo}/commits/{ref}', {
@@ -346,17 +365,28 @@ async function readChangesSkippedFile(
       const files = response.data.files ?? [];
 
       if (files.some((file) => skipped.has(file.filename))) {
-        return true;
+        return { changesSkipped: true, failure: null };
       }
 
       if (files.length < COMMIT_FILES_PER_PAGE) {
-        return false;
+        return { changesSkipped: false, failure: null };
       }
     }
 
-    return true;
-  } catch {
-    return true;
+    return { changesSkipped: true, failure: 'the fix commit changes more files than GitHub lists' };
+  } catch (error) {
+    const status =
+      typeof error === 'object' &&
+      error !== null &&
+      'status' in error &&
+      typeof error.status === 'number'
+        ? `HTTP ${error.status}`
+        : String(error);
+
+    return {
+      changesSkipped: true,
+      failure: `GitHub could not list the files of the fix commit (${status})`,
+    };
   }
 }
 
