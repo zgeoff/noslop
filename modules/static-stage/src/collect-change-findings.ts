@@ -160,13 +160,21 @@ function isWorkflowPinOnly(entry: AnalyzedFile): boolean {
 
 // a `uses:` line that calls a reusable workflow in another repo, as the line with its ref dropped
 function findWorkflowCall(text: string): string | null {
-  const isCall =
-    /^\s*(?:-\s+)?uses:\s*["']?[^\s"'@/]+\/[^\s"'@/]+\/\.github\/workflows\/[^\s"'@]+\.ya?ml@[^\s"'#]+["']?\s*(?:#.*)?$/u.test(
+  // a quoted call ends at its closing quote, so a # inside the quotes belongs to the ref
+  const match =
+    /^(?<head>\s*(?:-\s+)?uses:\s*)(?:"(?<double>[^\s"'@/]+\/[^\s"'@/]+\/\.github\/workflows\/[^\s"'@]+\.ya?ml)@[^"]+"|'(?<single>[^\s"'@/]+\/[^\s"'@/]+\/\.github\/workflows\/[^\s"'@]+\.ya?ml)@[^']+'|(?<bare>[^\s"'@/]+\/[^\s"'@/]+\/\.github\/workflows\/[^\s"'@]+\.ya?ml)@[^\s"'#]+)(?<tail>\s*(?:#.*)?)$/u.exec(
       text,
     );
 
-  // the call's path holds no @, so the first one starts the ref
-  return isCall ? text.replace(/@[^\s"'#]+/u, '@') : null;
+  if (match?.groups === undefined) {
+    return null;
+  }
+
+  const head = match.groups['head'] ?? '';
+  const path = match.groups['double'] ?? match.groups['single'] ?? match.groups['bare'];
+  const quote = text.charAt(head.length).replace(/[^"']/u, '');
+
+  return `${head}${quote}${path}@${quote}${match.groups['tail'] ?? ''}`;
 }
 
 function collectStrayFormatHunks(inputs: ChangeFindingInputs): ModelFinding[] {
