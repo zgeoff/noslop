@@ -4,6 +4,8 @@ import { formatFindingComment } from './format-finding-comment';
 import { formatFixedFindingComment } from './format-fixed-finding-comment';
 import type { FixConfirmation } from './format-summary-comment';
 import { formatSummaryComment } from './format-summary-comment';
+import type { CommitFile } from './has-skipped-file';
+import { hasSkippedFile } from './has-skipped-file';
 import type { FindingThread, PullRequestState } from './read-pull-request-state';
 import { readPullRequestState } from './read-pull-request-state';
 import { readThreadDispositions } from './read-thread-dispositions';
@@ -277,10 +279,13 @@ async function buildConfirmations(
 
     const fixFiles =
       isInRange && match !== null && skipped.size > 0
-        ? await readFixFiles(client, pr, match, skipped)
-        : { changesSkipped: false, failure: null };
+        ? await readCommitFiles(client, pr, match)
+        : { files: [], failure: null };
 
-    const isRead = isInRange && !fixFiles.changesSkipped;
+    // a file list GitHub could not give whole counts as one that touches a skipped file
+    const isRead =
+      isInRange && fixFiles.failure === null && !hasSkippedFile(fixFiles.files, skipped);
+
     const isHeld = confirmed.has(`${thread.marker.id}:${commit}`);
     const fixed = !reported.has(thread.marker.id) && match !== null && (isRead || isHeld);
 
@@ -336,22 +341,22 @@ async function readRangeCommits(
 const COMMIT_FILES_PER_PAGE = 100;
 const COMMIT_FILE_PAGES = 30;
 
-interface FixFiles {
-  changesSkipped: boolean;
+interface ReadCommitFiles {
+  files: CommitFile[];
 
   // why GitHub gave no whole file list, which the summary shows beside the unconfirmed fix
   failure: string | null;
 }
 
-// reads a fix commit's files from GitHub page by page; a failed read, or a commit past GitHub's
-// file cap, counts as one that changes a skipped file and carries its failure, so no fix is confirmed
-// on a file list noslop could not read whole
-async function readFixFiles(
+// reads every file a commit changes from GitHub, page by page; a failed read, or a commit past
+// GitHub's file cap, gives the failure in place of a whole list
+async function readCommitFiles(
   client: GitHubClient,
   pr: PullRequestRef,
   commit: string,
-  skipped: ReadonlySet<string>,
-): Promise<FixFiles> {
+): Promise<ReadCommitFiles> {
+  const files: CommitFile[] = [];
+
   try {
     for (let page = 1; page <= COMMIT_FILE_PAGES; page += 1) {
       const response = await client.request('GET /repos/{owner}/{repo}/commits/{ref}', {
@@ -362,18 +367,22 @@ async function readFixFiles(
         page,
       });
 
-      const files = response.data.files ?? [];
+      const listed = response.data.files ?? [];
 
-      if (files.some((file) => skipped.has(file.filename))) {
-        return { changesSkipped: true, failure: null };
-      }
+      files.push(
+        ...listed.map((file) =>
+          file.previous_filename === undefined
+            ? { filename: file.filename }
+            : { filename: file.filename, previous_filename: file.previous_filename },
+        ),
+      );
 
-      if (files.length < COMMIT_FILES_PER_PAGE) {
-        return { changesSkipped: false, failure: null };
+      if (listed.length < COMMIT_FILES_PER_PAGE) {
+        return { files, failure: null };
       }
     }
 
-    return { changesSkipped: true, failure: 'the fix commit changes more files than GitHub lists' };
+    return { files, failure: 'the fix commit changes more files than GitHub lists' };
   } catch (error) {
     const status =
       typeof error === 'object' &&
@@ -383,10 +392,7 @@ async function readFixFiles(
         ? `HTTP ${error.status}`
         : String(error);
 
-    return {
-      changesSkipped: true,
-      failure: `GitHub could not list the files of the fix commit (${status})`,
-    };
+    return { files, failure: `GitHub could not list the files of the fix commit (${status})` };
   }
 }
 

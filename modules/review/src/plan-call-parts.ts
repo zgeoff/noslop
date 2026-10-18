@@ -19,7 +19,7 @@ export interface CallPartsInput {
   taken: ReadonlySet<string>;
 }
 
-interface CallPart {
+export interface CallPart {
   call: PlannedCall;
   prompt: string;
 }

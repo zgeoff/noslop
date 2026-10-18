@@ -26,8 +26,19 @@ export function formatReviewSummary(result: ReviewResult): string {
   }
 
   for (const file of result.notReviewed) {
-    lines.push(`not reviewed: ${file.reason === 'data' ? 'data file' : 'too large'}: ${file.path}`);
+    lines.push(
+      `not reviewed: ${file.reason === 'data' ? 'data file' : 'too large'}: ${formatPath(file.path)}`,
+    );
   }
 
   return `${lines.join('\n')}\n`;
+}
+
+// a path comes from the change under review, so each control character, such as a line break or a
+// terminal escape, prints as an escape and never reaches the terminal raw
+function formatPath(path: string): string {
+  return path.replaceAll(
+    /\p{Cc}/gu,
+    (char) => `\\u${(char.codePointAt(0) ?? 0).toString(16).padStart(4, '0')}`,
+  );
 }

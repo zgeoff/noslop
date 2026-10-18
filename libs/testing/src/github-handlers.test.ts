@@ -162,6 +162,24 @@ test('it serves the files of a commit in pages', async () => {
   expect(commit).toStrictEqual({ sha: 'a'.repeat(40), files: [{ filename: 'src/c.ts' }] });
 });
 
+test('it names the path a renamed file of a commit had before', async () => {
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    sha: 'a'.repeat(40),
+    files: ['src/b.ts'],
+    renames: { 'src/b.ts': 'src/a.ts' },
+  });
+
+  const response = await fetch(`${GITHUB_API_URL}/repos/example/app/commits/aaaaaaa`);
+  const commit: unknown = await response.json();
+
+  expect(commit).toStrictEqual({
+    sha: 'a'.repeat(40),
+    files: [{ filename: 'src/b.ts', status: 'renamed', previous_filename: 'src/a.ts' }],
+  });
+});
+
 test('it names the App as its slug', async () => {
   const response = await fetch(`${GITHUB_API_URL}/app`);
   const app: unknown = await response.json();

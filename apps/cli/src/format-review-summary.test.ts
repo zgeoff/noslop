@@ -41,6 +41,18 @@ test('it lists each file the review did not read with its reason', () => {
   );
 });
 
+test('it prints the control characters of a file name as escapes', () => {
+  const text = formatReviewSummary(
+    buildMockReviewResult({
+      notReviewed: [{ path: `data/x\n${String.fromCodePoint(0x1b)}[31mred.json`, reason: 'data' }],
+    }),
+  );
+
+  expect(text).toEndWith(
+    `${['not reviewed: data file: data/x', 'u000a', 'u001b[31mred.json'].join('\\')}\n`,
+  );
+});
+
 test('it says there are no findings when the review found none', () => {
   expect(formatReviewSummary(buildMockReviewResult())).toInclude('\nno findings\n');
 });

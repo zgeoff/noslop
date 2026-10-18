@@ -915,6 +915,77 @@ test('it confirms no fix whose commit changes a file the re-review left out', as
   expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('failure');
 });
 
+test('it confirms no fix whose commit renames a skipped file to a reviewed path', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'c'.repeat(40),
+  });
+
+  for (const commit of [
+    { sha: 'b'.repeat(40), files: ['src/a.ts'] },
+    {
+      sha: 'c'.repeat(40),
+      files: ['src/table.ts'],
+      renames: { 'src/table.ts': 'samples/table.ts' },
+    },
+  ]) {
+    await githubCollections.pullCommits.create({
+      owner: 'example',
+      repo: 'app',
+      number: 5,
+      ...commit,
+    });
+  }
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/a.ts',
+    lines: [1],
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'b'.repeat(40),
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const [thread] = githubCollections.reviewComments.all();
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    body: `fixed ${'c'.repeat(7)}`,
+    authorLogin: 'dev',
+    inReplyToID: thread?.id ?? null,
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      base: 'b'.repeat(40),
+      head: 'c'.repeat(40),
+      findings: [],
+      notReviewed: [{ path: 'samples/table.ts', reason: 'data' }],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const summary = githubCollections.issueComments.all().map((comment) => comment.body);
+
+  expect(summary[0]).toInclude('❌ Return the total of every item: not fixed in');
+  expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('failure');
+});
+
 test('it confirms no fix whose commit changes a skipped file on a later page of its files', async () => {
   const ctx = setupTest();
 

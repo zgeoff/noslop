@@ -152,7 +152,7 @@ function formatNotReviewed(files: readonly NotReviewedFile[]): string {
   const lines = files.slice(0, NOT_REVIEWED_SHOWN).map((file) => {
     const path = file.path.length > PATH_SHOWN ? `${file.path.slice(0, PATH_SHOWN)}…` : file.path;
 
-    return `- \`${path}\`: not reviewed: ${NOT_REVIEWED_REASONS[file.reason]}`;
+    return `- ${formatPathCode(path)}: not reviewed: ${NOT_REVIEWED_REASONS[file.reason]}`;
   });
 
   if (rest > 0) {
@@ -160,6 +160,21 @@ function formatNotReviewed(files: readonly NotReviewedFile[]): string {
   }
 
   return [`⚠️ ${count} left out of the review:`, ...lines].join('\n');
+}
+
+// a path comes from the change under review, so it can hold Markdown, a mention, a marker or a line
+// break; the summary writes each control character and angle bracket as an escape, then wraps the
+// path in a code span whose backtick fence is longer than any backtick run inside it
+function formatPathCode(path: string): string {
+  const escaped = path.replaceAll(
+    /[\p{Cc}<>]/gu,
+    (char) => `\\u${(char.codePointAt(0) ?? 0).toString(16).padStart(4, '0')}`,
+  );
+
+  const longest = Math.max(0, ...(escaped.match(/`+/gu) ?? []).map((run) => run.length));
+  const fence = '`'.repeat(longest + 1);
+
+  return longest === 0 ? `${fence}${escaped}${fence}` : `${fence} ${escaped} ${fence}`;
 }
 
 function sortFindings(findings: readonly Finding[]): Finding[] {
