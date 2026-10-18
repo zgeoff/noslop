@@ -4,7 +4,7 @@ The CLI, the bin `noslop` in `@noslop/cli`, is the composition root for a review
 config, builds the adapter and the reporters, runs the pipeline on one change, and hands the result
 to each reporter. It reviews a local branch or a pull request, and its JSON output carries a schema
 version, so other tools pin a CLI version and read one shape. [The GitHub App](./github-app.md) runs
-its reviews and its check updates through this CLI. [0011](../decisions/0011-model-adapters.md)
+its reviews and its check updates through this CLI. [0011](../../decisions/0011-model-adapters.md)
 records why noslop is a versioned CLI with JSON output.
 
 The npm package `@noslop/cli` holds one Bun bundle of the CLI and every workspace package it
@@ -20,16 +20,16 @@ its source.
 | `noslop review --pr <number> [--full] [--repo <owner/name>]` | Reviews a pull request, from its base and head                        |
 | `noslop check --pr <number> --repo <owner/name>`             | Sets a pull request's check run from its dispositions, with no review |
 | `noslop config`                                              | Prints the merged config and the file each key comes from             |
-| `noslop store query <name>`                                  | Runs a named query on the [findings store](./store.md)                |
+| `noslop store query <name>`                                  | Runs a named query on the [findings store](../measurement/store.md)   |
 | `noslop store escape --repo --issue --head --defect`         | Records a defect that a review missed                                 |
 | `noslop eval --corpus <path>`                                | Replays a corpus through the current config and scores it per lens    |
 
 `review` also takes `--report <ids>`, a comma-separated list of reporters that replaces the config's
 list, `--adapter codex|claude`, which replaces the config's adapter, and `--push`, which reviews a
 direct push to the default branch. `eval` takes `--limit`, `--baseline`, `--noise-floor`, `--out`,
-`--adapter`, `--resume`, `--static` and `--depth`, under [the eval harness](./eval.md). Every
-command takes `--json`, and `--verbose` lowers the log level to debug. `noslop <command> --help`
-lists each command's flags.
+`--adapter`, `--resume`, `--static` and `--depth`, under [the eval harness](../measurement/eval.md).
+Every command takes `--json`, and `--verbose` lowers the log level to debug.
+`noslop <command> --help` lists each command's flags.
 
 Logs go to stderr, so stdout holds only a command's output. A command exits 0 when it completed. It
 exits 1 when it could not run, such as on a bad flag, a git failure or an adapter the CLI does not
@@ -47,12 +47,11 @@ its last commit.
 
 With `--pr`, the CLI reads the pull request from GitHub and takes its title, body, head and base
 from there, so it refuses `--base` and `--head`. The repo comes from `--repo`, or from the origin
-remote's URL. The base is the merge-base of the pull request's base and head. One exception: once
-noslop has reviewed an earlier head of the pull request with no failed call, and that head is an
-ancestor of the current one, the base is that head, so a re-review covers only the new commits.
-`--full` keeps the merge-base as the base, so the review covers the whole pull request again, such
-as to confirm a fix whose commit an earlier delta left out. [The GitHub App](./github-app.md) covers
-the summary comment that holds the reviewed head.
+remote's URL. The base is the merge-base of the pull request's base and head. One exception: a
+re-review starts from the reviewed head of the last fully completed review, under the rule in
+[re-review and fix confirmation](./github-app.md#re-review-and-fix-confirmation). `--full` keeps the
+merge-base as the base, so the review covers the whole pull request again, such as to confirm a fix
+whose commit an earlier delta left out.
 
 ## Output and reporters
 
@@ -65,8 +64,8 @@ stores nothing.
 
 The review result follows the result schema in the contract package, and the CLI parses the result
 against it before printing it. The schema's version changes only with a breaking change to the
-output, so a consumer that pins a CLI version reads the same shape. [Findings](./findings.md) covers
-the finding schema inside it.
+output, so a consumer that pins a CLI version reads the same shape.
+[Findings](../review/findings.md) covers the finding schema inside it.
 
 ## Folders
 

@@ -188,7 +188,9 @@ async function readChain(options: LoadConfigOptions): Promise<ChainFile[]> {
     const value = parseConfigFile(text, label);
     const parent = value['extends'];
 
+    // `$schema` points an editor at the generated JSON Schema of review.json and sets nothing
     delete value['extends'];
+    delete value['$schema'];
 
     if (value['rules'] !== undefined && value['rules'] !== null) {
       value['rules'] = resolveRulesFiles(value['rules'], location);

@@ -4,11 +4,11 @@ The eval harness replays a corpus of past changes through noslop with the config
 scores what noslop reports against the findings a reference reviewer made on those changes, each
 labelled by what happened to it. `noslop eval --corpus <folder>` runs it from a repo whose config it
 tests. The score is per lens, so a lens is measured on its own even when a call carries it with
-others. A recorded baseline run scores beside noslop on the same cases, and two recorded runs of one
-reviewer give the noise floor: the run-to-run difference below which a gap between two configs means
-nothing. The harness reports counts and decides nothing; the person reading the report judges a
-prompt, grouping or threshold change by them. [0012](../decisions/0012-the-findings-store.md)
-records the harness.
+others. A baseline is a recorded run, such as one of the reference reviewer, that the harness scores
+beside noslop on the same cases. Two recorded runs of one reviewer give the noise floor: the
+run-to-run difference below which a gap between two configs means nothing. The harness reports
+counts and decides nothing; the person reading the report judges a prompt, grouping or threshold
+change by them. [0012](../../decisions/0012-the-findings-store.md) records the harness.
 
 ```mermaid
 flowchart LR
@@ -22,16 +22,17 @@ flowchart LR
   floor --> report
 ```
 
-[The pipeline](./pipeline.md) covers the review each case runs, and
-[routing and depth](./routing-and-depth.md) covers the Light rule the report counts against.
+[The pipeline](../review/pipeline.md) covers the review each case runs, and
+[routing and depth](../review/routing-and-depth.md) covers the Light rule the report counts against.
 
 ## The corpus
 
-A corpus is a folder with one folder per case, and each case folder holds its labels in a
-`case.json`. The harness loads the cases in name order, so two runs replay them in the same order,
-and skips a folder with no `case.json`. A case that fails its schema stops the load with the case's
-name. noslop ships no corpus: each user builds one from their own past changes and keeps it outside
-the repo.
+An eval corpus is a labelled set of past changes, with the findings a reviewer made on them and the
+escapes that got past review. On disk a corpus is a folder with one folder per case, and each case
+folder holds its labels in a `case.json`. The harness loads the cases in name order, so two runs
+replay them in the same order, and skips a folder with no `case.json`. A case that fails its schema
+stops the load with the case's name. noslop ships no corpus: each user builds one from their own
+past changes and keeps it outside the repo.
 
 A case holds the path to a local clone of the repo, the base and head commits of the change, its
 title and body, the labelled findings, and the escapes. A labelled finding holds its anchor, title,
@@ -60,10 +61,8 @@ recorded run, and a later eval reads it as a baseline or as half of a noise floo
 ends, the harness writes the report as Markdown and the score as JSON beside it, and prints one of
 them.
 
-The harness also drives a reviewer that needs the head checked out for it: it adds a detached
-worktree of the case's clone at the head and removes it after the review. A reference reviewer of
-that kind is defined beside one of the model adapters, and no command runs it, so a baseline reaches
-the harness as a recorded run passed by path.
+No command runs a reference reviewer, so a baseline reaches the harness as a recorded run passed by
+path.
 
 ## Matching
 
@@ -87,11 +86,10 @@ For each lens, the score holds:
 - The escapes its findings caught.
 
 A reported finding with no lens counts under `unknown`. The totals add the cases and failed cases,
-the calls, the new input, cached input, cache write and output tokens that [adapters](./adapters.md)
-defines, and the duration. A run recorded before the cache counts holds none, and its input count
-holds the cached share. The Light rule section counts the cases noslop reviewed at Light and the
-labelled P1 true positives and escapes those cases hold, which the rule in
-[0007](../decisions/0007-depth-and-models.md) needs to stay near none.
+the calls, the new input, cached input, cache write and output tokens that
+[adapters](../review/adapters.md) defines, and the duration. The Light rule section counts the cases
+noslop reviewed at Light and the labelled P1 true positives and escapes those cases hold, which the
+rule in [0007](../../decisions/0007-depth-and-models.md) needs to stay near none.
 
 With `--baseline <runs>`, the harness scores the recorded run on the cases of this run and prints
 its totals in a second column. With `--noise-floor <first>,<second>`, it matches the two runs'
@@ -111,8 +109,8 @@ the other misses. A special route still runs no call.
 
 With `--static`, the harness plans each case with the config under test and makes no model call: it
 reads the change, runs the static stage and routes it, which is the part of a review that needs no
-model. Routing and the risk score are deterministic, so the replay runs on a whole corpus in minutes
-and tells what a change to the risk score's thresholds does before any model run.
+model. Routing and the risk score are deterministic, so the replay runs on a whole corpus with no
+model cost and tells what a change to the risk score's thresholds does before any model run.
 
 The report counts the cases at each depth, the labelled P1 true positives and the escapes those
 cases hold, and the calls each depth plans. It lists every labelled P1 and escape on a case that

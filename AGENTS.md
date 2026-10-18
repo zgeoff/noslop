@@ -35,10 +35,17 @@ modules/           config, static-stage, routing, lenses, review, findings, eval
 adapters/          one outside system each: codex, claude, github, sqlite, webhook
 libs/              shared code that belongs to no domain: contract, runner, testing
 docs/
-  architecture/    what is built
+  architecture/    what is built, by area, with an overview
+  guides/          the steps a user takes, one task each
+  runbooks/        contributor and maintainer procedures: development, the eval, releasing
+  reference/       generated reference: the JSON Schema of review.json
   decisions/       numbered decision records
   design/          a design for work not yet built; only the owner opens a design
+scripts/           the CLI package build, the config schema writer, the first publish
 ```
+
+`bun run schema:config` writes `docs/reference/review.schema.json` from the config schema, and a
+contract test fails while the committed file differs.
 
 ## Packages
 

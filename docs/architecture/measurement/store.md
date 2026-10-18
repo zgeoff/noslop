@@ -1,15 +1,16 @@
 # The findings store
 
-noslop keeps one SQLite file that records every review it runs, with each call and each finding of
-the review, beside the dispositions people gave and the escapes that got past it. The `sqlite`
-reporter writes a review into the store, and the store's named queries turn the rows into measures
-per lens: yield, noise, recall, and cost. Other tools read the store only through
-`noslop store query <name> --json` and keep no copy, so its tables can change without breaking a
-reader. [0012](../decisions/0012-the-findings-store.md) records the decision, and
-[0015](../decisions/0015-reporters.md) makes the store a reporter.
+The findings store is one SQLite file that records every review noslop runs, with each call and each
+finding of the review, beside the dispositions people gave and the escapes. An escape is a defect
+that a review missed, recorded from the issue that reported it. The `sqlite` reporter writes a
+review into the store, and the store's named queries turn the rows into measures per lens: yield,
+noise, recall, and cost. Other tools read the store only through `noslop store query <name> --json`
+and keep no copy, so its tables can change without breaking a reader.
+[0012](../../decisions/0012-the-findings-store.md) records the decision, and
+[0015](../../decisions/0015-reporters.md) makes the store a reporter.
 
-[Reporters](./reporters.md) covers when the `sqlite` reporter runs, and [findings](./findings.md)
-covers what a finding holds and how its id is formed.
+[Reporters](../output/reporters.md) covers when the `sqlite` reporter runs, and
+[findings](../review/findings.md) covers what a finding holds and how its id is formed.
 
 ## Where the store lives
 
@@ -30,12 +31,12 @@ per escape. A list or an object sits in its column as JSON text, and a boolean a
 - A review row keeps the repo, the pull request when there is one, the base and the head, the depth,
   the lenses that ran, the config hash and the start and end time.
 - A call row keeps its lenses, depth, adapter, model, effort, attempts, status, duration, and its
-  new input, cached input, cache write and output tokens. A call row written before the store kept
-  the cache counts has none, and its input count holds the cached share. Deleting a review deletes
-  its calls, findings and dropped findings with it.
+  new input, cached input, cache write and output tokens. Deleting a review deletes its calls,
+  findings and dropped findings with it.
 - A finding row keeps every field of the finding, plus the depth, model and effort of the call that
-  reported it, so a measure can split one lens by how it ran. A finding that no call reported, such
-  as one from the static stage, takes the review's depth and no model.
+  reported it, so a measure can split one lens by how it ran. Every finding row holds its lens, so
+  yield, noise and recall count per lens. A finding that no call reported, such as one from the
+  static stage, takes the review's depth and no model.
 - A dropped finding row keeps a finding that Assemble dropped: its lens, call, title, anchor and
   criterion, the reason it was dropped, and the rules file and quote a taste finding gave. The rows
   let a reader check whether a finding rule throws away real findings.

@@ -2,6 +2,7 @@
 
 - Date: 2026-10-17
 - Status: decided
+- Updated: 2026-10-18
 
 The correctness lens runs on every change that holds code. Every other lens runs only when its
 trigger matches, and it receives only its own slice and hunks.
@@ -27,7 +28,8 @@ A risk class in config can force a lens on for its paths. Some changes route dif
   review.
 - A release bump gets only the version checks.
 - A docs-only change gets only the documentation and instructions lenses.
-- A direct push gets a review after the push, and its findings become issues.
+- A direct push to the default branch fires lenses by their triggers like any other change, and the
+  review result marks it as a direct push.
 
 ## Why
 
@@ -42,4 +44,9 @@ A risk class in config can force a lens on for its paths. Some changes route dif
 
 ## Consequences
 
-- The thresholds are starting values, tuned on the eval corpus.
+- Each threshold is a default that the config sets, under [0010](0010-the-reviewer-config.md).
+
+## Changes
+
+- 2026-10-18: a direct push routes by the triggers and its result marks it as a direct push. Filing
+  its findings as issues is no part of routing.

@@ -6,11 +6,11 @@ for Codex and one for Claude Code. Each adapter starts its CLI read-only in its 
 review never changes the repo it reads, and keeps the reviewed repo's agent instruction files out of
 the model's context, so the change under review cannot steer its own review. Routing, depth and
 blocking all live in noslop, so swapping the adapter changes none of them.
-[0011](../decisions/0011-model-adapters.md) records the decision.
+[0011](../../decisions/0011-model-adapters.md) records the decision.
 
 [Calls](./calls.md) covers how a call gets its lenses, effort, model and timeout.
-[Reporters](./reporters.md) covers the other packages under `adapters/`, which send a review result
-to GitHub, a SQLite store or a webhook.
+[Reporters](../output/reporters.md) covers the other packages under `adapters/`, which send a review
+result to GitHub, a SQLite store or a webhook.
 
 ## The adapter contract
 
@@ -82,7 +82,7 @@ hook of theirs runs inside a review. It passes a strict MCP config, so no MCP se
 off session persistence. noslop's instructions append to the system prompt, and the adapter reads
 the structured output, the token use and the model that ran from Claude Code's JSON result.
 
-### The gap that remains
+### Instruction files the model opens
 
 The model can open an instruction file itself with its read tools, because the adapter runs it
 read-only inside the repo it reviews. Neither adapter blocks that read. The appended instructions
@@ -95,14 +95,14 @@ Every call has a timeout: the longest its lenses set, else the adapter's timeout
 else the adapter's default. A call that times out, exits with an error, or returns output that fails
 the schema rejects. The review module retries a rejected call once on the same adapter, and a second
 failure lists the call as failed in the review result while the other calls run on.
-[The GitHub App](./github-app.md) covers how a failed call holds back the check run.
+[The GitHub App](../output/github-app.md) covers how a failed call holds back the check run.
 
 ## The reference reviewer
 
-The Codex package also holds a reference reviewer for [the eval harness](./eval.md). It runs
-`codex exec review` on a corpus case, read-only, and parses its answer into findings, so a recorded
-run of it gives the baseline that noslop's runs score against and the noise floor between 2 of its
-runs.
+The Codex package also holds a reference reviewer for [the eval harness](../measurement/eval.md). It
+runs `codex exec review` on a corpus case, read-only, and parses its answer into findings, so a
+recorded run of it gives the baseline that noslop's runs score against and the noise floor between 2
+of its runs.
 
 `codex exec review` runs the review in a subagent thread, and the JSON events it prints count no
 tokens for that thread. The reviewer therefore keeps the session files Codex writes under its home

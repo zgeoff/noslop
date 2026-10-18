@@ -1,6 +1,6 @@
 # Your own rules
 
-noslop ships no rule set, under [0001](../decisions/0001-scope-and-your-own-rules.md). The core
+noslop ships no rule set, under [0001](../../decisions/0001-scope-and-your-own-rules.md). The core
 knows generic defects, and everything that is one codebase's taste or one stack's meaning comes from
 the user's config. A user brings three things: a rules file for the taste lenses, stack patterns
 that tell the static stage what the stack's calls mean, and risk classes that mark the paths a
@@ -9,10 +9,10 @@ config repo can hand the same three to several repos.
 
 ## The rules file
 
-The rules file is Markdown, named by the config's `rules` key, which names one file or a list of
-them. Each file reaches the taste lenses whole, under its label, the path as the config wrote it.
-noslop reads no structure into it, so a repo's skills serve as its rules unchanged, and a renamed
-heading changes nothing.
+A rules file is a Markdown file of taste rules, named by the config's `rules` key, which names one
+file or a list of them. Each file reaches the taste lenses whole, under its label, the path as the
+config wrote it. noslop reads no structure into it, so a repo's skills serve as its rules unchanged,
+and a renamed heading changes nothing.
 
 A taste finding names the file it rests on and quotes it, at least one full sentence, word for word.
 Assemble looks for the quote in the file, with whitespace collapsed and case kept, and drops a
@@ -44,15 +44,17 @@ path and a reference both stay inside the folder they resolve against.
 ```
 
 A call whose lenses read the rules file carries every file that applies to the change, each under
-its label, and [the lenses](./lenses.md) covers which lenses read it. [Findings](./findings.md)
-describes how Assemble checks a taste finding's quote. A repo with no rules file gets a prompt that
-tells the lenses to report no taste finding, so the taste lenses still check generic concerns.
+its label, and [the lenses](../review/lenses.md) covers which lenses read it.
+[Findings](../review/findings.md) describes how Assemble checks a taste finding's quote. A repo with
+no rules file gets a prompt that tells the lenses to report no taste finding, so the taste lenses
+check only generic concerns.
 
 ## Stack patterns
 
-Stack patterns tell the static stage what a stack's code means, read from the syntax tree with no
-code to load or run. Each pattern holds a list of call names and a list of import sources. A call
-matches a call name in one of three ways:
+A stack pattern is a config entry that tells the static stage what counts as one kind of code in a
+stack, such as a write, an I/O call or a procedure, read from the syntax tree with no code to load
+or run. Each pattern holds a list of call names and a list of import sources. A call matches a call
+name in one of three ways:
 
 - A name that starts with a dot, such as `.handler`, matches any callee that ends with it.
 - A dotted name, such as `Bun.write`, matches that name at the end of any object chain.
@@ -77,15 +79,16 @@ inherited one, so the repo's list holds the defaults it keeps.
 
 ## Risk classes
 
-A risk class is a name, path globs, detectors, and the lenses it forces on. The static stage marks a
-class when a changed path matches one of its globs, or when one of its detectors fires. A detector
-is a fact the static stage finds: a part of the security slice by its name, a changed migration, or
-a deletion among the writes. The built-in defaults hold a generic set of classes, and a repo adds
-its own beside them, or removes one with `null`. A class the repo adds names all three lists, with
-an empty list where one does not apply, because the schema requires each one.
+A risk class is a named kind of risky change, such as auth or migrations. It holds path globs,
+detectors, and the lenses it forces on. The static stage marks a class when a changed path matches
+one of its globs, or when one of its detectors fires. A detector is a fact the static stage finds: a
+part of the security slice by its name, a changed migration, or a deletion among the writes. The
+built-in defaults hold a generic set of classes, and a repo adds its own beside them, or removes one
+with `null`. A class the repo adds names all three lists, with an empty list where one does not
+apply, because the schema requires each one.
 
 A marked class forces its lenses on, even a lens the config turns off, and makes the change Deep.
 One exception: a sync, a release bump or a docs-only change runs its own narrow lens list, and a
 class forces no lens onto it. A finding anchored in a marked class's paths carries the class's name.
-[Routing and depth](./routing-and-depth.md) covers how a class changes the route, and
-[findings](./findings.md) covers what the class on a finding does at the merge.
+[Routing and depth](../review/routing-and-depth.md) covers how a class changes the route, and the
+findings doc covers what the class on a finding does at the merge.

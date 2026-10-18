@@ -5,7 +5,7 @@
 - Updated: 2026-10-18
 
 A repo's noslop config is `review.json`. With no `review.json`, noslop runs built-in defaults: every
-generic lens, the shared risk classes, no rules file, and the first installed adapter.
+generic lens, the shared risk classes, no rules file, and the Codex adapter.
 
 A `review.json` can name a parent with `extends`, such as
 `"extends": "github:<owner>/noslop-config"`. With no `extends`, its parent is the built-in defaults.
@@ -22,9 +22,9 @@ The config holds:
 - **Stack patterns:** what counts as a write, an I/O import or a procedure in this stack, as call
   names and import sources.
 - **Rules files:** one Markdown file of taste rules, or a list of them, such as a repo's skills.
-  Each file loads whole, and a taste finding cites its file by an exact quote, which Assemble finds
-  in the file. An entry's references load only for a change that touches the paths they name, and a
-  `repo:` path names a file in the reviewed repo.
+  Each file and each of its references is one rule and loads whole. A taste finding cites its rule
+  by an exact quote, which Assemble finds in the file. An entry's references load only for a change
+  that touches the paths they name, and a `repo:` path names a file in the reviewed repo.
 - **Model and effort per lens,** which override the depth's default.
 - **The call grouping,** under [0008](0008-stacking-lenses-into-calls.md).
 
@@ -62,3 +62,5 @@ The config holds:
   finding cites its file by a quote that Assemble checks. `rules` appends across `extends`, so the
   shared config saves each repo restating the shared skills. A `skip` list loads with a warning
   until the configs drop it.
+- 2026-10-18: with no adapter in the config, noslop runs the Codex adapter. noslop does not look for
+  which model CLIs are installed, so the same config runs the same adapter on every machine.

@@ -20,11 +20,7 @@ test('it builds a manifest that names the bundle and no workspace dependency', a
     name: '@noslop/cli',
     description: 'A reviewer for pull requests that coding agents write',
     license: 'MIT',
-    repository: {
-      type: 'git',
-      url: 'git+https://github.com/zgeoff/noslop.git',
-      directory: 'apps/cli',
-    },
+    repository: { type: 'git', url: 'git+https://github.com/zgeoff/noslop.git' },
     type: 'module',
     bin: { noslop: './cli.js' },
     files: ['cli.js'],

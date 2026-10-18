@@ -412,6 +412,19 @@ test('it fails the load when the merged config breaks the schema', async () => {
   );
 });
 
+test('it loads a file that names its JSON Schema', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(
+    join(ctx.dir, 'review.json'),
+    JSON.stringify({ $schema: './review.schema.json', report: ['json'] }),
+  );
+
+  const loaded = await loadConfig({ repoDir: ctx.dir });
+
+  expect(loaded.config.report).toStrictEqual(['json']);
+});
+
 test('it gives 2 loads of the same config the same hash', async () => {
   const ctx = await setupTest();
 

@@ -1,11 +1,12 @@
 # Lenses
 
-A lens is one prompt section that asks a model for one kind of defect, such as correctness, security
-or reuse. noslop has 13 lenses under [0005](../decisions/0005-the-lens-set.md), and a call to a
-model carries the sections of the lenses that fired, joined into one prompt. Each lens reports into
-its own findings list, so every finding keeps the lens that found it. The lenses package owns the
-prompts and builds each call's prompt. Routing decides which lenses fire and which call carries
-them, and an adapter sends the prompt to a model CLI.
+A lens is one review concern, such as correctness, security or reuse, with its own trigger, the
+slices it reads, and a prompt section that asks a model for that kind of defect.
+[0005](../../decisions/0005-the-lens-set.md) sets the lens set, and a call to a model carries the
+sections of the lenses that fired, joined into one prompt. Each lens reports into its own findings
+list, so every finding keeps the lens that found it. The lenses package owns the prompts and builds
+each call's prompt. Routing decides which lenses fire and which call carries them, and an adapter
+sends the prompt to a model CLI.
 
 ## The prompt pages
 
@@ -13,14 +14,14 @@ Each lens has a Markdown page in the lenses package. A page opens with a header 
 edit it: the trigger, the input and the call. The prompt follows under its `## Prompt` heading, and
 the model reads that text word for word, so an edit to a page is an edit to the prompt. The model
 never sees the header, because the trigger and the input are rules that noslop runs in code. The
-pages follow [0013](../decisions/0013-prompt-language.md): short numbered rules in plain words, each
-page with what to look for, how to check each candidate, what not to report, and the severity.
+pages follow [0013](../../decisions/0013-prompt-language.md): short numbered rules in plain words,
+each page with what to look for, how to check each candidate, what not to report, and the severity.
 
 A shared header page opens every call. It holds the finding rules of
-[0003](../decisions/0003-what-counts-as-a-finding.md), the verdict rules of
-[0004](../decisions/0004-severity-and-verdicts.md), and the form of the answer. The criteria table
-of 0004 enters the header from the code that sets each criterion's severity, so the table the model
-reads and the check that Assemble runs come from one source.
+[0003](../../decisions/0003-what-counts-as-a-finding.md), the verdict rules of
+[0004](../../decisions/0004-severity-and-verdicts.md), and the form of the answer. The criteria
+table of 0004 enters the header from the code that sets each criterion's severity, so the table the
+model reads and the check that Assemble runs come from one source.
 
 ## Building a call's prompt
 

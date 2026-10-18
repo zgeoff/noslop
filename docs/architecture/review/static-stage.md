@@ -1,10 +1,11 @@
 # The static stage
 
 The static stage computes, with no model call, every fact about a change that code can compute,
-under [0002](../decisions/0002-the-pipeline.md). It reads the changed files at the head commit,
-parses each TypeScript or JavaScript file once with oxc, and walks each syntax tree once with every
-collector reading every node. It then cuts the facts down to three outputs: the slices that the
-lenses read, the direct findings it reports itself, and the risk signals that
+under [0002](../../decisions/0002-the-pipeline.md). It runs before any model call, so each such fact
+is computed once and every call reads it from the stage. It reads the changed files at the head
+commit, parses each TypeScript or JavaScript file once with oxc, and walks each syntax tree once
+with every collector reading every node. It then cuts the facts down to three outputs: the slices
+that the lenses read, the direct findings it reports itself, and the risk signals that
 [routing](./routing-and-depth.md) reads. A fact the stage computes costs nothing per run and gives
 the same answer every run, so the model calls spend their tokens on judgement.
 
@@ -40,15 +41,17 @@ lenses read the kind to decide which hunks a lens sees.
 
 ## Slices
 
-A slice is one cut of the facts that one lens concern reads, and the contract package
-(`@noslop/contract`) holds its shape. The stage keeps a fact only when it touches the change: the
-functions a changed line falls in, the guards, throws and config reads on added lines, every write
-in a changed function so a lens sees the writes a new one sits beside, and the security facts on
-touched lines. [The lenses](./lenses.md) covers which lens reads which slice.
+A slice is the part of the stage's facts that one lens concern reads, such as the new writes or the
+new throws, and the contract package (`@noslop/contract`) holds its shape. The stage keeps a fact
+only when it touches the change: the functions a changed line falls in, the guards, throws and
+config reads on added lines, every write in a changed function so a lens sees the writes a new one
+sits beside, and the security facts on touched lines. [The lenses](./lenses.md) covers which lens
+reads which slice.
 
-The stack patterns in [your own rules](./your-own-rules.md) decide what counts as a write, an I/O
-call, an event, a transaction, an invariant or a request-path call. The stage matches each call
-against them by name and by import source, so it learns a stack's meaning without loading its code.
+The stack patterns in [your own rules](../config/your-own-rules.md) decide what counts as a write,
+an I/O call, an event, a transaction, an invariant or a request-path call. The stage matches each
+call against them by name and by import source, so it learns a stack's meaning without loading its
+code.
 
 A guard's condition is traced back through its declarations a step or two, to whether the value
 comes from a parameter, a call, a constant or the function's own state. The failure-handling lens
@@ -73,9 +76,10 @@ the patterns rebuilds it.
 
 ## Direct findings
 
-A direct finding is a defect the stage reads from the code, so it is CONFIRMED and carries the lens
-`static`, as [findings](./findings.md) describes. A check that reports a missing change, such as a
-missing version bump, anchors to the code that needs it. The stage reports:
+A direct finding is a finding the stage reports with no model call. The stage reads its defect from
+the code, so it is CONFIRMED and carries the lens `static`, as [findings](./findings.md) describes.
+A check that reports a missing change, such as a missing version bump, anchors to the code that
+needs it. The stage reports:
 
 - Defects in tests: a new test with no assertion, a new test whose body repeats another test's, a
   type test on a key its type lacks, a new allow-or-deny check whose tests hold no table of hostile
@@ -103,5 +107,5 @@ The risk signals are the facts routing reads to fire lenses and pick the depth: 
 classes, the detectors that fired, the number of packages touched, the consumer edges, the changed
 and deleted lines, a breaking marker in the title or body, and the changed files with a past escape.
 A risk class is marked when a changed path matches its globs or one of its detectors fires on a
-slice, as [your own rules](./your-own-rules.md) describes. The CLI reads the past escapes of the
-repo from [the findings store](./store.md).
+slice, as [your own rules](../config/your-own-rules.md) describes. The CLI reads the past escapes of
+the repo from [the findings store](../measurement/store.md).

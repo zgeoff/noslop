@@ -1,10 +1,10 @@
 # Calls
 
-A call is one model request that carries several fired lenses at once. Routing groups the lenses
-that [routing and depth](./routing-and-depth.md) fired into calls by the config's call grouping, and
-each call runs once on the whole change, so its lenses see every hunk they read. A call's effort,
-model and timeout come from its lenses and its depth.
-[0008](../decisions/0008-stacking-lenses-into-calls.md) records the default grouping and why each
+A call is one model request that bundles one or more fired lenses. Routing groups the lenses that
+[routing and depth](./routing-and-depth.md) fired into calls by the config's call grouping, and each
+call runs once on the whole change, so its lenses see every hunk they read. A call's effort, model
+and timeout come from its lenses and its depth.
+[0008](../../decisions/0008-stacking-lenses-into-calls.md) records the default grouping and why each
 lens stays a separate unit inside a call. [Lenses](./lenses.md) covers how a call's prompt is built
 and how each finding keeps its lens.
 
@@ -12,8 +12,8 @@ and how each finding keeps its lens.
 
 The config maps each call ID to its lens list, and the built-in defaults hold the grouping of 0008.
 A repo's `calls` key replaces the list of each call it holds, because arrays replace under the merge
-rules in [the reviewer config](./review-config.md), so moving a lens into a call of its own is a
-config change.
+rules in [the reviewer config](../config/review-config.md), so moving a lens into a call of its own
+is a config change.
 
 Routing walks the calls in the order of their IDs and puts each fired lens into the first call that
 lists it. A call holds only the lenses of its list that fired, and a call with no fired lens is left

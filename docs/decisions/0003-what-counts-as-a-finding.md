@@ -2,6 +2,7 @@
 
 - Date: 2026-10-17
 - Status: decided
+- Updated: 2026-10-18
 
 A finding is a discrete, actionable defect that the change introduces or exposes, which the author
 would fix if told. It does not rest on an unstated assumption, and it is not an intentional change.
@@ -16,8 +17,10 @@ Five rules set its reach and form:
    location. A missing change, such as a consumer update or a migration, anchors to the changed line
    that needs it.
 4. **Verdict.** A finding is CONFIRMED or PLAUSIBLE, under [0004](0004-severity-and-verdicts.md).
-5. **Taste.** A taste finding cites its rule by name from the rules file. A taste finding with no
-   named rule is dropped.
+5. **Taste.** A taste finding names the rules file it rests on and quotes that file word for word. A
+   taste finding whose quote the file does not hold is dropped. The finding keeps the file and the
+   nearest heading above the quote as its rule, and [0010](0010-the-reviewer-config.md) covers how a
+   rules file loads.
 
 ## Why
 
@@ -25,16 +28,24 @@ Five rules set its reach and form:
   limit. A diff-only reviewer cannot see them.
 - A cited location keeps the evidence bar of a diff-only reviewer while widening its reach.
 - An anchor in the diff ties every finding to the change, so its author owns it.
-- A named rule makes a taste finding checkable rather than a matter of opinion.
+- A quote from the rules file makes a taste finding checkable rather than a matter of opinion, and
+  code can confirm the quote, so a model cannot invent a rule.
 
 ## Alternatives
 
 - **Only defects inside the diff.** It misses every defect that needs context outside the diff.
 - **Every pre-existing defect the reviewer sees.** It buries the change's own findings under old
   ones the author did not cause.
+- **A taste finding names its rule by heading.** It ties the rules file to a heading structure, so a
+  renamed heading breaks every citation, and a file written as prose has no rule to name.
 
 ## Consequences
 
 - The finding schema holds an anchor, an optional second location, a lens, a severity criterion and
   a verdict.
 - The pull request fixes findings on lines it wrote, under [0009](0009-the-merge-loop.md).
+
+## Changes
+
+- 2026-10-18: a taste finding cites its rules file by an exact quote instead of a rule name, and is
+  dropped when the file does not hold the quote. Each rules file loads whole.

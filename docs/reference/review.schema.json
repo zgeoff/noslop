@@ -1,0 +1,1188 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "review.json",
+  "description": "A repo's noslop config; every key is optional, and null removes an inherited key",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "The JSON Schema an editor checks this file against"
+    },
+    "extends": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The parent config: a path relative to this file, or github:<owner>/<repo>[/<path>][@<ref>]"
+    },
+    "rules": {
+      "description": "The rules files the taste lenses read, each one rule, whole; entries append across extends",
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "The rules file, relative to the config that names it, or `repo:<path>` in the reviewed repo"
+                  },
+                  "label": {
+                    "description": "The name a finding cites the file by; the path as written unless given",
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "references": {
+                    "description": "Files beside the rules file, each one rule, by path, with the globs that load it",
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "additionalProperties": {
+                      "minItems": 1,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "description": "Path globs; the reference loads only for a change that touches a match"
+                    }
+                  },
+                  "skip": {
+                    "description": "Ignored, with a warning",
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                },
+                "required": ["path"],
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "adapter": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The model adapter: codex or claude"
+    },
+    "adapters": {
+      "description": "Options for each adapter, by id",
+      "anyOf": [
+        {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "timeoutMs": {
+                    "description": "The time one call may take",
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "model": {
+                    "description": "The model every call runs on, unless a lens names one",
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "mergeModel": {
+                    "description": "The model of the merge pass, a cheap one, since the pass only groups findings it reads",
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "mergePass": {
+      "description": "The one call after Assemble that groups the findings which report one defect",
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "description": "Whether the merge pass runs",
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "effort": {
+              "description": "The model effort of the merge pass",
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": ["low", "medium", "high"]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "riskClasses": {
+      "description": "Named kinds of risky change, each marked by path globs or detectors",
+      "anyOf": [
+        {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "paths": {
+                    "description": "Path globs that mark a change as in this class",
+                    "anyOf": [
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "detectors": {
+                    "description": "Static-stage detectors that mark a change as in this class, such as `migration`, `deletion` or a security part",
+                    "anyOf": [
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "forces": {
+                    "description": "The lenses a change in this class always runs",
+                    "anyOf": [
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "correctness",
+                            "failure-handling-and-observability",
+                            "concurrency-and-data-integrity",
+                            "security",
+                            "architecture-and-boundaries",
+                            "naming-shape-and-comments",
+                            "cross-repo-and-platform-limits",
+                            "deploy-and-config",
+                            "intent",
+                            "tests",
+                            "reuse",
+                            "instructions",
+                            "documentation"
+                          ]
+                        }
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "stack": {
+      "description": "The stack's patterns, which tell the static stage what each call does",
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "writes": {
+              "description": "The calls that write to a store",
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "calls": {
+                      "description": "Call names that match: a bare name matches the last part of a call, a dotted name its tail, and a name that starts with `.` any call that ends with it",
+                      "anyOf": [
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "imports": {
+                      "description": "Modules whose imports match: a call on a name imported from one matches",
+                      "anyOf": [
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "io": {
+              "description": "The calls that do I/O",
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "calls": {
+                      "description": "Call names that match: a bare name matches the last part of a call, a dotted name its tail, and a name that starts with `.` any call that ends with it",
+                      "anyOf": [
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "imports": {
+                      "description": "Modules whose imports match: a call on a name imported from one matches",
+                      "anyOf": [
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "procedures": {
+              "description": "The calls that put code on the request path",
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "calls": {
+                      "description": "Call names that match: a bare name matches the last part of a call, a dotted name its tail, and a name that starts with `.` any call that ends with it",
+                      "anyOf": [
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "imports": {
+                      "description": "Modules whose imports match: a call on a name imported from one matches",
+                      "anyOf": [
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "transactionHelper": {
+              "description": "The calls that open a transaction",
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "calls": {
+                      "description": "Call names that match: a bare name matches the last part of a call, a dotted name its tail, and a name that starts with `.` any call that ends with it",
+                      "anyOf": [
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "imports": {
+                      "description": "Modules whose imports match: a call on a name imported from one matches",
+                      "anyOf": [
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "logger": {
+              "description": "The calls that log",
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "calls": {
+                      "description": "Call names that match: a bare name matches the last part of a call, a dotted name its tail, and a name that starts with `.` any call that ends with it",
+                      "anyOf": [
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "imports": {
+                      "description": "Modules whose imports match: a call on a name imported from one matches",
+                      "anyOf": [
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "invariant": {
+              "description": "The calls that assert an invariant",
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "calls": {
+                      "description": "Call names that match: a bare name matches the last part of a call, a dotted name its tail, and a name that starts with `.` any call that ends with it",
+                      "anyOf": [
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "imports": {
+                      "description": "Modules whose imports match: a call on a name imported from one matches",
+                      "anyOf": [
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "events": {
+              "description": "The calls that emit an event",
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "calls": {
+                      "description": "Call names that match: a bare name matches the last part of a call, a dotted name its tail, and a name that starts with `.` any call that ends with it",
+                      "anyOf": [
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "imports": {
+                      "description": "Modules whose imports match: a call on a name imported from one matches",
+                      "anyOf": [
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "lenses": {
+      "description": "Overrides for each lens, by lens id",
+      "anyOf": [
+        {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "enum": [
+              "correctness",
+              "failure-handling-and-observability",
+              "concurrency-and-data-integrity",
+              "security",
+              "architecture-and-boundaries",
+              "naming-shape-and-comments",
+              "cross-repo-and-platform-limits",
+              "deploy-and-config",
+              "intent",
+              "tests",
+              "reuse",
+              "instructions",
+              "documentation"
+            ]
+          },
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "description": "false turns the lens off, unless a marked risk class forces it on",
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "model": {
+                    "description": "The model the lens runs on",
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "effort": {
+                    "description": "The model effort, in place of the one the depth sets",
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": ["low", "medium", "high"]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "timeoutMs": {
+                    "description": "The time a call of this lens may take",
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "calls": {
+      "description": "The grouping of lenses into model calls, by call id",
+      "anyOf": [
+        {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "correctness",
+                    "failure-handling-and-observability",
+                    "concurrency-and-data-integrity",
+                    "security",
+                    "architecture-and-boundaries",
+                    "naming-shape-and-comments",
+                    "cross-repo-and-platform-limits",
+                    "deploy-and-config",
+                    "intent",
+                    "tests",
+                    "reuse",
+                    "instructions",
+                    "documentation"
+                  ]
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "thresholds": {
+      "description": "The limits that routing, depth and the static stage apply",
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "lightMaxLines": {
+              "description": "A change with more changed code lines than this is never Light",
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "lightMaxPackages": {
+              "description": "A change that touches more packages than this is never Light",
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "docsMinLines": {
+              "description": "The changed prose lines that fire the documentation lens when no prose file is new",
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "complexityMin": {
+              "description": "The complexity at which a function that does I/O fires the architecture-and-boundaries lens",
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "deepMinPackages": {
+              "description": "A change that touches this many packages is Deep",
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "deepMinClassLines": {
+              "description": "A marked risk class makes a change Deep with this many changed lines in its paths",
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "deepMinForcedDeletions": {
+              "description": "A change is Deep with this many deleted lines in the paths of risk classes that force lenses",
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "commentDensityMax": {
+              "description": "Comment lines per thousand code lines above which the naming-shape-and-comments lens fires",
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "concurrencyMinWrites": {
+              "description": "The writes in one change that fire the concurrency-and-data-integrity lens",
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "reuseShortlistSize": {
+              "description": "The most existing functions the reuse lens compares a new function with",
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "reuseMinScore": {
+              "description": "The similarity an existing function needs to reach the reuse shortlist",
+              "anyOf": [
+                {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "mergeMinSharedWords": {
+              "description": "2 findings on overlapping lines merge when every word of one title, and at least this many, is in the other title",
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "parallelCalls": {
+              "description": "How many calls of one review run at once",
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "parallelCases": {
+              "description": "How many cases of one eval run at once",
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "consumers": {
+      "description": "Files in other repos that pin a package of this repo",
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "repo": {
+                "type": "string",
+                "minLength": 1,
+                "description": "The repo that consumes a package of this one, as owner/name"
+              },
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "description": "The file in that repo that pins the package"
+              },
+              "pins": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "description": "The package names that the file pins"
+              }
+            },
+            "required": ["repo", "path", "pins"],
+            "additionalProperties": false
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "generated": {
+      "description": "Path globs of generated files, lockfiles among them, which a review skips",
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "instructions": {
+      "description": "Path globs of the instruction files an agent loads",
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "prose": {
+      "description": "Path globs of prose files",
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "infra": {
+      "description": "Path globs of files that deploy or provision",
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "synced": {
+      "description": "Path globs of copies that another repo syncs in, which a change must not edit",
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "breakingMarkers": {
+      "description": "Text in the pull request title or body that marks a breaking change",
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "limits": {
+      "description": "The published downstream maximum of each named input, which a schema bound must not pass",
+      "anyOf": [
+        {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "versionBump": {
+      "description": "Path globs whose change needs a version bump in the package that owns them",
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "report": {
+      "description": "The reporters a review runs, by id",
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "reporters": {
+      "description": "Options for each reporter, by id",
+      "anyOf": [
+        {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "path": {
+                    "description": "The file the reporter writes, such as the store",
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "url": {
+                    "description": "The URL the webhook reporter posts the result to",
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uri"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "secretHeader": {
+                    "description": "The header the webhook reporter sends the secret in",
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "secretEnv": {
+                    "description": "The environment variable that holds the webhook secret",
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "additionalProperties": false
+}

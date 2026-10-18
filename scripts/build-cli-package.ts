@@ -17,7 +17,7 @@ export interface CLIPackageManifest {
   version: string;
   description: string;
   license: string;
-  repository: { type: string; url: string; directory: string };
+  repository: { type: string; url: string };
   type: 'module';
   bin: { noslop: string };
   files: string[];
@@ -43,7 +43,9 @@ export async function buildCLIPackage(outDir: string): Promise<CLIPackageManifes
     version: cliPackage.version,
     description: rootPackage.description,
     license: rootPackage.license,
-    repository: { ...rootPackage.repository, directory: 'apps/cli' },
+
+    // the README sits at the repo root, and npm resolves its relative links against this repository
+    repository: rootPackage.repository,
     type: 'module',
     bin: { noslop: './cli.js' },
     files: ['cli.js'],

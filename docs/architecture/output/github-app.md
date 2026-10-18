@@ -6,7 +6,7 @@ per new finding, writes one summary comment, and sets the check run. The check p
 review with no failed call ran on the current head and every finding holds a valid disposition,
 which the author gives as a typed reply. Every piece of state the App keeps lives in hidden markers
 inside its own comments, so each run reads the pull request's state back from GitHub and the server
-keeps no database. [0009](../decisions/0009-the-merge-loop.md) records the merge loop.
+keeps no database. [0009](../../decisions/0009-the-merge-loop.md) records the merge loop.
 
 The App server runs those reviews: a webhook endpoint, a queue of jobs per pull request, and jobs
 that run the noslop CLI.
@@ -69,12 +69,13 @@ secret and repos folder from its environment, and refuses to start when one is m
 The `github` reporter needs a pull request, and it reads the pull request's state from GitHub before
 it posts anything.
 
-1. It posts one pull request review at the reviewed head, with one inline comment per new finding at
-   the finding's anchor. A finding is new when no finding comment or filed follow-up holds its id,
-   so a finding that a re-review reports again keeps its first thread. Each comment opens with the
-   severity, the lens and the title, then the body, the fact a PLAUSIBLE finding rests on and the
-   fix. The accepted disposition forms and the finding id with its lens, criterion and rule sit in
-   collapsed blocks, so a person reads the finding first. The finding marker comes last.
+1. It posts one pull request review at the reviewed head, which is the commit the review ran
+   against, with one inline comment per new finding at the finding's anchor. A finding is new when
+   no finding comment or filed follow-up holds its id, so a finding that a re-review reports again
+   keeps its first thread. Each comment opens with the severity, the lens and the title, then the
+   body, the fact a PLAUSIBLE finding rests on and the fix. The accepted disposition forms and the
+   finding id with its lens, criterion and rule sit in collapsed blocks, so a person reads the
+   finding first. The finding marker comes last.
 2. When GitHub refuses the review because a line sits outside the diff, the reporter posts each
    comment on its own. A finding GitHub still refuses goes into an issue comment on the pull request
    that names its anchor. A person answers it with an issue comment that starts with the finding's
@@ -114,9 +115,10 @@ from the gate.
 
 ## Dispositions
 
-The author answers a finding in its thread, or in an issue comment that starts with its id for a
-finding outside the diff. The reply's first line is the disposition, and the finding's latest
-disposition counts:
+A disposition is the typed answer to a finding: `fixed`, `not-a-defect`, `deferred` or
+`accepted-risk`. The author answers a finding in its thread, or in an issue comment that starts with
+its id for a finding outside the diff. The reply's first line is the disposition, and the finding's
+latest disposition counts:
 
 ```text
 fixed 1a2b3c4
@@ -137,13 +139,17 @@ kind is valid under its own rule:
   `<owner>/<repo>#<number>`, or an issue URL.
 - `accepted-risk <reason>` is valid when the author has admin permission on the repo.
 
+A finding in code the change wrote therefore takes `fixed`, `not-a-defect` or `accepted-risk`,
+because the pull request fixes the code it wrote rather than deferring it to a later one.
+
 ## Re-review and fix confirmation
 
-A re-review covers only the commits since the last fully completed review. The CLI reads the summary
-marker, and when that review had no failed call, differs from the current head and is an ancestor of
-it, its head becomes the base. Otherwise the base is the merge base of the pull request, and the
-review covers the whole change. A review with a failed call therefore never narrows the next one,
-and a force push that drops the reviewed head brings a full review.
+A re-review is a later review of a pull request, and it covers only the commits since the reviewed
+head of the last fully completed review. The CLI reads the summary marker, and when that review had
+no failed call, differs from the current head and is an ancestor of it, its head becomes the base.
+Otherwise the base is the merge base of the pull request, and the review covers the whole change. A
+review with a failed call therefore never narrows the next one, and a force push that drops the
+reviewed head brings a full review.
 
 A `fixed <commit>` disposition counts once a re-review whose range holds that commit no longer
 reports the finding. The commit may change any file, because a fix such as a missing test lands
@@ -167,7 +173,7 @@ The check passes when all of these hold, and fails otherwise:
 - No call of that review failed.
 - No reporter that ran before the `github` reporter failed.
 - Every finding comment of the App holds a marker noslop can read.
-- Every finding holds a valid disposition.
+- Every finding, P3 included, holds a valid disposition.
 
 The check's title states the first problem, and its text lists each finding with no valid
 disposition and the reason. The `github` reporter sets the check after each review, and

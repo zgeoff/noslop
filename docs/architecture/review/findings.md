@@ -1,12 +1,22 @@
 # Findings
 
-A finding is one defect at one place in the reviewed head, and it is the unit every part of noslop
-passes on: the lenses report findings, Assemble checks and merges them, and every reporter writes
-them out. [0003](../decisions/0003-what-counts-as-a-finding.md) sets what counts as a finding, and
-[0004](../decisions/0004-severity-and-verdicts.md) sets severity and verdicts. A finding's severity
-follows from the criterion it names, never from the model's own choice, and its ID survives a
-re-review that finds the same defect at a moved line. The contract package (`@noslop/contract`)
+A finding is one defect that the change introduces or exposes, at one place in the reviewed head,
+and it is the unit every part of noslop passes on: the lenses report findings, Assemble checks and
+merges them, and every reporter writes them out.
+[0003](../../decisions/0003-what-counts-as-a-finding.md) sets what counts as a finding, and
+[0004](../../decisions/0004-severity-and-verdicts.md) sets severity and verdicts. A finding's
+severity follows from the criterion it names, never from the model's own choice, and its ID survives
+a re-review that finds the same defect at a moved line. The contract package (`@noslop/contract`)
 holds the finding schema, and the findings module holds Assemble.
+
+## What a finding cites
+
+A finding cites what it affects. Its anchor is the range of head lines in the diff that it attaches
+to. A finding about code outside the diff also cites that code as its second location: a repo, a
+path and lines at a pinned commit, which the finding schema refuses without a commit. Its severity
+is P1, P2 or P3, set by its criterion. Its verdict is CONFIRMED when the lens checked it against the
+code, or PLAUSIBLE when it rests on a fact the lens could not read, and a PLAUSIBLE finding holds
+that fact.
 
 ## Model output and the finding
 
@@ -30,7 +40,7 @@ lens `static` and no call. It is always CONFIRMED, because the stage read its fa
 
 Assemble reads the raw findings of every call and the static stage's direct findings together, and
 drops each one that breaks a finding rule. The review result keeps every dropped finding with its
-reason, so the CLI logs it and the [store](./store.md) records it.
+reason, so the CLI logs it and the [store](../measurement/store.md) records it.
 
 1. A finding whose anchor overlaps no hunk of the diff is dropped. The head lines of each hunk, its
    context lines included, are the diff a finding may anchor to.
@@ -70,13 +80,14 @@ different line number, therefore gives it the same ID. One defect reported at tw
 would hash to one ID, so each place after the first, in anchor order, hashes its place number into
 its ID, and every ID stays unique in a review.
 
-The ID is what a disposition attaches to. [The GitHub App](./github-app.md) reads a disposition from
-the reply in a finding's thread and keys it by the ID, and [the findings store](./store.md) reopens
-a `fixed` finding when a later review reports the same ID.
+The ID is what a disposition attaches to. [The GitHub App](../output/github-app.md) reads a
+disposition from the reply in a finding's thread and keys it by the ID, and
+[the findings store](../measurement/store.md) reopens a `fixed` finding when a later review reports
+the same ID.
 
 ## The risk class on a finding
 
 A finding whose anchor sits in the paths of a marked risk class carries that class's name. The
 GitHub App refuses a `deferred` disposition on such a finding even in code the change did not write,
-under [0009](../decisions/0009-the-merge-loop.md), because a defect beside a change to a risky path
-needs an answer before the merge.
+under [0009](../../decisions/0009-the-merge-loop.md), because a defect beside a change to a risky
+path needs an answer before the merge.

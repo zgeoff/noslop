@@ -2,10 +2,13 @@
 
 Routing decides, for one change, which lenses fire and how hard the review looks. It reads only what
 the [static stage](./static-stage.md) produced: the changed files, the slices, the risk signals and
-the config. No model takes part, so 2 runs on one change fire the same lenses at the same depth.
-[0006](../decisions/0006-routing.md) records the triggers and the special changes, and
-[0007](../decisions/0007-depth-and-models.md) records the Light and Deep rules. Routing then plans
-the calls that carry the fired lenses, which [calls](./calls.md) covers.
+the config. No model takes part, so 2 runs on one change fire the same lenses at the same depth. The
+triggers and the depth rules are black and white, like the severity criteria of
+[findings](./findings.md) and the blocking rules of [the GitHub App](../output/github-app.md): code
+applies each one without judgement, and a rule accepts some noise to stay consistent.
+[0006](../../decisions/0006-routing.md) records the triggers and the special changes, and
+[0007](../../decisions/0007-depth-and-models.md) records the Light and Deep rules. Routing then
+plans the calls that carry the fired lenses, which [calls](./calls.md) covers.
 
 ## Special changes
 
@@ -28,14 +31,15 @@ fires lenses by the triggers like any other change, and the result marks it as a
 
 ## Firing a lens
 
-The correctness lens fires on every change that holds a code or test file. Each other lens fires
-when its trigger matches, and each trigger reads only slices and changed paths, so a lens fires only
-when its input holds something to look at. Several triggers compare a slice with a threshold from
-the config, such as the number of writes that fires the concurrency lens.
+A trigger is the rule that fires a lens, matched against the slices and the changed paths. The
+correctness lens fires on every change that holds a code or test file. Each other lens fires when
+its trigger matches, and each trigger reads only slices and changed paths, so a lens fires only when
+its input holds something to look at. Several triggers compare a slice with a threshold from the
+config, such as the number of writes that fires the concurrency lens.
 
 A marked risk class fires every lens it forces on, whatever the triggers say.
-[Your own rules](./your-own-rules.md) covers how a risk class is marked. A special change with a
-lens list of its own ignores forced lenses, because its list is the whole route.
+[Your own rules](../config/your-own-rules.md) covers how a risk class is marked. A special change
+with a lens list of its own ignores forced lenses, because its list is the whole route.
 
 A lens that the config turns off never fires. One exception: a lens that a marked risk class forces
 on fires even when the config turns it off, because the risk class is the stronger statement about
@@ -46,9 +50,10 @@ on every run.
 
 ## Picking the depth
 
-Routing checks Deep first, then Light, and every other change is Standard. Depth sets the default
-effort of each call: low at Light, medium at Standard and high at Deep. Every threshold comes from
-the config.
+Depth is how hard a review works: Light, Standard or Deep. The risk score is the set of rules below,
+which reads the risk signals with no model and picks the depth. Routing checks Deep first, then
+Light, and every other change is Standard. Depth sets the default effort of each call: low at Light,
+medium at Standard and high at Deep. Every threshold comes from the config.
 
 A change is Deep when any of these holds:
 
@@ -83,8 +88,9 @@ past Light.
 
 The review module runs the planned calls in one pass at every depth, and the depth sets only the
 effort of each call. A review never changes depth: a P1 that a Standard or Light review finds stays
-in its result, and no call runs again. The [eval harness](./eval.md) counts the labelled P1s and
-escapes that its Light cases hold, so a Light rule that lets P1s through shows up on the corpus.
+in its result, and no call runs again. The [eval harness](../measurement/eval.md) counts the
+labelled P1s and escapes that its Light cases hold, so a Light rule that lets P1s through shows up
+on the corpus.
 
 The pass runs every call through the adapter, retrying a failed call once, under
 [adapters](./adapters.md). [Findings](./findings.md) covers how Assemble merges the findings of the

@@ -6,9 +6,9 @@ list for one run. Every reporter receives the same result, so the destinations n
 what a review found. noslop ships four reporters: `json`, `sqlite`, `webhook` and `github`. The
 `github` reporter runs after all the others and sees which of them failed, so the check run it sets
 never passes on a result that another destination failed to record.
-[0015](../decisions/0015-reporters.md) records the decision.
+[0015](../../decisions/0015-reporters.md) records the decision.
 
-[The findings store](./store.md) covers what the `sqlite` reporter writes, and
+[The findings store](../measurement/store.md) covers what the `sqlite` reporter writes, and
 [the GitHub App](./github-app.md) covers what the `github` reporter posts and how its check run
 passes.
 
@@ -16,9 +16,9 @@ passes.
 
 The review result is the schema in the contract library: the repo, the pull request when there is
 one, the base and the head, the depth, the lenses that ran, each call, each finding and each failed
-call. [Findings](./findings.md) covers the finding inside it. The result carries a version number
-that changes only with a breaking change to its shape, so a consumer that pins a CLI version reads
-one shape.
+call. [Findings](../review/findings.md) covers the finding inside it. The result carries a version
+number that changes only with a breaking change to its shape, so a consumer that pins a CLI version
+reads one shape.
 
 A reporter is an adapter that takes the result and a context. The context holds the logger, the
 reporter's own options from the config's `reporters` map, and the ids of the reporters that failed
@@ -58,4 +58,4 @@ write even when the review itself passed.
 Dispositions travel the other way, from a host back to noslop. The contract defines a disposition
 source for that direction, and the GitHub adapter implements one that reads the typed replies in the
 finding threads. The GitHub reporter and the check read those replies directly, and `noslop check`
-reads them through the source and records them in [the findings store](./store.md).
+reads them through the source and records them in the findings store.

@@ -41,36 +41,37 @@ in each file. The config can turn the pass off.
 - A reviewer must see the whole change to judge it, so no call splits the diff.
 - A usable review beats the most thorough one, so Deep adds effort and no call, and fewer calls win
   a tie.
-- A risk class path or detector alone marks most changes in a fleet of infra and tools repos, so
-  Deep needs weight in the class's own paths. On a uniform sample of 200 merged pull requests, the
-  rules route 40% Light, 50% Standard and 10% Deep. On the 266 corpus changes that hold a labelled
-  defect, Light holds 3 of the 46 labelled P1s and 10 of the escapes.
+- A risk class path or detector alone marks most changes in a repo of infra and tools, so Deep needs
+  weight in the class's own paths.
 - An infra change deploys or provisions, so its effect reaches past its line count, and it is never
-  Light. On the corpus, 5 of the 6 labelled defects that Light held under a 50-line limit were on
-  infra changes.
+  Light.
+- Lenses word one defect differently, and only a model tells a reworded repeat from 2 defects whose
+  titles differ by one word, so the merge pass is a model call. It reads findings and no code, so a
+  cheap model serves it.
 
 ## Alternatives
 
 - **One depth for every change.** It overspends on small changes or underspends on risky ones.
 - **A model rates the risk.** It costs a call and can rate the same change differently.
-- **Chunks of 150 changed lines by file or package.** A lens then sees part of the change, and the
-  calls multiply: 93 calls on one corpus change, for no measured gain in recall.
-- **Any marked risk class makes a change Deep.** It routed 40% of the fleet sample and 64% of the
-  corpus to Deep, most of it from a detector or one touched path.
-- **No line limit on Light.** With class marks and consumer edges allowed at Light too, it reached
-  51% Light on the fleet sample, and Light held 6 labelled P1s and 25 escapes.
+- **Chunks of changed lines by file or package.** A lens then sees part of the change, and the calls
+  multiply for no measured gain in recall.
+- **Any marked risk class makes a change Deep.** Most changes then route to Deep, from a detector or
+  one touched path alone.
+- **No line limit on Light.** Large changes then route to Light, and Light holds past P1s and
+  escapes.
 - **A gap sweep at Deep.** One call with every fired lens and the findings so far, asking for what
-  they miss. On 6 corpus cases forced to Deep, it added 6 calls and 3.5M input tokens and found no
-  labelled defect that the first pass missed.
+  they miss. It added calls and input tokens and found no labelled defect that the first pass
+  missed.
 - **A verify call at Deep, and a step-up to it from Standard on a confirmed P1.** One call
-  re-derived each merged finding from the code, and its findings replaced the first pass's. On the 3
-  Deep corpus runs with findings, 11 findings went in, verify dropped none and reworded 1 title, so
-  the call cost a model call for no change in what the review reports.
+  re-derived each merged finding from the code, and its findings replaced the first pass's. It
+  dropped no finding, so it cost a model call for no change in what the review reports.
+- **A title rule alone to merge repeats.** It cannot tell a reworded repeat from 2 defects whose
+  titles differ by one word.
 
 ## Consequences
 
-- The Light rule must pass a history test before it goes live: on a labelled corpus, Light holds
-  about none of the past P1s and escapes.
+- The static eval replays the depth rules on a labelled corpus with no model call, so a change to
+  them shows which past P1s and escapes Light would hold.
 - Model and effort can be overridden per lens, under [0010](0010-the-reviewer-config.md).
 
 ## Changes
@@ -90,3 +91,11 @@ in each file. The config can turn the pass off.
   packages only at 6. Light allows 2 packages and 400 code lines.
 - 2026-10-18: removed the verify call at Deep and the step-up from Standard. Deep is the same lens
   calls at high effort. On 3 Deep runs, verify took 11 findings, dropped 0 and reworded 1 title.
+- 2026-10-18: moved the eval figures out of the reasons into this list, and replaced the Light
+  history-test gate with the static replay. On a uniform sample of 200 merged pull requests, the
+  rules route 40% Light, 50% Standard and 10% Deep. On the 266 corpus changes that hold a labelled
+  defect, Light holds 3 of the 46 labelled P1s and 10 of the escapes. Any marked class at Deep had
+  routed 40% of that sample and 64% of the corpus to Deep. No Light line limit had reached 51%
+  Light, holding 6 labelled P1s and 25 escapes. Chunks had made 93 calls on one corpus change. On
+  the corpus, 5 of the 6 labelled defects that Light held under a 50-line limit were on infra
+  changes.

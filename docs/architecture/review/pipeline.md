@@ -3,10 +3,10 @@
 A review turns the change between two commits into a list of findings. It reads the change through
 git, runs the static stage over it, routes the change to the lenses that fire, sends those lenses to
 a model in calls, and assembles what comes back into findings. Every fact a model needs and code can
-compute comes from the static stage first, under [0002](../decisions/0002-the-pipeline.md), so the
-model calls spend their tokens on judgement. The review module runs these stages; the CLI and the
-[GitHub App](./github-app.md) only supply the change and hand the result to
-[reporters](./reporters.md).
+compute comes from the static stage first, under [0002](../../decisions/0002-the-pipeline.md), so
+the model calls spend their tokens on judgement. The review module runs these stages; the CLI and
+the [GitHub App](../output/github-app.md) only supply the change and hand the result to
+[reporters](../output/reporters.md).
 
 ```mermaid
 flowchart LR
@@ -15,10 +15,10 @@ flowchart LR
 
 ## The stages
 
-1. **Load.** The CLI finds the repo, merges [the reviewer config](./review-config.md) and reads the
-   rules file. It resolves the base and the head to full commits, and reads the diff between them
-   with the files the config marks generated left out. Every line reference in the review cites the
-   head commit.
+1. **Load.** The CLI finds the repo, merges [the reviewer config](../config/review-config.md) and
+   reads the rules file. It resolves the base and the head to full commits, and reads the diff
+   between them with the files the config marks generated left out. Every line reference in the
+   review cites the head commit.
 2. **Static stage.** [The static stage](./static-stage.md) reads the changed files at the head,
    builds the slices, reports the direct findings and computes the risk signals. It runs on every
    change, because it makes no model call and routing reads its output even when no code changed.
@@ -50,22 +50,27 @@ reviewed code and never the user's working tree. The review creates the worktree
 holds a call, and removes it whether the calls pass or fail. A worktree that git cannot remove is
 logged for the user to prune.
 
+Lint runs in the repo's own checks before a review, so noslop never runs lint and never repeats a
+rule that lint enforces. The lenses whose concerns overlap lint tell the model to report no rule the
+repo's lint config enforces.
+
 ## Depth
 
 The depth that routing picks sets the effort of every call, and every depth makes one pass of the
-planned calls under [0007](../decisions/0007-depth-and-models.md). A review keeps the depth routing
-picks: a P1 that a call reports changes no depth and adds no call.
+planned calls under [0007](../../decisions/0007-depth-and-models.md).
+[Routing and depth](./routing-and-depth.md#the-pass) covers why a review never changes its depth.
 
 ## The result
 
 The review result holds the commits, the depth, the special route if any, the marked risk classes,
 the fired lenses, a record of every call, the findings, the failed calls, and a hash of the merged
 config and rules text. The record of each call holds its lenses, depth, model, effort, attempts,
-tokens and duration, so the [findings store](./store.md) and the [eval harness](./eval.md) can price
-a review and tell which call found what. The contract package holds the schema, and its version
-changes only with a breaking change, so a consumer that pins a CLI version reads one shape.
+tokens and duration, so the [findings store](../measurement/store.md) and the
+[eval harness](../measurement/eval.md) can price a review and tell which call found what. The
+contract package holds the schema, and its version changes only with a breaking change, so a
+consumer that pins a CLI version reads one shape.
 
 A review with a failed call still returns a result, with the call listed under its failed calls. A
 re-review of a pull request starts from the last head whose review had no failed call, because a
-review with a failed call never covered its head in full. [The CLI](./cli.md) covers how a re-review
-picks its base.
+review with a failed call never covered its head in full. [The CLI](../output/cli.md) covers how a
+re-review picks its base.
