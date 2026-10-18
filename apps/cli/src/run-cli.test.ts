@@ -1841,6 +1841,37 @@ test('it fails the check when no noslop review covers the head of the pull reque
   ]);
 });
 
+test('it exits 0 and sets a failing check when a review covers the head but a call failed', async () => {
+  const ctx = await setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    headSha: 'b'.repeat(40),
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${'b'.repeat(40)}","reviews":1,"reported":[],"failedCalls":1} -->`,
+  });
+
+  const code = await runCLI(
+    ['check', '--pr', '9', '--repo', 'example/app'],
+    ctx.buildContext(ctx.dir, buildStubAdapter({}).adapter),
+  );
+
+  expect({ code, stderr: ctx.stderr.join('') }).toStrictEqual({ code: 0, stderr: '' });
+
+  expect(githubCollections.checkRuns.all()).toMatchObject([
+    { headSha: 'b'.repeat(40), conclusion: 'failure', title: '1 calls of the review failed.' },
+  ]);
+});
+
 test('it resumes an eval, keeping the cases the out folder holds and replaying the rest', async () => {
   const ctx = await setupTest();
 
