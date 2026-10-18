@@ -1,4 +1,10 @@
-import type { Finding, PullRequestRef, Reporter, ReviewResult } from '@noslop/contract';
+import type {
+  Finding,
+  PullRequestRef,
+  Reporter,
+  ReporterContext,
+  ReviewResult,
+} from '@noslop/contract';
 import type { GitHubClient, GitHubConnection } from './create-github-connection';
 import { followUpMarkerSchema } from './follow-up-marker';
 import { formatFindingComment } from './format-finding-comment';
@@ -36,86 +42,123 @@ export function createGitHubReporter(options: GitHubReporterOptions): Reporter {
         );
       }
 
-      const connection = await options.loadConnection();
-
-      const client = connection.client;
-
-      const before = await readPullRequestState(connection, pr);
-
-      const filed = before.summary?.marker.followUps ?? [];
-
-      const posted = new Set([...before.threads.map((thread) => thread.marker.id), ...filed]);
-
-      // a post of the result the summary already holds, such as a retry after a failed request, is
-      // the same review, so it never moves a pull request toward the re-check limit
-      const isRepost = before.summary?.marker.reviewID === result.reviewID;
-      const reviews = (before.summary?.marker.reviews ?? 0) + (isRepost ? 0 : 1);
-      const fresh = result.findings.filter((finding) => !posted.has(finding.id));
-
-      const followUps =
-        reviews > RECHECKED_REVIEWS
-          ? fresh.filter((finding) => finding.lens !== 'security' && !finding.writtenByChange)
-          : [];
-
-      const inline = fresh.filter((finding) => !followUps.includes(finding));
-
-      const unanchored = await createReviewComments(client, pr, result.head, inline);
-
-      for (const finding of unanchored) {
-        await createIssueComment(client, pr, formatUnanchoredComment(finding, result.head));
-      }
-
-      const unfiled =
-        followUps.length === 0 ? [] : await findUnfiledFollowUps(connection, pr, followUps);
-
-      for (const finding of unfiled) {
-        await createFollowUpIssue(client, pr, finding);
-      }
-
-      const confirmations = await buildConfirmations(client, pr, before, result);
-
-      await updateFixedComments(client, pr, before.threads, confirmations);
-
-      const after = await readPullRequestState(connection, pr);
-
-      const links = new Map(
-        after.threads.map((thread) => [thread.marker.id, toCommentURL(pr, thread)]),
+      await withPullRequestLock(`${pr.owner}/${pr.repo}#${pr.number}`, () =>
+        runReviewPost(options.loadConnection, pr, result, ctx),
       );
-
-      const marker = {
-        head: result.head,
-        reviews,
-        reviewID: result.reviewID,
-        reported: result.findings.map((finding) => finding.id),
-        failedCalls: result.failedCalls.length,
-        followUps: [...filed, ...followUps.map((finding) => finding.id)],
-        confirmed: confirmations
-          .filter((item) => item.fixed)
-          .map((item) => `${item.id}:${item.commit}`),
-      };
-
-      await writeSummaryComment(
-        client,
-        pr,
-        before,
-        formatSummaryComment(
-          result,
-          marker,
-          { confirmations, posted: before.threads.length },
-          links,
-        ),
-      );
-
-      const outcome = await runGitHubCheck(connection, pr, {
-        failedReporters: ctx.failedReporters,
-      });
-
-      ctx.logger.info('the noslop check on {head}: {conclusion}', {
-        head: result.head.slice(0, 12),
-        conclusion: outcome.conclusion,
-      });
     },
   };
+}
+
+// the posts in flight in this process, by pull request, each one the tail of that pull request's chain
+const postChains = new Map<string, Promise<void>>();
+
+// runs one post of a pull request at a time in this process, in the order they came, so 2 posts of
+// one review cannot both find no follow-up issue and both file one; a failed post leaves the next one
+// to run
+async function withPullRequestLock(key: string, post: () => Promise<void>): Promise<void> {
+  const previous = postChains.get(key) ?? Promise.resolve();
+  const current = runAfter(previous, post);
+  const tail = waitForEnd(current);
+
+  postChains.set(key, tail);
+
+  try {
+    await current;
+  } finally {
+    if (postChains.get(key) === tail) {
+      postChains.delete(key);
+    }
+  }
+}
+
+async function runAfter(previous: Promise<void>, post: () => Promise<void>): Promise<void> {
+  await previous;
+  await post();
+}
+
+// the caller of a failed post sees its failure, so the chain only waits for the post to end
+async function waitForEnd(post: Promise<void>): Promise<void> {
+  await Promise.allSettled([post]);
+}
+
+async function runReviewPost(
+  loadConnection: () => Promise<GitHubConnection>,
+  pr: PullRequestRef,
+  result: ReviewResult,
+  ctx: ReporterContext,
+): Promise<void> {
+  const connection = await loadConnection();
+
+  const client = connection.client;
+
+  const before = await readPullRequestState(connection, pr);
+
+  const filed = before.summary?.marker.followUps ?? [];
+
+  const posted = new Set([...before.threads.map((thread) => thread.marker.id), ...filed]);
+
+  // a post of a result the summary already counted, such as a retry after a failed request, is the
+  // same review, so it never moves a pull request toward the re-check limit
+  const counted = before.summary?.marker.reviewIDs ?? [];
+  const isRepost = counted.includes(result.reviewID);
+  const reviews = (before.summary?.marker.reviews ?? 0) + (isRepost ? 0 : 1);
+  const fresh = result.findings.filter((finding) => !posted.has(finding.id));
+
+  const followUps =
+    reviews > RECHECKED_REVIEWS
+      ? fresh.filter((finding) => finding.lens !== 'security' && !finding.writtenByChange)
+      : [];
+
+  const inline = fresh.filter((finding) => !followUps.includes(finding));
+
+  const unanchored = await createReviewComments(client, pr, result.head, inline);
+
+  for (const finding of unanchored) {
+    await createIssueComment(client, pr, formatUnanchoredComment(finding, result.head));
+  }
+
+  const unfiled =
+    followUps.length === 0 ? [] : await loadUnfiledFollowUps(connection, pr, followUps);
+
+  for (const finding of unfiled) {
+    await createFollowUpIssue(client, pr, finding);
+  }
+
+  const confirmations = await buildConfirmations(client, pr, before, result);
+
+  await updateFixedComments(client, pr, before.threads, confirmations);
+
+  const after = await readPullRequestState(connection, pr);
+
+  const links = new Map(
+    after.threads.map((thread) => [thread.marker.id, toCommentURL(pr, thread)]),
+  );
+
+  const marker = {
+    head: result.head,
+    reviews,
+    reviewIDs: isRepost ? counted : [...counted, result.reviewID],
+    reported: result.findings.map((finding) => finding.id),
+    failedCalls: result.failedCalls.length,
+    followUps: [...filed, ...followUps.map((finding) => finding.id)],
+    confirmed: confirmations
+      .filter((item) => item.fixed)
+      .map((item) => `${item.id}:${item.commit}`),
+  };
+
+  await writeSummaryComment(
+    client,
+    pr,
+    before,
+    formatSummaryComment(result, marker, { confirmations, posted: before.threads.length }, links),
+  );
+
+  const outcome = await runGitHubCheck(connection, pr, { failedReporters: ctx.failedReporters });
+
+  ctx.logger.info('the noslop check on {head}: {conclusion}', {
+    head: result.head.slice(0, 12),
+    conclusion: outcome.conclusion,
+  });
 }
 
 // one review holds every inline comment; when GitHub refuses a line outside the diff, each comment is
@@ -211,7 +254,7 @@ async function createIssueComment(
 
 // the follow-ups that no issue of the App files yet: a retry after a post that failed past its issues,
 // such as on the summary write, finds each issue the first attempt opened by its marker
-async function findUnfiledFollowUps(
+async function loadUnfiledFollowUps(
   connection: GitHubConnection,
   pr: PullRequestRef,
   followUps: readonly Finding[],

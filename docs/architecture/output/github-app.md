@@ -83,7 +83,8 @@ it posts anything.
    not write goes to a follow-up issue in the repo instead of the pull request. The summary marker
    keeps each filed id, so a later review files the issue once. Each follow-up issue holds a marker
    with its finding and pull request, so a retried post that failed before the summary finds the
-   issue it opened and files none twice.
+   issue it opened and files none twice. The reporter runs one post of a pull request at a time in a
+   process, so 2 posts of one review cannot both miss the issue and both file it.
 4. It edits the comment of each finding whose fix the review confirms: it strikes the heading
    through, names the fix commit, and collapses the comment as posted under them, with the marker
    kept byte for byte. When a later review no longer confirms the fix, the reporter restores the

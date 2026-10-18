@@ -589,7 +589,147 @@ test('it counts a second post of one review result as one review', async () => {
   const summaries = githubCollections.issueComments.all().map((comment) => comment.body);
 
   expect(summaries).toHaveLength(1);
-  expect(summaries[0]).toInclude('"reviews":1,"reviewID":"review-7"');
+  expect(summaries[0]).toInclude('"reviews":1,"reviewIDs":["review-7"]');
+});
+
+test('it counts a retry of an earlier review as no new review after another review posted', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'b'.repeat(40),
+  });
+
+  const first = buildMockReviewResult({
+    reviewID: 'review-a',
+    pullRequest: { owner: 'example', repo: 'app', number: 5 },
+    head: 'b'.repeat(40),
+  });
+
+  const second = buildMockReviewResult({
+    reviewID: 'review-b',
+    pullRequest: { owner: 'example', repo: 'app', number: 5 },
+    head: 'b'.repeat(40),
+  });
+
+  await ctx.reporter.report(first, { logger: ctx.logger, options: {}, failedReporters: [] });
+  await ctx.reporter.report(second, { logger: ctx.logger, options: {}, failedReporters: [] });
+  await ctx.reporter.report(first, { logger: ctx.logger, options: {}, failedReporters: [] });
+
+  const summaries = githubCollections.issueComments.all().map((comment) => comment.body);
+
+  expect(summaries).toHaveLength(1);
+  expect(summaries[0]).toInclude('"reviews":2,"reviewIDs":["review-a","review-b"]');
+});
+
+test('it files one follow-up issue when 2 posts of one review run at once', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'd'.repeat(40),
+  });
+
+  for (const head of ['b', 'c']) {
+    await ctx.reporter.report(
+      buildMockReviewResult({
+        reviewID: `review-${head}`,
+        pullRequest: { owner: 'example', repo: 'app', number: 5 },
+        head: head.repeat(40),
+        findings: [],
+      }),
+      { logger: ctx.logger, options: {}, failedReporters: [] },
+    );
+  }
+
+  const result = buildMockReviewResult({
+    reviewID: 'review-d',
+    pullRequest: { owner: 'example', repo: 'app', number: 5 },
+    head: 'd'.repeat(40),
+    findings: [
+      buildMockFinding({
+        id: '1111111111111111',
+        title: 'Close the old file',
+        writtenByChange: false,
+      }),
+    ],
+  });
+
+  await Promise.all([
+    ctx.reporter.report(result, { logger: ctx.logger, options: {}, failedReporters: [] }),
+    ctx.reporter.report(result, { logger: ctx.logger, options: {}, failedReporters: [] }),
+  ]);
+
+  expect(githubCollections.issues.all().map((issue) => issue.title)).toStrictEqual([
+    'Close the old file',
+  ]);
+});
+
+test('it files a follow-up issue that a marker of another author or another pull request names', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'd'.repeat(40),
+  });
+
+  await githubCollections.issues.create({
+    owner: 'example',
+    repo: 'app',
+    number: 1,
+    title: 'Copied by hand',
+    body: '<!-- noslop:follow-up {"id":"1111111111111111","pullRequest":5} -->',
+    authorLogin: 'dev',
+  });
+
+  await githubCollections.issues.create({
+    owner: 'example',
+    repo: 'app',
+    number: 2,
+    title: 'Filed from another pull request',
+    body: '<!-- noslop:follow-up {"id":"1111111111111111","pullRequest":6} -->',
+    authorLogin: STUB_APP_LOGIN,
+  });
+
+  for (const head of ['b', 'c']) {
+    await ctx.reporter.report(
+      buildMockReviewResult({
+        reviewID: `review-${head}`,
+        pullRequest: { owner: 'example', repo: 'app', number: 5 },
+        head: head.repeat(40),
+        findings: [],
+      }),
+      { logger: ctx.logger, options: {}, failedReporters: [] },
+    );
+  }
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      reviewID: 'review-d',
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'd'.repeat(40),
+      findings: [
+        buildMockFinding({
+          id: '1111111111111111',
+          title: 'Close the old file',
+          writtenByChange: false,
+        }),
+      ],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  expect(githubCollections.issues.all().map((issue) => issue.title)).toStrictEqual([
+    'Copied by hand',
+    'Filed from another pull request',
+    'Close the old file',
+  ]);
 });
 
 test('it files a follow-up issue once when a post that opened it fails at the summary and is retried', async () => {
