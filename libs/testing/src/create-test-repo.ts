@@ -1,4 +1,4 @@
-import { mkdir, rm } from 'node:fs/promises';
+import { mkdir, rm, symlink } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { buildChildEnv } from '@noslop/runner';
 
@@ -7,6 +7,9 @@ export interface TestCommit {
 
   // each path's content after the commit; null removes the file
   files: Readonly<Record<string, string | null>>;
+
+  // each symlink's target after the commit, as the link stores it
+  links?: Readonly<Record<string, string>>;
 }
 
 export interface TestRepo {
@@ -43,6 +46,14 @@ export async function createTestRepo(
       await mkdir(dirname(target), { recursive: true });
 
       await Bun.write(target, content);
+    }
+
+    for (const [link, linkTarget] of Object.entries(commit.links ?? {})) {
+      const target = join(path, link);
+
+      await rm(target, { force: true, recursive: true });
+      await mkdir(dirname(target), { recursive: true });
+      await symlink(linkTarget, target);
     }
 
     await $`git -C ${path} add -A`.quiet();

@@ -24,10 +24,10 @@ file, stack patterns and risk classes.
 ## Resolution
 
 `extends` is the key that names a parent config, such as a file in a shared config repo. The config
-module reads the repo's own `review.json` from the repo's working tree, then follows its `extends`
-to the parent, and that parent's `extends` in turn, until a file names none. It then merges the
-chain over the built-in defaults, from the root parent down to the repo's own file, so the file
-nearest the repo wins. Three rules govern each merge:
+module reads the repo's own `review.json`, then follows its `extends` to the parent, and that
+parent's `extends` in turn, until a file names none. It then merges the chain over the built-in
+defaults, from the root parent down to the repo's own file, so the file nearest the repo wins. Three
+rules govern each merge:
 
 1. Objects merge by key, so a file that sets one risk class or one lens override keeps the inherited
    ones.
@@ -44,6 +44,12 @@ default, at a ref or at that repo's default branch. A remote parent's relative `
 inside the same repo and ref. The CLI reads a remote file through GitHub, read-only, on every load.
 A cycle in the chain fails the load, and so does a parent that does not exist. The repo's own file
 is the only one that may be missing.
+
+A review reads the repo's files of the chain and its rules from the commit its change starts from: a
+pull request's base, or a local change's base. A change that edits the config is reviewed under the
+config it would replace, so a pull request cannot weaken its own review, and its edit applies once
+it merges. A remote parent and a rules repo outside the reviewed repo read as at any other load.
+`noslop config` reads the working tree, so it shows an edit before the edit is committed.
 
 The merged config is validated once, after the merge, because a single file is only a partial
 config. A key the schema does not know fails the load, with the dotted path of the key, so a typo

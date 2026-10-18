@@ -53,11 +53,10 @@ comment queues a new one.
 A review job mints an installation token for the App, clones the repo into the server's repos folder
 or fetches it when the clone exists, fetches the pull request's head, checks out the default branch,
 and runs `noslop review --pr <number> --repo <owner/name> --report sqlite,github` in the clone. The
-CLI reads the review config from the clone's files, so the config is the default branch's. The token
-reaches git through git's environment config, so it never appears in a command line that other
-processes can list or in the clone's config file. A check job runs
-`noslop check --pr <number> --repo <owner/name>`. Each job passes the App's credentials and the
-event's installation to the CLI through its environment.
+CLI reads the review config from the pull request's base commit. The token reaches git through git's
+environment config, so it never appears in a command line that other processes can list or in the
+clone's config file. A check job runs `noslop check --pr <number> --repo <owner/name>`. Each job
+passes the App's credentials and the event's installation to the CLI through its environment.
 
 The reviewed repo's code never sees those credentials. A job runs the CLI under noslop's own Bun
 config, so Bun loads no preload from the repo, and the CLI removes the App's keys from its process

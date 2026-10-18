@@ -40,6 +40,24 @@ test('it removes a file whose content is null', async () => {
   expect(files).toBe('');
 });
 
+test('it commits each link as a symlink to its target', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    {
+      message: 'base',
+      files: { 'docs/rules.md': '# Rules\n' },
+      links: { 'AGENTS.md': 'docs/rules.md' },
+    },
+  ]);
+
+  const entry = await ctx.$`git -C ${repo.path} ls-tree HEAD -- AGENTS.md`.text();
+  const target = await ctx.$`git -C ${repo.path} cat-file -p HEAD:AGENTS.md`.text();
+
+  expect(entry).toStartWith('120000 blob ');
+  expect(target).toBe('docs/rules.md');
+});
+
 test('it commits into its own repo when GIT_DIR names another, as inside a git hook', async () => {
   const ctx = await setupTest();
 

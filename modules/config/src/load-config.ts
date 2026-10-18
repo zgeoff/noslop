@@ -14,9 +14,16 @@ export type GithubLocation = Extract<ConfigLocation, { kind: 'github' }>;
 // reads one file from a remote config repo, read-only; null when the file does not exist
 export type ReadRemoteFile = (location: GithubLocation) => Promise<string | null>;
 
+// reads one local file of the chain or its rules; null when the file does not exist
+export type ReadLocalFile = (path: string) => Promise<string | null>;
+
 export interface LoadConfigOptions {
   repoDir: string;
   readRemoteFile?: ReadRemoteFile;
+
+  // reads the local files, such as from one commit instead of the working tree; the filesystem
+  // unless given
+  readLocalFile?: ReadLocalFile;
 
   // the repo that `repo:` rules paths read from, which the eval sets to each case's repo; the repo
   // of the config unless given
@@ -389,6 +396,10 @@ async function readLocation(
     }
 
     return options.readRemoteFile(location);
+  }
+
+  if (options.readLocalFile !== undefined) {
+    return options.readLocalFile(location.path);
   }
 
   const file = Bun.file(location.path);

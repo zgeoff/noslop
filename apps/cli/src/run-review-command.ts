@@ -33,11 +33,22 @@ export interface ReviewValues {
 // passes or fails; it exits 1 when the review cannot run or a reporter fails
 export async function runReviewCommand(values: ReviewValues, ctx: CLIContext): Promise<number> {
   const repoDir = await readGitText(ctx, ctx.cwd, ['rev-parse', '--show-toplevel']);
-  const loaded = await loadRepoConfig(ctx, repoDir);
 
   if (values.full && values.pr === undefined) {
     throw new Error('--full takes --pr; a review without --pr covers the whole change');
   }
+
+  const issueText =
+    values.issueFile === undefined ? null : await readIssueFile(ctx, values.issueFile);
+
+  const change =
+    values.pr === undefined
+      ? await resolveLocalChange(ctx, repoDir, values)
+      : await resolvePullRequestChange(ctx, repoDir, values, issueText === null);
+
+  // the config comes from the commit the change starts from, so a change that edits the config is
+  // reviewed under the config it would replace
+  const loaded = await loadRepoConfig(ctx, repoDir, { commit: change.configCommit });
 
   for (const label of loaded.missingRules) {
     ctx.logger.warn('the repo holds no rules file {label}, so the review reads no rules from it', {
@@ -48,14 +59,6 @@ export async function runReviewCommand(values: ReviewValues, ctx: CLIContext): P
   for (const warning of loaded.warnings) {
     ctx.logger.warn('{warning}', { warning });
   }
-
-  const issueText =
-    values.issueFile === undefined ? null : await readIssueFile(ctx, values.issueFile);
-
-  const change =
-    values.pr === undefined
-      ? await resolveLocalChange(ctx, repoDir, values)
-      : await resolvePullRequestChange(ctx, repoDir, values, issueText === null);
 
   const adapterID = values.adapter ?? loaded.config.adapter ?? 'codex';
 
@@ -124,6 +127,10 @@ interface ResolvedChange {
   repo: string;
   base: string;
   head: string;
+
+  // the commit the config reads from: a pull request's base, or a local change's base, which a
+  // delta review of a pull request does not share, since its base is a head of the pull request
+  configCommit: string;
   title: string;
   body: string;
 
@@ -157,7 +164,16 @@ async function resolveLocalChange(
 
   const repo = await readRepoName(ctx, repoDir);
 
-  return { repo, base, head, title, body, linkedIssue: null, pullRequest: null };
+  return {
+    repo,
+    base,
+    head,
+    configCommit: base,
+    title,
+    body,
+    linkedIssue: null,
+    pullRequest: null,
+  };
 }
 
 // a pull request's change from GitHub: its title and body, its head, and its base; once noslop has
@@ -231,6 +247,7 @@ async function resolvePullRequestChange(
     repo,
     base: isDelta ? reviewed : start,
     head: state.headSha,
+    configCommit: state.baseSha,
     title: state.title,
     body: state.body,
     linkedIssue,

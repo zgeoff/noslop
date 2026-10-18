@@ -95,7 +95,7 @@ export async function runEvalCommand(values: EvalValues, ctx: CLIContext): Promi
     adapter,
     depth,
     tempDir: workDir,
-    loadCaseConfig: (caseRepo) => loadRepoConfig(ctx, repoDir, caseRepo),
+    loadCaseConfig: (caseRepo) => loadRepoConfig(ctx, repoDir, { rulesRepoDir: caseRepo }),
   });
 
   const done = values.resume ? await loadDoneRuns(join(outDir, 'runs.json'), caseIDs) : [];

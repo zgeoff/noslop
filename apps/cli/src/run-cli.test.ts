@@ -156,6 +156,139 @@ test('it titles the review with the head subject and gives the calls every commi
   expect(prompt).toInclude('Start the change');
 });
 
+test('it reviews a local change that edits review.json under the config of its base', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'review.json': '{ "lenses": { "correctness": { "model": "base-model" } } }\n',
+        'src/a.ts': 'export const a = 1;\n',
+      },
+    },
+    {
+      message: 'Change the model',
+      files: {
+        'review.json': '{ "lenses": { "correctness": { "model": "head-model" } } }\n',
+        'src/a.ts': 'export const a = 2;\n',
+      },
+    },
+  ]);
+
+  const stub = buildStubAdapter({ L: [{ findings: { correctness: [] } }] });
+
+  await runCLI(
+    ['review', '--base', repo.commits[0] ?? '', '--head', repo.commits[1] ?? '', '--json'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  expect(stub.requests.map((request) => request.model)).toStrictEqual(['base-model']);
+});
+
+test('it reviews a pull request that edits review.json under the config of its base', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'review.json': '{ "lenses": { "correctness": { "model": "base-model" } } }\n',
+        'src/a.ts': 'export const a = 1;\n',
+      },
+    },
+    {
+      message: 'Change the model',
+      files: {
+        'review.json': '{ "lenses": { "correctness": { "model": "head-model" } } }\n',
+        'src/a.ts': 'export const a = 2;\n',
+      },
+    },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    title: 'Change the model',
+    body: 'Moves the lens to another model.',
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[1] ?? '',
+  });
+
+  const stub = buildStubAdapter({ L: [{ findings: { correctness: [] } }] });
+
+  await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'json', '--json'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  expect(stub.requests.map((request) => request.model)).toStrictEqual(['base-model']);
+});
+
+test("it follows the base commit's symlinks to its config files", async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'config/review.json': '{ "extends": "./shared/base.json" }\n',
+        'settings/base.json': '{ "lenses": { "correctness": { "model": "base-model" } } }\n',
+        'src/a.ts': 'export const a = 1;\n',
+      },
+      links: { 'review.json': 'config/review.json', shared: 'settings' },
+    },
+    {
+      message: 'Change the model',
+      files: {
+        'settings/base.json': '{ "lenses": { "correctness": { "model": "head-model" } } }\n',
+        'src/a.ts': 'export const a = 2;\n',
+      },
+    },
+  ]);
+
+  const stub = buildStubAdapter({ L: [{ findings: { correctness: [] } }] });
+
+  await runCLI(
+    ['review', '--base', repo.commits[0] ?? '', '--head', repo.commits[1] ?? '', '--json'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  expect(stub.requests.map((request) => request.model)).toStrictEqual(['base-model']);
+});
+
+test('it reads a config file whose name starts with 2 dots from the base commit', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'review.json': '{ "extends": "./..base.json" }\n',
+        '..base.json': '{ "lenses": { "correctness": { "model": "base-model" } } }\n',
+        'src/a.ts': 'export const a = 1;\n',
+      },
+    },
+    {
+      message: 'Change the model',
+      files: {
+        '..base.json': '{ "lenses": { "correctness": { "model": "head-model" } } }\n',
+        'src/a.ts': 'export const a = 2;\n',
+      },
+    },
+  ]);
+
+  const stub = buildStubAdapter({ L: [{ findings: { correctness: [] } }] });
+
+  await runCLI(
+    ['review', '--base', repo.commits[0] ?? '', '--head', repo.commits[1] ?? '', '--json'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  expect(stub.requests.map((request) => request.model)).toStrictEqual(['base-model']);
+});
+
 test('it prints a summary for a person without --json', async () => {
   const ctx = await setupTest();
 
