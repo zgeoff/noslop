@@ -35,7 +35,6 @@ const GIT_REPO_VARIABLES = [
   'GIT_COMMON_DIR',
 ] as const;
 
-// a child starts from the server's environment with the given variables over it
 async function runProcess(argv: readonly string[], options: RunOptions): Promise<RunResult> {
   const env: Record<string, string | undefined> = { ...process.env, ...options.env };
 
