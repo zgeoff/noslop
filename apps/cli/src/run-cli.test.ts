@@ -1516,6 +1516,32 @@ test('it refuses a result whose config names a rules file outside the repo and n
   expect(requested).not.toHaveBeenCalledWith(expect.stringContaining('shared/taste.md'));
 });
 
+test('it refuses a result that breaks the result contract before it asks GitHub anything', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(join(ctx.dir, 'result.json'), '{ "version": 999 }');
+
+  const requested = mock<(url: string) => void>();
+
+  githubServer.events.on('request:start', (event) => {
+    requested(event.request.url);
+  });
+
+  onTestFinished(() => {
+    githubServer.events.removeAllListeners('request:start');
+  });
+
+  const code = await runCLI(
+    ['verify', 'result.json'],
+    ctx.buildContext(ctx.dir, buildStubAdapter({}).adapter),
+  );
+
+  expect(code).toBe(1);
+  expect(ctx.stderr.join('')).toStartWith('noslop: ');
+  expect(ctx.stderr.join('')).toInclude('"version"');
+  expect(requested).not.toHaveBeenCalled();
+});
+
 test('it refuses to verify a result that reviews no pull request', async () => {
   const ctx = await setupTest();
 

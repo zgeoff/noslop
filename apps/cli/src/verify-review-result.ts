@@ -6,10 +6,6 @@ import { reviewResultSchema } from '@noslop/contract';
 import type { GitHubConnection } from '@noslop/github';
 import { createGitHubFileReader, readPullRequestState } from '@noslop/github';
 
-// the folder the base branch's files stand at while its config loads with no checkout; the hash
-// takes each local rules path relative to it, as it takes one relative to a checkout
-const BASE_BRANCH_DIR = '/base-branch';
-
 // parses a review result and checks it against its pull request on GitHub: it must review the head,
 // under a config whose hash matches the config on the base branch, so a relay posts only a review the
 // repo enforces; it throws and names each mismatch
@@ -73,6 +69,10 @@ async function readBranchHead(
 
   return response.data.commit.sha;
 }
+
+// the folder the base branch's files stand at while its config loads with no checkout; the hash
+// takes each local rules path relative to it, as it takes one relative to a checkout
+const BASE_BRANCH_DIR = '/base-branch';
 
 // a file inside the base branch's folder reads from the commit on GitHub; a file outside it, such as
 // a rules file on the reviewer's own machine, reads as missing, because the relay cannot see it
