@@ -2339,6 +2339,50 @@ test('it plans a re-review case under --static from its last reviewed head', asy
   });
 });
 
+test('it plans the intent call under --static for a case with a linked issue', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'src/a.ts': 'export const a = 1;\n' } },
+    { message: 'head', files: { 'src/a.ts': 'export const a = 2;\n' } },
+  ]);
+
+  await Bun.write(
+    join(ctx.dir, 'corpus', 'case-a', 'case.json'),
+    JSON.stringify({
+      id: 'case-a',
+      repo: repo.path,
+      base: repo.commits[0],
+      head: repo.commits[1],
+      title: 'Change a',
+      body: '',
+      linkedIssue: 'Set a to 2.',
+      findings: [],
+      escapes: [],
+    }),
+  );
+
+  await runCLI(
+    [
+      'eval',
+      '--corpus',
+      join(ctx.dir, 'corpus'),
+      '--out',
+      join(ctx.dir, 'out'),
+      '--static',
+      '--depth',
+      'standard',
+    ],
+    ctx.buildContext(ctx.dir, buildStubAdapter({}).adapter),
+  );
+
+  const written: unknown = await Bun.file(join(ctx.dir, 'out', 'static.json')).json();
+
+  expect(written).toMatchObject({
+    runs: [{ caseID: 'case-a', plan: { depth: 'standard', calls: expect.arrayContaining(['E']) } }],
+  });
+});
+
 test('it plans every case at the depth that --depth names', async () => {
   const ctx = await setupTest();
 
