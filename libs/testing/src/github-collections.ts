@@ -15,6 +15,7 @@ export const githubCollections = {
       number: z.int().default(() => faker.number.int({ min: 1, max: 9999 })),
       title: z.string().default(() => faker.git.commitMessage()),
       body: z.string().nullable().default(null),
+      baseRef: z.string().default('main'),
       baseSha: z.string().default(buildSha),
       headSha: z.string().default(buildSha),
       authorLogin: z.string().default(() => faker.internet.username()),
@@ -118,6 +119,16 @@ export const githubCollections = {
       title: z.string().default(''),
       summary: z.string().default(''),
       text: z.string().default(''),
+    }),
+  }),
+
+  // the commit each branch of a repo points at
+  branches: new Collection({
+    schema: z.object({
+      owner: z.string().default('example'),
+      repo: z.string().default('app'),
+      name: z.string().default('main'),
+      sha: z.string().default(buildSha),
     }),
   }),
 

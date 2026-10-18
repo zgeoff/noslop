@@ -8,6 +8,7 @@ import { runEvalCommand } from './run-eval-command';
 import { runReviewCommand } from './run-review-command';
 import { runStoreEscapeCommand } from './run-store-escape-command';
 import { runStoreQueryCommand } from './run-store-query-command';
+import { runVerifyCommand } from './run-verify-command';
 
 const JSON_ARG = {
   type: 'boolean',
@@ -200,11 +201,31 @@ export async function runCLI(argv: readonly string[], ctx: CLIContext): Promise<
       ),
   });
 
+  const verify = define({
+    name: 'verify',
+    description:
+      'Check a review result against its pull request: its head and the config of its base branch',
+    args: {
+      file: {
+        type: 'positional',
+        description: 'The file that holds the review result as JSON',
+        required: true,
+      },
+      json: JSON_ARG,
+    },
+    run: (command) =>
+      run(() =>
+        runVerifyCommand({ file: command.values.file, json: command.values.json === true }, ctx),
+      ),
+  });
+
   const main = define({
     name: 'noslop',
     description: 'Review a pull request that a coding agent wrote',
     run: () =>
-      run(() => Promise.reject(new Error('name a command: review, check, config, eval or store'))),
+      run(() =>
+        Promise.reject(new Error('name a command: review, verify, check, config, eval or store')),
+      ),
   });
 
   // gunshi prints argument errors to stdout and then throws them, so it prints none, and the errors
@@ -216,7 +237,7 @@ export async function runCLI(argv: readonly string[], ctx: CLIContext): Promise<
       renderHeader: null,
       renderValidationErrors: null,
       strict: true,
-      subCommands: { review, check, config, eval: evaluate, store },
+      subCommands: { review, verify, check, config, eval: evaluate, store },
     });
   } catch (error) {
     ctx.writeStderr(`noslop: ${formatError(error)}\n`);

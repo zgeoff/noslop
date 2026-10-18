@@ -152,7 +152,7 @@ export const githubHandlers = [
       number: pull.number,
       title: pull.title,
       body: pull.body,
-      base: { sha: pull.baseSha },
+      base: { ref: pull.baseRef, sha: pull.baseSha },
       head: { sha: pull.headSha },
       user: { login: pull.authorLogin },
     });
@@ -438,6 +438,23 @@ export const githubHandlers = [
       });
 
       return HttpResponse.json({ id: run.id, name: run.name }, { status: 201 });
+    },
+  ),
+
+  http.get<RepoParams & { branch: string[] }>(
+    `${GITHUB_API_URL}/repos/:owner/:repo/branches/:branch+`,
+    (info) => {
+      const name = info.params.branch.join('/');
+
+      const branch = githubCollections.branches.findFirst((q) =>
+        q.where({ owner: info.params.owner, repo: info.params.repo, name }),
+      );
+
+      if (branch === undefined) {
+        return buildNotFound();
+      }
+
+      return HttpResponse.json({ name: branch.name, commit: { sha: branch.sha } });
     },
   ),
 
