@@ -89,6 +89,8 @@ export function planCallParts(input: CallPartsInput): CallParts {
     return overflow.has(file.path) ? [{ path: file.path, reason: 'too-large' }] : [];
   });
 
+  // a call whose files each overflow alone gets no part, so the review records none of its lenses as
+  // run
   const ids = pickPartIDs(input.call.callID, fitted.groups.length, input.taken);
 
   const parts = fitted.groups.map((files, index) => {

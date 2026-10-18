@@ -3,8 +3,10 @@ import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { Logger } from '@logtape/logtape';
 import type {
+  CallRecord,
   Change,
   Depth,
+  LensID,
   NotReviewedFile,
   PullRequestRef,
   ReviewAdapter,
@@ -113,7 +115,7 @@ export async function runReview(options: RunReviewOptions): Promise<ReviewRun> {
       depth: ctx.route.depth,
       special: ctx.route.special,
       riskClasses: stage.signals.riskClasses,
-      lenses: ctx.route.lenses,
+      lenses: collectRunLenses(ctx.route.lenses, records),
       calls: merged.record === null ? records : [...records, merged.record],
       findings: merged.findings,
 
@@ -298,4 +300,12 @@ function collectNotReviewed(ctx: PassContext, batches: readonly CallBatch[]): No
     .map((file): NotReviewedFile => ({ path: file.path, reason: 'data' }));
 
   return [...listed, ...data];
+}
+
+// the fired lenses that a call ran, in the route's order; a call whose files each overflow a call
+// alone runs no part, so its lenses never ran and the store counts none of them
+function collectRunLenses(lenses: readonly LensID[], records: readonly CallRecord[]): LensID[] {
+  const ran = new Set(records.flatMap((record) => record.lenses));
+
+  return lenses.filter((lens) => ran.has(lens));
 }
