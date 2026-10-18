@@ -10,8 +10,10 @@
   },
   "boundaries": {
     "tags": {
+      // an app may build on the CLI, as the App server does; the lint config keeps the App server's
+      // own imports to what the CLI publishes, since this check follows every package beneath it
       "app": {
-        "dependencies": { "allow": ["module", "adapter", "lib"] }
+        "dependencies": { "allow": ["module", "adapter", "lib", "cli"] }
       },
       // a module never imports an adapter; the app passes each adapter in
       "module": {

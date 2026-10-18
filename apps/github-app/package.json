@@ -9,7 +9,7 @@
   },
   "dependencies": {
     "@logtape/logtape": "catalog:",
-    "@noslop/runner": "workspace:*",
+    "@noslop/cli": "workspace:*",
     "@octokit/app": "catalog:",
     "@octokit/webhooks": "catalog:",
     "elysia": "catalog:",

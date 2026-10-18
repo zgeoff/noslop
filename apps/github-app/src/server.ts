@@ -1,8 +1,8 @@
 import { join } from 'node:path';
 import { configure, getConsoleSink, getLogger } from '@logtape/logtape';
-import { createRunner } from '@noslop/runner';
 import { createAppServer } from './create-app-server';
 import { createJobQueue } from './create-job-queue';
+import { createProcessRunner } from './create-process-runner';
 import { makeTokenMinter } from './make-token-minter';
 import { parseAppServerEnv } from './parse-app-server-env';
 import { runAppJob } from './run-app-job';
@@ -14,14 +14,14 @@ await configure({
 
 const env = parseAppServerEnv(process.env);
 const logger = getLogger(['noslop', 'github-app']);
-const runner = createRunner();
+const runner = createProcessRunner();
 const mintToken = makeTokenMinter(env.appID, env.privateKey);
 
 const queue = createJobQueue(
   (event) =>
     runAppJob(event, {
       runner,
-      cliPath: join(import.meta.dir, '..', '..', 'cli', 'src', 'cli.ts'),
+      cliPath: join(import.meta.dir, '..', 'node_modules', '.bin', 'noslop'),
       bunConfigPath: join(import.meta.dir, '..', '..', '..', 'bunfig.toml'),
       reposDir: env.reposDir,
       appID: env.appID,
