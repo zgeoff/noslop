@@ -9,10 +9,13 @@ async function setupTest() {
 
   onTestFinished(() => rm(dir, { recursive: true, force: true }));
 
-  return { dir };
+  // the repo's TypeScript, which checks a project that installs the packed package
+  const tsc = join(import.meta.dir, '..', 'node_modules', '.bin', 'tsc');
+
+  return { dir, tsc };
 }
 
-test('it builds a manifest that names the bundle and no workspace dependency', async () => {
+test('it builds a manifest that names the bundle, the subpath exports and no workspace dependency', async () => {
   const ctx = await setupTest();
   const manifest = await buildCLIPackage(ctx.dir);
 
@@ -23,21 +26,40 @@ test('it builds a manifest that names the bundle and no workspace dependency', a
     repository: { type: 'git', url: 'git+https://github.com/zgeoff/noslop.git' },
     type: 'module',
     bin: { noslop: './cli.js' },
-    files: ['cli.js'],
+    exports: {
+      '.': { types: './index.d.ts', default: './index.js' },
+      './contract': { types: './contract.d.ts', default: './contract.js' },
+    },
+    files: ['*.js', '*.d.ts'],
   });
 
-  expect(Object.keys(manifest.dependencies)).toStrictEqual(['oxc-parser']);
+  expect(Object.keys(manifest.dependencies)).toStrictEqual(['oxc-parser', 'zod']);
   expect(manifest.engines.bun).toMatch(/^\d+\.\d+\.\d+$/u);
 });
 
-test('it writes the bundle, the manifest, the README and the LICENSE and nothing else', async () => {
+test('it writes the bundles, their declarations, the manifest, the README and the LICENSE', async () => {
   const ctx = await setupTest();
 
   await buildCLIPackage(ctx.dir);
 
   const files = await readdir(ctx.dir);
 
-  expect(files).toIncludeSameMembers(['cli.js', 'package.json', 'README.md', 'LICENSE']);
+  expect(files).toIncludeAllMembers([
+    'cli.js',
+    'index.js',
+    'index.d.ts',
+    'contract.js',
+    'contract.d.ts',
+    'package.json',
+    'README.md',
+    'LICENSE',
+  ]);
+
+  expect(files).toSatisfyAll(
+    (file: string) =>
+      /^[\w-]+\.(?:js|d\.ts)$/u.test(file) ||
+      ['package.json', 'README.md', 'LICENSE'].includes(file),
+  );
 });
 
 test('it bundles the lens prompts and leaves the native parser to npm', async () => {
@@ -50,4 +72,73 @@ test('it bundles the lens prompts and leaves the native parser to npm', async ()
   expect(bundle).toStartWith('#!/usr/bin/env bun\n');
   expect(bundle).toInclude('{{criteria}}');
   expect(bundle).not.toInclude('oxc-parser/binding-');
+});
+
+test('it ships declarations that a project importing the contract from the tarball type-checks against', async () => {
+  const ctx = await setupTest();
+
+  const packageDir = join(ctx.dir, 'package');
+  const projectDir = join(ctx.dir, 'project');
+
+  await buildCLIPackage(packageDir);
+
+  await Bun.$`bun pm pack --quiet`.cwd(packageDir).quiet();
+
+  const packed = await readdir(packageDir);
+
+  const tarball = packed.find((file) => file.endsWith('.tgz'));
+
+  await Bun.write(
+    join(projectDir, 'package.json'),
+    JSON.stringify({
+      name: 'project',
+      private: true,
+      type: 'module',
+      dependencies: { '@noslop/cli': `file:${join(packageDir, tarball ?? '')}` },
+    }),
+  );
+
+  await Bun.write(
+    join(projectDir, 'tsconfig.json'),
+    JSON.stringify({
+      compilerOptions: {
+        strict: true,
+        module: 'nodenext',
+        moduleResolution: 'nodenext',
+        target: 'esnext',
+        noEmit: true,
+        skipLibCheck: false,
+        types: [],
+      },
+      include: ['index.ts'],
+    }),
+  );
+
+  await Bun.write(
+    join(projectDir, 'index.ts'),
+    [
+      "import type { ReviewResult } from '@noslop/cli/contract';",
+      "import { REVIEW_OUTPUT_VERSION, reviewResultSchema } from '@noslop/cli/contract';",
+      '',
+      'export function countFindings(value: unknown): number {',
+      '  const result: ReviewResult = reviewResultSchema.parse(value);',
+      '  const version: typeof REVIEW_OUTPUT_VERSION = result.version;',
+      '',
+      '  return result.findings.length + version;',
+      '}',
+      '',
+      '// @ts-expect-error a finding count is no string',
+      'export const wrong: string = countFindings({});',
+      '',
+    ].join('\n'),
+  );
+
+  await Bun.$`bun install --silent`.cwd(projectDir).quiet();
+
+  const checked = await Bun.$`${ctx.tsc} -p ${projectDir}`.nothrow().quiet();
+
+  expect({ exitCode: checked.exitCode, stdout: checked.stdout.toString() }).toStrictEqual({
+    exitCode: 0,
+    stdout: '',
+  });
 });

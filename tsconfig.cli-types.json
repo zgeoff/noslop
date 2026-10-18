@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["bun"],
+    "paths": {
+      "@noslop/*": [
+        "./libs/*/src/index.ts",
+        "./modules/*/src/index.ts",
+        "./adapters/*/src/index.ts"
+      ]
+    }
+  },
+  "include": ["apps/cli/src/index.ts", "apps/cli/src/contract.ts"]
+}

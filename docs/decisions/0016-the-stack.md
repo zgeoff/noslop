@@ -6,23 +6,26 @@
 
 noslop builds on this stack:
 
-| Concern                   | Library                                              |
-| ------------------------- | ---------------------------------------------------- |
-| Runtime, tests            | Bun, `bun test`, msw, faker                          |
-| CLI                       | gunshi                                               |
-| Schemas and validation    | zod                                                  |
-| Branching on variants     | ts-pattern, with `switch` only for a concrete reason |
-| Logging                   | LogTape                                              |
-| Parsing                   | oxc-parser                                           |
-| The findings store        | Kysely on `bun:sqlite`                               |
-| The GitHub App's server   | Elysia                                               |
-| GitHub's API and webhooks | `@octokit/app`, `@octokit/webhooks`, `@octokit/core` |
-| GitHub's API types        | `@octokit/types`                                     |
-| The GitHub test stand-in  | msw 2.15.0 with `@msw/data`                          |
-| Spawning a CLI            | One injected runner on `Bun.spawn`                   |
+| Concern                    | Library                                              |
+| -------------------------- | ---------------------------------------------------- |
+| Runtime, tests             | Bun, `bun test`, msw, faker                          |
+| CLI                        | gunshi                                               |
+| Schemas and validation     | zod                                                  |
+| Branching on variants      | ts-pattern, with `switch` only for a concrete reason |
+| Logging                    | LogTape                                              |
+| Parsing                    | oxc-parser                                           |
+| The findings store         | Kysely on `bun:sqlite`                               |
+| The GitHub App's server    | Elysia                                               |
+| GitHub's API and webhooks  | `@octokit/app`, `@octokit/webhooks`, `@octokit/core` |
+| GitHub's API types         | `@octokit/types`                                     |
+| The GitHub test stand-in   | msw 2.15.0 with `@msw/data`                          |
+| Spawning a CLI             | One injected runner on `Bun.spawn`                   |
+| The package's declarations | tsdown on TypeScript 7                               |
 
 ## Why
 
+- tsdown bundles declarations with TypeScript 7's own emit, which has no JavaScript API for a
+  declaration bundler to call. Bun's bundler writes JavaScript only.
 - LogTape logs nothing until the host configures it, which suits a tool that others install.
 - oxc-parser gives the static stage a full TypeScript syntax tree with no native build step to
   manage.
@@ -52,3 +55,4 @@ noslop builds on this stack:
   with `@msw/data` for the GitHub and webhook test stand-in.
 - 2026-10-18: dropped tiny-invariant, p-retry, lru-cache, nanoid and XState, which no package
   imports.
+- 2026-10-18: added tsdown, which writes the npm package's declarations on TypeScript 7.

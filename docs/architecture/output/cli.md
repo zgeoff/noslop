@@ -12,6 +12,13 @@ imports, the lens prompts included, so the workspace packages stay private. The 
 oxc-parser, whose native build npm installs for the user's platform. The workspace runs the CLI from
 its source.
 
+The package's library entries hold what code can import from it: the root export, and
+`@noslop/cli/contract` with the review result schema and its types, so code that does not shell out
+reads results through the same contract. They leave zod to npm, so a caller's schemas and the
+package's declarations share one zod. tsdown writes each entry's declarations with TypeScript's own
+emit and inlines the types of the workspace packages they reach, so the published types import
+nothing but zod.
+
 ## Commands
 
 | Command                                                      | Does                                                                  |
