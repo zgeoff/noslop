@@ -76,6 +76,74 @@ test('it finds no branch commit for a rewritten commit that changed another file
   });
 });
 
+test('it finds no branch commit for a rewritten commit that matches in its first file but differs in its second', async () => {
+  const ctx = await setupTest();
+
+  for (const commit of [
+    { sha: 'b'.repeat(40), isOnBranch: false, second: '@@ -1,1 +1,1 @@\n-x\n+y' },
+    { sha: 'c'.repeat(40), isOnBranch: true, second: '@@ -1,1 +1,1 @@\n-x\n+z' },
+  ]) {
+    await githubCollections.pullCommits.create({
+      owner: 'example',
+      repo: 'app',
+      number: 5,
+      sha: commit.sha,
+      files: ['src/a.ts', 'src/b.ts'],
+      patches: { 'src/a.ts': '@@ -1,1 +1,1 @@\n-old\n+new', 'src/b.ts': commit.second },
+      isOnBranch: commit.isOnBranch,
+    });
+  }
+
+  const fix = await ctx.readRewrittenFix({
+    sha: 'bbbbbbb',
+    posted: undefined,
+    candidates: ['c'.repeat(40)],
+  });
+
+  expect(fix).toStrictEqual({
+    commit: null,
+    failure: '0 commits on the branch hold the change of the commit bbbbbbb',
+  });
+});
+
+test('it finds no branch commit for a rewritten commit on a fork that diverged from the head that posted the finding', async () => {
+  const ctx = await setupTest();
+
+  for (const commit of [
+    { sha: 'b'.repeat(40), isOnBranch: false },
+    { sha: 'c'.repeat(40), isOnBranch: true },
+  ]) {
+    await githubCollections.pullCommits.create({
+      owner: 'example',
+      repo: 'app',
+      number: 5,
+      sha: commit.sha,
+      files: ['src/a.ts'],
+      patches: { 'src/a.ts': '@@ -1,1 +1,1 @@\n-old\n+new' },
+      isOnBranch: commit.isOnBranch,
+    });
+  }
+
+  githubServer.use(
+    http.get(
+      `${GITHUB_API_URL}/repos/:owner/:repo/compare/${'a'.repeat(40)}...${'b'.repeat(40)}`,
+      () =>
+        HttpResponse.json({ status: 'diverged', commits: [{ sha: 'b'.repeat(40) }], files: [] }),
+    ),
+  );
+
+  const fix = await ctx.readRewrittenFix({
+    sha: 'bbbbbbb',
+    posted: 'a'.repeat(40),
+    candidates: ['c'.repeat(40)],
+  });
+
+  expect(fix).toStrictEqual({
+    commit: null,
+    failure: 'the commit bbbbbbb does not come after the review that posted the finding',
+  });
+});
+
 test('it finds no branch commit when 2 branch commits hold the change', async () => {
   const ctx = await setupTest();
 
