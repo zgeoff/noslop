@@ -24,18 +24,21 @@ Kysely, in SQLite's WAL mode with foreign keys enforced, and each command closes
 
 ## What the store records
 
-The store holds one row per review, per call, per finding, per disposition and per escape. A list or
-an object sits in its column as JSON text, and a boolean as 0 or 1.
+The store holds one row per review, per call, per finding, per dropped finding, per disposition and
+per escape. A list or an object sits in its column as JSON text, and a boolean as 0 or 1.
 
 - A review row keeps the repo, the pull request when there is one, the base and the head, the depth,
   the lenses that ran, the config hash and the start and end time.
 - A call row keeps its lenses, depth, adapter, model, effort, attempts, status, duration, and its
   new input, cached input, cache write and output tokens. A call row written before the store kept
   the cache counts has none, and its input count holds the cached share. Deleting a review deletes
-  its calls and findings with it.
+  its calls, findings and dropped findings with it.
 - A finding row keeps every field of the finding, plus the depth, model and effort of the call that
   reported it, so a measure can split one lens by how it ran. A finding that no call reported, such
   as one from the static stage, takes the review's depth and no model.
+- A dropped finding row keeps a finding that Assemble dropped: its lens, call, title, anchor and
+  criterion, the reason it was dropped, and the rules file and quote a taste finding gave. The rows
+  let a reader check whether a finding rule throws away real findings.
 - A disposition row keeps the repo and the finding id, the kind and its value, the author and
   whether the author owns the repo, the source it came from and its time. A finding id is unique
   only within one repo, so the repo is part of the key. A disposition the store holds already, from
@@ -43,9 +46,10 @@ an object sits in its column as JSON text, and a boolean as 0 or 1.
 - An escape row keeps the issue that reported a defect, the repo and head of the change that caused
   it, the lens that should have caught it, and the location when it is known.
 
-The reporter writes a review, its calls and its findings in one transaction, so a reader never sees
-a review without its findings. A finding id leaves out the line numbers, so two reviews of one
-change that report one defect share the id, and the queries count the defect once.
+The reporter writes a review, its calls, its findings and its dropped findings in one transaction,
+so a reader never sees a review without its findings. A finding id leaves out the line numbers, so
+two reviews of one change that report one defect share the id, and the queries count the defect
+once.
 
 Three writers fill the store. The `sqlite` reporter writes each review. `noslop check` writes the
 dispositions of a pull request each time it sets the check, so every reply the App sees reaches the
@@ -70,6 +74,8 @@ fix the next review disproves never counts as yield.
   on, and how many of those changes got a finding from the lens on the escape's file.
 - `recall-by-depth` gives the same counts per depth, from the latest review of the change that
   caused each escape. An escape on a change that no review saw counts under no depth.
+- `dropped-findings` lists each dropped finding with its review's repo, pull request and head, the
+  reason, and the rules file and quote, the newest review first.
 
 The query command prints the rows as text, or as JSON under `--json`. A query's row shape changes
 only with a CLI version, so a reader that pins the version reads one shape.

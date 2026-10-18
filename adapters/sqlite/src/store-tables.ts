@@ -3,6 +3,7 @@ export interface StoreTables {
   reviews: ReviewRow;
   calls: CallRow;
   findings: FindingRow;
+  dropped_findings: DroppedFindingRow;
   dispositions: DispositionRow;
   escapes: EscapeRow;
 }
@@ -64,6 +65,20 @@ export interface FindingRow {
   depth: string;
   model: string | null;
   effort: string | null;
+}
+
+export interface DroppedFindingRow {
+  review_id: string;
+  lens: string;
+  call_id: string | null;
+  title: string;
+  path: string;
+  start_line: number;
+  end_line: number;
+  criterion: string;
+  reason: string;
+  rule: string | null;
+  rule_quote: string | null;
 }
 
 export interface DispositionRow {

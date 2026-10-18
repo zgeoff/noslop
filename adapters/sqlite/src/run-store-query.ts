@@ -9,6 +9,7 @@ export const STORE_QUERY_NAMES = [
   'cost-by-depth',
   'recall-by-lens',
   'recall-by-depth',
+  'dropped-findings',
 ] as const;
 
 export type StoreQueryName = (typeof STORE_QUERY_NAMES)[number];
@@ -165,6 +166,23 @@ const QUERIES: Record<StoreQueryName, RawBuilder<Record<string, unknown>>> = {
     FROM reviewed LEFT JOIN reviews USING (review_id)
     GROUP BY reviews.depth
     ORDER BY reviews.depth`,
+
+  // each finding Assemble dropped, newest review first, with the rule and quote a taste finding cited,
+  // so a reader can check a quote the rules file did not hold against the file
+  'dropped-findings': sql`
+    SELECT
+      reviews.repo AS repo,
+      reviews.pull_request AS "pullRequest",
+      reviews.head AS head,
+      dropped_findings.lens AS lens,
+      dropped_findings.reason AS reason,
+      dropped_findings.title AS title,
+      dropped_findings.path AS path,
+      dropped_findings.start_line AS "startLine",
+      dropped_findings.rule AS rule,
+      dropped_findings.rule_quote AS "ruleQuote"
+    FROM dropped_findings JOIN reviews USING (review_id)
+    ORDER BY reviews.ended_at DESC, reviews.review_id, dropped_findings.rowid`,
 };
 
 // runs one of the store's named queries; a reader pins the CLI version and reads the same row shape

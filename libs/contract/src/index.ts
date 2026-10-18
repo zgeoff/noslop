@@ -2,6 +2,7 @@ export * from './build-call-output-schema';
 export * from './criterion';
 export * from './depth';
 export * from './disposition';
+export * from './dropped-finding';
 export * from './effort';
 export * from './finding';
 export * from './lens-id';

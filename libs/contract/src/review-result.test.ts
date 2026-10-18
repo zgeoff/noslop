@@ -2,9 +2,9 @@ import { expect, test } from 'bun:test';
 import type { ReviewResult } from './review-result';
 import { reviewResultSchema } from './review-result';
 
-test('it accepts a review result with one call and no findings', () => {
+test('it accepts a review result with one call and one dropped finding', () => {
   const payload: ReviewResult = {
-    version: 4,
+    version: 5,
     reviewID: 'r_1',
     repo: 'example/app',
     pullRequest: { owner: 'example', repo: 'app', number: 7 },
@@ -30,6 +30,18 @@ test('it accepts a review result with one call and no findings', () => {
       },
     ],
     findings: [],
+    dropped: [
+      {
+        lens: 'naming-shape-and-comments',
+        callID: 'A',
+        title: 'Start the name with a verb',
+        anchor: { path: 'src/queue.ts', startLine: 3, endLine: 3 },
+        criterion: 'taste-rule',
+        reason: 'unknown-rule',
+        rule: 'RULES.md',
+        ruleQuote: 'Every name starts with a verb.',
+      },
+    ],
     failedCalls: [],
     configHash: 'c0ffee',
     startedAt: '2026-10-17T10:00:00.000Z',
@@ -41,7 +53,7 @@ test('it accepts a review result with one call and no findings', () => {
 
 test('it rejects a head that is not a full commit', () => {
   const result = reviewResultSchema.safeParse({
-    version: 4,
+    version: 5,
     reviewID: 'r_1',
     repo: 'example/app',
     pullRequest: null,
@@ -54,6 +66,7 @@ test('it rejects a head that is not a full commit', () => {
     lenses: ['correctness'],
     calls: [],
     findings: [],
+    dropped: [],
     failedCalls: [],
     configHash: 'c0ffee',
     startedAt: '2026-10-17T10:00:00.000Z',
@@ -65,7 +78,7 @@ test('it rejects a head that is not a full commit', () => {
 
 test('it rejects an output version it does not know', () => {
   const result = reviewResultSchema.safeParse({
-    version: 3,
+    version: 4,
     reviewID: 'r_1',
     repo: 'example/app',
     pullRequest: null,
@@ -78,6 +91,7 @@ test('it rejects an output version it does not know', () => {
     lenses: ['correctness'],
     calls: [],
     findings: [],
+    dropped: [],
     failedCalls: [],
     configHash: 'c0ffee',
     startedAt: '2026-10-17T10:00:00.000Z',

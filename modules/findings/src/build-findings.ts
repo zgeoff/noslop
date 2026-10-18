@@ -1,5 +1,6 @@
 import type {
   ChangedFile,
+  DropReason,
   Finding,
   FindingLens,
   ModelFinding,
@@ -27,13 +28,6 @@ export interface AssembleInput {
   riskClasses: readonly string[];
   config: ReviewConfig;
 }
-
-export type DropReason =
-  | 'anchor-outside-diff'
-  | 'outside-diff-without-location'
-  | 'unknown-rule'
-  | 'plausible-without-fact'
-  | 'invalid';
 
 export interface AssembledFindings {
   findings: Finding[];

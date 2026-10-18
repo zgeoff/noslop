@@ -1,8 +1,9 @@
 import type { ReviewResult } from '@noslop/contract';
 import type { Store } from './load-store';
 
-// writes one review with its calls and findings in one transaction, so a reader never sees a review
-// without its findings; each finding keeps the depth, model and effort of the call that reported it
+// writes one review with its calls, findings and dropped findings in one transaction, so a reader
+// never sees a review without its findings; each finding keeps the depth, model and effort of the call
+// that reported it
 export async function writeReview(store: Store, result: ReviewResult): Promise<void> {
   const calls = new Map(result.calls.map((call) => [call.id, call]));
 
@@ -84,6 +85,27 @@ export async function writeReview(store: Store, result: ReviewResult): Promise<v
               effort: call?.effort ?? null,
             };
           }),
+        )
+        .execute();
+    }
+
+    if (result.dropped.length > 0) {
+      await trx
+        .insertInto('dropped_findings')
+        .values(
+          result.dropped.map((item) => ({
+            review_id: result.reviewID,
+            lens: item.lens,
+            call_id: item.callID,
+            title: item.title,
+            path: item.anchor.path,
+            start_line: item.anchor.startLine,
+            end_line: item.anchor.endLine,
+            criterion: item.criterion,
+            reason: item.reason,
+            rule: item.rule,
+            rule_quote: item.ruleQuote,
+          })),
         )
         .execute();
     }

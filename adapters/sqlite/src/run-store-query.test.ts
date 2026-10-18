@@ -2,7 +2,7 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { buildMockFinding, buildMockReviewResult } from '@noslop/testing';
+import { buildMockDroppedFinding, buildMockFinding, buildMockReviewResult } from '@noslop/testing';
 import { loadStore } from './load-store';
 import { runStoreQuery } from './run-store-query';
 import { writeDispositions } from './write-dispositions';
@@ -417,5 +417,68 @@ test('#recall-by-depth counts each escape at the depth of the latest review of i
   expect(rows).toStrictEqual([
     { depth: null, escapes: 1, lensRan: 0, lensReported: 0 },
     { depth: 'standard', escapes: 1, lensRan: 1, lensReported: 1 },
+  ]);
+});
+
+test('#dropped-findings lists each dropped finding with its rule and quote, newest review first', async () => {
+  const ctx = await setupTest();
+
+  await writeReview(
+    ctx.store,
+    buildMockReviewResult({
+      reviewID: 'review-old',
+      head: 'c'.repeat(40),
+      endedAt: '2026-10-17T10:01:00.000Z',
+      dropped: [
+        buildMockDroppedFinding({
+          lens: 'correctness',
+          title: 'Guard the empty list',
+          anchor: { path: 'src/b.ts', startLine: 9, endLine: 9 },
+          criterion: 'wrong-behaviour-edge-path',
+          reason: 'anchor-outside-diff',
+          rule: null,
+          ruleQuote: null,
+        }),
+      ],
+    }),
+  );
+
+  await writeReview(
+    ctx.store,
+    buildMockReviewResult({
+      reviewID: 'review-new',
+      pullRequest: { owner: 'example', repo: 'app', number: 7 },
+      endedAt: '2026-10-17T12:01:00.000Z',
+      dropped: [buildMockDroppedFinding()],
+    }),
+  );
+
+  const rows = await runStoreQuery(ctx.store, 'dropped-findings');
+
+  expect(rows).toStrictEqual([
+    {
+      repo: 'example/app',
+      pullRequest: 7,
+      head: 'b'.repeat(40),
+      lens: 'naming-shape-and-comments',
+      reason: 'unknown-rule',
+      title: 'Start the name with a verb',
+      path: 'src/a.ts',
+      startLine: 1,
+      rule: 'RULES.md',
+      ruleQuote: 'Every name starts with a verb.',
+    },
+    {
+      repo: 'example/app',
+      pullRequest: null,
+      head: 'c'.repeat(40),
+      lens: 'correctness',
+      reason: 'anchor-outside-diff',
+      title: 'Guard the empty list',
+      path: 'src/b.ts',
+      startLine: 9,
+      rule: null,
+      ruleQuote: null,
+    },
   ]);
 });

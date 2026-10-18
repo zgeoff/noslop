@@ -29,7 +29,8 @@ lens `static` and no call. It is always CONFIRMED, because the stage read its fa
 ## The rules Assemble enforces
 
 Assemble reads the raw findings of every call and the static stage's direct findings together, and
-drops each one that breaks a finding rule. The CLI logs every dropped finding with its reason.
+drops each one that breaks a finding rule. The review result keeps every dropped finding with its
+reason, so the CLI logs it and the [store](./store.md) records it.
 
 1. A finding whose anchor overlaps no hunk of the diff is dropped. The head lines of each hunk, its
    context lines included, are the diff a finding may anchor to.

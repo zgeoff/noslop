@@ -12,7 +12,7 @@ import type {
   Rule,
 } from '@noslop/contract';
 import { REVIEW_OUTPUT_VERSION } from '@noslop/contract';
-import type { AssembledFindings, DropReason, RawFinding } from '@noslop/findings';
+import type { AssembledFindings, RawFinding } from '@noslop/findings';
 import { buildFindings } from '@noslop/findings';
 import type { PlannedCall, Route } from '@noslop/routing';
 import type { Runner } from '@noslop/runner';
@@ -55,16 +55,6 @@ export interface RunReviewOptions {
 
 export interface ReviewRun {
   result: ReviewResult;
-
-  // each finding Assemble dropped, with the rule and the quote a taste finding cited, so an eval can
-  // tell a real finding that the quote check dropped from an invented one
-  dropped: {
-    lens: string;
-    title: string;
-    reason: DropReason;
-    rule: string | null;
-    ruleQuote: string | null;
-  }[];
 }
 
 // runs the pipeline on one change: the static stage, routing, the calls, and Assemble; the calls
@@ -121,18 +111,24 @@ export async function runReview(options: RunReviewOptions): Promise<ReviewRun> {
       lenses: ctx.route.lenses,
       calls: merged.record === null ? records : [...records, merged.record],
       findings: merged.findings,
+
+      // the rule and the quote each dropped taste finding cited, so the store shows whether the
+      // quote check drops real findings
+      dropped: assembled.dropped.map((item) => ({
+        lens: item.raw.lens,
+        callID: item.raw.callID,
+        title: item.raw.finding.title,
+        anchor: item.raw.finding.anchor,
+        criterion: item.raw.finding.criterion,
+        reason: item.reason,
+        rule: item.raw.finding.rule,
+        ruleQuote: item.raw.finding.ruleQuote,
+      })),
       failedCalls: batches.flatMap((batch) => batch.failed),
       configHash: options.configHash,
       startedAt,
       endedAt: now().toISOString(),
     },
-    dropped: assembled.dropped.map((item) => ({
-      lens: item.raw.lens,
-      title: item.raw.finding.title,
-      reason: item.reason,
-      rule: item.raw.finding.rule,
-      ruleQuote: item.raw.finding.ruleQuote,
-    })),
   };
 }
 

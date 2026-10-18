@@ -250,4 +250,27 @@ const STORE_MIGRATIONS: Record<string, Migration> = {
       await db.schema.alterTable('reviews').dropColumn('stepped_up_from').execute();
     },
   },
+
+  // each finding Assemble dropped, as its call gave it, so a query shows whether a rule such as the
+  // quote check drops real findings
+  '0006-dropped-findings': {
+    up: async (db) => {
+      await db.schema
+        .createTable('dropped_findings')
+        .addColumn('review_id', 'text', (column) =>
+          column.notNull().references('reviews.review_id').onDelete('cascade'),
+        )
+        .addColumn('lens', 'text', (column) => column.notNull())
+        .addColumn('call_id', 'text')
+        .addColumn('title', 'text', (column) => column.notNull())
+        .addColumn('path', 'text', (column) => column.notNull())
+        .addColumn('start_line', 'integer', (column) => column.notNull())
+        .addColumn('end_line', 'integer', (column) => column.notNull())
+        .addColumn('criterion', 'text', (column) => column.notNull())
+        .addColumn('reason', 'text', (column) => column.notNull())
+        .addColumn('rule', 'text')
+        .addColumn('rule_quote', 'text')
+        .execute();
+    },
+  },
 };

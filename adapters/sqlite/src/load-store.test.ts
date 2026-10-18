@@ -53,6 +53,7 @@ test('it keys each disposition a store held before on the one repo whose reviews
   database.run('ALTER TABLE calls DROP COLUMN cached_input_tokens');
   database.run('ALTER TABLE calls DROP COLUMN cache_write_tokens');
   database.run('DROP TABLE dispositions');
+  database.run('DROP TABLE dropped_findings');
 
   database.run(`CREATE TABLE dispositions (finding_id text NOT NULL, kind text NOT NULL,
     value text NOT NULL, author text NOT NULL, author_is_owner integer NOT NULL,
@@ -97,6 +98,7 @@ test('it gives a call the store held before no cache counts', async () => {
   database.run('ALTER TABLE reviews ADD COLUMN stepped_up_from text');
   database.run('ALTER TABLE calls DROP COLUMN cached_input_tokens');
   database.run('ALTER TABLE calls DROP COLUMN cache_write_tokens');
+  database.run('DROP TABLE dropped_findings');
   database.close();
 
   const store = await loadStore(ctx.path);

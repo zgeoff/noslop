@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { depthSchema } from './depth';
+import { droppedFindingSchema } from './dropped-finding';
 import { effortSchema } from './effort';
 import { findingSchema } from './finding';
 import { lensIDSchema } from './lens-id';
@@ -7,7 +8,7 @@ import { tokensSchema } from './tokens';
 
 // changes only with a breaking change to the output, so a consumer that pins a CLI version reads one
 // shape
-export const REVIEW_OUTPUT_VERSION = 4;
+export const REVIEW_OUTPUT_VERSION = 5;
 const commitSchema = z.string().regex(/^[0-9a-f]{40}$/u);
 
 export const callRecordSchema = z.strictObject({
@@ -59,6 +60,7 @@ export const reviewResultSchema = z.strictObject({
   lenses: z.array(lensIDSchema),
   calls: z.array(callRecordSchema),
   findings: z.array(findingSchema),
+  dropped: z.array(droppedFindingSchema),
   failedCalls: z.array(failedCallSchema),
   configHash: z.string().min(1),
   startedAt: z.iso.datetime(),

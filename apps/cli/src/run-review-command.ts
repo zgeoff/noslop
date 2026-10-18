@@ -91,7 +91,7 @@ export async function runReviewCommand(values: ReviewValues, ctx: CLIContext): P
       ...(ctx.now === undefined ? {} : { now: ctx.now }),
     });
 
-    for (const item of run.dropped) {
+    for (const item of run.result.dropped) {
       ctx.logger.info('dropped a {lens} finding, {reason}: {title}', item);
     }
 
