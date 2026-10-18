@@ -1621,6 +1621,188 @@ test('it refuses to verify a result that reviews no pull request', async () => {
   });
 });
 
+test('it posts a verified review result to its pull request as the App', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    {
+      message: 'base',
+      files: { 'review.json': '{}\n', 'src/total.ts': 'export const zero = 0;\n' },
+    },
+    {
+      message: 'Add one',
+      files: { 'src/total.ts': 'export const zero = 0;\nexport const one = zero - 1;\n' },
+    },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[1] ?? '',
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[1] ?? '',
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/total.ts',
+    lines: [2],
+  });
+
+  await githubCollections.branches.create({
+    owner: 'example',
+    repo: 'app',
+    name: 'main',
+    sha: repo.commits[0] ?? '',
+  });
+
+  await githubCollections.files.create({
+    owner: 'example',
+    repo: 'app',
+    ref: repo.commits[0] ?? '',
+    path: 'review.json',
+    content: '{}\n',
+  });
+
+  const stub = buildStubAdapter({
+    L: [
+      {
+        findings: {
+          correctness: [
+            {
+              title: 'Add one, not subtract it',
+              body: 'The constant is named one but holds -1.',
+              anchor: { path: 'src/total.ts', startLine: 2, endLine: 2 },
+              secondLocation: null,
+              severity: 'P2',
+              criterion: 'wrong-behaviour-edge-path',
+              rule: null,
+              ruleQuote: null,
+              verdict: 'CONFIRMED',
+              unverifiedFact: null,
+              missingChange: false,
+              fix: null,
+            },
+          ],
+        },
+      },
+    ],
+  });
+
+  await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'json', '--json'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  await Bun.write(join(ctx.dir, 'result.json'), ctx.stdout.splice(0).join(''));
+
+  const code = await runCLI(
+    ['post', join(ctx.dir, 'result.json')],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  expect({ code, stdout: ctx.stdout.join(''), stderr: ctx.stderr.join('') }).toStrictEqual({
+    code: 0,
+    stdout: `noslop post: posted the review of ${(repo.commits[1] ?? '').slice(0, 12)} to example/app#9\n`,
+    stderr: '',
+  });
+
+  expect(
+    githubCollections.reviewComments
+      .all()
+      .map((comment) => [comment.authorLogin, comment.path, comment.line]),
+  ).toStrictEqual([[STUB_APP_LOGIN, 'src/total.ts', 2]]);
+
+  expect(githubCollections.checkRuns.all()).toMatchObject([
+    { name: 'noslop', headSha: repo.commits[1] ?? '', conclusion: 'failure' },
+  ]);
+});
+
+test('it refuses to post a result that does not verify and posts nothing', async () => {
+  const ctx = await setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    headSha: 'c'.repeat(40),
+  });
+
+  await githubCollections.branches.create({
+    owner: 'example',
+    repo: 'app',
+    name: 'main',
+    sha: 'a'.repeat(40),
+  });
+
+  await githubCollections.files.create({
+    owner: 'example',
+    repo: 'app',
+    ref: 'a'.repeat(40),
+    path: 'review.json',
+    content: '{}\n',
+  });
+
+  const result = buildMockReviewResult({
+    pullRequest: { owner: 'example', repo: 'app', number: 9 },
+    head: 'b'.repeat(40),
+  });
+
+  await Bun.write(join(ctx.dir, 'result.json'), JSON.stringify(result));
+
+  const code = await runCLI(
+    ['post', 'result.json'],
+    ctx.buildContext(ctx.dir, buildStubAdapter({}).adapter),
+  );
+
+  expect(code).toBe(1);
+
+  expect(ctx.stderr.join('')).toStartWith(
+    'noslop: noslop posts only a verified result, so it refuses this one: the result does not verify: it reviews bbbbbbbbbbbb, but the head of the pull request is cccccccccccc',
+  );
+
+  expect(githubCollections.issueComments.all()).toStrictEqual([]);
+  expect(githubCollections.checkRuns.all()).toStrictEqual([]);
+});
+
+test('it posts a result that does not verify under --no-verify', async () => {
+  const ctx = await setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    headSha: 'c'.repeat(40),
+  });
+
+  const result = buildMockReviewResult({
+    pullRequest: { owner: 'example', repo: 'app', number: 9 },
+    head: 'b'.repeat(40),
+  });
+
+  await Bun.write(join(ctx.dir, 'result.json'), JSON.stringify(result));
+
+  const code = await runCLI(
+    ['post', 'result.json', '--no-verify'],
+    ctx.buildContext(ctx.dir, buildStubAdapter({}).adapter),
+  );
+
+  expect(code).toBe(0);
+
+  expect(githubCollections.checkRuns.all()).toMatchObject([
+    { name: 'noslop', headSha: 'c'.repeat(40), conclusion: 'failure' },
+  ]);
+});
+
 test('it resumes an eval, keeping the cases the out folder holds and replaying the rest', async () => {
   const ctx = await setupTest();
 

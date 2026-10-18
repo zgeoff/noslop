@@ -14,11 +14,12 @@ its source.
 
 The package's library entries hold what code can import from it: the root export,
 `@noslop/cli/contract` with the review result schema and its types, so code that does not shell out
-reads results through the same contract, and `@noslop/cli/verify`, which runs the check of
-[verifying a result](#verifying-a-result) for a caller that passes the App's keys. They leave zod to
-npm, so a caller's schemas and the package's declarations share one zod. tsdown writes each entry's
-declarations with TypeScript's own emit and inlines the types of the workspace packages they reach,
-so the published types import nothing but zod.
+reads results through the same contract, `@noslop/cli/verify`, which runs the check of
+[verifying a result](#verifying-a-result), and `@noslop/cli/post`, which posts a result as
+[posting a result](#posting-a-result) describes. Both take the App's keys from the caller. They
+leave zod to npm, so a caller's schemas and the package's declarations share one zod. tsdown writes
+each entry's declarations with TypeScript's own emit and inlines the types of the workspace packages
+they reach, so the published types import nothing but zod.
 
 ## Commands
 
@@ -27,6 +28,7 @@ so the published types import nothing but zod.
 | `noslop review [--base <ref>] [--head <ref>]`                | Reviews the change between 2 commits of the current repo               |
 | `noslop review --pr <number> [--full] [--repo <owner/name>]` | Reviews a pull request, from its base and head                         |
 | `noslop verify <file>`                                       | Checks a review result against its pull request's head and base config |
+| `noslop post <file> [--no-verify]`                           | Posts a verified review result to its pull request as the App          |
 | `noslop check --pr <number> --repo <owner/name>`             | Sets a pull request's check run from its dispositions, with no review  |
 | `noslop config`                                              | Prints the merged config and the file each key comes from              |
 | `noslop store query <name>`                                  | Runs a named query on the [findings store](../measurement/store.md)    |
@@ -92,6 +94,15 @@ contents API, with no checkout, so a push during the load cannot mix 2 commits. 
 by the same rules a review loads a config by, so the 2 hashes match when the 2 configs match. A
 rules file outside the repo, which only the reviewer's machine holds, reads as missing, so a config
 that lists one never verifies. `verify` exits 1 and prints each mismatch to stderr.
+
+## Posting a result
+
+`post` posts a review result through the [GitHub reporter](./reporters.md) as the App: the findings,
+the summary and the check run, as a review with `--report github` posts them. It verifies the result
+first and posts nothing when the result fails, so a relay that posts with it posts only a review of
+the current head under the enforced config. `--no-verify` skips the verification, for a result the
+caller checked itself. `post` needs the App's keys in the environment, and refuses to run with an
+anonymous GitHub connection.
 
 ## Folders
 
