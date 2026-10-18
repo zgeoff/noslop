@@ -50,6 +50,7 @@ test('it joins the header, each lens section in order and each slice once', () =
     linkedIssue: null,
     base: 'a'.repeat(40),
     head: 'b'.repeat(40),
+    isIncremental: false,
   });
 
   const input = prompt.slice(prompt.indexOf('# Input'));
@@ -146,7 +147,76 @@ test('it tells the lenses to report no taste finding when the repo names no rule
     linkedIssue: null,
     base: 'a'.repeat(40),
     head: 'b'.repeat(40),
+    isIncremental: false,
   });
 
   expect(prompt).toInclude('The repo names no rules file, so report no taste finding.');
+});
+
+test('it tells the lenses not to judge the description on an incremental review', () => {
+  const prompt = buildCallPrompt({
+    lenses: ['intent'],
+    files: [],
+    slices: {
+      functions: [],
+      reuse: [],
+      guards: [],
+      throws: [],
+      writes: [],
+      security: [],
+      edges: [],
+      config: [],
+      tests: [],
+      instructions: [],
+      prose: [],
+      comments: { commentLines: 0, codeLines: 0, perThousand: 0, target: 120 },
+      interfaces: [],
+      migrations: [],
+      events: [],
+    },
+    rules: null,
+    title: 'feat: add the parser, the printer and the cache',
+    body: 'Changes src/parse.ts, src/print.ts and src/cache.ts.',
+    linkedIssue: null,
+    base: 'a'.repeat(40),
+    head: 'b'.repeat(40),
+    isIncremental: true,
+  });
+
+  expect(prompt).toInclude(
+    'Do not report that the title or the body misdescribes the change, names a file the change does not touch, or claims work the diff does not show.',
+  );
+});
+
+test('it leaves the description check to the lenses on a full review', () => {
+  const prompt = buildCallPrompt({
+    lenses: ['intent'],
+    files: [],
+    slices: {
+      functions: [],
+      reuse: [],
+      guards: [],
+      throws: [],
+      writes: [],
+      security: [],
+      edges: [],
+      config: [],
+      tests: [],
+      instructions: [],
+      prose: [],
+      comments: { commentLines: 0, codeLines: 0, perThousand: 0, target: 120 },
+      interfaces: [],
+      migrations: [],
+      events: [],
+    },
+    rules: null,
+    title: 'feat: add the parser, the printer and the cache',
+    body: 'Changes src/parse.ts, src/print.ts and src/cache.ts.',
+    linkedIssue: null,
+    base: 'a'.repeat(40),
+    head: 'b'.repeat(40),
+    isIncremental: false,
+  });
+
+  expect(prompt).not.toInclude('## Incremental review');
 });

@@ -150,6 +150,11 @@ Otherwise the base is the merge base of the pull request, and the review covers 
 review with a failed call therefore never narrows the next one, and a force push that drops the
 reviewed head brings a full review.
 
+A re-review leaves the pull request's description unjudged. Its title and body describe the whole
+pull request, while its diff holds only the new commits, so a file the body names can look missing
+from that diff. The prompt of each re-review call therefore asks the lenses to report no mismatch
+between the description and the diff, and a full review judges the description.
+
 A `fixed <commit>` disposition counts once a re-review whose range holds that commit no longer
 reports the finding. The commit may change any file, because a fix such as a missing test lands
 beside the finding's file. The commit must also come after the head of the review that posted the

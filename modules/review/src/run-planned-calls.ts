@@ -30,6 +30,7 @@ export interface CallBatchInput {
   // the base and head commits that every line reference cites
   base: string;
   head: string;
+  isIncremental: boolean;
 
   // how many calls run at once
   parallel: number;
@@ -60,6 +61,7 @@ export async function runPlannedCalls(input: CallBatchInput): Promise<CallBatch>
       linkedIssue: input.linkedIssue,
       base: input.base,
       head: input.head,
+      isIncremental: input.isIncremental,
     });
 
     const outcome = await runWithRetry(call, prompt, input);

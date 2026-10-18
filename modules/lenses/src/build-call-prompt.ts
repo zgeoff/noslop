@@ -15,7 +15,17 @@ export interface CallPromptInput {
   linkedIssue: string | null;
   base: string;
   head: string;
+
+  // a re-review of a pull request covers only the commits since its last reviewed head, while its
+  // title and body still describe the whole pull request
+  isIncremental: boolean;
 }
+
+const INCREMENTAL_NOTE = [
+  '## Incremental review',
+  'This review covers only the commits since the last reviewed head of the pull request. The title and body describe the whole pull request, so they can name files and work that earlier commits hold.',
+  'Do not report that the title or the body misdescribes the change, names a file the change does not touch, or claims work the diff does not show.',
+].join('\n\n');
 
 // joins the shared header, one section per lens in the order given, and the input the lenses read:
 // the pull request, the hunks of the files in the call, each slice once and cut to those files, and
@@ -41,6 +51,12 @@ export function buildCallPrompt(input: CallPromptInput): string {
     // purpose from a defect
     `## Pull request\n\nTitle: ${input.title}\n\n${input.body.trim() || 'The body is empty.'}`,
   ];
+
+  // the diff of a re-review leaves out what the earlier commits changed, so a file or a claim the
+  // body names can look missing from it; the full review of the pull request judges the description
+  if (input.isIncremental) {
+    sections.push(INCREMENTAL_NOTE);
+  }
 
   if (input.linkedIssue !== null) {
     sections.push(`## Linked issue\n\n${input.linkedIssue.trim()}`);
