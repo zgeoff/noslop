@@ -92,6 +92,10 @@ config never posts. [Verifying a result](../architecture/output/cli.md#verifying
 the check. A relay without that code can run the same steps with `noslop verify <file>` and
 `noslop post <file>`.
 
+Post every result from one relay process, one result at a time. noslop runs the posts for one pull
+request in turn inside a process, and nothing orders posts across processes, so two processes that
+post one review at once can each file the same follow-up issue.
+
 ## Gate the merge in CI
 
 1. Give the CI job the App's three keys as secrets.
@@ -105,6 +109,9 @@ the check. A relay without that code can run the same steps with `noslop verify 
 3. Make the job required in the branch rules.
 
 Before a review of the head is posted, the job prints `noslop: no noslop review for this commit` and
-exits 1. Once a review is posted, the job sets the `noslop` check run and exits 0, and the check run
-passes once every finding holds a valid answer, as [answer a finding](./answer-a-finding.md)
-describes. Require the `noslop` check run too, so a pull request with an open finding cannot merge.
+exits 1. Once a review is posted, the job sets the `noslop` check run and exits 0. The check run
+passes once the review of the head ran with no failed call and every finding holds a valid answer,
+as [answer a finding](./answer-a-finding.md) describes. A review with a failed call fails the check
+run while the job exits 0, and the check run stays failed until a review of the head runs with no
+failed call. Require the `noslop` check run too, so a pull request with an open finding cannot
+merge.
