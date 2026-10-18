@@ -185,6 +185,8 @@ The check passes when all of these hold, and fails otherwise:
 The check's title states the first problem, and its text lists each finding with no valid
 disposition and the reason. The `github` reporter sets the check after each review, and
 `noslop check --pr <number> --repo <owner/name>` sets it again from what GitHub holds, with no new
-review. The command exits 0 whatever the check concludes, because a failing check is an answer, not
-an error. A reporter failure lives only in the run that saw it, so a later `noslop check` judges the
-pull request without it.
+review. The command exits 0 whatever else the check concludes, because a failing check is an answer,
+not an error. One exception: when no noslop review covers the current head, it prints
+`no noslop review for this commit` and exits 1, so a CI job that runs it fails until a review of the
+head is posted. A reporter failure lives only in the run that saw it, so a later `noslop check`
+judges the pull request without it.

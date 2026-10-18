@@ -23,6 +23,7 @@ const LIBRARY_ENTRIES = {
   './contract': 'contract',
   './verify': 'verify',
   './post': 'send-result',
+  './check': 'check',
 } as const;
 
 export interface CLIPackageManifest {
