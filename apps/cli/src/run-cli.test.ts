@@ -10,6 +10,7 @@ import { createRunner } from '@noslop/runner';
 import { createSQLiteReporter, loadStore } from '@noslop/sqlite';
 import {
   STUB_APP_LOGIN,
+  buildMockReviewResult,
   buildStubAdapter,
   buildStubAppKey,
   createTestRepo,
@@ -1075,6 +1076,260 @@ test('it sets the check of a pull request again from its replies', async () => {
   expect(code).toBe(0);
   expect(outcome).toMatchObject({ conclusion: 'success' });
   expect(githubCollections.checkRuns.all()).toMatchObject([{ conclusion: 'success' }]);
+});
+
+test('it verifies a pull request review against its head and the config of its base branch', async () => {
+  const ctx = await setupTest();
+
+  const config = '{ "extends": "github:example/shared", "rules": ["rules/taste.md"] }\n';
+  const taste = 'Name each total for what it sums.\n';
+  const parent = '{ "lenses": { "correctness": { "model": "shared-model" } } }\n';
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'review.json': config,
+        'rules/taste.md': taste,
+        'src/a.ts': 'export const a = 1;\n',
+      },
+    },
+    { message: 'Change a', files: { 'src/a.ts': 'export const a = 2;\n' } },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    baseRef: 'main',
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[1] ?? '',
+  });
+
+  await githubCollections.files.create({
+    owner: 'example',
+    repo: 'app',
+    ref: 'main',
+    path: 'review.json',
+    content: config,
+  });
+
+  await githubCollections.files.create({
+    owner: 'example',
+    repo: 'app',
+    ref: 'main',
+    path: 'rules/taste.md',
+    content: taste,
+  });
+
+  await githubCollections.files.create({
+    owner: 'example',
+    repo: 'shared',
+    ref: 'main',
+    path: 'review.json',
+    content: parent,
+  });
+
+  const stub = buildStubAdapter({ L: [{ findings: { correctness: [] } }] });
+
+  await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'json', '--json'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  const reviewed = reviewResultSchema.parse(JSON.parse(ctx.stdout.splice(0).join('')));
+
+  await Bun.write(join(ctx.dir, 'result.json'), JSON.stringify(reviewed));
+
+  const code = await runCLI(
+    ['verify', join(ctx.dir, 'result.json'), '--json'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  const verified: unknown = JSON.parse(ctx.stdout.join(''));
+
+  expect({ code, stderr: ctx.stderr.join('') }).toStrictEqual({ code: 0, stderr: '' });
+
+  expect(verified).toStrictEqual({
+    pullRequest: { owner: 'example', repo: 'app', number: 9 },
+    head: repo.commits[1] ?? '',
+    configHash: reviewed.configHash,
+  });
+});
+
+test('it refuses a result whose head is no longer the head of the pull request', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'review.json': '{}\n', 'src/a.ts': 'export const a = 1;\n' } },
+    { message: 'Change a', files: { 'src/a.ts': 'export const a = 2;\n' } },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[1] ?? '',
+  });
+
+  await githubCollections.files.create({
+    owner: 'example',
+    repo: 'app',
+    ref: 'main',
+    path: 'review.json',
+    content: '{}\n',
+  });
+
+  const stub = buildStubAdapter({ L: [{ findings: { correctness: [] } }] });
+
+  await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'json', '--json'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  await Bun.write(join(ctx.dir, 'result.json'), ctx.stdout.splice(0).join(''));
+
+  await githubCollections.pullRequests.update((q) => q.where({ number: 9 }), {
+    data(record) {
+      record.headSha = 'c'.repeat(40);
+    },
+  });
+
+  const code = await runCLI(
+    ['verify', join(ctx.dir, 'result.json')],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  expect({ code, stderr: ctx.stderr.join('') }).toStrictEqual({
+    code: 1,
+    stderr: `noslop: the result does not verify: it reviews ${(repo.commits[1] ?? '').slice(0, 12)}, but the head of the pull request is cccccccccccc\n`,
+  });
+});
+
+test('it refuses a result when the config on the base branch changed after the review', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'review.json': '{}\n', 'src/a.ts': 'export const a = 1;\n' } },
+    { message: 'Change a', files: { 'src/a.ts': 'export const a = 2;\n' } },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[1] ?? '',
+  });
+
+  await githubCollections.files.create({
+    owner: 'example',
+    repo: 'app',
+    ref: 'main',
+    path: 'review.json',
+    content: '{ "lenses": { "correctness": { "model": "stricter-model" } } }\n',
+  });
+
+  const stub = buildStubAdapter({ L: [{ findings: { correctness: [] } }] });
+
+  await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'json', '--json'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  await Bun.write(join(ctx.dir, 'result.json'), ctx.stdout.splice(0).join(''));
+
+  const code = await runCLI(
+    ['verify', join(ctx.dir, 'result.json')],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  expect(code).toBe(1);
+
+  expect(ctx.stderr.join('')).toMatch(
+    /^noslop: the result does not verify: its config hash [0-9a-f]{16} differs from [0-9a-f]{16}, the hash of the config on main\n$/u,
+  );
+});
+
+test('it refuses a result when the parent config the base branch extends changed after the review', async () => {
+  const ctx = await setupTest();
+
+  const config = '{ "extends": "github:example/shared" }\n';
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'review.json': config, 'src/a.ts': 'export const a = 1;\n' } },
+    { message: 'Change a', files: { 'src/a.ts': 'export const a = 2;\n' } },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[1] ?? '',
+  });
+
+  await githubCollections.files.create({
+    owner: 'example',
+    repo: 'app',
+    ref: 'main',
+    path: 'review.json',
+    content: config,
+  });
+
+  await githubCollections.files.create({
+    owner: 'example',
+    repo: 'shared',
+    ref: 'main',
+    path: 'review.json',
+    content: '{ "lenses": { "correctness": { "model": "shared-model" } } }\n',
+  });
+
+  const stub = buildStubAdapter({ L: [{ findings: { correctness: [] } }] });
+
+  await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'json', '--json'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  await Bun.write(join(ctx.dir, 'result.json'), ctx.stdout.splice(0).join(''));
+
+  await githubCollections.files.update((q) => q.where({ repo: 'shared' }), {
+    data(record) {
+      record.content = '{ "lenses": { "correctness": { "model": "other-model" } } }\n';
+    },
+  });
+
+  const code = await runCLI(
+    ['verify', join(ctx.dir, 'result.json')],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  expect(code).toBe(1);
+
+  expect(ctx.stderr.join('')).toMatch(
+    /^noslop: the result does not verify: its config hash [0-9a-f]{16} differs from [0-9a-f]{16}, the hash of the config on main\n$/u,
+  );
+});
+
+test('it refuses to verify a result that reviews no pull request', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(
+    join(ctx.dir, 'result.json'),
+    JSON.stringify(buildMockReviewResult({ pullRequest: null })),
+  );
+
+  const code = await runCLI(
+    ['verify', 'result.json'],
+    ctx.buildContext(ctx.dir, buildStubAdapter({}).adapter),
+  );
+
+  expect({ code, stderr: ctx.stderr.join('') }).toStrictEqual({
+    code: 1,
+    stderr: 'noslop: the result reviews no pull request, so it cannot verify: review with --pr\n',
+  });
 });
 
 test('it resumes an eval, keeping the cases the out folder holds and replaying the rest', async () => {

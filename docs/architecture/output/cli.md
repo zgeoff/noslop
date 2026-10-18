@@ -12,24 +12,26 @@ imports, the lens prompts included, so the workspace packages stay private. The 
 oxc-parser, whose native build npm installs for the user's platform. The workspace runs the CLI from
 its source.
 
-The package's library entries hold what code can import from it: the root export, and
+The package's library entries hold what code can import from it: the root export,
 `@noslop/cli/contract` with the review result schema and its types, so code that does not shell out
-reads results through the same contract. They leave zod to npm, so a caller's schemas and the
-package's declarations share one zod. tsdown writes each entry's declarations with TypeScript's own
-emit and inlines the types of the workspace packages they reach, so the published types import
-nothing but zod.
+reads results through the same contract, and `@noslop/cli/verify`, which runs the check of
+[verifying a result](#verifying-a-result) for a caller that passes the App's keys. They leave zod to
+npm, so a caller's schemas and the package's declarations share one zod. tsdown writes each entry's
+declarations with TypeScript's own emit and inlines the types of the workspace packages they reach,
+so the published types import nothing but zod.
 
 ## Commands
 
-| Command                                                      | Does                                                                  |
-| ------------------------------------------------------------ | --------------------------------------------------------------------- |
-| `noslop review [--base <ref>] [--head <ref>]`                | Reviews the change between 2 commits of the current repo              |
-| `noslop review --pr <number> [--full] [--repo <owner/name>]` | Reviews a pull request, from its base and head                        |
-| `noslop check --pr <number> --repo <owner/name>`             | Sets a pull request's check run from its dispositions, with no review |
-| `noslop config`                                              | Prints the merged config and the file each key comes from             |
-| `noslop store query <name>`                                  | Runs a named query on the [findings store](../measurement/store.md)   |
-| `noslop store escape --repo --issue --head --defect`         | Records a defect that a review missed                                 |
-| `noslop eval --corpus <path>`                                | Replays a corpus through the current config and scores it per lens    |
+| Command                                                      | Does                                                                   |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| `noslop review [--base <ref>] [--head <ref>]`                | Reviews the change between 2 commits of the current repo               |
+| `noslop review --pr <number> [--full] [--repo <owner/name>]` | Reviews a pull request, from its base and head                         |
+| `noslop verify <file>`                                       | Checks a review result against its pull request's head and base config |
+| `noslop check --pr <number> --repo <owner/name>`             | Sets a pull request's check run from its dispositions, with no review  |
+| `noslop config`                                              | Prints the merged config and the file each key comes from              |
+| `noslop store query <name>`                                  | Runs a named query on the [findings store](../measurement/store.md)    |
+| `noslop store escape --repo --issue --head --defect`         | Records a defect that a review missed                                  |
+| `noslop eval --corpus <path>`                                | Replays a corpus through the current config and scores it per lens     |
 
 `review` also takes `--report <ids>`, a comma-separated list of reporters that replaces the config's
 list, `--adapter codex|claude`, which replaces the config's adapter, and `--push`, which reviews a
@@ -73,6 +75,22 @@ The review result follows the result schema in the contract package, and the CLI
 against it before printing it. The schema's version changes only with a breaking change to the
 output, so a consumer that pins a CLI version reads the same shape.
 [Findings](../review/findings.md) covers the finding schema inside it.
+
+## Verifying a result
+
+`verify` lets a service that receives a review result from someone else's machine trust it before it
+posts it. It parses the result against the result schema, then reads the result's pull request from
+GitHub and refuses the result unless both of these hold:
+
+- The result reviews the pull request's current head, so a push after the review voids it.
+- The result's config hash equals the hash of the config on the pull request's base branch, so
+  `verify` refuses a review that ran under any other config, such as one that a later change to the
+  base branch or to the parent config it extends has replaced.
+
+The CLI loads the base branch's config through GitHub's contents API, with no checkout, by the same
+rules a review loads a config by, so the 2 hashes match when the 2 configs match. A rules file
+outside the repo, which only the reviewer's machine holds, reads as missing, so a config that lists
+one never verifies. `verify` exits 1 and prints each mismatch to stderr.
 
 ## Folders
 

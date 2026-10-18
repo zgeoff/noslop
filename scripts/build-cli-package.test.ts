@@ -29,6 +29,7 @@ test('it builds a manifest that names the bundle, the subpath exports and no wor
     exports: {
       '.': { types: './index.d.ts', default: './index.js' },
       './contract': { types: './contract.d.ts', default: './contract.js' },
+      './verify': { types: './verify.d.ts', default: './verify.js' },
     },
     files: ['*.js', '*.d.ts'],
   });
@@ -50,6 +51,8 @@ test('it writes the bundles, their declarations, the manifest, the README and th
     'index.d.ts',
     'contract.js',
     'contract.d.ts',
+    'verify.js',
+    'verify.d.ts',
     'package.json',
     'README.md',
     'LICENSE',
@@ -119,6 +122,11 @@ test('it ships declarations that a project importing the contract from the tarba
     [
       "import type { ReviewResult } from '@noslop/cli/contract';",
       "import { REVIEW_OUTPUT_VERSION, reviewResultSchema } from '@noslop/cli/contract';",
+      "import { verify } from '@noslop/cli/verify';",
+      '',
+      'export function verifyHead(value: unknown): Promise<string> {',
+      '  return verify(value, { env: {} }).then((result) => result.head);',
+      '}',
       '',
       'export function countFindings(value: unknown): number {',
       '  const result: ReviewResult = reviewResultSchema.parse(value);',

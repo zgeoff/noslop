@@ -152,7 +152,7 @@ export const githubHandlers = [
       number: pull.number,
       title: pull.title,
       body: pull.body,
-      base: { sha: pull.baseSha },
+      base: { ref: pull.baseRef, sha: pull.baseSha },
       head: { sha: pull.headSha },
       user: { login: pull.authorLogin },
     });

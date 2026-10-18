@@ -15,6 +15,7 @@ export const githubCollections = {
       number: z.int().default(() => faker.number.int({ min: 1, max: 9999 })),
       title: z.string().default(() => faker.git.commitMessage()),
       body: z.string().nullable().default(null),
+      baseRef: z.string().default('main'),
       baseSha: z.string().default(buildSha),
       headSha: z.string().default(buildSha),
       authorLogin: z.string().default(() => faker.internet.username()),
