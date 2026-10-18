@@ -23,6 +23,7 @@ test('it keeps a call whole when its prompt fits the limit', () => {
       linkedIssue: null,
       base: 'a'.repeat(40),
       head: 'b'.repeat(40),
+      isIncremental: false,
     },
     data: [],
     maxCallChars: 1_000_000,
@@ -45,6 +46,7 @@ test('it splits a call over the limit into parts that each fit, with every file 
     linkedIssue: null,
     base: 'a'.repeat(40),
     head: 'b'.repeat(40),
+    isIncremental: false,
   };
 
   const files = ['src/a.ts', 'src/b.ts', 'src/c.ts', 'src/d.ts'].map((path) =>
@@ -115,6 +117,7 @@ test('it leaves a file that matches a data glob out of the call and lists it', (
       linkedIssue: null,
       base: 'a'.repeat(40),
       head: 'b'.repeat(40),
+      isIncremental: false,
     },
     data: ['samples/**'],
     maxCallChars: 1_000_000,
@@ -163,6 +166,7 @@ test('it leaves out a file whose input passes the file limit and lists it as too
       linkedIssue: null,
       base: 'a'.repeat(40),
       head: 'b'.repeat(40),
+      isIncremental: false,
     },
     data: [],
     maxCallChars: 1_000_000,
@@ -182,6 +186,7 @@ test('it lists a file that overflows a call alone as too large and runs the rest
     linkedIssue: null,
     base: 'a'.repeat(40),
     head: 'b'.repeat(40),
+    isIncremental: false,
   };
 
   const code = buildMockChangedFile({ path: 'src/a.ts' });
@@ -243,6 +248,7 @@ test('it runs the call whole when the input around the files overflows alone', (
       linkedIssue: null,
       base: 'a'.repeat(40),
       head: 'b'.repeat(40),
+      isIncremental: false,
     },
     data: [],
     maxCallChars: 1000,
