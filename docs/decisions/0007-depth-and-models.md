@@ -73,7 +73,7 @@ in each file. The config can turn the pass off.
 - The static eval replays the depth rules on a labelled corpus with no model call, so a change to
   them shows which past P1s and escapes Light would hold.
 - Model and effort can be overridden per lens, under [0010](0010-the-reviewer-config.md).
-- Tuning of the depth rules and the efforts continues on live reviews, not on a larger eval.
+- Tuning of the depth rules and the efforts continues on live reviews.
 
 ## Changes
 

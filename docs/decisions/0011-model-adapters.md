@@ -20,8 +20,8 @@ appends to the user's own instructions and never replaces them. The Claude adapt
 files, so it keeps no user instructions: the user's settings would also load their hooks and plugins
 into every call.
 
-A review that runs unattended, such as the GitHub App's server or a scheduled runner, signs its
-model CLI in with an API key, not with a subscription login.
+A review that runs unattended, such as on the GitHub App's server or a scheduled runner, runs its
+model CLI on an API key, not on a subscription login.
 
 ## Why
 
