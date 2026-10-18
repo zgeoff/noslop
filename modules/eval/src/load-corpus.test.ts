@@ -50,6 +50,64 @@ test('it loads each case folder in name order', async () => {
   expect(cases.map((corpusCase) => corpusCase.id)).toStrictEqual(['a-case', 'b-case']);
 });
 
+test('it loads the last reviewed head and the linked issue of a re-review case', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(
+    join(ctx.dir, 'push', 'case.json'),
+    JSON.stringify({
+      id: 'push',
+      repo: '/repos/app',
+      base: 'a'.repeat(40),
+      head: 'b'.repeat(40),
+      reviewedHead: 'c'.repeat(40),
+      title: 'feat: add the queue',
+      body: 'Adds src/queue.ts and src/worker.ts.',
+      linkedIssue: 'Add a queue and a worker that drains it.',
+      findings: [],
+      escapes: [],
+    }),
+  );
+
+  const cases = await loadCorpus(ctx.dir);
+
+  expect(cases).toStrictEqual([
+    {
+      id: 'push',
+      repo: '/repos/app',
+      base: 'a'.repeat(40),
+      head: 'b'.repeat(40),
+      reviewedHead: 'c'.repeat(40),
+      title: 'feat: add the queue',
+      body: 'Adds src/queue.ts and src/worker.ts.',
+      linkedIssue: 'Add a queue and a worker that drains it.',
+      findings: [],
+      escapes: [],
+    },
+  ]);
+});
+
+test('it rejects a last reviewed head that is not a full commit sha', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(
+    join(ctx.dir, 'bad', 'case.json'),
+    JSON.stringify({
+      id: 'bad',
+      repo: '/repos/app',
+      base: 'a'.repeat(40),
+      head: 'b'.repeat(40),
+      reviewedHead: 'main',
+      title: 'feat: bad',
+      body: '',
+      findings: [],
+      escapes: [],
+    }),
+  );
+
+  expect(loadCorpus(ctx.dir)).rejects.toThrowWithMessage(Error, /reviewedHead/u);
+});
+
 test('it rejects a case that does not match the case schema', async () => {
   const ctx = await setupTest();
 
