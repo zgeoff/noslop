@@ -109,7 +109,12 @@ function findFixedReason(
   commit: string,
   input: CheckOutcomeInput,
 ): string | null {
-  const matches = input.commits.filter((sha) => sha.startsWith(commit));
+  const named = input.commits.filter((sha) => sha.startsWith(commit));
+
+  // a sha a rebase rewrote stands for the branch commit that a review matched to its change
+  const rewrite = input.summary?.rewritten?.find((entry) => entry.startsWith(`${commit}:`));
+  const rewritten = rewrite?.slice(commit.length + 1) ?? '';
+  const matches = named.length === 0 && input.commits.includes(rewritten) ? [rewritten] : named;
 
   if (matches.length === 0) {
     return `the commit ${commit} is not on the branch`;

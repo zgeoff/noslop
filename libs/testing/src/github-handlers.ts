@@ -113,10 +113,14 @@ export const githubHandlers = [
         sha: commit.sha,
         files: toPage(info.request, commit.files).map((filename) => {
           const previous = commit.renames[filename];
+          const patch = commit.patches[filename];
 
-          return previous === undefined
-            ? { filename }
-            : { filename, status: 'renamed', previous_filename: previous };
+          const file =
+            previous === undefined
+              ? { filename }
+              : { filename, status: 'renamed', previous_filename: previous };
+
+          return patch === undefined ? file : Object.assign(file, { patch });
         }),
       });
     },
@@ -175,6 +179,7 @@ export const githubHandlers = [
         owner: info.params.owner,
         repo: info.params.repo,
         number: Number(info.params.number),
+        isOnBranch: true,
       }),
     );
 

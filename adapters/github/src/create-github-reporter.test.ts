@@ -2296,6 +2296,230 @@ test('it keeps a confirmed fix after a later delta without the fix commit', asyn
   expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('success');
 });
 
+test('it confirms a fix whose commit a rebase rewrote and passes the check', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'd'.repeat(40),
+  });
+
+  for (const commit of [
+    { sha: 'a'.repeat(40), isOnBranch: false, patch: '@@ -1,1 +1,1 @@\n-a\n+b' },
+    { sha: 'b'.repeat(40), isOnBranch: false, patch: '@@ -4,1 +4,1 @@\n-sum\n+total' },
+    { sha: 'c'.repeat(40), isOnBranch: true, patch: '@@ -1,1 +1,1 @@\n-a\n+b' },
+    { sha: 'd'.repeat(40), isOnBranch: true, patch: '@@ -7,1 +7,1 @@\n-sum\n+total' },
+  ]) {
+    await githubCollections.pullCommits.create({
+      owner: 'example',
+      repo: 'app',
+      number: 5,
+      sha: commit.sha,
+      files: ['src/a.ts'],
+      patches: { 'src/a.ts': commit.patch },
+      isOnBranch: commit.isOnBranch,
+    });
+  }
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/a.ts',
+    lines: [1],
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      reviewID: 'review-a',
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'a'.repeat(40),
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const [thread] = githubCollections.reviewComments.all();
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    body: `fixed ${'b'.repeat(7)}`,
+    authorLogin: 'dev',
+    inReplyToID: thread?.id ?? null,
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      reviewID: 'review-d',
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      base: '9'.repeat(40),
+      head: 'd'.repeat(40),
+      findings: [],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const summary = githubCollections.issueComments.all().map((comment) => comment.body);
+
+  expect(summary[0]).toInclude('✅ Return the total of every item: fixed in');
+  expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('success');
+});
+
+test('it confirms no fix whose rewritten commit never changed the file the branch commits change', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'd'.repeat(40),
+  });
+
+  for (const commit of [
+    { sha: 'a'.repeat(40), isOnBranch: false, path: 'src/a.ts' },
+    { sha: 'b'.repeat(40), isOnBranch: false, path: 'README.md' },
+    { sha: 'c'.repeat(40), isOnBranch: true, path: 'src/a.ts' },
+    { sha: 'd'.repeat(40), isOnBranch: true, path: 'src/a.ts' },
+  ]) {
+    await githubCollections.pullCommits.create({
+      owner: 'example',
+      repo: 'app',
+      number: 5,
+      sha: commit.sha,
+      files: [commit.path],
+      patches: { [commit.path]: `@@ -1,1 +1,1 @@\n-${commit.sha}\n+total` },
+      isOnBranch: commit.isOnBranch,
+    });
+  }
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/a.ts',
+    lines: [1],
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      reviewID: 'review-a',
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'a'.repeat(40),
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const [thread] = githubCollections.reviewComments.all();
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    body: `fixed ${'b'.repeat(7)}`,
+    authorLogin: 'dev',
+    inReplyToID: thread?.id ?? null,
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      reviewID: 'review-d',
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      base: '9'.repeat(40),
+      head: 'd'.repeat(40),
+      findings: [],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const summary = githubCollections.issueComments.all().map((comment) => comment.body);
+
+  expect(summary[0]).toInclude('❌ Return the total of every item: not fixed in');
+
+  expect(githubCollections.checkRuns.all().at(-1)).toMatchObject({
+    conclusion: 'failure',
+    summary: expect.toInclude('the commit bbbbbbb is not on the branch'),
+  });
+});
+
+test('it keeps a fix whose commit a rebase rewrote after a later delta without the fix commit', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'e'.repeat(40),
+  });
+
+  for (const commit of [
+    { sha: 'a'.repeat(40), isOnBranch: false, path: 'src/a.ts', patch: '-a\n+b' },
+    { sha: 'b'.repeat(40), isOnBranch: false, path: 'src/a.ts', patch: '-sum\n+total' },
+    { sha: 'c'.repeat(40), isOnBranch: true, path: 'src/a.ts', patch: '-a\n+b' },
+    { sha: 'd'.repeat(40), isOnBranch: true, path: 'src/a.ts', patch: '-sum\n+total' },
+    { sha: 'e'.repeat(40), isOnBranch: true, path: 'README.md', patch: '+docs' },
+  ]) {
+    await githubCollections.pullCommits.create({
+      owner: 'example',
+      repo: 'app',
+      number: 5,
+      sha: commit.sha,
+      files: [commit.path],
+      patches: { [commit.path]: `@@ -1,1 +1,1 @@\n${commit.patch}` },
+      isOnBranch: commit.isOnBranch,
+    });
+  }
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/a.ts',
+    lines: [1],
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      reviewID: 'review-a',
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'a'.repeat(40),
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const [thread] = githubCollections.reviewComments.all();
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    body: `fixed ${'b'.repeat(7)}`,
+    authorLogin: 'dev',
+    inReplyToID: thread?.id ?? null,
+  });
+
+  for (const range of [
+    { reviewID: 'review-d', base: '9'.repeat(40), head: 'd'.repeat(40) },
+    { reviewID: 'review-e', base: 'd'.repeat(40), head: 'e'.repeat(40) },
+  ]) {
+    await ctx.reporter.report(
+      buildMockReviewResult({
+        pullRequest: { owner: 'example', repo: 'app', number: 5 },
+        findings: [],
+        ...range,
+      }),
+      { logger: ctx.logger, options: {}, failedReporters: [] },
+    );
+  }
+
+  expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('success');
+});
+
 test('it answers a free-text comment on a finding outside the diff once', async () => {
   const ctx = setupTest();
 

@@ -207,6 +207,50 @@ test('it names the path a renamed file of a commit had before', async () => {
   });
 });
 
+test('it gives the patch of each file of a commit that holds one', async () => {
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    sha: 'a'.repeat(40),
+    files: ['src/a.ts', 'logo.png'],
+    patches: { 'src/a.ts': '@@ -1 +1 @@\n-old\n+new' },
+  });
+
+  const response = await fetch(`${GITHUB_API_URL}/repos/example/app/commits/aaaaaaa`);
+  const commit: unknown = await response.json();
+
+  expect(commit).toStrictEqual({
+    sha: 'a'.repeat(40),
+    files: [{ filename: 'src/a.ts', patch: '@@ -1 +1 @@\n-old\n+new' }, { filename: 'logo.png' }],
+  });
+});
+
+test('it serves a commit off the branch by its sha but lists it among no pull request commits', async () => {
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    sha: 'a'.repeat(40),
+    files: ['src/a.ts'],
+    isOnBranch: false,
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    sha: 'b'.repeat(40),
+    files: ['src/a.ts'],
+  });
+
+  const listed = await fetch(`${GITHUB_API_URL}/repos/example/app/pulls/5/commits`);
+  const single = await fetch(`${GITHUB_API_URL}/repos/example/app/commits/aaaaaaa`);
+  const commits: unknown = await listed.json();
+
+  expect(commits).toStrictEqual([{ sha: 'b'.repeat(40) }]);
+  expect(single.status).toBe(200);
+});
+
 test('it serves the commit a branch points at and answers an unknown branch with not found', async () => {
   await githubCollections.branches.create({
     owner: 'example',

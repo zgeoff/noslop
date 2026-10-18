@@ -10,6 +10,10 @@ export const summaryMarkerSchema = z.strictObject({
   failedCalls: z.int().nonnegative(),
   followUps: z.array(z.string()).default([]),
   confirmed: z.array(z.string()).default([]),
+
+  // each `<named sha>:<branch commit>` of a fix commit a rebase rewrote, so the check reads the branch
+  // commit that holds its change
+  rewritten: z.array(z.string()).optional(),
   reviewIDs: z.array(z.string()).optional(),
 });
 

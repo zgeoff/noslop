@@ -138,8 +138,8 @@ A reply in any other form is no disposition. Each time noslop sets the check, it
 reply once with the accepted forms, and the forms marker stops a later run answering it again. Each
 kind is valid under its own rule:
 
-- `fixed <commit>` is valid when the sha names exactly one commit on the branch and a re-review that
-  read the commit no longer reports the finding.
+- `fixed <commit>` is valid when the sha names exactly one commit on the branch, or a commit that a
+  rebase rewrote into one, and a re-review that read the commit no longer reports the finding.
 - `not-a-defect <reason>` is valid with any reason.
 - `deferred <issue>` is valid when the change did not write the code, the finding is no P1, security
   or risk-class finding, and the issue exists. The issue is `#<number>` in the same repo,
@@ -176,6 +176,16 @@ the commit keeps the confirmation. A fix that a re-review still reports stays un
 later delta without the commit leaves it unconfirmed. The re-review reads the dispositions present
 when it runs, so a `fixed` reply posted after the re-review of its commit finds no review that read
 it, and the check keeps the finding open.
+
+A rebase rewrites every commit of the branch, so a `fixed` sha can name a commit the branch no
+longer holds. GitHub still serves such a commit by its sha. The reporter takes the one branch commit
+in the review's range whose patch to the same files matches the named commit's patch, with the line
+numbers of each hunk left out, because a rebase shifts them. The named commit must come after the
+head that posted the finding, which the reporter checks on the commits before the rebase. A commit
+that GitHub no longer serves, a file GitHub gives no patch of, or a match with none or several
+branch commits leaves the fix unconfirmed. The summary marker keeps each match as the named sha and
+the branch commit, so the check reads the branch commit in place of the named sha, and a later delta
+keeps the match while that commit stays on the branch.
 
 The re-check is the second review of a pull request. From the third review on, the reporter sends
 each new finding in code the change did not write to a follow-up issue. A security finding, and any

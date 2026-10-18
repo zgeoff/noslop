@@ -324,6 +324,98 @@ test('it fails a fixed finding whose sha matches 2 commits on the branch', () =>
   ]);
 });
 
+test('it passes a fixed finding whose sha a rebase rewrote into a commit on the branch', () => {
+  const outcome = buildCheckOutcome({
+    findings: [
+      {
+        id: '1111111111111111',
+        title: 'Await the write',
+        path: 'src/a.ts',
+        lens: 'correctness',
+        severity: 'P2',
+        riskClass: null,
+        writtenByChange: true,
+      },
+    ],
+    dispositions: [
+      {
+        findingID: '1111111111111111',
+        kind: 'fixed',
+        value: 'abc1234',
+        author: 'dev',
+        authorIsOwner: false,
+        source: 'github',
+        at: '2026-10-17T10:00:00.000Z',
+      },
+    ],
+    summary: {
+      head: 'f'.repeat(40),
+      reviews: 2,
+      reported: [],
+      failedCalls: 0,
+      followUps: [],
+      confirmed: ['1111111111111111:abc1234'],
+      rewritten: [`abc1234:${'d'.repeat(40)}`],
+    },
+    currentHead: 'f'.repeat(40),
+    commits: ['d'.repeat(40), 'f'.repeat(40)],
+    existingIssues: new Set(),
+    failedReporters: [],
+    unreadable: 0,
+  });
+
+  expect(outcome.open).toStrictEqual([]);
+});
+
+test('it fails a fixed finding whose rewritten commit is no longer on the branch', () => {
+  const outcome = buildCheckOutcome({
+    findings: [
+      {
+        id: '1111111111111111',
+        title: 'Await the write',
+        path: 'src/a.ts',
+        lens: 'correctness',
+        severity: 'P2',
+        riskClass: null,
+        writtenByChange: true,
+      },
+    ],
+    dispositions: [
+      {
+        findingID: '1111111111111111',
+        kind: 'fixed',
+        value: 'abc1234',
+        author: 'dev',
+        authorIsOwner: false,
+        source: 'github',
+        at: '2026-10-17T10:00:00.000Z',
+      },
+    ],
+    summary: {
+      head: 'f'.repeat(40),
+      reviews: 2,
+      reported: [],
+      failedCalls: 0,
+      followUps: [],
+      confirmed: ['1111111111111111:abc1234'],
+      rewritten: [`abc1234:${'d'.repeat(40)}`],
+    },
+    currentHead: 'f'.repeat(40),
+    commits: ['e'.repeat(40), 'f'.repeat(40)],
+    existingIssues: new Set(),
+    failedReporters: [],
+    unreadable: 0,
+  });
+
+  expect(outcome.open).toStrictEqual([
+    {
+      id: '1111111111111111',
+      title: 'Await the write',
+      reason: 'the commit abc1234 is not on the branch',
+    },
+  ]);
+});
+
 test('it fails when a finding comment holds a marker noslop cannot read', () => {
   const outcome = buildCheckOutcome({
     findings: [],

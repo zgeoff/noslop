@@ -12,6 +12,7 @@ import { formatFixedFindingComment } from './format-fixed-finding-comment';
 import { formatMarker } from './format-marker';
 import type { FixConfirmation } from './format-summary-comment';
 import { formatSummaryComment } from './format-summary-comment';
+import { makeRewrittenFixReader } from './make-rewritten-fix-reader';
 import { parseMarker } from './parse-marker';
 import { readAllPages } from './read-all-pages';
 import { readFixCoverage } from './read-fix-coverage';
@@ -156,6 +157,10 @@ async function runReviewPost(
     after.threads.map((thread) => [thread.marker.id, toCommentURL(pr, thread)]),
   );
 
+  const rewritten = confirmations.flatMap((item) =>
+    item.rewrittenTo === undefined ? [] : [`${item.commit}:${item.rewrittenTo}`],
+  );
+
   const marker = {
     head: result.head,
     reviews,
@@ -166,6 +171,7 @@ async function runReviewPost(
     confirmed: confirmations
       .filter((item) => item.fixed)
       .map((item) => `${item.id}:${item.commit}`),
+    ...(rewritten.length === 0 ? {} : { rewritten }),
   };
 
   await writeSummaryComment(
@@ -358,6 +364,10 @@ async function buildConfirmations(
   // unconfirmed, and its open finding fails the check
   const skipped = new Set(result.notReviewed.map((file) => file.path));
   const confirmed = new Set(before.summary?.marker.confirmed);
+  const rewrites = new Map(before.summary?.marker.rewritten?.map((entry) => splitRewrite(entry)));
+
+  const readRewrittenFix = makeRewrittenFixReader(client, pr);
+
   const sincePosted = new Map<string, Promise<string[]>>();
 
   const readSincePosted = (posted: string): Promise<string[]> => {
@@ -376,12 +386,28 @@ async function buildConfirmations(
     }
 
     const commit = disposition.value;
-    const match = findOneCommit(before.commits, commit);
     const posted = thread.marker.head;
+    const isOnBranch = before.commits.some((sha) => sha.startsWith(commit));
+    const held = rewrites.get(commit);
+
+    // a sha no branch commit starts with may name a commit that a rebase rewrote: an earlier review's
+    // match holds while its commit stays on the branch, and the reader looks for one otherwise
+    const rewrite =
+      isOnBranch || (held !== undefined && before.commits.includes(held))
+        ? { commit: isOnBranch ? null : (held ?? null), failure: null }
+        : await readRewrittenFix({
+            sha: commit,
+            posted,
+            candidates: before.commits.filter((sha) => range.includes(sha)),
+          });
+
+    const match = isOnBranch ? findOneCommit(before.commits, commit) : rewrite.commit;
 
     // a full review covers the whole branch, so only a commit after the head that posted the finding
-    // is a fix of it; a marker without that head leaves the review's range alone to decide
-    const after = posted === undefined ? range : await readSincePosted(posted);
+    // is a fix of it; a marker without that head leaves the review's range alone to decide, and the
+    // reader checks a rewritten commit's place before the rebase
+    const after =
+      posted === undefined || rewrite.commit !== null ? range : await readSincePosted(posted);
 
     const isInRange =
       range.includes(match ?? '') &&
@@ -401,6 +427,7 @@ async function buildConfirmations(
     const isRead = isInRange && !coverage.changesSkipped;
     const isHeld = confirmed.has(`${thread.marker.id}:${commit}`);
     const fixed = !reported.has(thread.marker.id) && match !== null && (isRead || isHeld);
+    const failure = coverage.failure ?? rewrite.failure;
 
     return [
       {
@@ -408,7 +435,8 @@ async function buildConfirmations(
         title: thread.marker.title,
         commit,
         fixed,
-        ...(fixed || coverage.failure === null ? {} : { failure: coverage.failure }),
+        ...(fixed || failure === null ? {} : { failure }),
+        ...(rewrite.commit === null ? {} : { rewrittenTo: rewrite.commit }),
       },
     ];
   });
@@ -416,6 +444,13 @@ async function buildConfirmations(
   const all = await Promise.all(confirmations);
 
   return all.flat();
+}
+
+// a `<named sha>:<branch commit>` entry of the summary marker, as a pair
+function splitRewrite(entry: string): [string, string] {
+  const [named = '', commit = ''] = entry.split(':');
+
+  return [named, commit];
 }
 
 // the one branch commit a `fixed` sha names; a prefix that 2 commits share names neither

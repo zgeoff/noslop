@@ -14,6 +14,9 @@ export interface FixConfirmation {
 
   // why the review could not judge the fix, on a fix it leaves unconfirmed
   failure?: string;
+
+  // the branch commit that holds the change of a commit a rebase rewrote
+  rewrittenTo?: string;
 }
 
 // the fixes a re-review judged, and how many findings earlier reviews posted
