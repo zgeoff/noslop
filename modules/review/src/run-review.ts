@@ -41,6 +41,10 @@ export interface RunReviewOptions {
   body: string;
   linkedIssue: string | null;
   pullRequest: PullRequestRef | null;
+
+  // the base is the last reviewed head of the pull request, not its merge base; a review without it
+  // covers the whole change
+  isIncremental?: boolean;
   isPush: boolean;
   pastEscapes: readonly string[];
   readConsumerFile?: (repo: string, path: string) => Promise<string | null>;
@@ -244,6 +248,7 @@ function runBatch(ctx: PassContext, calls: readonly PlannedCall[]): Promise<Call
     linkedIssue: ctx.options.linkedIssue,
     base: ctx.change.base,
     head: ctx.change.head,
+    isIncremental: ctx.options.isIncremental ?? false,
     parallel: ctx.options.config.thresholds.parallelCalls,
   });
 }

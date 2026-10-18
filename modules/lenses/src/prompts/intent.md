@@ -27,5 +27,6 @@ Do not report:
 
 1. A claim about review results. The reviewer posts its own record.
 2. A small change the issue's work needs, such as a type or an import.
+3. On an incremental review, a claim in the title or the body that the diff does not support.
 
 Severity: P2.

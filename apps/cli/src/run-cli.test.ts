@@ -790,6 +790,129 @@ test('it reviews the whole pull request from its merge base under --full', async
   expect(result.base).toBe(repo.commits[0] ?? '');
 });
 
+test('it tells the calls not to judge the description when it reviews only the new commits', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'src/parse.ts': 'export const parse = 0;\n' } },
+    {
+      message: 'Add the printer and the cache',
+      files: {
+        'src/parse.ts': 'export const parse = 0;\n',
+        'src/print.ts': 'export const print = 1;\n',
+        'src/cache.ts': 'export const cache = 1;\n',
+      },
+    },
+    {
+      message: 'Fix the parser',
+      files: {
+        'src/parse.ts': 'export const parse = 1;\n',
+        'src/print.ts': 'export const print = 1;\n',
+        'src/cache.ts': 'export const cache = 1;\n',
+      },
+    },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    title: 'Add the parser, the printer and the cache',
+    body: 'Changes src/parse.ts, src/print.ts and src/cache.ts.',
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[2] ?? '',
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","reviews":1,"reported":[],"failedCalls":0} -->`,
+  });
+
+  const stub = buildStubAdapter({
+    L: [{ findings: { correctness: [] } }],
+  });
+
+  await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'json', '--json'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  const result = reviewResultSchema.parse(JSON.parse(ctx.stdout.join('')));
+
+  expect(result.base).toBe(repo.commits[1] ?? '');
+
+  expect(stub.requests[0]?.prompt).toInclude(
+    'Do not report that the title or the body misdescribes the change, names a file the change does not touch, or claims work the diff does not show.',
+  );
+});
+
+test('it keeps a description finding when it reviews the whole pull request', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'src/parse.ts': 'export const parse = 0;\n' } },
+    { message: 'Fix the parser', files: { 'src/parse.ts': 'export const parse = 1;\n' } },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    title: 'Fix the parser and the printer',
+    body: 'Changes src/parse.ts and src/print.ts.',
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[1] ?? '',
+  });
+
+  const stub = buildStubAdapter({
+    L: [
+      {
+        findings: {
+          correctness: [
+            {
+              title: 'Change src/print.ts, or drop it from the body',
+              body: 'The body names src/print.ts, which the pull request does not change.',
+              anchor: { path: 'src/parse.ts', startLine: 1, endLine: 1 },
+              secondLocation: null,
+              severity: 'P2',
+              criterion: 'intent-mismatch',
+              rule: null,
+              ruleQuote: null,
+              verdict: 'CONFIRMED',
+              unverifiedFact: null,
+              missingChange: false,
+              fix: null,
+            },
+          ],
+        },
+      },
+    ],
+  });
+
+  await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'json', '--json'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  const result = reviewResultSchema.parse(JSON.parse(ctx.stdout.join('')));
+  const prompt = stub.requests[0]?.prompt;
+
+  if (prompt === undefined) {
+    throw new Error('the review made no call');
+  }
+
+  expect(result.findings).toPartiallyContain({
+    title: 'Change src/print.ts, or drop it from the body',
+    criterion: 'intent-mismatch',
+  });
+
+  expect(prompt).not.toInclude('## Incremental review');
+});
+
 test('it refuses --full without --pr', async () => {
   const ctx = await setupTest();
 

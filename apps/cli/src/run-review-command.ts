@@ -96,6 +96,7 @@ export async function runReviewCommand(values: ReviewValues, ctx: CLIContext): P
       body: change.body,
       linkedIssue: issueText ?? change.linkedIssue,
       pullRequest: change.pullRequest,
+      isIncremental: change.isIncremental,
       isPush: values.push,
       pastEscapes,
       ...(ctx.now === undefined ? {} : { now: ctx.now }),
@@ -137,6 +138,9 @@ interface ResolvedChange {
   // the issue a pull request body closes, for the intent lens; a local change links none
   linkedIssue: string | null;
   pullRequest: PullRequestRef | null;
+
+  // the base is the last reviewed head of a pull request, so the change is only its new commits
+  isIncremental: boolean;
 }
 
 async function resolveLocalChange(
@@ -173,6 +177,7 @@ async function resolveLocalChange(
     body,
     linkedIssue: null,
     pullRequest: null,
+    isIncremental: false,
   };
 }
 
@@ -252,6 +257,7 @@ async function resolvePullRequestChange(
     body: state.body,
     linkedIssue,
     pullRequest,
+    isIncremental: isDelta,
   };
 }
 
