@@ -35,5 +35,65 @@
       }
     ],
     "import/no-commonjs": "error"
-  }
+  },
+  // the App server stands where an org's own relay stands, so it builds only on what @noslop/cli
+  // publishes; its tests also reach the stand-ins of @noslop/testing
+  "overrides": [
+    {
+      "files": ["apps/github-app/**/*.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "node:module",
+                "importNames": ["createRequire"],
+                "message": "A require function escapes no-restricted-imports; use import."
+              },
+              {
+                "name": "module",
+                "importNames": ["createRequire"],
+                "message": "A require function escapes no-restricted-imports; use import."
+              }
+            ],
+            "patterns": [
+              {
+                "group": ["@noslop/*", "!@noslop/cli", "!@noslop/cli/*"],
+                "message": "The App builds only on @noslop/cli and its subpath exports."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["apps/github-app/**/*.test.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "node:module",
+                "importNames": ["createRequire"],
+                "message": "A require function escapes no-restricted-imports; use import."
+              },
+              {
+                "name": "module",
+                "importNames": ["createRequire"],
+                "message": "A require function escapes no-restricted-imports; use import."
+              }
+            ],
+            "patterns": [
+              {
+                "group": ["@noslop/*", "!@noslop/cli", "!@noslop/cli/*", "!@noslop/testing"],
+                "message": "The App's tests build only on @noslop/cli and the stand-ins of @noslop/testing."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
 }

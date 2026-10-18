@@ -27,7 +27,9 @@ flowchart LR
 
 ## The App server
 
-The server is an Elysia app in the `apps/github-app` package. Its webhook endpoint checks each
+The server is an Elysia app in the `apps/github-app` package. It builds only on what `@noslop/cli`
+publishes, the `noslop` bin and the library entries, as an org's own relay does, and a lint rule
+refuses an import of any other noslop package in its code. Its webhook endpoint checks each
 delivery's signature against the App's webhook secret and refuses an unsigned or wrongly signed one.
 A delivery the App acts on goes to the queue, and the endpoint answers at once, because GitHub
 counts a delivery as failed when the answer takes longer than its short timeout.
@@ -58,10 +60,11 @@ environment config, so it never appears in a command line that other processes c
 clone's config file. A check job runs `noslop check --pr <number> --repo <owner/name>`. Each job
 passes the App's credentials and the event's installation to the CLI through its environment.
 
-The reviewed repo's code never sees those credentials. A job runs the CLI under noslop's own Bun
-config, so Bun loads no preload from the repo, and the CLI removes the App's keys from its process
-environment before it spawns a model CLI or git. The server reads the App's id, private key, webhook
-secret and repos folder from its environment, and refuses to start when one is missing.
+The reviewed repo's code never sees those credentials. A job runs the `noslop` bin that the package
+installs under noslop's own Bun config, so Bun loads no preload from the repo, and the CLI removes
+the App's keys from its process environment before it spawns a model CLI or git. The server reads
+the App's id, private key, webhook secret and repos folder from its environment, and refuses to
+start when one is missing.
 
 ## What a review posts
 
