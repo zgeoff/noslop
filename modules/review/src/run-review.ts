@@ -129,6 +129,8 @@ export async function runReview(options: RunReviewOptions): Promise<ReviewRun> {
         ruleQuote: item.raw.finding.ruleQuote,
       })),
       failedCalls: batches.flatMap((batch) => batch.failed),
+
+      // a reporter reads no fix as confirmed on a file that no call read
       notReviewed: batches.flatMap((batch) => batch.notReviewed),
       configHash: options.configHash,
       startedAt,

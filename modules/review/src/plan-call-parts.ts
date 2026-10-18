@@ -218,6 +218,8 @@ function pickPartIDs(callID: string, count: number, taken: ReadonlySet<string>):
       continue;
     }
 
+    // a part ID runs longer than its call's ID, so an adapter that names a file after a call bounds
+    // the name
     const name = `${callID}-part-${index + 1}`;
     let id = name;
 
