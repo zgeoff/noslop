@@ -15,6 +15,6 @@
     "apps/cli/src/index.ts",
     "apps/cli/src/contract.ts",
     "apps/cli/src/verify.ts",
-    "apps/cli/src/post.ts"
+    "apps/cli/src/send-result.ts"
   ]
 }

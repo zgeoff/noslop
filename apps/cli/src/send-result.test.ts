@@ -5,7 +5,7 @@ import {
   buildStubAppKey,
   githubCollections,
 } from '@noslop/testing';
-import { sendResult } from './post';
+import { sendResult } from './send-result';
 
 test('it posts a review result as the App whose keys the environment holds', async () => {
   await githubCollections.pullRequests.create({
