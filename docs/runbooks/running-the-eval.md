@@ -20,6 +20,11 @@ repo.
    - `repo`, the absolute path to the local clone.
    - `base` and `head`, the full 40-character shas of the change.
    - `title` and `body`, the change's title and description.
+   - `reviewedHead`, optional: the full sha of the head an earlier review of the pull request
+     covered. Set it to replay the case as a re-review of the push from that head to `head`. Keep
+     `base`, `title` and `body` as the whole pull request has them.
+   - `linkedIssue`, optional: the text of the issue the change closes. The intent lens runs only on
+     a case that holds one.
    - `findings`, the labelled findings: each one an `anchor` with `path`, `startLine` and `endLine`,
      a `title`, a `severity`, the `lens` it belongs to or `null`, and a `label` of `true-positive`,
      `false-positive` or `disputed`.
