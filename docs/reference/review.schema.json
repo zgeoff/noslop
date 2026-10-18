@@ -907,6 +907,32 @@
                 }
               ]
             },
+            "maxCallChars": {
+              "description": "The most characters one call prompt may hold; a call over it splits by file into parts that fit",
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "maxFileChars": {
+              "description": "The most characters one file may add to a call prompt; a larger file is left out and listed as not reviewed",
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
             "parallelCases": {
               "description": "How many cases of one eval run at once",
               "anyOf": [
@@ -966,6 +992,21 @@
     },
     "generated": {
       "description": "Path globs of generated files, lockfiles among them, which a review skips",
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "data": {
+      "description": "Path globs of data files, such as corpora and fixtures, which a review leaves out and lists as not reviewed",
       "anyOf": [
         {
           "type": "array",

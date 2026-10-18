@@ -119,6 +119,43 @@ test('it writes the severity mix, the failed calls and each fix of a re-review',
   `);
 });
 
+test('it names each file the review did not read beneath the headline', () => {
+  const result = buildMockReviewResult({
+    notReviewed: [
+      { path: 'samples/corpus.jsonl', reason: 'data' },
+      { path: 'samples/big.json', reason: 'too-large' },
+    ],
+  });
+
+  expect(
+    formatSummaryComment(
+      result,
+      {
+        head: 'b'.repeat(40),
+        reviews: 1,
+        reported: [],
+        failedCalls: 0,
+        followUps: [],
+        confirmed: [],
+      },
+      { confirmations: [], posted: 0 },
+      new Map(),
+    ),
+  ).toMatchInlineSnapshot(`
+    "### noslop: no findings
+
+    ⚠️ 2 files left out of the review:
+    - \`samples/corpus.jsonl\`: not reviewed: data file
+    - \`samples/big.json\`: not reviewed: too large
+
+    <details><summary>Review details</summary>
+
+    Review 1 · \`bbbbbbbbbbbb\` against \`aaaaaaaaaaaa\` · light depth · lenses correctness
+    </details>
+    <!-- noslop:summary {"head":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","reviews":1,"reported":[],"failedCalls":0,"followUps":[],"confirmed":[]} -->"
+  `);
+});
+
 test('it heads a re-review with no findings whose every fix is confirmed as all fixed', () => {
   const result = buildMockReviewResult();
 

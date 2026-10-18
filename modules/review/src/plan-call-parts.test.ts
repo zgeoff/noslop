@@ -1,0 +1,257 @@
+import { expect, test } from 'bun:test';
+import { buildCallPrompt } from '@noslop/lenses';
+import { buildMockChangedFile, buildMockSlices } from '@noslop/testing';
+import { planCallParts } from './plan-call-parts';
+
+test('it keeps a call whole when its prompt fits the limit', () => {
+  const file = buildMockChangedFile({ path: 'src/a.ts' });
+
+  const planned = planCallParts({
+    call: {
+      callID: 'A',
+      lenses: ['correctness'],
+      effort: 'medium',
+      model: null,
+      timeoutMs: null,
+      files: [file],
+    },
+    shared: {
+      slices: buildMockSlices(),
+      rules: null,
+      title: 'feat: add a',
+      body: '',
+      linkedIssue: null,
+      base: 'a'.repeat(40),
+      head: 'b'.repeat(40),
+    },
+    data: [],
+    maxCallChars: 1_000_000,
+    maxFileChars: 250_000,
+  });
+
+  expect(planned.parts.map((part) => [part.call.callID, part.call.files])).toStrictEqual([
+    ['A', [file]],
+  ]);
+
+  expect(planned.notReviewed).toStrictEqual([]);
+});
+
+test('it splits a call over the limit into parts that each fit, with every file in one part', () => {
+  const shared = {
+    slices: buildMockSlices(),
+    rules: null,
+    title: 'feat: add the tables',
+    body: '',
+    linkedIssue: null,
+    base: 'a'.repeat(40),
+    head: 'b'.repeat(40),
+  };
+
+  const files = ['src/a.ts', 'src/b.ts', 'src/c.ts', 'src/d.ts'].map((path) =>
+    buildMockChangedFile({
+      path,
+      hunks: [
+        {
+          oldStart: 0,
+          oldLines: 0,
+          newStart: 1,
+          newLines: 1,
+          lines: [{ kind: 'added', text: 'x'.repeat(5000), oldLine: null, newLine: 1 }],
+        },
+      ],
+    }),
+  );
+
+  const base = buildCallPrompt({ ...shared, lenses: ['correctness'], files: [], leftOut: [] });
+  const maxCallChars = base.length + 12_000;
+
+  const planned = planCallParts({
+    call: {
+      callID: 'A',
+      lenses: ['correctness'],
+      effort: 'medium',
+      model: null,
+      timeoutMs: null,
+      files,
+    },
+    shared,
+    data: [],
+    maxCallChars,
+    maxFileChars: 250_000,
+  });
+
+  expect(
+    planned.parts.map((part) => [part.call.callID, part.call.files.map((file) => file.path)]),
+  ).toStrictEqual([
+    ['A', ['src/a.ts', 'src/b.ts']],
+    ['A-part-2', ['src/c.ts', 'src/d.ts']],
+  ]);
+
+  expect(planned.parts.map((part) => part.prompt.length)).toSatisfyAll(
+    (length: number) => length <= maxCallChars,
+  );
+
+  expect(planned.notReviewed).toStrictEqual([]);
+});
+
+test('it leaves a file that matches a data glob out of the call and lists it', () => {
+  const code = buildMockChangedFile({ path: 'src/a.ts' });
+  const corpus = buildMockChangedFile({ path: 'samples/corpus.jsonl', kind: 'other' });
+
+  const planned = planCallParts({
+    call: {
+      callID: 'A',
+      lenses: ['correctness'],
+      effort: 'medium',
+      model: null,
+      timeoutMs: null,
+      files: [code, corpus],
+    },
+    shared: {
+      slices: buildMockSlices(),
+      rules: null,
+      title: 'chore: refresh the corpus',
+      body: '',
+      linkedIssue: null,
+      base: 'a'.repeat(40),
+      head: 'b'.repeat(40),
+    },
+    data: ['samples/**'],
+    maxCallChars: 1_000_000,
+    maxFileChars: 250_000,
+  });
+
+  expect(planned.parts.map((part) => part.call.files)).toStrictEqual([[code]]);
+
+  expect(planned.parts[0]?.prompt).toInclude(
+    '- samples/corpus.jsonl: a data file the config names',
+  );
+
+  expect(planned.notReviewed).toStrictEqual([{ path: 'samples/corpus.jsonl', reason: 'data' }]);
+});
+
+test('it leaves out a file whose input passes the file limit and lists it as too large', () => {
+  const code = buildMockChangedFile({ path: 'src/a.ts' });
+
+  const big = buildMockChangedFile({
+    path: 'src/table.ts',
+    hunks: [
+      {
+        oldStart: 0,
+        oldLines: 0,
+        newStart: 1,
+        newLines: 1,
+        lines: [{ kind: 'added', text: 'x'.repeat(3000), oldLine: null, newLine: 1 }],
+      },
+    ],
+  });
+
+  const planned = planCallParts({
+    call: {
+      callID: 'A',
+      lenses: ['correctness'],
+      effort: 'medium',
+      model: null,
+      timeoutMs: null,
+      files: [code, big],
+    },
+    shared: {
+      slices: buildMockSlices(),
+      rules: null,
+      title: 'feat: add the table',
+      body: '',
+      linkedIssue: null,
+      base: 'a'.repeat(40),
+      head: 'b'.repeat(40),
+    },
+    data: [],
+    maxCallChars: 1_000_000,
+    maxFileChars: 2000,
+  });
+
+  expect(planned.parts.map((part) => part.call.files)).toStrictEqual([[code]]);
+  expect(planned.notReviewed).toStrictEqual([{ path: 'src/table.ts', reason: 'too-large' }]);
+});
+
+test('it lists a file that overflows a call alone as too large and runs the rest', () => {
+  const shared = {
+    slices: buildMockSlices(),
+    rules: null,
+    title: 'feat: add the table',
+    body: '',
+    linkedIssue: null,
+    base: 'a'.repeat(40),
+    head: 'b'.repeat(40),
+  };
+
+  const code = buildMockChangedFile({ path: 'src/a.ts' });
+
+  const big = buildMockChangedFile({
+    path: 'src/table.ts',
+    hunks: [
+      {
+        oldStart: 0,
+        oldLines: 0,
+        newStart: 1,
+        newLines: 1,
+        lines: [{ kind: 'added', text: 'x'.repeat(5000), oldLine: null, newLine: 1 }],
+      },
+    ],
+  });
+
+  const base = buildCallPrompt({ ...shared, lenses: ['correctness'], files: [], leftOut: [] });
+
+  const planned = planCallParts({
+    call: {
+      callID: 'A',
+      lenses: ['correctness'],
+      effort: 'medium',
+      model: null,
+      timeoutMs: null,
+      files: [code, big],
+    },
+    shared,
+    data: [],
+    maxCallChars: base.length + 3000,
+    maxFileChars: 250_000,
+  });
+
+  expect(planned.parts.map((part) => [part.call.callID, part.call.files])).toStrictEqual([
+    ['A', [code]],
+  ]);
+
+  expect(planned.notReviewed).toStrictEqual([{ path: 'src/table.ts', reason: 'too-large' }]);
+});
+
+test('it runs the call whole when the input around the files overflows alone', () => {
+  const file = buildMockChangedFile({ path: 'src/a.ts' });
+
+  const planned = planCallParts({
+    call: {
+      callID: 'A',
+      lenses: ['correctness'],
+      effort: 'medium',
+      model: null,
+      timeoutMs: null,
+      files: [file],
+    },
+    shared: {
+      slices: buildMockSlices(),
+      rules: null,
+      title: 'feat: add a',
+      body: 'y'.repeat(5000),
+      linkedIssue: null,
+      base: 'a'.repeat(40),
+      head: 'b'.repeat(40),
+    },
+    data: [],
+    maxCallChars: 1000,
+    maxFileChars: 250_000,
+  });
+
+  expect(planned.parts.map((part) => [part.call.callID, part.call.files])).toStrictEqual([
+    ['A', [file]],
+  ]);
+
+  expect(planned.notReviewed).toStrictEqual([]);
+});

@@ -1,5 +1,5 @@
 import { basename } from 'node:path';
-import type { Finding, ReviewResult, Severity } from '@noslop/contract';
+import type { Finding, NotReviewedFile, ReviewResult, Severity } from '@noslop/contract';
 import { formatMarker } from './format-marker';
 import type { SummaryMarker } from './summary-marker';
 
@@ -21,7 +21,7 @@ export interface FixStatus {
 const SEVERITIES: readonly Severity[] = ['P1', 'P2', 'P3'];
 
 // the summary comment, written for a person: the count and risk of this review's findings, its failed
-// calls, whether each `fixed` finding is fixed, a table that links each finding to its comment, then
+// calls, the files it did not review, whether each `fixed` finding is fixed, a table that links each finding to its comment, then
 // the review's details collapsed and the marker the next run reads
 export function formatSummaryComment(
   result: ReviewResult,
@@ -43,6 +43,10 @@ export function formatSummaryComment(
       '',
       `⚠️ ${count} lens ${count === 1 ? 'call' : 'calls'} failed, so this review is partial.`,
     );
+  }
+
+  if (result.notReviewed.length > 0) {
+    lines.push('', formatNotReviewed(result.notReviewed));
   }
 
   if (confirmations.length > 0) {
@@ -125,6 +129,23 @@ function pickRisk(findings: readonly Finding[]): 'high' | 'medium' | 'low' {
   }
 
   return findings.some((finding) => finding.severity === 'P2') ? 'medium' : 'low';
+}
+
+const NOT_REVIEWED_REASONS: Readonly<Record<NotReviewedFile['reason'], string>> = {
+  data: 'data file',
+  'too-large': 'too large',
+};
+
+// a file left out of every call is named, so a reader sees what the review did not cover
+function formatNotReviewed(files: readonly NotReviewedFile[]): string {
+  const count = files.length === 1 ? '1 file' : `${files.length} files`;
+
+  return [
+    `⚠️ ${count} left out of the review:`,
+    ...files.map(
+      (file) => `- \`${file.path}\`: not reviewed: ${NOT_REVIEWED_REASONS[file.reason]}`,
+    ),
+  ].join('\n');
 }
 
 function sortFindings(findings: readonly Finding[]): Finding[] {

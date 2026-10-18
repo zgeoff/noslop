@@ -1,4 +1,4 @@
-import type { LensID } from '@noslop/contract';
+import type { LensID, NotReviewedFile } from '@noslop/contract';
 import type { ChangedFile, Slices } from '@noslop/static-stage';
 import { getLensPrompt } from './get-lens-prompt';
 import { LENS_INPUTS } from './lens-inputs';
@@ -13,6 +13,9 @@ export interface CallPromptInput {
   title: string;
   body: string;
   linkedIssue: string | null;
+
+  // the changed files the call leaves out, so a lens never reports their missing hunks
+  leftOut: readonly NotReviewedFile[];
   base: string;
   head: string;
 
@@ -29,7 +32,7 @@ const INCREMENTAL_NOTE = [
 
 // joins the shared header, one section per lens in the order given, and the input the lenses read:
 // the pull request, the hunks of the files in the call, each slice once and cut to those files, and
-// the rules file when a lens reads it
+// the rules file when a lens reads it, and the changed files the call leaves out
 export function buildCallPrompt(input: CallPromptInput): string {
   const lensInputs = input.lenses.map((lens) => LENS_INPUTS[lens]);
 
@@ -76,7 +79,24 @@ export function buildCallPrompt(input: CallPromptInput): string {
     sections.push(`## Slice: ${name}\n\n\`\`\`json\n${JSON.stringify(slice, null, 2)}\n\`\`\``);
   }
 
+  if (input.leftOut.length > 0) {
+    sections.push(renderLeftOut(input.leftOut));
+  }
+
   return `${sections.join('\n\n')}\n`;
+}
+
+const LEFT_OUT_REASONS: Readonly<Record<NotReviewedFile['reason'], string>> = {
+  data: 'a data file the config names',
+  'too-large': 'too large for one call',
+};
+
+function renderLeftOut(files: readonly NotReviewedFile[]): string {
+  return [
+    '## Files left out',
+    'The change holds these files, but this input leaves out their hunks and slices. Report no finding on what they hold, and no finding that their change is missing.',
+    files.map((file) => `- ${file.path}: ${LEFT_OUT_REASONS[file.reason]}`).join('\n'),
+  ].join('\n\n');
 }
 
 function renderRules(rules: CallPromptInput['rules']): string {

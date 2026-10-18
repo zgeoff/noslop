@@ -64,10 +64,10 @@ whose commit an earlier delta left out.
 
 With `--json`, `review` prints the review result as JSON to stdout and nothing else. Without it,
 `review` prints a summary for a person: the depth, the lenses, each finding with its anchor, and
-each failed call. Either way the CLI then runs every reporter in the report list, under
-[reporters](./reporters.md). The `json` reporter with no path set is left out, because the command
-prints the result itself, so a bare `noslop review` with the built-in defaults prints the result and
-stores nothing.
+each failed call, and each file that no call read. Either way the CLI then runs every reporter in
+the report list, under [reporters](./reporters.md). The `json` reporter with no path set is left
+out, because the command prints the result itself, so a bare `noslop review` with the built-in
+defaults prints the result and stores nothing.
 
 The review result follows the result schema in the contract package, and the CLI parses the result
 against it before printing it. The schema's version changes only with a breaking change to the

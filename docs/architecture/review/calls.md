@@ -41,3 +41,28 @@ its lenses:
 
 [Adapters](./adapters.md) covers how the adapter applies the model and the timeout and maps the
 effort onto its CLI.
+
+## Fitting a call to the input limit
+
+A model CLI refuses an input past its own length limit, so a call's prompt has to fit under the
+config's prompt limit before it is sent. The review measures each call's prompt and handles a prompt
+over the limit in three steps:
+
+1. A changed file that matches the config's data globs goes into no call. Corpora, fixtures and
+   other generated data change in bulk, and a lens reads no defect in them line by line.
+2. A changed file whose own input passes the config's file limit goes into no call.
+3. A call whose prompt still passes the prompt limit splits by file into parts. The parts keep the
+   files in order and each part's prompt fits the limit. The first part keeps the call's ID, and
+   each later part takes the ID with a part number after it. A file that overflows a part on its own
+   goes into no call.
+
+Each part runs as a call of its own, with its own record, retry and failure. A part holds the call's
+lenses and the slice items on its own files, so a lens in one part never sees the hunks of another
+part.
+
+The review lists each file that no call reads in the result's not-reviewed list, with its reason: a
+data file or too large. Each call's prompt names the files it leaves out, so a lens never reports
+their hunks as missing. [The CLI](../output/cli.md) and [the GitHub App](../output/github-app.md)
+show the list, so a reader sees what the review did not cover. When the input around the files
+overflows alone, such as a pull request body over the limit, the call runs whole and its failure
+shows in the review.

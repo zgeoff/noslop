@@ -129,6 +129,7 @@ export async function runReview(options: RunReviewOptions): Promise<ReviewRun> {
         ruleQuote: item.raw.finding.ruleQuote,
       })),
       failedCalls: batches.flatMap((batch) => batch.failed),
+      notReviewed: batches.flatMap((batch) => batch.notReviewed),
       configHash: options.configHash,
       startedAt,
       endedAt: now().toISOString(),
@@ -250,6 +251,9 @@ function runBatch(ctx: PassContext, calls: readonly PlannedCall[]): Promise<Call
     head: ctx.change.head,
     isIncremental: ctx.options.isIncremental ?? false,
     parallel: ctx.options.config.thresholds.parallelCalls,
+    data: ctx.options.config.data,
+    maxCallChars: ctx.options.config.thresholds.maxCallChars,
+    maxFileChars: ctx.options.config.thresholds.maxFileChars,
   });
 }
 

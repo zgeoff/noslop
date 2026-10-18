@@ -21,6 +21,26 @@ test('it lists what ran, each finding at its anchor and each failed call', () =>
   `);
 });
 
+test('it lists each file the review did not read with its reason', () => {
+  const text = formatReviewSummary(
+    buildMockReviewResult({
+      notReviewed: [
+        { path: 'samples/corpus.jsonl', reason: 'data' },
+        { path: 'samples/big.json', reason: 'too-large' },
+      ],
+    }),
+  );
+
+  expect(text).toEndWith(
+    [
+      'no findings',
+      'not reviewed: data file: samples/corpus.jsonl',
+      'not reviewed: too large: samples/big.json',
+      '',
+    ].join('\n'),
+  );
+});
+
 test('it says there are no findings when the review found none', () => {
   expect(formatReviewSummary(buildMockReviewResult())).toInclude('\nno findings\n');
 });

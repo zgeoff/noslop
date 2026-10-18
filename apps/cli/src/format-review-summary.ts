@@ -1,6 +1,7 @@
 import type { ReviewResult } from '@noslop/contract';
 
-// the review for a person: what ran, then each finding with its anchor, then each failed call
+// the review for a person: what ran, then each finding with its anchor, then each failed call and
+// each file no call read
 export function formatReviewSummary(result: ReviewResult): string {
   const lines = [
     `noslop reviewed ${result.head.slice(0, 12)} at ${result.depth} with ${result.calls.length} calls`,
@@ -22,6 +23,10 @@ export function formatReviewSummary(result: ReviewResult): string {
 
   for (const call of result.failedCalls) {
     lines.push(`failed call ${call.id} (${call.lenses.join(', ')}): ${call.reason}`);
+  }
+
+  for (const file of result.notReviewed) {
+    lines.push(`not reviewed: ${file.reason === 'data' ? 'data file' : 'too large'}: ${file.path}`);
   }
 
   return `${lines.join('\n')}\n`;

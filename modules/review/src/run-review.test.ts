@@ -884,3 +884,70 @@ test('it gives the calls only the reference rules whose globs match a changed pa
   expect(prompt).toInclude('### references/ts.md: Types');
   expect(prompt).not.toInclude('references/nix.md');
 });
+
+test('it splits a change over the prompt limit into calls that each fit and lists the data file it leaves out', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'src/zero.ts': 'export const zero = 0;\n' } },
+    {
+      message: 'head',
+      files: {
+        'src/zero.ts': 'export const zero = 0;\n',
+        'src/a.ts': `export const a = '${'a'.repeat(400_000)}';\n`,
+        'src/b.ts': `export const b = '${'b'.repeat(400_000)}';\n`,
+        'src/c.ts': `export const c = '${'c'.repeat(400_000)}';\n`,
+        'samples/corpus.jsonl': '{"text":"one"}\n{"text":"two"}\n',
+      },
+    },
+  ]);
+
+  const stub = buildStubAdapter({
+    L: [{ findings: { correctness: [] } }],
+    'L-part-2': [{ findings: { correctness: [] } }],
+  });
+
+  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+
+  const run = await runReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/tables',
+    base: repo.commits[0] ?? '',
+    head: repo.commits[1] ?? '',
+    config: {
+      ...BUILT_IN_DEFAULTS,
+      data: ['samples/**'],
+      thresholds: {
+        ...BUILT_IN_DEFAULTS.thresholds,
+        maxCallChars: 1_000_000,
+        maxFileChars: 500_000,
+      },
+    },
+    configHash: 'hash',
+    rules: null,
+    adapter: stub.adapter,
+    logger: ctx.logger,
+    tempDir: join(ctx.dir, 'temp'),
+    cacheDir: null,
+    title: 'Add the tables',
+    body: '',
+    linkedIssue: null,
+    pullRequest: null,
+    isPush: false,
+    pastEscapes: [],
+  });
+
+  expect(run.result.failedCalls).toStrictEqual([]);
+
+  expect(run.result.calls.map((call) => [call.id, call.status])).toStrictEqual([
+    ['L', 'ok'],
+    ['L-part-2', 'ok'],
+  ]);
+
+  expect(stub.requests.map((request) => request.prompt.length)).toSatisfyAll(
+    (length: number) => length <= 1_000_000,
+  );
+
+  expect(run.result.notReviewed).toStrictEqual([{ path: 'samples/corpus.jsonl', reason: 'data' }]);
+});
