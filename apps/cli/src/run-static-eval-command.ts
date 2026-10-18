@@ -2,7 +2,7 @@ import { mkdir } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import type { Depth } from '@noslop/contract';
 import type { Case } from '@noslop/eval';
-import { buildStaticScore, renderStaticReport, runStaticEval } from '@noslop/eval';
+import { buildStaticScore, getReplayBase, renderStaticReport, runStaticEval } from '@noslop/eval';
 import { planReview } from '@noslop/review';
 import type { CLIContext } from './cli-context';
 import { loadRepoConfig } from './load-repo-config';
@@ -29,13 +29,13 @@ export async function runStaticEvalCommand(
         const plan = await planReview({
           runner: ctx.runner,
           repoDir: corpusCase.repo,
-          base: corpusCase.base,
+          base: getReplayBase(corpusCase),
           head: corpusCase.head,
           config: loaded.config,
           cacheDir: join(ctx.cacheDir, 'index'),
           title: corpusCase.title,
           body: corpusCase.body,
-          linkedIssue: null,
+          linkedIssue: corpusCase.linkedIssue ?? null,
           isPush: false,
           pastEscapes: [],
           depth,

@@ -58,6 +58,51 @@ test('it runs codex review read-only against the case base in the worktree', asy
   ]);
 });
 
+test('it runs codex review against the last reviewed head of a re-review case', async () => {
+  const ctx = await setupTest();
+
+  const stub = buildStubRunner([{ argv: ['codex', 'exec', 'review'], result: { exitCode: 0 } }]);
+
+  const reviewer = createCodexReviewReviewer({
+    runner: stub.runner,
+    tempDir: ctx.dir,
+    timeoutMs: 60_000,
+  });
+
+  await reviewer.reviewCase(
+    {
+      id: 'case-1',
+      repo: '/repos/app',
+      base: 'a'.repeat(40),
+      head: 'b'.repeat(40),
+      reviewedHead: 'c'.repeat(40),
+      title: 'feat: add the queue',
+      body: '',
+      findings: [],
+      escapes: [],
+    },
+    '/work/case-1',
+  );
+
+  expect(stub.runs).toStrictEqual([
+    {
+      argv: [
+        'codex',
+        'exec',
+        'review',
+        '--base',
+        'c'.repeat(40),
+        '--json',
+        '-c',
+        'sandbox_mode="read-only"',
+        '-o',
+        expect.toStartWith(join(ctx.dir, 'codex-review-')),
+      ],
+      options: { cwd: '/work/case-1', timeoutMs: 60_000 },
+    },
+  ]);
+});
+
 test('it records a failed review when codex writes no review', async () => {
   const ctx = await setupTest();
 

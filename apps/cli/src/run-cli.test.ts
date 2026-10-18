@@ -2140,6 +2140,105 @@ test('it records in the eval run a taste finding whose quote the rules file does
   ]);
 });
 
+test('it replays an eval case with a last reviewed head as a re-review of the push alone', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'src/parse.ts': 'export const parse = 0;\n' } },
+    {
+      message: 'Add the printer',
+      files: {
+        'src/parse.ts': 'export const parse = 0;\n',
+        'src/print.ts': 'export const print = 1;\n',
+      },
+    },
+    {
+      message: 'Fix the parser',
+      files: {
+        'src/parse.ts': 'export const parse = 1;\n',
+        'src/print.ts': 'export const print = 1;\n',
+      },
+    },
+  ]);
+
+  await Bun.write(
+    join(ctx.dir, 'corpus', 'case-a', 'case.json'),
+    JSON.stringify({
+      id: 'case-a',
+      repo: repo.path,
+      base: repo.commits[0],
+      head: repo.commits[2],
+      reviewedHead: repo.commits[1],
+      title: 'Add the printer and fix the parser',
+      body: 'Changes src/parse.ts and src/print.ts.',
+      linkedIssue: 'Add a printer, and make the parser return 1.',
+      findings: [],
+      escapes: [],
+    }),
+  );
+
+  const stub = buildStubAdapter({ L: [{ findings: { correctness: [], intent: [] } }] });
+
+  await runCLI(
+    ['eval', '--corpus', join(ctx.dir, 'corpus'), '--out', join(ctx.dir, 'out')],
+    ctx.buildContext(ctx.dir, stub.adapter),
+  );
+
+  const prompt = stub.requests[0]?.prompt;
+
+  if (prompt === undefined) {
+    throw new Error('the replay made no call');
+  }
+
+  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['L']);
+  expect(prompt).toInclude(`from commit ${repo.commits[1] ?? ''} to commit`);
+  expect(prompt).toInclude('## Incremental review');
+  expect(prompt).toInclude('# Lens: intent');
+  expect(prompt).toInclude('## Linked issue\n\nAdd a printer, and make the parser return 1.');
+  expect(prompt).toInclude('### src/parse.ts (modified)');
+  expect(prompt).not.toInclude('### src/print.ts');
+});
+
+test('it replays an eval case with no last reviewed head as a review of the whole change', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'src/parse.ts': 'export const parse = 0;\n' } },
+    { message: 'Fix the parser', files: { 'src/parse.ts': 'export const parse = 1;\n' } },
+  ]);
+
+  await Bun.write(
+    join(ctx.dir, 'corpus', 'case-a', 'case.json'),
+    JSON.stringify({
+      id: 'case-a',
+      repo: repo.path,
+      base: repo.commits[0],
+      head: repo.commits[1],
+      title: 'Fix the parser',
+      body: 'Changes src/parse.ts.',
+      findings: [],
+      escapes: [],
+    }),
+  );
+
+  const stub = buildStubAdapter({ L: [{ findings: { correctness: [] } }] });
+
+  await runCLI(
+    ['eval', '--corpus', join(ctx.dir, 'corpus'), '--out', join(ctx.dir, 'out')],
+    ctx.buildContext(ctx.dir, stub.adapter),
+  );
+
+  const prompt = stub.requests[0]?.prompt;
+
+  if (prompt === undefined) {
+    throw new Error('the replay made no call');
+  }
+
+  expect(prompt).toInclude(`from commit ${repo.commits[0] ?? ''} to commit`);
+  expect(prompt).not.toInclude('## Incremental review');
+  expect(prompt).not.toInclude('# Lens: intent');
+});
+
 test('it replays the depth of each case with no model call under --static', async () => {
   const ctx = await setupTest();
 
