@@ -102,6 +102,15 @@ async function runReviewPost(
   const counted = before.summary?.marker.reviewIDs ?? [];
   const isRepost = counted.includes(result.reviewID);
   const reviews = (before.summary?.marker.reviews ?? 0) + (isRepost ? 0 : 1);
+
+  // a retry of a review that a later one followed posted everything before the later one did, so it
+  // writes nothing and leaves the later summary in place
+  if (isRepost && counted.at(-1) !== result.reviewID) {
+    await runCheck(connection, pr, result.head, ctx);
+
+    return;
+  }
+
   const fresh = result.findings.filter((finding) => !posted.has(finding.id));
 
   const followUps =
@@ -153,10 +162,19 @@ async function runReviewPost(
     formatSummaryComment(result, marker, { confirmations, posted: before.threads.length }, links),
   );
 
+  await runCheck(connection, pr, result.head, ctx);
+}
+
+async function runCheck(
+  connection: GitHubConnection,
+  pr: PullRequestRef,
+  head: string,
+  ctx: ReporterContext,
+): Promise<void> {
   const outcome = await runGitHubCheck(connection, pr, { failedReporters: ctx.failedReporters });
 
   ctx.logger.info('the noslop check on {head}: {conclusion}', {
-    head: result.head.slice(0, 12),
+    head: head.slice(0, 12),
     conclusion: outcome.conclusion,
   });
 }

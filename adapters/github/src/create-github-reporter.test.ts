@@ -592,6 +592,43 @@ test('it counts a second post of one review result as one review', async () => {
   expect(summaries[0]).toInclude('"reviews":1,"reviewIDs":["review-7"]');
 });
 
+test('it keeps the later summary when an earlier review is retried after it', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'b'.repeat(40),
+  });
+
+  const first = buildMockReviewResult({
+    reviewID: 'review-a',
+    pullRequest: { owner: 'example', repo: 'app', number: 5 },
+    head: 'b'.repeat(40),
+    findings: [buildMockFinding({ id: '2222222222222222', title: 'Check the empty list' })],
+  });
+
+  const second = buildMockReviewResult({
+    reviewID: 'review-b',
+    pullRequest: { owner: 'example', repo: 'app', number: 5 },
+    head: 'b'.repeat(40),
+    findings: [],
+  });
+
+  await ctx.reporter.report(first, { logger: ctx.logger, options: {}, failedReporters: [] });
+  await ctx.reporter.report(second, { logger: ctx.logger, options: {}, failedReporters: [] });
+  await ctx.reporter.report(first, { logger: ctx.logger, options: {}, failedReporters: [] });
+
+  const summaries = githubCollections.issueComments
+    .all()
+    .map((comment) => comment.body)
+    .filter((body) => body.includes('<!-- noslop:summary'));
+
+  expect(summaries).toHaveLength(1);
+  expect(summaries[0]).toInclude('"reviewIDs":["review-a","review-b"],"reported":[]');
+});
+
 test('it counts a retry of an earlier review as no new review after another review posted', async () => {
   const ctx = setupTest();
 
