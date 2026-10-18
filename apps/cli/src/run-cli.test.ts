@@ -2287,6 +2287,58 @@ test('it replays the depth of each case with no model call under --static', asyn
   });
 });
 
+test('it plans a re-review case under --static from its last reviewed head', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'src/parse.ts': 'export const parse = 0;\n' } },
+    {
+      message: 'Add the session check',
+      files: {
+        'src/parse.ts': 'export const parse = 0;\n',
+        'src/auth/session.ts':
+          'export function isSignedIn(token: string): boolean {\n  return token !== "";\n}\n',
+      },
+    },
+    {
+      message: 'Fix the parser',
+      files: {
+        'src/parse.ts': 'export const parse = 1;\n',
+        'src/auth/session.ts':
+          'export function isSignedIn(token: string): boolean {\n  return token !== "";\n}\n',
+      },
+    },
+  ]);
+
+  await Bun.write(
+    join(ctx.dir, 'corpus', 'case-a', 'case.json'),
+    JSON.stringify({
+      id: 'case-a',
+      repo: repo.path,
+      base: repo.commits[0],
+      head: repo.commits[2],
+      reviewedHead: repo.commits[1],
+      title: 'Add the session check and fix the parser',
+      body: '',
+      findings: [],
+      escapes: [],
+    }),
+  );
+
+  const stub = buildStubAdapter({});
+
+  await runCLI(
+    ['eval', '--corpus', join(ctx.dir, 'corpus'), '--out', join(ctx.dir, 'out'), '--static'],
+    ctx.buildContext(ctx.dir, stub.adapter),
+  );
+
+  const written: unknown = await Bun.file(join(ctx.dir, 'out', 'static.json')).json();
+
+  expect(written).toMatchObject({
+    runs: [{ caseID: 'case-a', plan: { depth: 'light', calls: ['L'] } }],
+  });
+});
+
 test('it plans every case at the depth that --depth names', async () => {
   const ctx = await setupTest();
 
