@@ -84,24 +84,26 @@ to noslop's `bunfig.toml`, so a reviewed repo's code never runs beside the App's
 
 Add `--verbose` to see the debug log on stderr. Every other flag is in `noslop <command> --help`.
 
-## Run the end-to-end test
+## Run the end-to-end tests
 
-The end-to-end test under `e2e/` builds a small repo with seeded defects, runs a real review on it
-with a real model CLI, and checks that the findings land at anchors in the diff. Bun skips it unless
-`NOSLOP_E2E_ADAPTER` is set to an adapter.
+`e2e/` holds one test file per journey. The relay journey runs in every test run: it sends a review
+from a developer's context through a local relay, which verifies and posts it, against the stand-in
+GitHub API and a stub model. The seeded-defects journey builds a small repo with seeded defects,
+runs a real review on it with a real model CLI, and checks that the findings land at anchors in the
+diff. Bun skips it unless `NOSLOP_E2E_ADAPTER` is set to an adapter.
 
 1. Sign in to the model CLI you will use, `codex` or `claude`.
-2. Run the test with that adapter:
+2. Run the tests with that adapter:
 
    ```bash
    NOSLOP_E2E_ADAPTER=codex bun test ./e2e
    ```
 
-   Expect `1 pass` and `0 fail`. The review calls the model, so the test can run for many minutes,
-   and it uses that account's quota.
+   Expect `2 pass` and `0 fail`. The seeded-defects review calls the model, so it can run for many
+   minutes, and it uses that account's quota.
 
-Without the variable, `bun test ./e2e` prints `1 skip`, and the test step of `bun run check` counts
-the test as skipped.
+Without the variable, `bun test ./e2e` prints `1 pass` and `1 skip`, and the test step of
+`bun run check` counts the seeded-defects journey as skipped.
 
 ## Build the npm package
 

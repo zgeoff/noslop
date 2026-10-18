@@ -10,6 +10,8 @@ each choice with its reasons.
   request
 - [Add your own rules](guides/add-your-own-rules.md): write a rules file, point `review.json` at it,
   and extend a shared config
+- [Enforce a review with a relay](guides/enforce-a-review-with-a-relay.md): review on each
+  developer's machine, post through your own relay, and gate the merge in CI
 - [Answer a finding](guides/answer-a-finding.md): reply to a finding with a disposition, and how the
   check run follows
 
