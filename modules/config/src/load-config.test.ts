@@ -438,6 +438,43 @@ test('it gives 2 loads of the same config the same hash', async () => {
   expect(loads[0]?.hash).toBe(loads[1]?.hash ?? '');
 });
 
+test('it gives 2 checkouts of one commit in 2 folders the same hash', async () => {
+  const ctx = await setupTest();
+
+  const checkouts = [join(ctx.dir, 'one'), join(ctx.dir, 'nested', 'two')];
+
+  await Promise.all(
+    checkouts.flatMap((dir) => [
+      Bun.write(
+        join(dir, 'review.json'),
+        JSON.stringify({ rules: ['./RULES.md', { path: './docs/style.md' }] }),
+      ),
+      Bun.write(join(dir, 'RULES.md'), '# Rules\n\nName things well.\n'),
+      Bun.write(join(dir, 'docs', 'style.md'), '# Style\n\nKeep it short.\n'),
+    ]),
+  );
+
+  const loads = await Promise.all(checkouts.map((dir) => loadConfig({ repoDir: dir })));
+
+  expect(loads[0]?.hash).toBe(loads[1]?.hash ?? '');
+});
+
+test('it gives a checkout named by an absolute and a relative path the same hash', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(join(ctx.dir, 'review.json'), JSON.stringify({ rules: './RULES.md' }));
+  await Bun.write(join(ctx.dir, 'RULES.md'), '# Rules\n\nName things well.\n');
+
+  const relativeDir = relative(process.cwd(), ctx.dir);
+
+  const loads = await Promise.all([
+    loadConfig({ repoDir: ctx.dir }),
+    loadConfig({ repoDir: relativeDir }),
+  ]);
+
+  expect(loads[0]?.hash).toBe(loads[1]?.hash ?? '');
+});
+
 test('it loads no rules from a repo: file or a reference that the repo does not hold', async () => {
   const ctx = await setupTest();
 

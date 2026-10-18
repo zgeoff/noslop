@@ -60,11 +60,12 @@ review picks the rules that apply to its change.
 ## What a review records
 
 The config module hashes the merged config together with the text of every rules file, and the
-review result holds that hash. Two reviews with the same hash ran under the same settings and rules,
-so the [findings store](../measurement/store.md) and the [eval harness](../measurement/eval.md) can
-compare their findings. The module also keeps the source of every leaf key, as a path or a `github:`
-location, and `noslop config` prints the merged config with the source of each key and the chain it
-came from.
+review result holds that hash. The hash takes each local rules path relative to the repo, so two
+checkouts of one commit give one hash wherever each one sits. Two reviews with the same hash ran
+under the same settings and rules, so the [findings store](../measurement/store.md) and the
+[eval harness](../measurement/eval.md) can compare their findings. The module also keeps the source
+of every leaf key, as a path or a `github:` location, and `noslop config` prints the merged config
+with the source of each key and the chain it came from.
 
 ## The built-in defaults
 

@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { basename, dirname, isAbsolute, join, normalize } from 'node:path';
+import { basename, dirname, isAbsolute, join, normalize, relative, resolve } from 'node:path';
 import type { ReviewConfig, Rule, RulesFile } from '@noslop/contract';
 import { reviewConfigSchema } from '@noslop/contract';
 import { BUILT_IN_DEFAULTS } from './built-in-defaults';
@@ -80,7 +80,10 @@ export async function loadConfig(options: LoadConfigOptions): Promise<LoadedConf
 
   const config = parsed.data;
   const rules = config.rules === null ? null : await readRulesSources(config.rules, options);
-  const hash = createHash('sha256').update(JSON.stringify(config));
+
+  const hash = createHash('sha256').update(
+    JSON.stringify(buildHashedConfig(config, options.repoDir)),
+  );
 
   for (const source of rules ?? []) {
     // a missing file and an empty one hash apart, so a file that appears changes the hash
@@ -259,6 +262,25 @@ function resolveRulesFile(entry: unknown, from: ConfigLocation): unknown {
       ? `${REPO_PREFIX}${normalize(path.slice(REPO_PREFIX.length))}`
       : formatConfigLocation(parseConfigLocation(path, from, CONFIG_FILE)),
   };
+}
+
+// a resolved local rules path holds the checkout's folder, so the hash takes it relative to the repo,
+// and 2 checkouts of one commit hash alike wherever each one sits
+function buildHashedConfig(config: ReviewConfig, repoDir: string): ReviewConfig {
+  const root = resolve(repoDir);
+
+  return {
+    ...config,
+    rules:
+      config.rules?.map((file) => ({
+        ...file,
+        path: isLocalRulesPath(file.path) ? relative(root, resolve(file.path)) : file.path,
+      })) ?? null,
+  };
+}
+
+function isLocalRulesPath(path: string): boolean {
+  return !path.startsWith('github:') && !path.startsWith(REPO_PREFIX);
 }
 
 // a label reaches prompts, rule names and finding IDs, so an absolute path gives only its file name,
