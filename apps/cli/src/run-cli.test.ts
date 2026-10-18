@@ -388,6 +388,24 @@ test('it prints the merged config with the source of each key', async () => {
   });
 });
 
+test('it prints the config as JSON with only its config, sources, chain, missing rules and hash', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'review.json': '{ "adapter": "claude" }\n' } },
+  ]);
+
+  const code = await runCLI(
+    ['config', '--json'],
+    ctx.buildContext(repo.path, buildStubAdapter({}).adapter),
+  );
+
+  const output: unknown = JSON.parse(ctx.stdout.join(''));
+
+  expect(code).toBe(0);
+  expect(output).toContainAllKeys(['config', 'sources', 'chain', 'missingRules', 'hash']);
+});
+
 test('it names each repo: rules file that the repo does not hold', async () => {
   const ctx = await setupTest();
 
