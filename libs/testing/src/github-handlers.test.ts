@@ -126,7 +126,34 @@ test('it compares 2 commits as the commits after the base up to the head', async
 
   const compare: unknown = await response.json();
 
-  expect(compare).toStrictEqual({ commits: [{ sha: 'b'.repeat(40) }, { sha: 'c'.repeat(40) }] });
+  expect(compare).toStrictEqual({
+    commits: [{ sha: 'b'.repeat(40) }, { sha: 'c'.repeat(40) }],
+    files: [],
+  });
+});
+
+test('it lists the files of a compared range with each rename back to its path at the base', async () => {
+  for (const commit of [
+    { sha: 'a'.repeat(40), files: ['src/a.ts'], renames: {} },
+    { sha: 'b'.repeat(40), files: ['src/b.ts'], renames: { 'src/b.ts': 'src/a.ts' } },
+    { sha: 'c'.repeat(40), files: ['data/b.ts', 'src/c.ts'], renames: { 'data/b.ts': 'src/b.ts' } },
+  ]) {
+    await githubCollections.pullCommits.create({ owner: 'example', repo: 'app', ...commit });
+  }
+
+  const response = await fetch(
+    `${GITHUB_API_URL}/repos/example/app/compare/${'a'.repeat(40)}...${'c'.repeat(40)}`,
+  );
+
+  const compare: unknown = await response.json();
+
+  expect(compare).toStrictEqual({
+    commits: [{ sha: 'b'.repeat(40) }, { sha: 'c'.repeat(40) }],
+    files: [
+      { filename: 'data/b.ts', status: 'renamed', previous_filename: 'src/a.ts' },
+      { filename: 'src/c.ts' },
+    ],
+  });
 });
 
 test('it lists the files a commit changes and answers an unknown commit with not found', async () => {

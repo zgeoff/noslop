@@ -187,7 +187,12 @@ function splitOverflowingGroup(
   bound: readonly LeftOutFile[],
   files: readonly ChangedFile[],
 ): FittedFiles {
-  if (buildPartPrompt(input, files, bound).length <= input.maxCallChars) {
+  // the part's prompt lists every file of the call but its own, so the measure leaves its own out
+  const paths = new Set(files.map((file) => file.path));
+
+  const others = bound.filter((file) => !paths.has(file.path));
+
+  if (buildPartPrompt(input, files, others).length <= input.maxCallChars) {
     return { groups: [[...files]], overflow: [] };
   }
 

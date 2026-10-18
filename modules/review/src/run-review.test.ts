@@ -1018,6 +1018,12 @@ test('it splits a change over the prompt limit into calls that each fit and list
   expect(prompts.get('L-part-2')).toInclude(`export const c = '${'c'.repeat(400_000)}';`);
   expect(prompts.get('L-part-2')).not.toInclude(`'${'a'.repeat(1000)}`);
 
+  expect(stub.requests.map((request) => request.prompt)).toSatisfyAll(
+    (prompt: string) =>
+      !prompt.includes('{"text":"two"}') &&
+      prompt.includes('- `samples/corpus.jsonl`: a data file the config names'),
+  );
+
   expect(
     run.result.findings.map((finding) => [finding.callID, finding.title, finding.anchor.path]),
   ).toStrictEqual([['L-part-2', 'Load the table from a file', 'src/c.ts']]);

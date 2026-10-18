@@ -104,6 +104,77 @@ test('it splits a call over the limit into parts that each fit, with every file 
   expect(planned.notReviewed).toStrictEqual([]);
 });
 
+test('it keeps a file whose own part prompt fits the limit exactly', () => {
+  const shared = {
+    slices: buildMockSlices(),
+    rules: null,
+    title: 'feat: add the tables',
+    body: '',
+    linkedIssue: null,
+    base: 'a'.repeat(40),
+    head: 'b'.repeat(40),
+    isIncremental: false,
+  };
+
+  const files = ['src/a.ts', 'src/b.ts'].map((path) =>
+    buildMockChangedFile({
+      path,
+      oldPath: path,
+      hunks: [
+        {
+          oldStart: 0,
+          oldLines: 0,
+          newStart: 1,
+          newLines: 1,
+          lines: [{ kind: 'added', text: 'x'.repeat(5000), oldLine: null, newLine: 1 }],
+        },
+      ],
+    }),
+  );
+
+  const [first, second] = files;
+
+  if (first === undefined || second === undefined) {
+    throw new Error('the test builds 2 files');
+  }
+
+  const single = buildCallPrompt({
+    ...shared,
+    lenses: ['correctness'],
+    files: [first],
+    leftOut: [{ path: second.path, reason: 'other-part' }],
+  });
+
+  const planned = planCallParts({
+    call: {
+      callID: 'A',
+      lenses: ['correctness'],
+      effort: 'medium',
+      model: null,
+      timeoutMs: null,
+      files,
+    },
+    shared,
+    data: [],
+    maxCallChars: single.length,
+    maxFileChars: 250_000,
+    taken: new Set(['A']),
+  });
+
+  expect(
+    planned.parts.map((part) => [part.call.callID, part.call.files.map((file) => file.path)]),
+  ).toStrictEqual([
+    ['A', ['src/a.ts']],
+    ['A-part-2', ['src/b.ts']],
+  ]);
+
+  expect(planned.parts.map((part) => part.prompt.length)).toSatisfyAll(
+    (length: number) => length <= single.length,
+  );
+
+  expect(planned.notReviewed).toStrictEqual([]);
+});
+
 test('it names the files of the other parts in each part prompt', () => {
   const shared = {
     slices: buildMockSlices(),
@@ -155,8 +226,8 @@ test('it names the files of the other parts in each part prompt', () => {
   });
 
   expect(planned.parts.map((part) => part.prompt)).toStrictEqual([
-    expect.toInclude('- src/b.ts: read by another call of this review'),
-    expect.toInclude('- src/a.ts: read by another call of this review'),
+    expect.toInclude('- `src/b.ts`: read by another call of this review'),
+    expect.toInclude('- `src/a.ts`: read by another call of this review'),
   ]);
 });
 
@@ -343,7 +414,7 @@ test('it leaves a file that matches a data glob out of the call and lists it', (
   expect(planned.parts.map((part) => part.call.files)).toStrictEqual([[code]]);
 
   expect(planned.parts[0]?.prompt).toInclude(
-    '- samples/corpus.jsonl: a data file the config names',
+    '- `samples/corpus.jsonl`: a data file the config names',
   );
 
   expect(planned.notReviewed).toStrictEqual([{ path: 'samples/corpus.jsonl', reason: 'data' }]);
@@ -494,7 +565,7 @@ test('it lists a file that overflows a call alone as too large in the review and
     ['A', [code]],
   ]);
 
-  expect(planned.parts[0]?.prompt).toInclude('- src/table.ts: too large for one call');
+  expect(planned.parts[0]?.prompt).toInclude('- `src/table.ts`: too large for one call');
   expect(planned.notReviewed).toStrictEqual([{ path: 'src/table.ts', reason: 'too-large' }]);
 });
 

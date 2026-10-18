@@ -128,16 +128,19 @@ export const githubHandlers = [
     (info) => {
       const [base = '', head = ''] = info.params.basehead.split('...');
 
-      const commits = githubCollections.pullCommits
-        .findMany((q) => q.where({ owner: info.params.owner, repo: info.params.repo }))
-        .map((commit) => commit.sha);
+      const records = githubCollections.pullCommits.findMany((q) =>
+        q.where({ owner: info.params.owner, repo: info.params.repo }),
+      );
 
+      const commits = records.map((commit) => commit.sha);
       const start = commits.indexOf(base) + 1;
       const found = commits.indexOf(head);
       const end = found === -1 ? commits.length : found + 1;
+      const range = records.slice(start, end);
 
       return HttpResponse.json({
-        commits: commits.slice(start, end).map((sha) => ({ sha })),
+        commits: range.map((commit) => ({ sha: commit.sha })),
+        files: collectRangeFiles(range),
       });
     },
   ),
@@ -549,4 +552,35 @@ function toIssueCommentData(
     created_at: comment.createdAt,
     user: { login: comment.authorLogin, type: comment.authorType },
   };
+}
+
+// the files a range of commits changes, as GitHub's compare lists them: each path once, and a file
+// renamed over the range names the path it had at the range's base
+function collectRangeFiles(
+  range: readonly { files: string[]; renames: Record<string, string> }[],
+): { filename: string; status?: string; previous_filename?: string }[] {
+  const origins = new Map<string, string>();
+  const paths = new Set<string>();
+
+  for (const commit of range) {
+    for (const path of commit.files) {
+      const previous = commit.renames[path];
+
+      if (previous !== undefined) {
+        origins.set(path, origins.get(previous) ?? previous);
+        origins.delete(previous);
+        paths.delete(previous);
+      }
+
+      paths.add(path);
+    }
+  }
+
+  return [...paths].map((filename) => {
+    const origin = origins.get(filename);
+
+    return origin === undefined
+      ? { filename }
+      : { filename, status: 'renamed', previous_filename: origin };
+  });
 }

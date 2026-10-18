@@ -162,13 +162,14 @@ reports the finding. The commit may change any file, because a fix such as a mis
 beside the finding's file. The commit must also come after the head of the review that posted the
 finding, which the finding's marker keeps, so a full review over the whole branch never confirms a
 fix through an older commit. A re-review read nothing of a fix when it left the finding's file, or a
-file the fix commit changes or renames, out of every call, so it confirms no such fix. When GitHub
-cannot list the files of the fix commit whole, the fix stays unconfirmed and the summary names the
-failure. The summary marker keeps each confirmed fix as the finding id and the commit, so a later
-delta without the commit keeps the confirmation. A fix that a re-review still reports stays
-unconfirmed, and a later delta without the commit leaves it unconfirmed. The re-review reads the
-dispositions present when it runs, so a `fixed` reply posted after the re-review of its commit finds
-no review that read it, and the check keeps the finding open.
+file the fix commit changes or renames, out of every call, so it confirms no such fix. A later
+commit that renames the fixed file into a left-out path counts the same way. When GitHub cannot list
+the files of the fix commit whole, the fix stays unconfirmed and the summary names the failure. The
+summary marker keeps each confirmed fix as the finding id and the commit, so a later delta without
+the commit keeps the confirmation. A fix that a re-review still reports stays unconfirmed, and a
+later delta without the commit leaves it unconfirmed. The re-review reads the dispositions present
+when it runs, so a `fixed` reply posted after the re-review of its commit finds no review that read
+it, and the check keeps the finding open.
 
 The re-check is the second review of a pull request. From the third review on, the reporter sends
 each new finding in code the change did not write to a follow-up issue. A security finding, and any

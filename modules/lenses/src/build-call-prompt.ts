@@ -1,4 +1,5 @@
 import type { LensID, NotReviewedFile } from '@noslop/contract';
+import { formatPathCode } from '@noslop/contract';
 import type { ChangedFile, Slices } from '@noslop/static-stage';
 import { getLensPrompt } from './get-lens-prompt';
 import { LENS_INPUTS } from './lens-inputs';
@@ -145,6 +146,8 @@ function renderLeftOut(files: readonly LeftOutFile[]): string {
   return [
     '## Files left out',
     'The change holds these files, but this input leaves out their hunks and slices. Report no finding on what they hold, and no finding that their change is missing.',
-    files.map((file) => `- ${file.path}: ${LEFT_OUT_REASONS[file.reason]}`).join('\n'),
+    files
+      .map((file) => `- ${formatPathCode(file.path)}: ${LEFT_OUT_REASONS[file.reason]}`)
+      .join('\n'),
   ].join('\n\n');
 }
