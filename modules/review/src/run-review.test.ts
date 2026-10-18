@@ -885,6 +885,51 @@ test('it gives the calls only the reference rules whose globs match a changed pa
   expect(prompt).not.toInclude('references/nix.md');
 });
 
+test('it runs no call and records no lens as run when the file limit leaves out every file', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'README.txt': 'tables\n' } },
+    {
+      message: 'head',
+      files: {
+        'README.txt': 'tables\n',
+        'src/table.ts': `export const table = '${'t'.repeat(300_000)}';\n`,
+      },
+    },
+  ]);
+
+  const stub = buildStubAdapter({});
+
+  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+
+  const run = await runReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/tables',
+    base: repo.commits[0] ?? '',
+    head: repo.commits[1] ?? '',
+    config: BUILT_IN_DEFAULTS,
+    configHash: 'hash',
+    rules: null,
+    adapter: stub.adapter,
+    logger: ctx.logger,
+    tempDir: join(ctx.dir, 'temp'),
+    cacheDir: null,
+    title: 'Add the table',
+    body: '',
+    linkedIssue: null,
+    pullRequest: null,
+    isPush: false,
+    pastEscapes: [],
+  });
+
+  expect(stub.requests).toStrictEqual([]);
+  expect(run.result.calls).toStrictEqual([]);
+  expect(run.result.lenses).toStrictEqual([]);
+  expect(run.result.notReviewed).toStrictEqual([{ path: 'src/table.ts', reason: 'too-large' }]);
+});
+
 test('it records no lens as run when every file overflows a call alone', async () => {
   const ctx = await setupTest();
 

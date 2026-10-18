@@ -104,6 +104,86 @@ test('it splits a call over the limit into parts that each fit, with every file 
   expect(planned.notReviewed).toStrictEqual([]);
 });
 
+test('it splits a call with many data files by the reasons its part prompts list', () => {
+  const shared = {
+    slices: buildMockSlices(),
+    rules: null,
+    title: 'feat: add the tables',
+    body: '',
+    linkedIssue: null,
+    base: 'a'.repeat(40),
+    head: 'b'.repeat(40),
+    isIncremental: false,
+  };
+
+  const corpora = Array.from({ length: 1000 }, (_, index) =>
+    buildMockChangedFile({
+      path: `samples/corpus-${index}.jsonl`,
+      oldPath: `samples/corpus-${index}.jsonl`,
+      kind: 'other',
+    }),
+  );
+
+  const code = ['src/a.ts', 'src/b.ts'].map((path) =>
+    buildMockChangedFile({
+      path,
+      oldPath: path,
+      hunks: [
+        {
+          oldStart: 0,
+          oldLines: 0,
+          newStart: 1,
+          newLines: 1,
+          lines: [{ kind: 'added', text: 'x'.repeat(5000), oldLine: null, newLine: 1 }],
+        },
+      ],
+    }),
+  );
+
+  const [first, second] = code;
+
+  if (first === undefined || second === undefined) {
+    throw new Error('the test builds 2 code files');
+  }
+
+  const single = buildCallPrompt({
+    ...shared,
+    lenses: ['correctness'],
+    files: [first],
+    leftOut: [
+      ...corpora.map((file) => ({ path: file.path, reason: 'data' as const })),
+      { path: second.path, reason: 'other-part' },
+    ],
+  });
+
+  const planned = planCallParts({
+    call: {
+      callID: 'A',
+      lenses: ['correctness'],
+      effort: 'medium',
+      model: null,
+      timeoutMs: null,
+      files: [...corpora, ...code],
+    },
+    shared,
+    data: ['samples/**'],
+    maxCallChars: single.length,
+    maxFileChars: 250_000,
+    taken: new Set(['A']),
+  });
+
+  expect(
+    planned.parts.map((part) => [part.call.callID, part.call.files.map((file) => file.path)]),
+  ).toStrictEqual([
+    ['A', ['src/a.ts']],
+    ['A-part-2', ['src/b.ts']],
+  ]);
+
+  expect(planned.parts.map((part) => part.prompt.length)).toSatisfyAll(
+    (length: number) => length <= single.length,
+  );
+});
+
 test('it keeps a file whose own part prompt fits the limit exactly', () => {
   const shared = {
     slices: buildMockSlices(),

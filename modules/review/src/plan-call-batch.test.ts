@@ -116,7 +116,7 @@ test('it lists no file as not reviewed when another call reads its hunks', () =>
     maxFileChars: 2000,
   });
 
-  expect(plan.parts.map((part) => part.call.callID)).toStrictEqual(['A', 'E']);
+  expect(plan.parts.map((part) => part.call.callID)).toStrictEqual(['E']);
   expect(plan.notReviewed).toStrictEqual([]);
 });
 

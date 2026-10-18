@@ -353,7 +353,9 @@ async function buildConfirmations(
   const latest = new Map(dispositions.map((item) => [item.findingID, item]));
   const reported = new Set(result.findings.map((finding) => finding.id));
 
-  // a review that left the finding's file out read nothing of it, so its silence confirms no fix
+  // a review that left the finding's file out read nothing of it, so its silence confirms no fix; a
+  // not-reviewed file never fails the check alone, but a pending fix that reaches one stays
+  // unconfirmed, and its open finding fails the check
   const skipped = new Set(result.notReviewed.map((file) => file.path));
   const confirmed = new Set(before.summary?.marker.confirmed);
   const sincePosted = new Map<string, Promise<string[]>>();

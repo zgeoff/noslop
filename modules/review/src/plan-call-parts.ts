@@ -57,6 +57,12 @@ export function planCallParts(input: CallPartsInput): CallParts {
     kept.push({ file, size });
   }
 
+  // a call whose every file is left out has nothing to read, so it runs no part and none of its
+  // lenses counts as run
+  if (kept.length === 0 && input.call.files.length > 0) {
+    return { parts: [], notReviewed: leftOut };
+  }
+
   const keptCall = { ...input.call, files: kept.map((item) => item.file) };
   const whole = buildPartPrompt(input, keptCall.files, leftOut);
 
@@ -64,9 +70,15 @@ export function planCallParts(input: CallPartsInput): CallParts {
     return { parts: [{ call: keptCall, prompt: whole }], notReviewed: leftOut };
   }
 
-  // each part lists every file of the call it leaves out, so the fit measures a list of every file
-  // under the longest reason, which no part's own list passes
-  const bound = pickLongestLeftOut(input);
+  // each part lists every file of the call it leaves out, so the fit measures a list of every file:
+  // a left-out file under its own reason, and a kept file as read by another call, the reason whose
+  // text is longer than the too-large reason a file that overflows alone takes instead
+  const reasons = new Map(leftOut.map((file) => [file.path, file] as const));
+
+  const bound = input.call.files.map(
+    (file): LeftOutFile => reasons.get(file.path) ?? { path: file.path, reason: 'other-part' },
+  );
+
   const base = buildPartPrompt(input, [], bound).length;
 
   // the input around the files overflows alone, such as a pull request body over the limit; the call
@@ -121,22 +133,6 @@ function buildPartPrompt(
   leftOut: readonly LeftOutFile[],
 ): string {
   return buildCallPrompt({ ...input.shared, lenses: input.call.lenses, files, leftOut });
-}
-
-const LEFT_OUT_REASONS = [
-  'data',
-  'too-large',
-  'other-part',
-] as const satisfies readonly LeftOutFile['reason'][];
-
-function pickLongestLeftOut(input: CallPartsInput): LeftOutFile[] {
-  const lists = LEFT_OUT_REASONS.map((reason) =>
-    input.call.files.map((file) => ({ path: file.path, reason })),
-  );
-
-  const sized = lists.map((list) => ({ list, size: buildPartPrompt(input, [], list).length }));
-
-  return sized.toSorted((a, b) => b.size - a.size)[0]?.list ?? [];
 }
 
 interface FittedFiles {
