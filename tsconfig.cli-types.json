@@ -11,5 +11,10 @@
       ]
     }
   },
-  "include": ["apps/cli/src/index.ts", "apps/cli/src/contract.ts", "apps/cli/src/verify.ts"]
+  "include": [
+    "apps/cli/src/index.ts",
+    "apps/cli/src/contract.ts",
+    "apps/cli/src/verify.ts",
+    "apps/cli/src/post.ts"
+  ]
 }
