@@ -112,8 +112,6 @@ noslop config
    source in parentheses is the last file that set `rules`.
 3. Each `repo:` file the repo lacks prints its own line:
    `rules file not in this repo, so no rules from it: <label>`.
-4. An entry that lists `skip` prints a `warning:` line, because noslop reads each file whole and
-   ignores the list.
 
 The first line, `config <hash>`, changes when the config or the text of any rules file changes. Two
 reviews with the same hash ran under the same rules, so you can compare their findings in the

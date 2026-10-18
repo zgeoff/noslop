@@ -39,8 +39,6 @@ export interface LoadedConfig {
   // the labels of the `repo:` files and references the repo lacks, which hold no rule
   missingRules: string[];
 
-  // what the config holds that noslop ignores, such as a rules file's skip list
-  warnings: string[];
   hash: string;
 }
 
@@ -103,13 +101,6 @@ export async function loadConfig(options: LoadConfigOptions): Promise<LoadedConf
     chain: files.map((file) => formatConfigLocation(file.location)),
     rules: rules === null ? null : rules.flatMap((source) => buildRules(source)),
     missingRules: (rules ?? []).flatMap((source) => (source.text === null ? [source.label] : [])),
-    warnings: (config.rules ?? []).flatMap((file) =>
-      file.skip === undefined
-        ? []
-        : [
-            `the rules file ${file.label ?? buildRulesLabel(file.path)} lists skip, which noslop ignores, since it reads each rules file whole`,
-          ],
-    ),
     hash: hash.digest('hex').slice(0, 16),
   };
 }

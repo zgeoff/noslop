@@ -56,10 +56,6 @@ export async function runReviewCommand(values: ReviewValues, ctx: CLIContext): P
     });
   }
 
-  for (const warning of loaded.warnings) {
-    ctx.logger.warn('{warning}', { warning });
-  }
-
   const adapterID = values.adapter ?? loaded.config.adapter ?? 'codex';
 
   const adapter = buildConfiguredAdapter(

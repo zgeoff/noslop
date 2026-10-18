@@ -404,28 +404,6 @@ test('it names each repo: rules file that the repo does not hold', async () => {
   );
 });
 
-test('it warns in the printed config on a rules file that lists skip', async () => {
-  const ctx = await setupTest();
-
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
-    {
-      message: 'base',
-      files: {
-        'review.json': '{ "rules": [{ "path": "RULES.md", "skip": ["Loading the skill"] }] }\n',
-        'RULES.md': '## Naming\n\n1. Start a function name with a verb.\n',
-      },
-    },
-  ]);
-
-  const code = await runCLI(['config'], ctx.buildContext(repo.path, buildStubAdapter({}).adapter));
-
-  expect(code).toBe(0);
-
-  expect(ctx.stdout.join('')).toInclude(
-    'warning: the rules file RULES.md lists skip, which noslop ignores, since it reads each rules file whole',
-  );
-});
-
 test('it exits 1 and names the problem when a command fails', async () => {
   const ctx = await setupTest();
 

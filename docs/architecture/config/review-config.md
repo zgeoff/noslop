@@ -60,8 +60,7 @@ The `rules` value is one path, or a list whose entries are paths or objects with
 `references` map. Each path resolves against the file that names it, as `extends` does, so a parent
 in a shared config repo can name a rules file that sits beside it. A `repo:` path resolves against
 the reviewed repo instead, so that parent can name a file each repo holds. The module reads each
-file and each reference as one rule, whole. The load ignores an entry's `skip` list and warns about
-it, in `noslop config` and in the review's log. [Your own rules](./your-own-rules.md) covers how a
+file and each reference as one rule, whole. [Your own rules](./your-own-rules.md) covers how a
 review picks the rules that apply to its change.
 
 ## What a review records
