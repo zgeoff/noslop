@@ -1658,10 +1658,17 @@ test('it posts a verified review result to its pull request as the App', async (
     lines: [2],
   });
 
+  await githubCollections.branches.create({
+    owner: 'example',
+    repo: 'app',
+    name: 'main',
+    sha: repo.commits[0] ?? '',
+  });
+
   await githubCollections.files.create({
     owner: 'example',
     repo: 'app',
-    ref: 'main',
+    ref: repo.commits[0] ?? '',
     path: 'review.json',
     content: '{}\n',
   });
@@ -1730,10 +1737,17 @@ test('it refuses to post a result that does not verify and posts nothing', async
     headSha: 'c'.repeat(40),
   });
 
+  await githubCollections.branches.create({
+    owner: 'example',
+    repo: 'app',
+    name: 'main',
+    sha: 'a'.repeat(40),
+  });
+
   await githubCollections.files.create({
     owner: 'example',
     repo: 'app',
-    ref: 'main',
+    ref: 'a'.repeat(40),
     path: 'review.json',
     content: '{}\n',
   });

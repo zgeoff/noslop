@@ -527,6 +527,7 @@ test('it files a new finding in code the change did not write as one issue after
   for (const head of ['b', 'c']) {
     await ctx.reporter.report(
       buildMockReviewResult({
+        reviewID: `review-${head}`,
         pullRequest: { owner: 'example', repo: 'app', number: 5 },
         head: head.repeat(40),
         findings: [],
@@ -561,6 +562,31 @@ test('it files a new finding in code the change did not write as one issue after
   expect(githubCollections.reviewComments.all().map((comment) => comment.body)).toSatisfyAll(
     (body: string) => body.includes('Await the new write'),
   );
+});
+
+test('it counts a second post of one review result as one review', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'b'.repeat(40),
+  });
+
+  const result = buildMockReviewResult({
+    reviewID: 'review-7',
+    pullRequest: { owner: 'example', repo: 'app', number: 5 },
+    head: 'b'.repeat(40),
+  });
+
+  await ctx.reporter.report(result, { logger: ctx.logger, options: {}, failedReporters: [] });
+  await ctx.reporter.report(result, { logger: ctx.logger, options: {}, failedReporters: [] });
+
+  const summaries = githubCollections.issueComments.all().map((comment) => comment.body);
+
+  expect(summaries).toHaveLength(1);
+  expect(summaries[0]).toInclude('"reviews":1,"reviewID":"review-7"');
 });
 
 test('it answers a free-text reply once with the accepted forms', async () => {

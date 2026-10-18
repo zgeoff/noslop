@@ -42,7 +42,10 @@ export function createGitHubReporter(options: GitHubReporterOptions): Reporter {
 
       const posted = new Set([...before.threads.map((thread) => thread.marker.id), ...filed]);
 
-      const reviews = (before.summary?.marker.reviews ?? 0) + 1;
+      // a post of the result the summary already holds, such as a retry after a failed request, is
+      // the same review, so it never moves a pull request toward the re-check limit
+      const isRepost = before.summary?.marker.reviewID === result.reviewID;
+      const reviews = (before.summary?.marker.reviews ?? 0) + (isRepost ? 0 : 1);
       const fresh = result.findings.filter((finding) => !posted.has(finding.id));
 
       const followUps =
@@ -75,6 +78,7 @@ export function createGitHubReporter(options: GitHubReporterOptions): Reporter {
       const marker = {
         head: result.head,
         reviews,
+        reviewID: result.reviewID,
         reported: result.findings.map((finding) => finding.id),
         failedCalls: result.failedCalls.length,
         followUps: [...filed, ...followUps.map((finding) => finding.id)],

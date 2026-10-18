@@ -224,7 +224,11 @@ export async function runCLI(argv: readonly string[], ctx: CLIContext): Promise<
     name: 'post',
     description: 'Post a review result to its pull request as the App, once it verifies',
     args: {
-      file: { type: 'positional', description: 'The file that holds the review result as JSON' },
+      file: {
+        type: 'positional',
+        description: 'The file that holds the review result as JSON',
+        required: true,
+      },
       verify: {
         type: 'boolean',
         negatable: true,

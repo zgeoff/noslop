@@ -10,9 +10,9 @@ export interface SendDependencies {
   logger: Logger;
 }
 
-// posts a review result to its pull request as the App, through the GitHub reporter: the findings,
-// the summary and the check run; it verifies the result first and refuses one that does not verify,
-// unless the caller turns verification off
+// posts a review result as the App through the GitHub reporter, which counts a second post of one
+// result, such as a retry, as one review; it verifies the result first and refuses one that does not
+// verify, unless the caller turns verification off
 export async function sendReviewResult(
   input: unknown,
   deps: SendDependencies,

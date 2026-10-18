@@ -1,9 +1,9 @@
 import type { CLIContext } from './cli-context';
-import { readResultFile } from './read-result-file';
+import { loadResultFile } from './load-result-file';
 import { sendReviewResult } from './send-review-result';
 
 export interface PostValues {
-  file: string | undefined;
+  file: string;
 
   // false under --no-verify
   verify: boolean;
@@ -12,7 +12,7 @@ export interface PostValues {
 // posts the review result in a file to its pull request as the App; it exits 0 once the result is
 // posted, and a result that does not verify exits 1 with nothing posted
 export async function runPostCommand(values: PostValues, ctx: CLIContext): Promise<number> {
-  const input = await readResultFile(ctx, values.file);
+  const input = await loadResultFile(ctx, values.file);
 
   const result = await sendReviewResult(
     input,
