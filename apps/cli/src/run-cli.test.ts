@@ -2379,7 +2379,7 @@ test('it plans the intent call under --static for a case with a linked issue', a
   const written: unknown = await Bun.file(join(ctx.dir, 'out', 'static.json')).json();
 
   expect(written).toMatchObject({
-    runs: [{ caseID: 'case-a', plan: { depth: 'standard', calls: expect.arrayContaining(['E']) } }],
+    runs: [{ caseID: 'case-a', plan: { depth: 'standard', calls: ['A', 'E'] } }],
   });
 });
 
