@@ -1269,7 +1269,7 @@ test('it refuses to review again the head that a review with no failed call cove
   expect(code).toBe(1);
 
   expect(ctx.stderr.join('')).toStartWith(
-    `noslop: noslop already reviewed ${(repo.commits[1] ?? '').slice(0, 12)}, the head of the pull request; push a commit to review it, or pass --full to review the whole change again`,
+    `noslop: a review with no failed call already covered ${(repo.commits[1] ?? '').slice(0, 12)}, the head of the pull request; push a commit to review it, or pass --full to review the whole change again`,
   );
 
   expect(stub.requests).toStrictEqual([]);

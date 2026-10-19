@@ -314,7 +314,7 @@ async function resolvePullRequestChange(
   // whole change again and raise its findings anew, so it runs only under --full
   if (!values.full && !values.fixesOnly && findLensHead(summary) === state.headSha) {
     throw new Error(
-      `noslop already reviewed ${state.headSha.slice(0, 12)}, the head of the pull request; push a commit to review it, or pass --full to review the whole change again`,
+      `a review with no failed call already covered ${state.headSha.slice(0, 12)}, the head of the pull request; push a commit to review it, or pass --full to review the whole change again`,
     );
   }
 
