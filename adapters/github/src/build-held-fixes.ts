@@ -4,7 +4,7 @@ import { pickFixVerdict } from './pick-fix-verdict';
 
 // one kept range as the verdict reads it: the findings it reported, and the confirmations read
 // against it, which a partial range never has
-export interface HeldRange {
+interface HeldRange {
   reported: readonly string[];
   confirmations: readonly FixConfirmation[];
 }
