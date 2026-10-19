@@ -7,17 +7,17 @@ import { createTestRepo } from '@noslop/testing';
 import { readFilesAtCommit } from './read-files-at-commit';
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'noslop-cat-file-'));
+  const directory = await mkdtemp(join(tmpdir(), 'noslop-cat-file-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  return { dir, runner: createRunner() };
+  return { directory, runner: createRunner() };
 }
 
 test('it reads each file at the commit and leaves out a path the commit lacks', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: { 'src/a.ts': 'export const a = 1;\n\n', 'src/é b.ts': 'export const b = "é";\n' },

@@ -8,17 +8,17 @@ import { createTestRepo } from '@noslop/testing';
 import { loadBaseIndex } from './load-base-index';
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'noslop-base-index-'));
+  const directory = await mkdtemp(join(tmpdir(), 'noslop-base-index-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  return { dir, cacheDir: join(dir, 'cache'), runner: createRunner() };
+  return { directory, cacheDir: join(directory, 'cache'), runner: createRunner() };
 }
 
 test('it gives 2 loads of one base at once the same index and leaves one cache file', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: {

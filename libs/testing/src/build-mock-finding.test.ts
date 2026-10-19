@@ -12,6 +12,6 @@ test('it applies overrides on top of the defaults', () => {
   expect(buildMockFinding({ lens: 'security', severity: 'P1' })).toMatchObject({
     lens: 'security',
     severity: 'P1',
-    callID: 'L',
+    callID: 'light',
   });
 });

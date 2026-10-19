@@ -75,10 +75,14 @@ function findOwningManifest(
 ): PackageManifest | null {
   const owners = manifests.filter(
     (manifest) =>
-      manifest.dir === '.' || path === manifest.path || path.startsWith(`${manifest.dir}/`),
+      manifest.directory === '.' ||
+      path === manifest.path ||
+      path.startsWith(`${manifest.directory}/`),
   );
 
-  return owners.toSorted((left, right) => right.dir.length - left.dir.length)[0] ?? null;
+  return (
+    owners.toSorted((left, right) => right.directory.length - left.directory.length)[0] ?? null
+  );
 }
 
 function collectConsumers(owner: PackageManifest, inputs: EdgeInputs): EdgeEntry['consumers'] {

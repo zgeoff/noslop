@@ -7,11 +7,11 @@ import { buildMockReviewResult } from '@noslop/testing';
 import { createJSONReporter } from './create-json-reporter';
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'noslop-json-'));
+  const directory = await mkdtemp(join(tmpdir(), 'noslop-json-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  return { dir };
+  return { directory };
 }
 
 test('it writes the result to the file its options name', async () => {
@@ -25,11 +25,11 @@ test('it writes the result to the file its options name', async () => {
 
   await reporter.report(buildMockReviewResult(), {
     logger: getLogger(['test']),
-    options: { path: join(ctx.dir, 'result.json') },
+    options: { path: join(ctx.directory, 'result.json') },
     failedReporters: [],
   });
 
-  const saved: unknown = await Bun.file(join(ctx.dir, 'result.json')).json();
+  const saved: unknown = await Bun.file(join(ctx.directory, 'result.json')).json();
 
   expect([saved, written]).toStrictEqual([buildMockReviewResult(), []]);
 });

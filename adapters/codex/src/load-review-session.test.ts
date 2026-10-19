@@ -5,17 +5,17 @@ import { join } from 'node:path';
 import { loadReviewSession } from './load-review-session';
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'noslop-codex-sessions-'));
+  const directory = await mkdtemp(join(tmpdir(), 'noslop-codex-sessions-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  return { dir };
+  return { directory };
 }
 
 test('it sums the last count of the review thread and each thread it started', async () => {
   const ctx = await setupTest();
 
-  const day = join(ctx.dir, 'sessions', '2026', '10', '18');
+  const day = join(ctx.directory, 'sessions', '2026', '10', '18');
 
   await Bun.write(
     join(day, 'rollout-parent.jsonl'),
@@ -45,7 +45,7 @@ test('it sums the last count of the review thread and each thread it started', a
   );
 
   const session = await loadReviewSession({
-    codexHome: ctx.dir,
+    codexHome: ctx.directory,
     threadID: 't_parent',
     since: new Date(2026, 9, 17).getTime(),
   });
@@ -63,7 +63,7 @@ test('it sums the last count of the review thread and each thread it started', a
 test('it skips a session file written before the review started', async () => {
   const ctx = await setupTest();
 
-  const file = join(ctx.dir, 'sessions', '2026', '10', '18', 'rollout-child.jsonl');
+  const file = join(ctx.directory, 'sessions', '2026', '10', '18', 'rollout-child.jsonl');
 
   await Bun.write(
     file,
@@ -76,7 +76,7 @@ test('it skips a session file written before the review started', async () => {
   await utimes(file, new Date(2026, 9, 16), new Date(2026, 9, 16));
 
   const session = await loadReviewSession({
-    codexHome: ctx.dir,
+    codexHome: ctx.directory,
     threadID: 't_parent',
     since: new Date(2026, 9, 17).getTime(),
   });
@@ -91,7 +91,7 @@ test('it skips a session file written before the review started', async () => {
 test('it skips a session file that cannot be read once it is listed', async () => {
   const ctx = await setupTest();
 
-  const day = join(ctx.dir, 'sessions', '2026', '10', '18');
+  const day = join(ctx.directory, 'sessions', '2026', '10', '18');
 
   await Bun.write(
     join(day, 'rollout-child.jsonl'),
@@ -107,7 +107,7 @@ test('it skips a session file that cannot be read once it is listed', async () =
   await mkdir(join(day, 'rollout-folder.jsonl'));
 
   const session = await loadReviewSession({
-    codexHome: ctx.dir,
+    codexHome: ctx.directory,
     threadID: 't_parent',
     since: new Date(2026, 9, 17).getTime(),
   });
@@ -122,12 +122,12 @@ test('it skips a session file that cannot be read once it is listed', async () =
 test('it finds no review thread when only the parent thread has a session', async () => {
   const ctx = await setupTest();
 
-  const file = join(ctx.dir, 'sessions', '2026', '10', '18', 'rollout-parent.jsonl');
+  const file = join(ctx.directory, 'sessions', '2026', '10', '18', 'rollout-parent.jsonl');
 
   await Bun.write(file, '{"type":"session_meta","payload":{"id":"t_parent","source":"exec"}}');
 
   const session = await loadReviewSession({
-    codexHome: ctx.dir,
+    codexHome: ctx.directory,
     threadID: 't_parent',
     since: new Date(2026, 9, 17).getTime(),
   });

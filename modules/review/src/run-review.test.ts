@@ -10,17 +10,17 @@ import { buildStubAdapter, createTestRepo } from '@noslop/testing';
 import { runReview } from './run-review';
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'noslop-review-'));
+  const directory = await mkdtemp(join(tmpdir(), 'noslop-review-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  return { dir, runner: createRunner(), logger: getLogger(['test']) };
+  return { directory, runner: createRunner(), logger: getLogger(['test']) };
 }
 
 test('it reviews a small change at Light and reports the finding of its one call', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
     {
       message: 'head',
@@ -38,7 +38,7 @@ test('it reviews a small change at Light and reports the finding of its one call
   ]);
 
   const stub = buildStubAdapter({
-    L: [
+    light: [
       {
         findings: {
           correctness: [
@@ -64,7 +64,7 @@ test('it reviews a small change at Light and reports the finding of its one call
     ],
   });
 
-  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+  await Bun.write(join(ctx.directory, 'temp', '.keep'), '');
 
   const run = await runReview({
     runner: ctx.runner,
@@ -77,7 +77,7 @@ test('it reviews a small change at Light and reports the finding of its one call
     rules: null,
     adapter: stub.adapter,
     logger: ctx.logger,
-    tempDir: join(ctx.dir, 'temp'),
+    tempDir: join(ctx.directory, 'temp'),
     cacheDir: null,
     title: 'Add the total',
     body: '',
@@ -96,7 +96,7 @@ test('it reviews a small change at Light and reports the finding of its one call
   ]).toStrictEqual([
     'light',
     ['correctness', 'naming-shape-and-comments', 'tests'],
-    [['L', 'ok', 1]],
+    [['light', 'ok', 1]],
     [
       [
         'Count the first item in the total',
@@ -111,7 +111,7 @@ test('it reviews a small change at Light and reports the finding of its one call
 test('it merges the findings that the merge pass groups into the one with the higher severity', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/queue.ts': 'export const queue: string[] = [];\n' } },
     {
       message: 'head',
@@ -130,7 +130,7 @@ test('it merges the findings that the merge pass groups into the one with the hi
   ]);
 
   const stub = buildStubAdapter({
-    L: [
+    light: [
       {
         findings: {
           correctness: [
@@ -191,7 +191,7 @@ test('it merges the findings that the merge pass groups into the one with the hi
     ],
   });
 
-  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+  await Bun.write(join(ctx.directory, 'temp', '.keep'), '');
 
   const run = await runReview({
     runner: ctx.runner,
@@ -205,7 +205,7 @@ test('it merges the findings that the merge pass groups into the one with the hi
     rules: null,
     adapter: stub.adapter,
     logger: ctx.logger,
-    tempDir: join(ctx.dir, 'temp'),
+    tempDir: join(ctx.directory, 'temp'),
     cacheDir: null,
     title: 'Flush the queue',
     body: '',
@@ -222,7 +222,7 @@ test('it merges the findings that the merge pass groups into the one with the hi
   expect(
     run.result.calls.map((call) => [call.id, call.status, call.model, call.effort]),
   ).toStrictEqual([
-    ['L', 'ok', null, 'low'],
+    ['light', 'ok', null, 'low'],
     ['merge', 'ok', 'small-model', 'low'],
   ]);
 });
@@ -230,7 +230,7 @@ test('it merges the findings that the merge pass groups into the one with the hi
 test('it runs no merge pass when the config turns it off', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/queue.ts': 'export const queue: string[] = [];\n' } },
     {
       message: 'head',
@@ -249,7 +249,7 @@ test('it runs no merge pass when the config turns it off', async () => {
   ]);
 
   const stub = buildStubAdapter({
-    L: [
+    light: [
       {
         findings: {
           correctness: [
@@ -290,7 +290,7 @@ test('it runs no merge pass when the config turns it off', async () => {
     ],
   });
 
-  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+  await Bun.write(join(ctx.directory, 'temp', '.keep'), '');
 
   const run = await runReview({
     runner: ctx.runner,
@@ -303,7 +303,7 @@ test('it runs no merge pass when the config turns it off', async () => {
     rules: null,
     adapter: stub.adapter,
     logger: ctx.logger,
-    tempDir: join(ctx.dir, 'temp'),
+    tempDir: join(ctx.directory, 'temp'),
     cacheDir: null,
     title: 'Flush the queue',
     body: '',
@@ -313,14 +313,14 @@ test('it runs no merge pass when the config turns it off', async () => {
     pastEscapes: [],
   });
 
-  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['L']);
+  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['light']);
   expect(run.result.findings).toHaveLength(2);
 });
 
 test('it keeps every finding and records the merge call as failed when the merge pass fails', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/queue.ts': 'export const queue: string[] = [];\n' } },
     {
       message: 'head',
@@ -339,7 +339,7 @@ test('it keeps every finding and records the merge call as failed when the merge
   ]);
 
   const stub = buildStubAdapter({
-    L: [
+    light: [
       {
         findings: {
           correctness: [
@@ -381,7 +381,7 @@ test('it keeps every finding and records the merge call as failed when the merge
     merge: [{ error: 'codex exited 1 on call merge' }],
   });
 
-  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+  await Bun.write(join(ctx.directory, 'temp', '.keep'), '');
 
   const run = await runReview({
     runner: ctx.runner,
@@ -394,7 +394,7 @@ test('it keeps every finding and records the merge call as failed when the merge
     rules: null,
     adapter: stub.adapter,
     logger: ctx.logger,
-    tempDir: join(ctx.dir, 'temp'),
+    tempDir: join(ctx.directory, 'temp'),
     cacheDir: null,
     title: 'Flush the queue',
     body: '',
@@ -407,7 +407,7 @@ test('it keeps every finding and records the merge call as failed when the merge
   expect(run.result.findings).toHaveLength(2);
 
   expect(run.result.calls.map((call) => [call.id, call.status])).toStrictEqual([
-    ['L', 'ok'],
+    ['light', 'ok'],
     ['merge', 'failed'],
   ]);
 
@@ -417,7 +417,7 @@ test('it keeps every finding and records the merge call as failed when the merge
 test('it keeps the files of the secrets risk class out of the worktree the calls read', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: { 'src/total.ts': 'export const zero = 0;\n', '.env.local': 'TOKEN=example\n' },
@@ -429,10 +429,10 @@ test('it keeps the files of the secrets risk class out of the worktree the calls
   ]);
 
   const stub = buildStubAdapter({
-    L: [{ findings: { correctness: [], 'naming-shape-and-comments': [], tests: [] } }],
+    light: [{ findings: { correctness: [], 'naming-shape-and-comments': [], tests: [] } }],
   });
 
-  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+  await Bun.write(join(ctx.directory, 'temp', '.keep'), '');
 
   await runReview({
     runner: ctx.runner,
@@ -445,7 +445,7 @@ test('it keeps the files of the secrets risk class out of the worktree the calls
     rules: null,
     adapter: stub.adapter,
     logger: ctx.logger,
-    tempDir: join(ctx.dir, 'temp'),
+    tempDir: join(ctx.directory, 'temp'),
     cacheDir: null,
     title: 'Add one',
     body: '',
@@ -465,7 +465,7 @@ test('it keeps the files of the secrets risk class out of the worktree the calls
 test('it removes a submodule folder that the secrets risk class names and runs the calls', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
     {
       message: 'head',
@@ -492,7 +492,7 @@ test('it removes a submodule folder that the secrets risk class names and runs t
 
   const stub = buildStubAdapter({});
 
-  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+  await Bun.write(join(ctx.directory, 'temp', '.keep'), '');
 
   await runReview({
     runner: ctx.runner,
@@ -505,7 +505,7 @@ test('it removes a submodule folder that the secrets risk class names and runs t
     rules: null,
     adapter: stub.adapter,
     logger: ctx.logger,
-    tempDir: join(ctx.dir, 'temp'),
+    tempDir: join(ctx.directory, 'temp'),
     cacheDir: null,
     title: 'Add one',
     body: '',
@@ -521,16 +521,16 @@ test('it removes a submodule folder that the secrets risk class names and runs t
 test('it retries a failed call once and lists a call that fails twice', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/a.ts': 'export const a = 1;\n' } },
     { message: 'head', files: { 'src/a.ts': 'export const a = 2;\n' } },
   ]);
 
   const stub = buildStubAdapter({
-    L: [{ error: 'codex timed out' }, { error: 'codex timed out' }],
+    light: [{ error: 'codex timed out' }, { error: 'codex timed out' }],
   });
 
-  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+  await Bun.write(join(ctx.directory, 'temp', '.keep'), '');
 
   const run = await runReview({
     runner: ctx.runner,
@@ -543,7 +543,7 @@ test('it retries a failed call once and lists a call that fails twice', async ()
     rules: null,
     adapter: stub.adapter,
     logger: ctx.logger,
-    tempDir: join(ctx.dir, 'temp'),
+    tempDir: join(ctx.directory, 'temp'),
     cacheDir: null,
     title: '',
     body: '',
@@ -557,15 +557,15 @@ test('it retries a failed call once and lists a call that fails twice', async ()
     run.result.calls.map((call) => [call.id, call.status, call.attempts]),
     run.result.failedCalls,
   ]).toStrictEqual([
-    [['L', 'failed', 2]],
-    [{ id: 'L', lenses: ['correctness'], reason: 'codex timed out' }],
+    [['light', 'failed', 2]],
+    [{ id: 'light', lenses: ['correctness'], reason: 'codex timed out' }],
   ]);
 });
 
 test('it keeps the planned order of the calls when they end in another order', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/jobs.ts': 'export const jobs: string[] = [];\n' } },
     {
       message: 'head',
@@ -586,7 +586,7 @@ test('it keeps the planned order of the calls when they end in another order', a
 
   const stub = buildStubAdapter(
     {
-      A: [
+      correctness: [
         {
           findings: {
             correctness: [
@@ -608,13 +608,13 @@ test('it keeps the planned order of the calls when they end in another order', a
           },
         },
       ],
-      C: [{ findings: { 'naming-shape-and-comments': [] } }],
-      E: [{ findings: { tests: [] } }],
+      architecture: [{ findings: { 'naming-shape-and-comments': [] } }],
+      intent: [{ findings: { tests: [] } }],
     },
-    { A: 60, C: 30 },
+    { correctness: 60, architecture: 30 },
   );
 
-  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+  await Bun.write(join(ctx.directory, 'temp', '.keep'), '');
 
   const run = await runReview({
     runner: ctx.runner,
@@ -627,7 +627,7 @@ test('it keeps the planned order of the calls when they end in another order', a
     rules: null,
     adapter: stub.adapter,
     logger: ctx.logger,
-    tempDir: join(ctx.dir, 'temp'),
+    tempDir: join(ctx.directory, 'temp'),
     cacheDir: null,
     title: 'Clear the jobs',
     body: '',
@@ -637,18 +637,23 @@ test('it keeps the planned order of the calls when they end in another order', a
     pastEscapes: [],
   });
 
-  expect(stub.ended).toStrictEqual(['E', 'C', 'A']);
-  expect(run.result.calls.map((call) => call.id)).toStrictEqual(['A', 'C', 'E']);
+  expect(stub.ended).toStrictEqual(['intent', 'architecture', 'correctness']);
+
+  expect(run.result.calls.map((call) => call.id)).toStrictEqual([
+    'architecture',
+    'correctness',
+    'intent',
+  ]);
 
   expect(run.result.findings.map((finding) => [finding.title, finding.callID])).toStrictEqual([
-    ['Keep the jobs a caller still reads', 'A'],
+    ['Keep the jobs a caller still reads', 'correctness'],
   ]);
 });
 
 test('it keeps a confirmed P1 at Standard and runs no call past the lens calls', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/jobs.ts': 'export const jobs: string[] = [];\n' } },
     {
       message: 'head',
@@ -684,12 +689,12 @@ test('it keeps a confirmed P1 at Standard and runs no call past the lens calls',
   } as const;
 
   const stub = buildStubAdapter({
-    A: [{ findings: { correctness: [p1], 'failure-handling-and-observability': [] } }],
-    C: [{ findings: { 'naming-shape-and-comments': [] } }],
-    E: [{ findings: { tests: [] } }],
+    correctness: [{ findings: { correctness: [p1], 'failure-handling-and-observability': [] } }],
+    architecture: [{ findings: { 'naming-shape-and-comments': [] } }],
+    intent: [{ findings: { tests: [] } }],
   });
 
-  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+  await Bun.write(join(ctx.directory, 'temp', '.keep'), '');
 
   const run = await runReview({
     runner: ctx.runner,
@@ -702,7 +707,7 @@ test('it keeps a confirmed P1 at Standard and runs no call past the lens calls',
     rules: null,
     adapter: stub.adapter,
     logger: ctx.logger,
-    tempDir: join(ctx.dir, 'temp'),
+    tempDir: join(ctx.directory, 'temp'),
     cacheDir: null,
     title: 'Clear the jobs',
     body: '',
@@ -712,7 +717,7 @@ test('it keeps a confirmed P1 at Standard and runs no call past the lens calls',
     pastEscapes: [],
   });
 
-  const left = await readdir(join(ctx.dir, 'temp'));
+  const left = await readdir(join(ctx.directory, 'temp'));
 
   const worktrees = await ctx.runner.run(['git', 'worktree', 'list', '--porcelain'], {
     cwd: repo.path,
@@ -725,9 +730,9 @@ test('it keeps a confirmed P1 at Standard and runs no call past the lens calls',
   ]).toStrictEqual([
     'standard',
     [
-      ['A', 'standard', 'medium'],
-      ['C', 'standard', 'medium'],
-      ['E', 'standard', 'medium'],
+      ['architecture', 'standard', 'medium'],
+      ['correctness', 'standard', 'medium'],
+      ['intent', 'standard', 'medium'],
     ],
     [['Keep the jobs until the write succeeds', 'P1']],
   ]);
@@ -739,7 +744,7 @@ test('it keeps a confirmed P1 at Standard and runs no call past the lens calls',
 test('it runs no call on a release bump', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: { 'package.json': '{\n  "name": "a",\n  "version": "1.0.0"\n}\n' },
@@ -752,7 +757,7 @@ test('it runs no call on a release bump', async () => {
 
   const stub = buildStubAdapter({});
 
-  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+  await Bun.write(join(ctx.directory, 'temp', '.keep'), '');
 
   const run = await runReview({
     runner: ctx.runner,
@@ -765,7 +770,7 @@ test('it runs no call on a release bump', async () => {
     rules: null,
     adapter: stub.adapter,
     logger: ctx.logger,
-    tempDir: join(ctx.dir, 'temp'),
+    tempDir: join(ctx.directory, 'temp'),
     cacheDir: null,
     title: 'Release 1.1.0',
     body: '',
@@ -785,7 +790,7 @@ test('it runs only the group calls on a risk class change that holds no finding'
     ['a', 'b', 'c', 'd', 'e'].map((name) => [`src/auth/${name}.ts`, `export const ${name} = 2;\n`]),
   );
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: Object.fromEntries(Object.keys(files).map((path) => [path, 'export const x = 1;\n'])),
@@ -794,11 +799,11 @@ test('it runs only the group calls on a risk class change that holds no finding'
   ]);
 
   const stub = buildStubAdapter({
-    A: [{ findings: { correctness: [] } }],
-    B: [{ findings: { security: [] } }],
+    correctness: [{ findings: { correctness: [] } }],
+    security: [{ findings: { security: [] } }],
   });
 
-  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+  await Bun.write(join(ctx.directory, 'temp', '.keep'), '');
 
   const run = await runReview({
     runner: ctx.runner,
@@ -811,7 +816,7 @@ test('it runs only the group calls on a risk class change that holds no finding'
     rules: null,
     adapter: stub.adapter,
     logger: ctx.logger,
-    tempDir: join(ctx.dir, 'temp'),
+    tempDir: join(ctx.directory, 'temp'),
     cacheDir: null,
     title: 'Rename the auth constants',
     body: '',
@@ -822,15 +827,15 @@ test('it runs only the group calls on a risk class change that holds no finding'
   });
 
   expect(run.result.calls.map((call) => [call.id, call.lenses, call.status])).toStrictEqual([
-    ['A', ['correctness'], 'ok'],
-    ['B', ['security'], 'ok'],
+    ['correctness', ['correctness'], 'ok'],
+    ['security', ['security'], 'ok'],
   ]);
 });
 
 test('it gives the calls only the reference rules whose globs match a changed path', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
     {
       message: 'head',
@@ -848,10 +853,10 @@ test('it gives the calls only the reference rules whose globs match a changed pa
   ]);
 
   const stub = buildStubAdapter({
-    L: [{ findings: { correctness: [], 'naming-shape-and-comments': [], tests: [] } }],
+    light: [{ findings: { correctness: [], 'naming-shape-and-comments': [], tests: [] } }],
   });
 
-  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+  await Bun.write(join(ctx.directory, 'temp', '.keep'), '');
 
   await runReview({
     runner: ctx.runner,
@@ -868,7 +873,7 @@ test('it gives the calls only the reference rules whose globs match a changed pa
     ],
     adapter: stub.adapter,
     logger: ctx.logger,
-    tempDir: join(ctx.dir, 'temp'),
+    tempDir: join(ctx.directory, 'temp'),
     cacheDir: null,
     title: 'Add one',
     body: '',
@@ -888,7 +893,7 @@ test('it gives the calls only the reference rules whose globs match a changed pa
 test('it runs no call and records no lens as run when the file limit leaves out every file', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'README.txt': 'tables\n' } },
     {
       message: 'head',
@@ -901,7 +906,7 @@ test('it runs no call and records no lens as run when the file limit leaves out 
 
   const stub = buildStubAdapter({});
 
-  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+  await Bun.write(join(ctx.directory, 'temp', '.keep'), '');
 
   const run = await runReview({
     runner: ctx.runner,
@@ -914,7 +919,7 @@ test('it runs no call and records no lens as run when the file limit leaves out 
     rules: null,
     adapter: stub.adapter,
     logger: ctx.logger,
-    tempDir: join(ctx.dir, 'temp'),
+    tempDir: join(ctx.directory, 'temp'),
     cacheDir: null,
     title: 'Add the table',
     body: '',
@@ -933,7 +938,7 @@ test('it runs no call and records no lens as run when the file limit leaves out 
 test('it records no lens as run when every file overflows a call alone', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/zero.ts': 'export const zero = 0;\n' } },
     {
       message: 'head',
@@ -947,7 +952,7 @@ test('it records no lens as run when every file overflows a call alone', async (
 
   const stub = buildStubAdapter({});
 
-  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+  await Bun.write(join(ctx.directory, 'temp', '.keep'), '');
 
   const run = await runReview({
     runner: ctx.runner,
@@ -963,7 +968,7 @@ test('it records no lens as run when every file overflows a call alone', async (
     rules: null,
     adapter: stub.adapter,
     logger: ctx.logger,
-    tempDir: join(ctx.dir, 'temp'),
+    tempDir: join(ctx.directory, 'temp'),
     cacheDir: null,
     title: 'Add the tables',
     body: '',
@@ -985,7 +990,7 @@ test('it records no lens as run when every file overflows a call alone', async (
 test('it lists a file over the file limit as too large in the review result', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/zero.ts': 'export const zero = 0;\n' } },
     {
       message: 'head',
@@ -997,9 +1002,9 @@ test('it lists a file over the file limit as too large in the review result', as
     },
   ]);
 
-  const stub = buildStubAdapter({ L: [{ findings: { correctness: [] } }] });
+  const stub = buildStubAdapter({ light: [{ findings: { correctness: [] } }] });
 
-  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+  await Bun.write(join(ctx.directory, 'temp', '.keep'), '');
 
   const run = await runReview({
     runner: ctx.runner,
@@ -1016,7 +1021,7 @@ test('it lists a file over the file limit as too large in the review result', as
     rules: null,
     adapter: stub.adapter,
     logger: ctx.logger,
-    tempDir: join(ctx.dir, 'temp'),
+    tempDir: join(ctx.directory, 'temp'),
     cacheDir: null,
     title: 'Add the tables',
     body: '',
@@ -1026,7 +1031,7 @@ test('it lists a file over the file limit as too large in the review result', as
     pastEscapes: [],
   });
 
-  expect(run.result.calls.map((call) => [call.id, call.status])).toStrictEqual([['L', 'ok']]);
+  expect(run.result.calls.map((call) => [call.id, call.status])).toStrictEqual([['light', 'ok']]);
 
   expect(stub.requests.map((request) => request.prompt)).toStrictEqual([
     expect.toInclude('- `src/big.ts`: too large for one call'),
@@ -1041,7 +1046,7 @@ test('it lists a file under each lens whose call its function slice pushes over 
 
   const name = `parse${'x'.repeat(1500)}`;
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/zero.ts': 'export const zero = 0;\n' } },
     {
       message: 'head',
@@ -1053,12 +1058,12 @@ test('it lists a file under each lens whose call its function slice pushes over 
   ]);
 
   const stub = buildStubAdapter({
-    A: [{ findings: { correctness: [] } }],
-    C: [{ findings: { 'naming-shape-and-comments': [] } }],
-    E: [{ findings: { intent: [], tests: [] } }],
+    correctness: [{ findings: { correctness: [] } }],
+    architecture: [{ findings: { 'naming-shape-and-comments': [] } }],
+    intent: [{ findings: { intent: [], tests: [] } }],
   });
 
-  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+  await Bun.write(join(ctx.directory, 'temp', '.keep'), '');
 
   const run = await runReview({
     runner: ctx.runner,
@@ -1075,7 +1080,7 @@ test('it lists a file under each lens whose call its function slice pushes over 
     rules: null,
     adapter: stub.adapter,
     logger: ctx.logger,
-    tempDir: join(ctx.dir, 'temp'),
+    tempDir: join(ctx.directory, 'temp'),
     cacheDir: null,
     title: 'Add the parser',
     body: '',
@@ -1086,7 +1091,7 @@ test('it lists a file under each lens whose call its function slice pushes over 
     depth: 'standard',
   });
 
-  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['E']);
+  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['intent']);
   expect(run.result.notReviewed).toStrictEqual([]);
 
   expect(run.result.notReviewedByLens).toStrictEqual([
@@ -1097,7 +1102,7 @@ test('it lists a file under each lens whose call its function slice pushes over 
 test('it lists the data file of a change that runs no call', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'samples/corpus.jsonl': '{"text":"one"}\n' } },
     {
       message: 'head',
@@ -1107,7 +1112,7 @@ test('it lists the data file of a change that runs no call', async () => {
 
   const stub = buildStubAdapter({});
 
-  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+  await Bun.write(join(ctx.directory, 'temp', '.keep'), '');
 
   const run = await runReview({
     runner: ctx.runner,
@@ -1120,7 +1125,7 @@ test('it lists the data file of a change that runs no call', async () => {
     rules: null,
     adapter: stub.adapter,
     logger: ctx.logger,
-    tempDir: join(ctx.dir, 'temp'),
+    tempDir: join(ctx.directory, 'temp'),
     cacheDir: null,
     title: 'Refresh the corpus',
     body: '',
@@ -1137,7 +1142,7 @@ test('it lists the data file of a change that runs no call', async () => {
 test('it lists a data file that only a merge from the base branch changes as not reviewed', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: { 'samples/corpus.jsonl': '{"text":"one"}\n', 'docs/guide.md': '# Guide\n' },
@@ -1158,7 +1163,7 @@ test('it lists a data file that only a merge from the base branch changes as not
 
   const stub = buildStubAdapter({});
 
-  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+  await Bun.write(join(ctx.directory, 'temp', '.keep'), '');
 
   const run = await runReview({
     runner: ctx.runner,
@@ -1173,7 +1178,7 @@ test('it lists a data file that only a merge from the base branch changes as not
     rules: null,
     adapter: stub.adapter,
     logger: ctx.logger,
-    tempDir: join(ctx.dir, 'temp'),
+    tempDir: join(ctx.directory, 'temp'),
     cacheDir: null,
     title: 'Retitle the guide',
     body: '',
@@ -1189,7 +1194,7 @@ test('it lists a data file that only a merge from the base branch changes as not
 test('it lists a source file over the file limit that only a merge from the base branch changes as too large', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: {
@@ -1217,7 +1222,7 @@ test('it lists a source file over the file limit that only a merge from the base
 
   const stub = buildStubAdapter({});
 
-  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+  await Bun.write(join(ctx.directory, 'temp', '.keep'), '');
 
   const run = await runReview({
     runner: ctx.runner,
@@ -1232,7 +1237,7 @@ test('it lists a source file over the file limit that only a merge from the base
     rules: null,
     adapter: stub.adapter,
     logger: ctx.logger,
-    tempDir: join(ctx.dir, 'temp'),
+    tempDir: join(ctx.directory, 'temp'),
     cacheDir: null,
     title: 'Retitle the guide',
     body: '',
@@ -1248,7 +1253,7 @@ test('it lists a source file over the file limit that only a merge from the base
 test('it splits a change over the prompt limit into calls that each fit and lists the data file it leaves out', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/zero.ts': 'export const zero = 0;\n' } },
     {
       message: 'head',
@@ -1263,8 +1268,8 @@ test('it splits a change over the prompt limit into calls that each fit and list
   ]);
 
   const stub = buildStubAdapter({
-    L: [{ findings: { correctness: [] } }],
-    'L-part-2': [
+    light: [{ findings: { correctness: [] } }],
+    'light-part-2': [
       {
         findings: {
           correctness: [
@@ -1288,7 +1293,7 @@ test('it splits a change over the prompt limit into calls that each fit and list
     ],
   });
 
-  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+  await Bun.write(join(ctx.directory, 'temp', '.keep'), '');
 
   const run = await runReview({
     runner: ctx.runner,
@@ -1310,7 +1315,7 @@ test('it splits a change over the prompt limit into calls that each fit and list
     rules: null,
     adapter: stub.adapter,
     logger: ctx.logger,
-    tempDir: join(ctx.dir, 'temp'),
+    tempDir: join(ctx.directory, 'temp'),
     cacheDir: null,
     title: 'Add the tables',
     body: '',
@@ -1323,8 +1328,8 @@ test('it splits a change over the prompt limit into calls that each fit and list
   expect(run.result.failedCalls).toStrictEqual([]);
 
   expect(run.result.calls.map((call) => [call.id, call.status])).toStrictEqual([
-    ['L', 'ok'],
-    ['L-part-2', 'ok'],
+    ['light', 'ok'],
+    ['light-part-2', 'ok'],
   ]);
 
   expect(stub.requests.map((request) => request.prompt.length)).toSatisfyAll(
@@ -1333,10 +1338,10 @@ test('it splits a change over the prompt limit into calls that each fit and list
 
   const prompts = new Map(stub.requests.map((request) => [request.callID, request.prompt]));
 
-  expect(prompts.get('L')).toInclude(`export const a = '${'a'.repeat(400_000)}';`);
-  expect(prompts.get('L')).not.toInclude(`'${'c'.repeat(1000)}`);
-  expect(prompts.get('L-part-2')).toInclude(`export const c = '${'c'.repeat(400_000)}';`);
-  expect(prompts.get('L-part-2')).not.toInclude(`'${'a'.repeat(1000)}`);
+  expect(prompts.get('light')).toInclude(`export const a = '${'a'.repeat(400_000)}';`);
+  expect(prompts.get('light')).not.toInclude(`'${'c'.repeat(1000)}`);
+  expect(prompts.get('light-part-2')).toInclude(`export const c = '${'c'.repeat(400_000)}';`);
+  expect(prompts.get('light-part-2')).not.toInclude(`'${'a'.repeat(1000)}`);
 
   expect(stub.requests.map((request) => request.prompt)).toSatisfyAll(
     (prompt: string) =>
@@ -1346,7 +1351,7 @@ test('it splits a change over the prompt limit into calls that each fit and list
 
   expect(
     run.result.findings.map((finding) => [finding.callID, finding.title, finding.anchor.path]),
-  ).toStrictEqual([['L-part-2', 'Load the table from a file', 'src/c.ts']]);
+  ).toStrictEqual([['light-part-2', 'Load the table from a file', 'src/c.ts']]);
 
   expect(run.result.notReviewed).toStrictEqual([{ path: 'samples/corpus.jsonl', reason: 'data' }]);
 });
@@ -1354,7 +1359,7 @@ test('it splits a change over the prompt limit into calls that each fit and list
 test('it reports the finding of the design pass on a file that only an earlier review read', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/parse.ts': 'export const parse = 0;\n' } },
     {
       message: 'Add the scanner',
@@ -1373,7 +1378,7 @@ test('it reports the finding of the design pass on a file that only an earlier r
   ]);
 
   const stub = buildStubAdapter({
-    L: [{ findings: { correctness: [] } }],
+    light: [{ findings: { correctness: [] } }],
     design: [
       {
         findings: {
@@ -1398,7 +1403,7 @@ test('it reports the finding of the design pass on a file that only an earlier r
     ],
   });
 
-  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+  await Bun.write(join(ctx.directory, 'temp', '.keep'), '');
 
   const run = await runReview({
     runner: ctx.runner,
@@ -1415,7 +1420,7 @@ test('it reports the finding of the design pass on a file that only an earlier r
     rules: null,
     adapter: stub.adapter,
     logger: ctx.logger,
-    tempDir: join(ctx.dir, 'temp'),
+    tempDir: join(ctx.directory, 'temp'),
     cacheDir: null,
     title: 'Parse the header line',
     body: 'Parses the header line.',
@@ -1428,7 +1433,7 @@ test('it reports the finding of the design pass on a file that only an earlier r
   expect(
     run.result.calls.map((call) => [call.id, call.lenses, call.status, call.effort]),
   ).toStrictEqual([
-    ['L', ['correctness'], 'ok', 'low'],
+    ['light', ['correctness'], 'ok', 'low'],
     ['design', ['design'], 'ok', 'medium'],
   ]);
 
@@ -1456,13 +1461,13 @@ test('it reports the finding of the design pass on a file that only an earlier r
 test('it keeps the lens findings and lists the design call as failed when it fails twice', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/parse.ts': 'export const parse = 0;\n' } },
     { message: 'Fix the parser', files: { 'src/parse.ts': 'export const parse = 1;\n' } },
   ]);
 
   const stub = buildStubAdapter({
-    L: [
+    light: [
       {
         findings: {
           correctness: [
@@ -1487,7 +1492,7 @@ test('it keeps the lens findings and lists the design call as failed when it fai
     design: [{ error: 'the model CLI timed out' }, { error: 'the model CLI timed out' }],
   });
 
-  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+  await Bun.write(join(ctx.directory, 'temp', '.keep'), '');
 
   const run = await runReview({
     runner: ctx.runner,
@@ -1502,7 +1507,7 @@ test('it keeps the lens findings and lists the design call as failed when it fai
     rules: null,
     adapter: stub.adapter,
     logger: ctx.logger,
-    tempDir: join(ctx.dir, 'temp'),
+    tempDir: join(ctx.directory, 'temp'),
     cacheDir: null,
     title: 'Fix the parser',
     body: '',
@@ -1517,7 +1522,7 @@ test('it keeps the lens findings and lists the design call as failed when it fai
   ]);
 
   expect(run.result.calls.map((call) => [call.id, call.status, call.attempts])).toStrictEqual([
-    ['L', 'ok', 1],
+    ['light', 'ok', 1],
     ['design', 'failed', 2],
   ]);
 
@@ -1529,14 +1534,14 @@ test('it keeps the lens findings and lists the design call as failed when it fai
 test('it runs no design pass on a later review when the config turns it off', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/parse.ts': 'export const parse = 0;\n' } },
     { message: 'Fix the parser', files: { 'src/parse.ts': 'export const parse = 1;\n' } },
   ]);
 
-  const stub = buildStubAdapter({ L: [{ findings: { correctness: [] } }] });
+  const stub = buildStubAdapter({ light: [{ findings: { correctness: [] } }] });
 
-  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+  await Bun.write(join(ctx.directory, 'temp', '.keep'), '');
 
   await runReview({
     runner: ctx.runner,
@@ -1551,7 +1556,7 @@ test('it runs no design pass on a later review when the config turns it off', as
     rules: null,
     adapter: stub.adapter,
     logger: ctx.logger,
-    tempDir: join(ctx.dir, 'temp'),
+    tempDir: join(ctx.directory, 'temp'),
     cacheDir: null,
     title: 'Fix the parser',
     body: '',
@@ -1561,23 +1566,23 @@ test('it runs no design pass on a later review when the config turns it off', as
     pastEscapes: [],
   });
 
-  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['L']);
+  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['light']);
 });
 
 test('it runs the design pass on the third review of a pull request', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/parse.ts': 'export const parse = 0;\n' } },
     { message: 'Fix the parser', files: { 'src/parse.ts': 'export const parse = 1;\n' } },
   ]);
 
   const stub = buildStubAdapter({
-    L: [{ findings: { correctness: [] } }],
+    light: [{ findings: { correctness: [] } }],
     design: [{ findings: { design: [] } }],
   });
 
-  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+  await Bun.write(join(ctx.directory, 'temp', '.keep'), '');
 
   await runReview({
     runner: ctx.runner,
@@ -1592,7 +1597,7 @@ test('it runs the design pass on the third review of a pull request', async () =
     rules: null,
     adapter: stub.adapter,
     logger: ctx.logger,
-    tempDir: join(ctx.dir, 'temp'),
+    tempDir: join(ctx.directory, 'temp'),
     cacheDir: null,
     title: 'Fix the parser',
     body: '',
@@ -1602,13 +1607,13 @@ test('it runs the design pass on the third review of a pull request', async () =
     pastEscapes: [],
   });
 
-  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['L', 'design']);
+  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['light', 'design']);
 });
 
 test('it gives the design pass the findings the merge pass keeps', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/queue.ts': 'export const queue: string[] = [];\n' } },
     {
       message: 'head',
@@ -1627,7 +1632,7 @@ test('it gives the design pass the findings the merge pass keeps', async () => {
   ]);
 
   const stub = buildStubAdapter({
-    L: [
+    light: [
       {
         findings: {
           correctness: [
@@ -1689,7 +1694,7 @@ test('it gives the design pass the findings the merge pass keeps', async () => {
     design: [{ findings: { design: [] } }],
   });
 
-  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+  await Bun.write(join(ctx.directory, 'temp', '.keep'), '');
 
   await runReview({
     runner: ctx.runner,
@@ -1704,7 +1709,7 @@ test('it gives the design pass the findings the merge pass keeps', async () => {
     rules: null,
     adapter: stub.adapter,
     logger: ctx.logger,
-    tempDir: join(ctx.dir, 'temp'),
+    tempDir: join(ctx.directory, 'temp'),
     cacheDir: null,
     title: 'Flush the queue',
     body: '',
@@ -1720,7 +1725,12 @@ test('it gives the design pass the findings the merge pass keeps', async () => {
     throw new Error('the review made no design call');
   }
 
-  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['L', 'merge', 'design']);
+  expect(stub.requests.map((request) => request.callID)).toStrictEqual([
+    'light',
+    'merge',
+    'design',
+  ]);
+
   expect(design.prompt).toInclude('"title": "Write the queue before emptying it"');
   expect(design.prompt).not.toInclude('Keep the items flush is meant to write');
 });
@@ -1728,14 +1738,14 @@ test('it gives the design pass the findings the merge pass keeps', async () => {
 test('it lists the file of an earlier design finding as not reviewed by the design lens when the pass is off', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/parse.ts': 'export const parse = 0;\n' } },
     { message: 'Fix the parser', files: { 'src/parse.ts': 'export const parse = 1;\n' } },
   ]);
 
-  const stub = buildStubAdapter({ L: [{ findings: { correctness: [] } }] });
+  const stub = buildStubAdapter({ light: [{ findings: { correctness: [] } }] });
 
-  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+  await Bun.write(join(ctx.directory, 'temp', '.keep'), '');
 
   const run = await runReview({
     runner: ctx.runner,
@@ -1767,7 +1777,7 @@ test('it lists the file of an earlier design finding as not reviewed by the desi
     rules: null,
     adapter: stub.adapter,
     logger: ctx.logger,
-    tempDir: join(ctx.dir, 'temp'),
+    tempDir: join(ctx.directory, 'temp'),
     cacheDir: null,
     title: 'Fix the parser',
     body: '',
@@ -1785,17 +1795,17 @@ test('it lists the file of an earlier design finding as not reviewed by the desi
 test('it lists no file as not reviewed by the design lens when the design call runs', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/parse.ts': 'export const parse = 0;\n' } },
     { message: 'Fix the parser', files: { 'src/parse.ts': 'export const parse = 1;\n' } },
   ]);
 
   const stub = buildStubAdapter({
-    L: [{ findings: { correctness: [] } }],
+    light: [{ findings: { correctness: [] } }],
     design: [{ findings: { design: [] } }],
   });
 
-  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+  await Bun.write(join(ctx.directory, 'temp', '.keep'), '');
 
   const run = await runReview({
     runner: ctx.runner,
@@ -1819,7 +1829,7 @@ test('it lists no file as not reviewed by the design lens when the design call r
     rules: null,
     adapter: stub.adapter,
     logger: ctx.logger,
-    tempDir: join(ctx.dir, 'temp'),
+    tempDir: join(ctx.directory, 'temp'),
     cacheDir: null,
     title: 'Fix the parser',
     body: '',
@@ -1835,7 +1845,7 @@ test('it lists no file as not reviewed by the design lens when the design call r
 test('it gives the design call every file of a pull request whose hunks pass the call limit, in a file it reads', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/parse.ts': 'export const parse = 0;\n' } },
     {
       message: 'Add the tables',
@@ -1856,11 +1866,11 @@ test('it gives the design call every file of a pull request whose hunks pass the
   ]);
 
   const stub = buildStubAdapter({
-    L: [{ findings: { correctness: [] } }],
+    light: [{ findings: { correctness: [] } }],
     design: [{ findings: { design: [] } }],
   });
 
-  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+  await Bun.write(join(ctx.directory, 'temp', '.keep'), '');
 
   const run = await runReview({
     runner: ctx.runner,
@@ -1889,7 +1899,7 @@ test('it gives the design call every file of a pull request whose hunks pass the
     rules: null,
     adapter: stub.adapter,
     logger: ctx.logger,
-    tempDir: join(ctx.dir, 'temp'),
+    tempDir: join(ctx.directory, 'temp'),
     cacheDir: null,
     title: 'Parse the header line',
     body: 'Parses the header line.',
@@ -1912,7 +1922,7 @@ test('it gives the design call every file of a pull request whose hunks pass the
     throw new Error('the prompt names no hunks file');
   }
 
-  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['L', 'design']);
+  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['light', 'design']);
   expect(stub.seenFiles[0]).not.toContain(hunksFile);
   expect(stub.seenFiles[1]).toContain(hunksFile);
   expect(design.prompt).toInclude(['- `src/c.ts`', '- `src/e.ts`', '- `src/parse.ts`'].join('\n'));
@@ -1924,7 +1934,7 @@ test('it gives the design call every file of a pull request whose hunks pass the
 test('it runs the design pass in the head worktree on a later review that routes no lens call', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: { 'package.json': '{\n  "name": "a",\n  "version": "1.0.0"\n}\n' },
@@ -1937,7 +1947,7 @@ test('it runs the design pass in the head worktree on a later review that routes
 
   const stub = buildStubAdapter({ design: [{ findings: { design: [] } }] });
 
-  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+  await Bun.write(join(ctx.directory, 'temp', '.keep'), '');
 
   const run = await runReview({
     runner: ctx.runner,
@@ -1952,7 +1962,7 @@ test('it runs the design pass in the head worktree on a later review that routes
     rules: null,
     adapter: stub.adapter,
     logger: ctx.logger,
-    tempDir: join(ctx.dir, 'temp'),
+    tempDir: join(ctx.directory, 'temp'),
     cacheDir: null,
     title: 'Release 1.1.0',
     body: '',

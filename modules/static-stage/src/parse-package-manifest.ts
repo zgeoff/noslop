@@ -23,7 +23,7 @@ export function parsePackageManifest(path: string, text: string): PackageManifes
   const manifest = parsed.data;
 
   return {
-    dir: dirname(path),
+    directory: dirname(path),
     path,
     name: manifest.name ?? null,
     version: manifest.version ?? null,

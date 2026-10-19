@@ -2,25 +2,25 @@
 
 - Date: 2026-10-17
 - Status: decided
-- Updated: 2026-10-18
+- Updated: 2026-10-19
 
 noslop groups the fired lenses into calls by the input they share. The default grouping has 8
-groups:
+groups, each named by a call ID in words:
 
-| Call | Lenses                                                                          |
-| ---- | ------------------------------------------------------------------------------- |
-| A    | Correctness; failure handling and observability; concurrency and data integrity |
-| B    | Security and input trust                                                        |
-| C    | Architecture and boundaries; naming, shape and comments                         |
-| D    | Cross-repo and platform limits; deploy and config                               |
-| E    | Intent; tests                                                                   |
-| F    | Reuse                                                                           |
-| G    | Instructions                                                                    |
-| H    | Documentation                                                                   |
+| Call            | Lenses                                                                          |
+| --------------- | ------------------------------------------------------------------------------- |
+| `correctness`   | Correctness; failure handling and observability; concurrency and data integrity |
+| `security`      | Security and input trust                                                        |
+| `architecture`  | Architecture and boundaries; naming, shape and comments                         |
+| `platform`      | Cross-repo and platform limits; deploy and config                               |
+| `intent`        | Intent; tests                                                                   |
+| `reuse`         | Reuse                                                                           |
+| `instructions`  | Instructions                                                                    |
+| `documentation` | Documentation                                                                   |
 
 A call fires when any of its lenses fires, and its prompt holds only the sections of the lenses that
-fired. Security runs alone. At Light, every fired lens goes into 1 call. At Standard and Deep, each
-group that fired is 1 call. Every call reads the whole change, under
+fired. Security runs alone. At Light, every fired lens goes into 1 call, `light`. At Standard and
+Deep, each group that fired is 1 call. Every call reads the whole change, under
 [0007](0007-depth-and-models.md).
 
 One call runs on one model, so a lens that the config gives a model of its own leaves its group for
@@ -55,3 +55,7 @@ config, so moving a lens into its own call is a config change.
   its own, so 8 is the default count of groups and not a cap on the calls.
 - 2026-10-18: a merge pass call on the findings follows the lens calls, and no verify or gap sweep
   call follows them.
+- 2026-10-19: the call IDs are words in place of the letters A to H, and the Light call is `light`
+  in place of L. Routing walks the calls in the order of their IDs, so the calls of a review come in
+  the alphabetical order of the words. A config that names a call by its letter makes a call of that
+  name beside the default calls, and rows in an existing store keep the letters.

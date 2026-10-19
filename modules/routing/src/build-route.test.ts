@@ -24,7 +24,7 @@ test('it runs a small code change at Light in one call', () => {
     depth: 'light',
     calls: [
       {
-        callID: 'L',
+        callID: 'light',
         lenses: ['correctness'],
         effort: 'low',
         model: null,
@@ -53,7 +53,10 @@ test('it reviews a small code change at the depth it is forced to', () => {
   );
 
   expect(route.depth).toBe('deep');
-  expect(route.calls.map((call) => [call.callID, call.effort])).toStrictEqual([['A', 'high']]);
+
+  expect(route.calls.map((call) => [call.callID, call.effort])).toStrictEqual([
+    ['correctness', 'high'],
+  ]);
 });
 
 test('it fires each lens whose slice holds an entry and groups them by the default calls', () => {
@@ -97,9 +100,9 @@ test('it fires each lens whose slice holds an entry and groups them by the defau
     'standard',
     ['correctness', 'failure-handling-and-observability', 'deploy-and-config', 'intent'],
     [
-      ['A', ['correctness', 'failure-handling-and-observability'], 'medium'],
-      ['D', ['deploy-and-config'], 'medium'],
-      ['E', ['intent'], 'medium'],
+      ['correctness', ['correctness', 'failure-handling-and-observability'], 'medium'],
+      ['intent', ['intent'], 'medium'],
+      ['platform', ['deploy-and-config'], 'medium'],
     ],
   ]);
 });
@@ -136,8 +139,8 @@ test('it runs a marked risk class at Deep with the lenses it forces, one call pe
   ]).toStrictEqual([
     'deep',
     [
-      ['A', ['correctness', 'failure-handling-and-observability'], 'high'],
-      ['B', ['security'], 'high'],
+      ['correctness', ['correctness', 'failure-handling-and-observability'], 'high'],
+      ['security', ['security'], 'high'],
     ],
   ]);
 });
@@ -307,9 +310,9 @@ test('it runs a lens with a model of its own in a call of its own, at its own ef
   expect(
     route.calls.map((call) => [call.callID, call.lenses, call.model, call.effort, call.timeoutMs]),
   ).toStrictEqual([
-    ['A', ['correctness'], null, 'medium', null],
+    ['correctness', ['correctness'], null, 'medium', null],
     [
-      'A:failure-handling-and-observability',
+      'correctness:failure-handling-and-observability',
       ['failure-handling-and-observability'],
       'small',
       'high',
@@ -340,7 +343,7 @@ test('it runs each call once over the whole of a large change across packages', 
 
   expect(
     route.calls.map((call) => [call.callID, call.files.map((file) => file.path)]),
-  ).toStrictEqual([['A', ['apps/web/src/a.ts', 'modules/core/src/b.ts']]]);
+  ).toStrictEqual([['correctness', ['apps/web/src/a.ts', 'modules/core/src/b.ts']]]);
 });
 
 test('it runs the documentation lens on a one-line edit to a doc', () => {

@@ -42,7 +42,7 @@ async function runProcess(argv: readonly string[], options: RunOptions): Promise
     delete env[name];
   }
 
-  const proc = Bun.spawn([...argv], {
+  const child = Bun.spawn([...argv], {
     cwd: options.cwd,
     env,
     stdin: 'ignore',
@@ -50,7 +50,7 @@ async function runProcess(argv: readonly string[], options: RunOptions): Promise
     stderr: 'pipe',
   });
 
-  const [stderr, exitCode] = await Promise.all([new Response(proc.stderr).text(), proc.exited]);
+  const [stderr, exitCode] = await Promise.all([new Response(child.stderr).text(), child.exited]);
 
   return { exitCode, stderr };
 }

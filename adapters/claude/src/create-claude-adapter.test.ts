@@ -9,21 +9,21 @@ import { createStubCLI } from '@noslop/testing';
 import { createClaudeAdapter } from './create-claude-adapter';
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'noslop-claude-'));
+  const directory = await mkdtemp(join(tmpdir(), 'noslop-claude-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
   await configure({ sinks: {}, loggers: [], reset: true });
 
   onTestFinished(() => reset());
 
-  return { dir, runner: createRunner(), logger: getLogger(['noslop', 'test']) };
+  return { directory, runner: createRunner(), logger: getLogger(['noslop', 'test']) };
 }
 
 test('it runs claude with read tools alone, the schema and the effort, and reads the output', async () => {
   const ctx = await setupTest();
 
-  const stub = await createStubCLI(ctx.dir, {
+  const stub = await createStubCLI(ctx.directory, {
     outputFlag: null,
     lastMessage: null,
     stdout: JSON.stringify({
@@ -47,16 +47,16 @@ test('it runs claude with read tools alone, the schema and the effort, and reads
 
   const result = await adapter.runCall(
     {
-      callID: 'B',
+      callID: 'security',
       lenses: ['security'],
       prompt: 'Review the change.',
       outputSchema: buildCallOutputSchema(['security']),
       effort: 'medium',
       model: null,
-      cwd: ctx.dir,
+      cwd: ctx.directory,
       timeoutMs: 10_000,
     },
-    { tempDir: ctx.dir, logger: ctx.logger },
+    { tempDir: ctx.directory, logger: ctx.logger },
   );
 
   const record = await stub.readRecord();
@@ -89,7 +89,7 @@ test('it runs claude with read tools alone, the schema and the effort, and reads
 test('it rejects a result that claude marks as an error', async () => {
   const ctx = await setupTest();
 
-  const stub = await createStubCLI(ctx.dir, {
+  const stub = await createStubCLI(ctx.directory, {
     outputFlag: null,
     lastMessage: null,
     stdout: JSON.stringify({ type: 'result', is_error: true, result: 'usage limit reached' }),
@@ -103,24 +103,24 @@ test('it rejects a result that claude marks as an error', async () => {
   expect(
     adapter.runCall(
       {
-        callID: 'B',
+        callID: 'security',
         lenses: ['security'],
         prompt: 'Review the change.',
         outputSchema: buildCallOutputSchema(['security']),
         effort: 'low',
         model: 'claude-haiku-5-5',
-        cwd: ctx.dir,
+        cwd: ctx.directory,
         timeoutMs: 10_000,
       },
-      { tempDir: ctx.dir, logger: ctx.logger },
+      { tempDir: ctx.directory, logger: ctx.logger },
     ),
-  ).rejects.toThrowWithMessage(Error, /claude exited 1 on call B: usage limit reached/u);
+  ).rejects.toThrowWithMessage(Error, /claude exited 1 on call security: usage limit reached/u);
 });
 
 test('it rejects structured output that breaks the schema', async () => {
   const ctx = await setupTest();
 
-  const stub = await createStubCLI(ctx.dir, {
+  const stub = await createStubCLI(ctx.directory, {
     outputFlag: null,
     lastMessage: null,
     stdout: JSON.stringify({
@@ -138,16 +138,16 @@ test('it rejects structured output that breaks the schema', async () => {
   expect(
     adapter.runCall(
       {
-        callID: 'B',
+        callID: 'security',
         lenses: ['security'],
         prompt: 'Review the change.',
         outputSchema: buildCallOutputSchema(['security']),
         effort: 'high',
         model: null,
-        cwd: ctx.dir,
+        cwd: ctx.directory,
         timeoutMs: 10_000,
       },
-      { tempDir: ctx.dir, logger: ctx.logger },
+      { tempDir: ctx.directory, logger: ctx.logger },
     ),
   ).rejects.toThrow();
 });

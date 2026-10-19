@@ -34,8 +34,11 @@ export function buildRiskSignals(inputs: RiskSignalInputs): RiskSignals {
     paths.map(
       (path) =>
         inputs.manifests
-          .filter((manifest) => manifest.dir === '.' || path.startsWith(`${manifest.dir}/`))
-          .toSorted((left, right) => right.dir.length - left.dir.length)[0]?.path ?? '.',
+          .filter(
+            (manifest) => manifest.directory === '.' || path.startsWith(`${manifest.directory}/`),
+          )
+          .toSorted((left, right) => right.directory.length - left.directory.length)[0]?.path ??
+        '.',
     ),
   );
 

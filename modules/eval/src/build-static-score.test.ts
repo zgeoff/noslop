@@ -68,11 +68,11 @@ test('it counts each depth and lists the labelled P1s and escapes that fall at L
     [
       {
         caseID: 'case-light',
-        plan: { depth: 'light', special: null, calls: ['L'], maxCalls: 1 },
+        plan: { depth: 'light', special: null, calls: ['light'], maxCalls: 1 },
       },
       {
         caseID: 'case-deep',
-        plan: { depth: 'deep', special: null, calls: ['A', 'B'], maxCalls: 4 },
+        plan: { depth: 'deep', special: null, calls: ['correctness', 'security'], maxCalls: 4 },
       },
       { caseID: 'case-failed', plan: null },
     ],

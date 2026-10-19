@@ -6,18 +6,18 @@ import { buildChildEnv } from '@noslop/runner';
 import { createTestRepo } from './create-test-repo';
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'noslop-test-repo-'));
+  const directory = await mkdtemp(join(tmpdir(), 'noslop-test-repo-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
   // a shell whose git never reads the GIT_DIR of a git hook that runs these tests
-  return { dir, $: new Bun.$.Shell().env(buildChildEnv(process.env)) };
+  return { directory, $: new Bun.$.Shell().env(buildChildEnv(process.env)) };
 }
 
 test('it creates one commit per entry and returns their shas in order', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/a.ts': 'export const a = 1;\n' } },
     { message: 'head', files: { 'src/a.ts': 'export const a = 2;\n' } },
   ]);
@@ -30,7 +30,7 @@ test('it creates one commit per entry and returns their shas in order', async ()
 test('it removes a file whose content is null', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/a.ts': 'export const a = 1;\n' } },
     { message: 'head', files: { 'src/a.ts': null } },
   ]);
@@ -43,7 +43,7 @@ test('it removes a file whose content is null', async () => {
 test('it commits each link as a symlink to its target', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: { 'docs/rules.md': '# Rules\n' },
@@ -61,7 +61,7 @@ test('it commits each link as a symlink to its target', async () => {
 test('it follows the commit an entry names as its parent', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/a.ts': 'export const a = 1;\n' } },
     { message: 'branch', files: { 'src/a.ts': 'export const a = 2;\n' } },
     { message: 'side', files: { 'docs/a.md': '# A\n' }, parent: 0 },
@@ -76,7 +76,7 @@ test('it follows the commit an entry names as its parent', async () => {
 test('it merges the commit an entry names into its parent, with both trees', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/a.ts': 'export const a = 1;\n' } },
     { message: 'branch', files: { 'src/a.ts': 'export const a = 2;\n' } },
     { message: 'side', files: { 'docs/a.md': '# A\n' }, parent: 0 },
@@ -96,8 +96,8 @@ test('it merges the commit an entry names into its parent, with both trees', asy
 test('it commits into its own repo when GIT_DIR names another, as inside a git hook', async () => {
   const ctx = await setupTest();
 
-  const outer = join(ctx.dir, 'outer');
-  const fixture = join(ctx.dir, 'fixture');
+  const outer = join(ctx.directory, 'outer');
+  const fixture = join(ctx.directory, 'fixture');
 
   await ctx.$`git init -q -b main ${outer}`.quiet();
   await ctx.$`git -C ${outer} -c user.email=dev@example.com -c user.name=dev commit -q --allow-empty -m outer`.quiet();

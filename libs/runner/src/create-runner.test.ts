@@ -6,18 +6,18 @@ import { createRunner } from './create-runner';
 
 async function setupTest() {
   const created = await mkdtemp(join(tmpdir(), 'noslop-runner-'));
-  const dir = await realpath(created);
+  const directory = await realpath(created);
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  return { dir, runner: createRunner() };
+  return { directory, runner: createRunner() };
 }
 
 test('it returns the exit status and both output streams', async () => {
   const ctx = await setupTest();
 
   const result = await ctx.runner.run(['sh', '-c', 'echo out; echo err >&2; exit 3'], {
-    cwd: ctx.dir,
+    cwd: ctx.directory,
   });
 
   expect(result).toStrictEqual({
@@ -31,23 +31,23 @@ test('it returns the exit status and both output streams', async () => {
 
 test('it passes stdin to the process', async () => {
   const ctx = await setupTest();
-  const result = await ctx.runner.run(['cat'], { cwd: ctx.dir, stdin: 'the prompt' });
+  const result = await ctx.runner.run(['cat'], { cwd: ctx.directory, stdin: 'the prompt' });
 
   expect(result.stdout).toBe('the prompt');
 });
 
 test('it runs the process in the working directory', async () => {
   const ctx = await setupTest();
-  const result = await ctx.runner.run(['pwd'], { cwd: ctx.dir });
+  const result = await ctx.runner.run(['pwd'], { cwd: ctx.directory });
 
-  expect(result.stdout).toBe(`${ctx.dir}\n`);
+  expect(result.stdout).toBe(`${ctx.directory}\n`);
 });
 
 test('it adds the given environment to the inherited one', async () => {
   const ctx = await setupTest();
 
   const result = await ctx.runner.run(['sh', '-c', 'echo "$NOSLOP_RUNNER_TEST"'], {
-    cwd: ctx.dir,
+    cwd: ctx.directory,
     env: { NOSLOP_RUNNER_TEST: 'set' },
   });
 
@@ -56,7 +56,7 @@ test('it adds the given environment to the inherited one', async () => {
 
 test('it stops a process that runs past its timeout', async () => {
   const ctx = await setupTest();
-  const result = await ctx.runner.run(['sleep', '5'], { cwd: ctx.dir, timeoutMs: 50 });
+  const result = await ctx.runner.run(['sleep', '5'], { cwd: ctx.directory, timeoutMs: 50 });
 
   expect(result).toMatchObject({ timedOut: true, durationMs: expect.toBeWithin(0, 2000) });
 });
@@ -65,7 +65,7 @@ test('it stops the children of a process that runs past its timeout', async () =
   const ctx = await setupTest();
 
   const result = await ctx.runner.run(['sh', '-c', 'sleep 5 & wait'], {
-    cwd: ctx.dir,
+    cwd: ctx.directory,
     timeoutMs: 50,
   });
 
@@ -75,5 +75,5 @@ test('it stops the children of a process that runs past its timeout', async () =
 test('it rejects a binary that does not exist', async () => {
   const ctx = await setupTest();
 
-  expect(ctx.runner.run(['noslop-no-such-binary'], { cwd: ctx.dir })).rejects.toThrow();
+  expect(ctx.runner.run(['noslop-no-such-binary'], { cwd: ctx.directory })).rejects.toThrow();
 });

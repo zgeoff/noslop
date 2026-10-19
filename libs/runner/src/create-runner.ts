@@ -30,7 +30,7 @@ export function createRunner(): Runner {
 async function runProcess(argv: readonly string[], options: RunOptions): Promise<RunResult> {
   const startedAt = performance.now();
 
-  const proc = Bun.spawn([...argv], {
+  const child = Bun.spawn([...argv], {
     cwd: options.cwd,
     env: { ...buildChildEnv(process.env), ...options.env },
     stdin: options.stdin === undefined ? 'ignore' : new Blob([options.stdin]),
@@ -50,11 +50,11 @@ async function runProcess(argv: readonly string[], options: RunOptions): Promise
       setTimeout(() => {
         timedOut = true;
 
-        stopGroup(proc.pid, 'SIGTERM');
+        stopGroup(child.pid, 'SIGTERM');
 
         timers.push(
           setTimeout(() => {
-            stopGroup(proc.pid, 'SIGKILL');
+            stopGroup(child.pid, 'SIGKILL');
           }, KILL_GRACE_MS),
         );
       }, options.timeoutMs),
@@ -62,9 +62,9 @@ async function runProcess(argv: readonly string[], options: RunOptions): Promise
   }
 
   const [stdout, stderr, exitCode] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-    proc.exited,
+    new Response(child.stdout).text(),
+    new Response(child.stderr).text(),
+    child.exited,
   ]);
 
   for (const timer of timers) {

@@ -8,11 +8,11 @@ import { buildMockChangedFile, buildStubAdapter } from '@noslop/testing';
 import { runDesignPass } from './run-design-pass';
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'noslop-design-'));
+  const directory = await mkdtemp(join(tmpdir(), 'noslop-design-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  return { dir, logger: getLogger(['test']) };
+  return { directory, logger: getLogger(['test']) };
 }
 
 test('it reports only the first design finding when the call returns 2', async () => {
@@ -70,8 +70,8 @@ test('it reports only the first design finding when the call returns 2', async (
     adapter: stub.adapter,
     callID: 'design',
     depth: 'standard',
-    worktree: ctx.dir,
-    tempDir: ctx.dir,
+    worktree: ctx.directory,
+    tempDir: ctx.directory,
     logger: ctx.logger,
   });
 
@@ -122,8 +122,8 @@ test('it reports the finding of a retry when the first design attempt fails', as
     adapter: stub.adapter,
     callID: 'design',
     depth: 'standard',
-    worktree: ctx.dir,
-    tempDir: ctx.dir,
+    worktree: ctx.directory,
+    tempDir: ctx.directory,
     logger: ctx.logger,
   });
 
@@ -168,8 +168,8 @@ test('it gives the hunks of every file but a data file when they fit the call li
     adapter: stub.adapter,
     callID: 'design',
     depth: 'standard',
-    worktree: ctx.dir,
-    tempDir: ctx.dir,
+    worktree: ctx.directory,
+    tempDir: ctx.directory,
     logger: ctx.logger,
   });
 
@@ -184,8 +184,8 @@ test('it gives the hunks of every file but a data file when they fit the call li
 test('it writes the hunks of every file but a data file to a new file in the worktree when they pass the call limit', async () => {
   const ctx = await setupTest();
 
-  await Bun.write(join(ctx.dir, 'hunks.md'), 'a checked-out file\n');
-  await Bun.write(join(ctx.dir, '.noslop-design-hunks.md'), 'another checked-out file\n');
+  await Bun.write(join(ctx.directory, 'hunks.md'), 'a checked-out file\n');
+  await Bun.write(join(ctx.directory, '.noslop-design-hunks.md'), 'another checked-out file\n');
 
   const stub = buildStubAdapter({ design: [{ findings: { design: [] } }] });
 
@@ -274,8 +274,8 @@ test('it writes the hunks of every file but a data file to a new file in the wor
     adapter: stub.adapter,
     callID: 'design',
     depth: 'standard',
-    worktree: ctx.dir,
-    tempDir: ctx.dir,
+    worktree: ctx.directory,
+    tempDir: ctx.directory,
     logger: ctx.logger,
   });
 
@@ -289,9 +289,9 @@ test('it writes the hunks of every file but a data file to a new file in the wor
     throw new Error('the prompt names no hunks file');
   }
 
-  const hunks = await Bun.file(join(ctx.dir, hunksFile)).text();
-  const checkedOut = await Bun.file(join(ctx.dir, 'hunks.md')).text();
-  const otherCheckedOut = await Bun.file(join(ctx.dir, '.noslop-design-hunks.md')).text();
+  const hunks = await Bun.file(join(ctx.directory, hunksFile)).text();
+  const checkedOut = await Bun.file(join(ctx.directory, 'hunks.md')).text();
+  const otherCheckedOut = await Bun.file(join(ctx.directory, '.noslop-design-hunks.md')).text();
 
   expect(stub.seenFiles).toStrictEqual([
     ['.noslop-design-hunks.md', 'hunks.md', hunksFile].toSorted(),

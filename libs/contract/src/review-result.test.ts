@@ -17,7 +17,7 @@ test('it accepts a review result with one call and one dropped finding', () => {
     lenses: ['correctness'],
     calls: [
       {
-        id: 'A',
+        id: 'correctness',
         lenses: ['correctness'],
         depth: 'standard',
         adapter: 'codex',
@@ -33,7 +33,7 @@ test('it accepts a review result with one call and one dropped finding', () => {
     dropped: [
       {
         lens: 'naming-shape-and-comments',
-        callID: 'A',
+        callID: 'correctness',
         title: 'Start the name with a verb',
         anchor: { path: 'src/queue.ts', startLine: 3, endLine: 3 },
         criterion: 'taste-rule',

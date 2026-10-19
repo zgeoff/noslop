@@ -8,11 +8,11 @@ import { buildStubAdapter } from './build-stub-adapter';
 
 test('it answers each attempt of a call with the next answer under its ID', async () => {
   const stub = buildStubAdapter({
-    A: [{ error: 'codex timed out' }, { findings: { correctness: [] } }],
+    correctness: [{ error: 'codex timed out' }, { findings: { correctness: [] } }],
   });
 
   const request = {
-    callID: 'A',
+    callID: 'correctness',
     lenses: ['correctness'] as const,
     prompt: 'Review the change.',
     outputSchema: buildCallOutputSchema(['correctness']),
@@ -29,13 +29,16 @@ test('it answers each attempt of a call with the next answer under its ID', asyn
 
   expect(first).toStrictEqual(new Error('codex timed out'));
   expect(second.output).toStrictEqual({ findings: { correctness: [] } });
-  expect(stub.requests.map((item) => item.callID)).toStrictEqual(['A', 'A']);
+  expect(stub.requests.map((item) => item.callID)).toStrictEqual(['correctness', 'correctness']);
 });
 
 test('it holds a delayed call, so a later call answers first', async () => {
   const stub = buildStubAdapter(
-    { A: [{ findings: { correctness: [] } }], B: [{ findings: { correctness: [] } }] },
-    { A: 30 },
+    {
+      correctness: [{ findings: { correctness: [] } }],
+      security: [{ findings: { correctness: [] } }],
+    },
+    { correctness: 30 },
   );
 
   const request = {
@@ -51,11 +54,11 @@ test('it holds a delayed call, so a later call answers first', async () => {
   const context = { tempDir: '.', logger: getLogger(['test']) };
 
   await Promise.all([
-    stub.adapter.runCall({ ...request, callID: 'A' }, context),
-    stub.adapter.runCall({ ...request, callID: 'B' }, context),
+    stub.adapter.runCall({ ...request, callID: 'correctness' }, context),
+    stub.adapter.runCall({ ...request, callID: 'security' }, context),
   ]);
 
-  expect(stub.ended).toStrictEqual(['B', 'A']);
+  expect(stub.ended).toStrictEqual(['security', 'correctness']);
 });
 
 test('it rejects a call that has no answer left', () => {
@@ -64,7 +67,7 @@ test('it rejects a call that has no answer left', () => {
   expect(
     stub.adapter.runCall(
       {
-        callID: 'B',
+        callID: 'security',
         lenses: ['security'],
         prompt: 'Review the change.',
         outputSchema: buildCallOutputSchema(['security']),
@@ -75,32 +78,32 @@ test('it rejects a call that has no answer left', () => {
       },
       { tempDir: '.', logger: getLogger(['test']) },
     ),
-  ).rejects.toThrowWithMessage(Error, 'the stub adapter has no answer 1 for call B');
+  ).rejects.toThrowWithMessage(Error, 'the stub adapter has no answer 1 for call security');
 });
 
 test('it records the files of the working directory that each call saw, outside git', async () => {
-  const dir = await mkdtemp(join(tmpdir(), 'noslop-stub-adapter-'));
+  const directory = await mkdtemp(join(tmpdir(), 'noslop-stub-adapter-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  await Bun.write(join(dir, 'src', 'a.ts'), '');
-  await Bun.write(join(dir, 'README.md'), '');
-  await Bun.write(join(dir, '.git'), 'gitdir: elsewhere\n');
+  await Bun.write(join(directory, 'src', 'a.ts'), '');
+  await Bun.write(join(directory, 'README.md'), '');
+  await Bun.write(join(directory, '.git'), 'gitdir: elsewhere\n');
 
-  const stub = buildStubAdapter({ A: [{ findings: { correctness: [] } }] });
+  const stub = buildStubAdapter({ correctness: [{ findings: { correctness: [] } }] });
 
   await stub.adapter.runCall(
     {
-      callID: 'A',
+      callID: 'correctness',
       lenses: ['correctness'],
       prompt: 'Review the change.',
       outputSchema: buildCallOutputSchema(['correctness']),
       effort: 'low',
       model: null,
-      cwd: dir,
+      cwd: directory,
       timeoutMs: null,
     },
-    { tempDir: dir, logger: getLogger(['test']) },
+    { tempDir: directory, logger: getLogger(['test']) },
   );
 
   expect(stub.seenFiles).toStrictEqual([['README.md', join('src', 'a.ts')]]);

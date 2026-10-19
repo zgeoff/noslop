@@ -17,9 +17,9 @@ import { sendResult } from '../apps/cli/src/send-result';
 import { verify } from '../apps/cli/src/verify';
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'noslop-relay-'));
+  const directory = await mkdtemp(join(tmpdir(), 'noslop-relay-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
   const appEnv = {
     NOSLOP_GITHUB_APP_ID: '1',
@@ -48,7 +48,11 @@ async function setupTest() {
 
   const stdout: string[] = [];
   const stderr: string[] = [];
-  const folders = { XDG_CACHE_HOME: join(dir, 'cache'), XDG_DATA_HOME: join(dir, 'data') };
+
+  const folders = {
+    XDG_CACHE_HOME: join(directory, 'cache'),
+    XDG_DATA_HOME: join(directory, 'data'),
+  };
 
   // the developer's machine holds the relay's secret and no App key; CI holds the App's keys
   const developerEnv = { ...folders, RELAY_SECRET: 'relay-secret' };
@@ -70,7 +74,7 @@ async function setupTest() {
     createAdapter: () => stub.adapter,
   });
 
-  return { dir, relayURL, stdout, stderr, developerEnv, ciEnv, buildContext };
+  return { directory, relayURL, stdout, stderr, developerEnv, ciEnv, buildContext };
 }
 
 test('it carries a review from a developer machine through the relay and passes the check once each finding has an answer', async () => {
@@ -82,7 +86,7 @@ test('it carries a review from a developer machine through the relay and passes 
     },
   })}\n`;
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: { 'review.json': config, 'src/total.ts': 'export const zero = 0;\n' },
@@ -134,7 +138,7 @@ test('it carries a review from a developer machine through the relay and passes 
   });
 
   const stub = buildStubAdapter({
-    L: [
+    light: [
       {
         findings: {
           correctness: [
@@ -173,8 +177,8 @@ test('it carries a review from a developer machine through the relay and passes 
     ctx.buildContext(ctx.developerEnv, repo.path, stub),
   );
 
-  const finding = githubCollections.reviewComments.findFirst((q) =>
-    q.where({ authorLogin: STUB_APP_LOGIN, inReplyToID: null }),
+  const finding = githubCollections.reviewComments.findFirst((query) =>
+    query.where({ authorLogin: STUB_APP_LOGIN, inReplyToID: null }),
   );
 
   expect({ code: reviewed, stderr: ctx.stderr.splice(0).join('') }).toStrictEqual({

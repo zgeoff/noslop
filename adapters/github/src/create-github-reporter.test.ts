@@ -1292,7 +1292,7 @@ test('it confirms no fix answered after a re-review whose calls failed', async (
       base: 'b'.repeat(40),
       head: 'c'.repeat(40),
       findings: [],
-      failedCalls: [{ id: 'L', lenses: ['correctness'], reason: 'the call timed out' }],
+      failedCalls: [{ id: 'light', lenses: ['correctness'], reason: 'the call timed out' }],
     }),
     { logger: ctx.logger, options: {}, failedReporters: [] },
   );
@@ -1393,7 +1393,7 @@ test('it fails the check when a review whose calls failed reports a late confirm
       base: 'c'.repeat(40),
       head: 'd'.repeat(40),
       findings: [buildMockFinding({ id: '1111111111111111' })],
-      failedCalls: [{ id: 'L', lenses: ['correctness'], reason: 'the call timed out' }],
+      failedCalls: [{ id: 'light', lenses: ['correctness'], reason: 'the call timed out' }],
     }),
     { logger: ctx.logger, options: {}, failedReporters: [] },
   );
@@ -2033,8 +2033,8 @@ test('it strikes the comment of a confirmed fix and keeps its marker for the che
     { logger: ctx.logger, options: {}, failedReporters: [] },
   );
 
-  const struck = githubCollections.reviewComments.findFirst((q) =>
-    q.where({ id: thread?.id ?? -1 }),
+  const struck = githubCollections.reviewComments.findFirst((query) =>
+    query.where({ id: thread?.id ?? -1 }),
   );
 
   const connection = await createGitHubConnection({
@@ -2146,8 +2146,8 @@ test('it restores the comment of a confirmed fix once a later review reports the
     { logger: ctx.logger, options: {}, failedReporters: [] },
   );
 
-  const restored = githubCollections.reviewComments.findFirst((q) =>
-    q.where({ id: thread?.id ?? -1 }),
+  const restored = githubCollections.reviewComments.findFirst((query) =>
+    query.where({ id: thread?.id ?? -1 }),
   );
 
   expect(restored?.body).toBe(posted);
@@ -2189,12 +2189,12 @@ test('it links each finding in the summary table to its comment', async () => {
 
   const [inline] = githubCollections.reviewComments.all();
 
-  const unanchored = githubCollections.issueComments.findFirst((q) =>
-    q.where({ body: (body) => body.includes('<!-- noslop:finding ') }),
+  const unanchored = githubCollections.issueComments.findFirst((query) =>
+    query.where({ body: (body) => body.includes('<!-- noslop:finding ') }),
   );
 
-  const summary = githubCollections.issueComments.findFirst((q) =>
-    q.where({ body: (body) => body.includes('<!-- noslop:summary ') }),
+  const summary = githubCollections.issueComments.findFirst((query) =>
+    query.where({ body: (body) => body.includes('<!-- noslop:summary ') }),
   );
 
   expect(summary?.body).toInclude(
@@ -2259,7 +2259,9 @@ test('it fails the check when the re-review still finds a fixed finding, and pos
     { logger: ctx.logger, options: {}, failedReporters: [] },
   );
 
-  const roots = githubCollections.reviewComments.findMany((q) => q.where({ inReplyToID: null }));
+  const roots = githubCollections.reviewComments.findMany((query) =>
+    query.where({ inReplyToID: null }),
+  );
 
   expect(roots).toHaveLength(1);
 
@@ -2557,7 +2559,7 @@ test('it keeps a later summary and its check when an earlier review that failed 
     head: 'b'.repeat(40),
     startedAt: '2026-10-17T10:05:00.000Z',
     findings: [],
-    failedCalls: [{ id: 'L', lenses: ['correctness'], reason: 'the call timed out' }],
+    failedCalls: [{ id: 'light', lenses: ['correctness'], reason: 'the call timed out' }],
   });
 
   const failed = await ctx.reporter
@@ -2797,8 +2799,8 @@ test('it answers a free-text reply once with the accepted forms', async () => {
     );
   }
 
-  const answers = githubCollections.reviewComments.findMany((q) =>
-    q.where({
+  const answers = githubCollections.reviewComments.findMany((query) =>
+    query.where({
       authorType: 'Bot',
       body: (body) => body.startsWith('That reply is not a disposition.'),
     }),
@@ -2889,8 +2891,8 @@ test('it trusts no state that another bot posted', async () => {
     { logger: ctx.logger, options: {}, failedReporters: [] },
   );
 
-  const own = githubCollections.issueComments.findMany((q) =>
-    q.where({ authorLogin: STUB_APP_LOGIN }),
+  const own = githubCollections.issueComments.findMany((query) =>
+    query.where({ authorLogin: STUB_APP_LOGIN }),
   );
 
   expect(own.map((comment) => comment.body)).toSatisfyAll((body: string) =>
@@ -4299,7 +4301,7 @@ test('it drops a confirmed fix once a later commit shares its sha', async () => 
     inReplyToID: thread?.id ?? null,
   });
 
-  githubCollections.pullCommits.delete((q) => q.where({ sha: 'abc1234'.padEnd(40, 'd') }));
+  githubCollections.pullCommits.delete((query) => query.where({ sha: 'abc1234'.padEnd(40, 'd') }));
 
   await ctx.reporter.report(
     buildMockReviewResult({
@@ -5071,8 +5073,8 @@ test('it answers a free-text comment on a finding outside the diff once', async 
     );
   }
 
-  const answers = githubCollections.issueComments.findMany((q) =>
-    q.where({ body: (body) => body.startsWith('That reply is not a disposition.') }),
+  const answers = githubCollections.issueComments.findMany((query) =>
+    query.where({ body: (body) => body.startsWith('That reply is not a disposition.') }),
   );
 
   expect(answers).toHaveLength(1);

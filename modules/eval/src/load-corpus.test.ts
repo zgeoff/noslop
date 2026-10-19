@@ -5,18 +5,18 @@ import { join } from 'node:path';
 import { loadCorpus } from './load-corpus';
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'noslop-corpus-'));
+  const directory = await mkdtemp(join(tmpdir(), 'noslop-corpus-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  return { dir };
+  return { directory };
 }
 
 test('it loads each case folder in name order', async () => {
   const ctx = await setupTest();
 
   await Bun.write(
-    join(ctx.dir, 'b-case', 'case.json'),
+    join(ctx.directory, 'b-case', 'case.json'),
     JSON.stringify({
       id: 'b-case',
       repo: '/repos/app',
@@ -30,7 +30,7 @@ test('it loads each case folder in name order', async () => {
   );
 
   await Bun.write(
-    join(ctx.dir, 'a-case', 'case.json'),
+    join(ctx.directory, 'a-case', 'case.json'),
     JSON.stringify({
       id: 'a-case',
       repo: '/repos/app',
@@ -43,9 +43,9 @@ test('it loads each case folder in name order', async () => {
     }),
   );
 
-  await mkdir(join(ctx.dir, 'not-a-case'));
+  await mkdir(join(ctx.directory, 'not-a-case'));
 
-  const cases = await loadCorpus(ctx.dir);
+  const cases = await loadCorpus(ctx.directory);
 
   expect(cases.map((corpusCase) => corpusCase.id)).toStrictEqual(['a-case', 'b-case']);
 });
@@ -54,7 +54,7 @@ test('it loads the last reviewed head and the linked issue of a re-review case',
   const ctx = await setupTest();
 
   await Bun.write(
-    join(ctx.dir, 'push', 'case.json'),
+    join(ctx.directory, 'push', 'case.json'),
     JSON.stringify({
       id: 'push',
       repo: '/repos/app',
@@ -69,7 +69,7 @@ test('it loads the last reviewed head and the linked issue of a re-review case',
     }),
   );
 
-  const cases = await loadCorpus(ctx.dir);
+  const cases = await loadCorpus(ctx.directory);
 
   expect(cases).toStrictEqual([
     {
@@ -91,7 +91,7 @@ test('it rejects a last reviewed head that is not a full commit sha', async () =
   const ctx = await setupTest();
 
   await Bun.write(
-    join(ctx.dir, 'bad', 'case.json'),
+    join(ctx.directory, 'bad', 'case.json'),
     JSON.stringify({
       id: 'bad',
       repo: '/repos/app',
@@ -105,14 +105,14 @@ test('it rejects a last reviewed head that is not a full commit sha', async () =
     }),
   );
 
-  expect(loadCorpus(ctx.dir)).rejects.toThrowWithMessage(Error, /reviewedHead/u);
+  expect(loadCorpus(ctx.directory)).rejects.toThrowWithMessage(Error, /reviewedHead/u);
 });
 
 test('it rejects a case that does not match the case schema', async () => {
   const ctx = await setupTest();
 
   await Bun.write(
-    join(ctx.dir, 'bad', 'case.json'),
+    join(ctx.directory, 'bad', 'case.json'),
     JSON.stringify({
       id: 'bad',
       repo: '/repos/app',
@@ -125,5 +125,8 @@ test('it rejects a case that does not match the case schema', async () => {
     }),
   );
 
-  expect(loadCorpus(ctx.dir)).rejects.toThrowWithMessage(Error, /case bad is not a valid case/u);
+  expect(loadCorpus(ctx.directory)).rejects.toThrowWithMessage(
+    Error,
+    /case bad is not a valid case/u,
+  );
 });

@@ -12,6 +12,6 @@ test('it applies overrides on top of the defaults', () => {
   expect(buildMockDroppedFinding({ reason: 'anchor-outside-diff', rule: null })).toMatchObject({
     reason: 'anchor-outside-diff',
     rule: null,
-    callID: 'L',
+    callID: 'light',
   });
 });

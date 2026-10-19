@@ -14,12 +14,12 @@ const recordSchema = z.strictObject({ args: z.array(z.string()), stdin: z.string
 // writes an executable in the directory that runs the stub CLI with the script, so a test hands the
 // adapter a path where it would name the real CLI
 export async function createStubCLI(
-  dir: string,
+  directory: string,
   script: Omit<StubCLIScript, 'recordPath'>,
 ): Promise<StubCLI> {
-  const recordPath = join(dir, 'stub-record.json');
-  const scriptPath = join(dir, 'stub-script.json');
-  const path = join(dir, 'stub-cli');
+  const recordPath = join(directory, 'stub-record.json');
+  const scriptPath = join(directory, 'stub-script.json');
+  const path = join(directory, 'stub-cli');
 
   await Bun.write(scriptPath, JSON.stringify({ ...script, recordPath }));
 

@@ -8,11 +8,11 @@ import { loadStore } from './load-store';
 import { writeReview } from './write-review';
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'noslop-store-'));
+  const directory = await mkdtemp(join(tmpdir(), 'noslop-store-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  return { path: join(dir, 'store.sqlite') };
+  return { path: join(directory, 'store.sqlite') };
 }
 
 test('it keys each disposition a store held before on the one repo whose reviews report its finding', async () => {

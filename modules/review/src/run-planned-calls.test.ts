@@ -8,11 +8,11 @@ import { buildMockChangedFile, buildMockSlices, buildStubAdapter } from '@noslop
 import { runPlannedCalls } from './run-planned-calls';
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'noslop-calls-'));
+  const directory = await mkdtemp(join(tmpdir(), 'noslop-calls-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  return { dir, logger: getLogger(['test']) };
+  return { directory, logger: getLogger(['test']) };
 }
 
 test('it runs each part of a split call and records it under its own ID', async () => {
@@ -48,15 +48,15 @@ test('it runs each part of a split call and records it under its own ID', async 
   });
 
   const stub = buildStubAdapter({
-    A: [{ findings: { correctness: [] } }],
-    'A-part-2': [{ findings: { security: [] } }],
-    'A-part-2-2': [{ findings: { correctness: [] } }],
+    correctness: [{ findings: { correctness: [] } }],
+    'correctness-part-2': [{ findings: { security: [] } }],
+    'correctness-part-2-2': [{ findings: { correctness: [] } }],
   });
 
   const batch = await runPlannedCalls({
     calls: [
       {
-        callID: 'A',
+        callID: 'correctness',
         lenses: ['correctness'],
         effort: 'medium',
         model: null,
@@ -64,7 +64,7 @@ test('it runs each part of a split call and records it under its own ID', async 
         files,
       },
       {
-        callID: 'A-part-2',
+        callID: 'correctness-part-2',
         lenses: ['security'],
         effort: 'medium',
         model: null,
@@ -74,8 +74,8 @@ test('it runs each part of a split call and records it under its own ID', async 
     ],
     depth: 'standard',
     adapter: stub.adapter,
-    worktree: ctx.dir,
-    tempDir: ctx.dir,
+    worktree: ctx.directory,
+    tempDir: ctx.directory,
     logger: ctx.logger,
     slices: buildMockSlices(),
     rules: null,
@@ -92,8 +92,8 @@ test('it runs each part of a split call and records it under its own ID', async 
   });
 
   expect(batch.records.map((record) => [record.id, record.status])).toStrictEqual([
-    ['A', 'ok'],
-    ['A-part-2-2', 'ok'],
-    ['A-part-2', 'ok'],
+    ['correctness', 'ok'],
+    ['correctness-part-2-2', 'ok'],
+    ['correctness-part-2', 'ok'],
   ]);
 });

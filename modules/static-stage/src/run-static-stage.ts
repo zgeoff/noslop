@@ -240,9 +240,9 @@ function collectContextPaths(
     // a test of a source sits beside it or in a __tests__ folder beside it, as .test or .spec
     if (file.kind === 'code') {
       const stem = basename(file.path).replace(/\.[cm]?[jt]sx?$/u, '.');
-      const dir = dirname(file.path);
+      const directory = dirname(file.path);
 
-      const testDirs = new Set([dir, join(dir, '__tests__')]);
+      const testDirs = new Set([directory, join(directory, '__tests__')]);
 
       for (const path of headPaths) {
         if (

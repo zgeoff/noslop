@@ -9,17 +9,17 @@ import { readChange } from './read-change';
 import { runStaticStage } from './run-static-stage';
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'noslop-static-'));
+  const directory = await mkdtemp(join(tmpdir(), 'noslop-static-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  return { dir, runner: createRunner() };
+  return { directory, runner: createRunner() };
 }
 
 test('it slices a changed function with its writes, guards and throws', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/save.ts': 'export const a = 1;\n' } },
     {
       message: 'head',
@@ -105,7 +105,7 @@ test('it slices a changed function with its writes, guards and throws', async ()
 test('it reports a new test with no assertion and a test that repeats another', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: {
@@ -178,7 +178,7 @@ test('it reports a new test with no assertion and a test that repeats another', 
 test('it reports a type test on a key the type lacks', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/a.ts': 'export const a = 1;\n' } },
     {
       message: 'head',
@@ -230,7 +230,7 @@ test('it reports a type test on a key the type lacks', async () => {
 test('it reports a new access check whose tests hold no table of refused inputs', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/access.ts': 'export const a = 1;\n' } },
     {
       message: 'head',
@@ -281,7 +281,7 @@ test('it reports a new access check whose tests hold no table of refused inputs'
 test('it reports a repeated rule and vague wording in an instruction file', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: {
@@ -336,7 +336,7 @@ test('it reports a repeated rule and vague wording in an instruction file', asyn
 test('it reports an edit to a synced copy, a stray format hunk and a test the body names', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: {
@@ -387,7 +387,7 @@ test('it reports an edit to a synced copy, a stray format hunk and a test the bo
 test('it treats a change to synced copies alone as a sync and reports no synced edit', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'vendor/shared.ts': 'export const shared = 1;\n' } },
     { message: 'head', files: { 'vendor/shared.ts': 'export const shared = 2;\n' } },
   ]);
@@ -420,7 +420,7 @@ test('it treats a change to synced copies alone as a sync and reports no synced 
 test('it reports no synced edit when a synced caller only moves the ref of its workflow call', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: {
@@ -481,7 +481,7 @@ test('it reports no synced edit when a synced caller only moves the ref of its w
 test('it reports no synced edit when a synced caller only moves a single-quoted ref', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: {
@@ -542,7 +542,7 @@ test('it reports no synced edit when a synced caller only moves a single-quoted 
 test('it reports no synced edit when a synced caller moves the ref of a call that keeps its comment', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: {
@@ -603,7 +603,7 @@ test('it reports no synced edit when a synced caller moves the ref of a call tha
 test('it reports a synced edit when a synced caller changes the comment on its workflow call', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: {
@@ -664,7 +664,7 @@ test('it reports a synced edit when a synced caller changes the comment on its w
 test('it reports a synced edit when a synced caller that fails to parse only moves the ref of its workflow call', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: {
@@ -723,7 +723,7 @@ test('it reports a synced edit when a synced caller that fails to parse only mov
 test('it reports a synced edit when a synced caller moves a ref written inside a block scalar', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: {
@@ -786,7 +786,7 @@ test('it reports a synced edit when a synced caller moves a ref written inside a
 test('it reports a synced edit when a synced caller moves the ref of a step', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: {
@@ -845,7 +845,7 @@ test('it reports a synced edit when a synced caller moves the ref of a step', as
 test('it reports a synced edit when a synced file outside the workflow folder only moves the ref of a call', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: {
@@ -906,7 +906,7 @@ test('it reports a synced edit when a synced file outside the workflow folder on
 test('it reports a synced edit when a synced doc only moves the ref of a call in its example', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: {
@@ -967,7 +967,7 @@ test('it reports a synced edit when a synced doc only moves the ref of a call in
 test('it reports no synced edit when a synced caller only moves a quoted ref that holds a #', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: {
@@ -1028,7 +1028,7 @@ test('it reports no synced edit when a synced caller only moves a quoted ref tha
 test('it reports no synced edit when a synced caller only moves a bare ref that holds a #', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: {
@@ -1089,7 +1089,7 @@ test('it reports no synced edit when a synced caller only moves a bare ref that 
 test('it reports a synced edit when a synced caller changes more than the ref of its workflow call', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: {
@@ -1150,7 +1150,7 @@ test('it reports a synced edit when a synced caller changes more than the ref of
 test('it reports a synced edit when a synced caller changes the workflow its call names', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: {
@@ -1211,7 +1211,7 @@ test('it reports a synced edit when a synced caller changes the workflow its cal
 test('it reports a synced edit when a synced file only moves the ref of an action', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: {
@@ -1272,7 +1272,7 @@ test('it reports a synced edit when a synced file only moves the ref of an actio
 test('it reports no missing test that the pull request body names when a merge from the base branch brings it in', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/main.ts': 'export const main = 1;\n' } },
     { message: 'Raise the value', files: { 'src/main.ts': 'export const main = 2;\n' } },
     {
@@ -1325,7 +1325,7 @@ test('it reports no missing test that the pull request body names when a merge f
 test('it reports a synced edit when a synced caller is renamed and only moves the ref of its workflow call', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: {
@@ -1391,7 +1391,7 @@ test('it reports a synced edit when a synced caller is renamed and only moves th
 test('it reports a version bump a workspace range refuses and a missing bump', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: {
@@ -1451,7 +1451,7 @@ test('it reports a version bump a workspace range refuses and a missing bump', a
 test('it reports a schema bound above the published limit', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/input.ts': 'export const a = 1;\n' } },
     {
       message: 'head',
@@ -1498,7 +1498,7 @@ test('it reports a schema bound above the published limit', async () => {
 test('it shortlists a base function that a new function repeats', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: {
@@ -1533,7 +1533,7 @@ test('it shortlists a base function that a new function repeats', async () => {
     title: 'feat: profile',
     body: '',
     linkedIssue: null,
-    cacheDir: join(ctx.dir, 'cache'),
+    cacheDir: join(ctx.directory, 'cache'),
     pastEscapes: [],
   });
 
@@ -1548,7 +1548,7 @@ test('it shortlists a base function that a new function repeats', async () => {
 test('it keeps an access check in the security slice when only its body changes', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: {
@@ -1605,7 +1605,7 @@ test('it keeps an access check in the security slice when only its body changes'
 test('it reports no finding for an inherited key, a string change or an unchanged version', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: {
@@ -1679,7 +1679,7 @@ test('it reports no finding for an inherited key, a string change or an unchange
 test('it anchors a bound on its own line of a chain that spans lines', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: {
@@ -1742,7 +1742,7 @@ test('it anchors a bound on its own line of a chain that spans lines', async () 
 test('it records an edge for a changed interface member and for the exports of a deleted file', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: {

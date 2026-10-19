@@ -78,12 +78,14 @@ export function buildStubAdapter(
 }
 
 // the files under a folder, outside git's own folder; a folder that does not exist holds none
-async function readFiles(dir: string): Promise<string[]> {
-  const entries = await readdir(dir, { recursive: true, withFileTypes: true }).catch(() => []);
+async function readFiles(directory: string): Promise<string[]> {
+  const entries = await readdir(directory, { recursive: true, withFileTypes: true }).catch(
+    () => [],
+  );
 
   return entries
     .filter((entry) => entry.isFile())
-    .map((entry) => relative(dir, join(entry.parentPath, entry.name)))
+    .map((entry) => relative(directory, join(entry.parentPath, entry.name)))
     .filter((path) => path !== '.git' && !path.startsWith(`.git${sep}`))
     .toSorted();
 }

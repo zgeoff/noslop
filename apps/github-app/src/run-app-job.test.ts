@@ -6,11 +6,11 @@ import { buildStubRunner } from '@noslop/testing';
 import { runAppJob } from './run-app-job';
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'noslop-app-job-'));
+  const directory = await mkdtemp(join(tmpdir(), 'noslop-app-job-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  return { dir };
+  return { directory };
 }
 
 test('it clones the repo, fetches the pull request and reviews it through the App', async () => {
@@ -29,7 +29,7 @@ test('it clones the repo, fetches the pull request and reviews it through the Ap
       runner: stub.runner,
       cliPath: 'cli.ts',
       bunConfigPath: '/app/bunfig.toml',
-      reposDir: ctx.dir,
+      reposDir: ctx.directory,
       appID: 1,
       privateKey: 'app-key',
       mintToken: () => Promise.resolve('ghs_token'),
@@ -42,7 +42,7 @@ test('it clones the repo, fetches the pull request and reviews it through the Ap
       'clone',
       '--quiet',
       'https://github.com/example/app.git',
-      join(ctx.dir, 'example', 'app'),
+      join(ctx.directory, 'example', 'app'),
     ],
     ['git', 'fetch', '--quiet', 'origin', 'pull/5/head'],
     ['git', 'checkout', '--quiet', '--force', '--detach', 'origin/HEAD'],
@@ -76,7 +76,7 @@ test('it clones the repo, fetches the pull request and reviews it through the Ap
 test('it fetches into the clone it made before and checks out the default branch', async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, 'example', 'app', '.git'), { recursive: true });
+  await mkdir(join(ctx.directory, 'example', 'app', '.git'), { recursive: true });
 
   const stub = buildStubRunner([
     { argv: ['git', 'fetch'], result: {} },
@@ -91,7 +91,7 @@ test('it fetches into the clone it made before and checks out the default branch
       runner: stub.runner,
       cliPath: 'cli.ts',
       bunConfigPath: '/app/bunfig.toml',
-      reposDir: ctx.dir,
+      reposDir: ctx.directory,
       appID: 1,
       privateKey: 'app-key',
       mintToken: () => Promise.resolve('ghs_token'),
@@ -117,7 +117,7 @@ test('it sets the check again with no clone after a reply', async () => {
       runner: stub.runner,
       cliPath: 'cli.ts',
       bunConfigPath: '/app/bunfig.toml',
-      reposDir: ctx.dir,
+      reposDir: ctx.directory,
       appID: 1,
       privateKey: 'app-key',
       mintToken: () => Promise.reject(new Error('a check mints no token')),
@@ -128,13 +128,13 @@ test('it sets the check again with no clone after a reply', async () => {
     ['bun', '--config=/app/bunfig.toml', 'cli.ts', 'check', '--pr', '5', '--repo', 'example/app'],
   ]);
 
-  expect(stub.runs[0]?.options.cwd).toBe(ctx.dir);
+  expect(stub.runs[0]?.options.cwd).toBe(ctx.directory);
 });
 
 test('it sets the check in the repo clone when one exists, so it reads the repo config', async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, 'example', 'app', '.git'), { recursive: true });
+  await mkdir(join(ctx.directory, 'example', 'app', '.git'), { recursive: true });
 
   const stub = buildStubRunner([{ argv: ['bun'], result: {} }]);
 
@@ -144,14 +144,14 @@ test('it sets the check in the repo clone when one exists, so it reads the repo 
       runner: stub.runner,
       cliPath: 'cli.ts',
       bunConfigPath: '/app/bunfig.toml',
-      reposDir: ctx.dir,
+      reposDir: ctx.directory,
       appID: 1,
       privateKey: 'app-key',
       mintToken: () => Promise.reject(new Error('a check mints no token')),
     },
   );
 
-  expect(stub.runs[0]?.options.cwd).toBe(join(ctx.dir, 'example', 'app'));
+  expect(stub.runs[0]?.options.cwd).toBe(join(ctx.directory, 'example', 'app'));
 });
 
 test('it fails the job when the review exits non-zero', async () => {
@@ -171,7 +171,7 @@ test('it fails the job when the review exits non-zero', async () => {
         runner: stub.runner,
         cliPath: 'cli.ts',
         bunConfigPath: '/app/bunfig.toml',
-        reposDir: ctx.dir,
+        reposDir: ctx.directory,
         appID: 1,
         privateKey: 'app-key',
         mintToken: () => Promise.resolve('ghs_token'),

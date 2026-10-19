@@ -16,7 +16,7 @@ export interface AnalyzedFile {
 }
 
 export interface PackageManifest {
-  dir: string;
+  directory: string;
   path: string;
   name: string | null;
   version: string | null;

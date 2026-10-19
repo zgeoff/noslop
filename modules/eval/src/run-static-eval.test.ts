@@ -5,7 +5,12 @@ import { runStaticEval } from './run-static-eval';
 
 test('it plans each case in order and records a plan that throws as none', async () => {
   const plans: Record<string, Promise<CasePlan>> = {
-    'case-1': Promise.resolve({ depth: 'standard', special: null, calls: ['A', 'C'], maxCalls: 3 }),
+    'case-1': Promise.resolve({
+      depth: 'standard',
+      special: null,
+      calls: ['architecture', 'correctness'],
+      maxCalls: 3,
+    }),
     'case-2': Promise.reject(new Error('git cannot read the head')),
   };
 
@@ -31,7 +36,12 @@ test('it plans each case in order and records a plan that throws as none', async
   expect(runs).toStrictEqual([
     {
       caseID: 'case-1',
-      plan: { depth: 'standard', special: null, calls: ['A', 'C'], maxCalls: 3 },
+      plan: {
+        depth: 'standard',
+        special: null,
+        calls: ['architecture', 'correctness'],
+        maxCalls: 3,
+      },
     },
     { caseID: 'case-2', plan: null },
   ]);

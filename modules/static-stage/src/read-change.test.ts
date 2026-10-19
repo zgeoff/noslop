@@ -8,17 +8,17 @@ import { createTestRepo } from '@noslop/testing';
 import { readChange } from './read-change';
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'noslop-change-'));
+  const directory = await mkdtemp(join(tmpdir(), 'noslop-change-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  return { dir, runner: createRunner() };
+  return { directory, runner: createRunner() };
 }
 
 test('it reads the changed files between 2 commits with their line counts', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/a.ts': 'export const a = 1;\nexport const b = 2;\n' } },
     {
       message: 'head',
@@ -53,7 +53,7 @@ test('it reads the changed files between 2 commits with their line counts', asyn
 test('it reads a script with a shebang and no extension as code', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'README.md': '# Tools\n' } },
     {
       message: 'head',
@@ -81,7 +81,7 @@ test('it reads a script with a shebang and no extension as code', async () => {
 test('it reads a shebang script as code when the hunks miss its first line or delete it', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: {
@@ -115,7 +115,7 @@ test('it reads a shebang script as code when the hunks miss its first line or de
 test('it leaves out lockfiles and other generated files', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/a.ts': 'export const a = 1;\n' } },
     {
       message: 'head',
@@ -138,7 +138,7 @@ test('it leaves out lockfiles and other generated files', async () => {
 test('it keeps the path of an empty new file, a path with a space and a quoted path', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/a b.ts': 'export const a = 1;\n' } },
     {
       message: 'head',
@@ -168,7 +168,7 @@ test('it keeps the path of an empty new file, a path with a space and a quoted p
 test('it keeps to the files the pull request changes since its merge base after a merge from the base', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: { 'src/total.ts': 'export const total = 0;\n', 'docs/guide.md': '# Guide\n' },
@@ -200,7 +200,7 @@ test('it keeps to the files the pull request changes since its merge base after 
 test('it keeps a rename whose old path the pull request deletes when only its new path is the base branch file', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: {
@@ -243,7 +243,7 @@ test('it keeps the deletion of a path the pull request renames across 2 commits'
 
   const content = 'export const count = 1;\nexport const size = 2;\nexport const total = 3;\n';
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/old.ts': content } },
     { message: 'Copy the counts', files: { 'src/new.ts': content } },
     { message: 'Drop the old counts', files: { 'src/old.ts': null } },
@@ -266,7 +266,7 @@ test('it keeps the deletion of a path the pull request renames across 2 commits'
 test('it lists the files only the base branch changes apart after a merge from the base', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: { 'src/total.ts': 'export const total = 0;\n', 'docs/guide.md': '# Guide\n' },
@@ -300,7 +300,7 @@ test('it keeps both hunks of a file that the pull request and the base branch ea
 
   const lines = Array.from({ length: 20 }, (_, index) => `export const n${index} = ${index};`);
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/numbers.ts': `${lines.join('\n')}\n` } },
     {
       message: 'Change the first number',
@@ -350,7 +350,7 @@ test('it keeps both hunks of a file that the pull request and the base branch ea
 test('it reads every file between 2 commits when no merge base limits the change', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: { 'src/total.ts': 'export const total = 0;\n', 'docs/guide.md': '# Guide\n' },
@@ -379,7 +379,7 @@ test('it reads every file between 2 commits when no merge base limits the change
 test('it rejects a ref that names no commit', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/a.ts': 'export const a = 1;\n' } },
   ]);
 
