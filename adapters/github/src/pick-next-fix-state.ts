@@ -19,7 +19,6 @@ export const FIX_TRANSITIONS: Readonly<Record<FixState, Readonly<Record<FixVerdi
 // the states in which a review's confirmation holds, so the summary marker keeps the fix
 export const HELD_FIX_STATES: ReadonlySet<FixState> = new Set(['confirmed', 'retained']);
 
-// the state a review's verdict moves a `fixed` answer to, from the table
 export function pickNextFixState(from: FixState, verdict: FixVerdict): FixState {
   return FIX_TRANSITIONS[from][verdict];
 }
