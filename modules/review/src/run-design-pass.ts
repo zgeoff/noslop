@@ -1,4 +1,5 @@
-import { join } from 'node:path';
+import { mkdtemp } from 'node:fs/promises';
+import { join, relative } from 'node:path';
 import type { Logger } from '@logtape/logtape';
 import type {
   CallRecord,
@@ -138,10 +139,6 @@ export async function runDesignPass(input: DesignPassInput): Promise<DesignPass>
   };
 }
 
-// the file in the head worktree that holds the hunks when they pass the call limit; the worktree is
-// the review's own, and the review removes it after the design pass
-const HUNKS_FILE = '.noslop-design-hunks.md';
-
 // the prompt with the hunks of every file but the data files, which no call reads; when that whole
 // prompt passes the call limit, the hunks go to a file in the worktree that the prompt names, which
 // every adapter's read tools open, so the design call leaves out no part of the pull request
@@ -164,9 +161,15 @@ async function writeDesignPrompt(input: DesignPassInput): Promise<string> {
     return inline;
   }
 
-  await Bun.write(join(input.worktree, HUNKS_FILE), `${renderHunks(files)}\n`);
+  // a folder that mkdtemp creates holds a name no checked-out path holds, so the hunks file never
+  // replaces a file of the repo; the review removes the worktree, the folder with it, after the pass
+  const dir = await mkdtemp(join(input.worktree, '.noslop-design-'));
 
-  return buildDesignPrompt({ ...shared, hunksFile: HUNKS_FILE });
+  const hunksFile = join(relative(input.worktree, dir), 'hunks.md');
+
+  await Bun.write(join(input.worktree, hunksFile), `${renderHunks(files)}\n`);
+
+  return buildDesignPrompt({ ...shared, hunksFile });
 }
 
 async function tryRunCall(

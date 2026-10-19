@@ -178,11 +178,13 @@ test('it gives the hunks of every file but a data file when they fit the call li
   expect(prompt).toInclude('### src/a.ts (modified)');
   expect(prompt).toInclude('- `samples/headers.jsonl`: a data file the config names');
   expect(prompt).not.toInclude('{"header":"one"}');
-  expect(prompt).not.toInclude('.noslop-design-hunks.md');
+  expect(prompt).not.toInclude('.noslop-design-');
 });
 
-test('it writes the hunks of every file but a data file to a file in the worktree when they pass the call limit', async () => {
+test('it writes the hunks of every file but a data file to a new file in the worktree when they pass the call limit', async () => {
   const ctx = await setupTest();
+
+  await Bun.write(join(ctx.dir, 'hunks.md'), 'a checked-out file\n');
 
   const stub = buildStubAdapter({ design: [{ findings: { design: [] } }] });
 
@@ -278,10 +280,19 @@ test('it writes the hunks of every file but a data file to a file in the worktre
 
   const prompt = stub.requests[0]?.prompt ?? '';
 
-  const hunks = await Bun.file(join(ctx.dir, '.noslop-design-hunks.md')).text();
+  const hunksFile = /the file `(?<path>[^`]+)` in your working directory/u.exec(prompt)?.groups?.[
+    'path'
+  ];
 
-  expect(stub.seenFiles).toStrictEqual([['.noslop-design-hunks.md']]);
-  expect(prompt).toInclude('the file `.noslop-design-hunks.md` in your working directory');
+  if (hunksFile === undefined) {
+    throw new Error('the prompt names no hunks file');
+  }
+
+  const hunks = await Bun.file(join(ctx.dir, hunksFile)).text();
+  const checkedOut = await Bun.file(join(ctx.dir, 'hunks.md')).text();
+
+  expect(stub.seenFiles).toStrictEqual([['hunks.md', hunksFile].toSorted()]);
+  expect(checkedOut).toBe('a checked-out file\n');
 
   expect(prompt).toInclude(
     ['- `src/a.ts`', '- `src/big.ts`', '- `src/c.ts`', '- `src/d.ts`'].join('\n'),

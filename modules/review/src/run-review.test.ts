@@ -1905,10 +1905,16 @@ test('it gives the design call every file of a pull request whose hunks pass the
     throw new Error('the review made no design call');
   }
 
+  const hunksFile = /the file `(?<path>[^`]+)` in your working directory/u.exec(design.prompt)
+    ?.groups?.['path'];
+
+  if (hunksFile === undefined) {
+    throw new Error('the prompt names no hunks file');
+  }
+
   expect(stub.requests.map((request) => request.callID)).toStrictEqual(['L', 'design']);
-  expect(stub.seenFiles[0]).not.toContain('.noslop-design-hunks.md');
-  expect(stub.seenFiles[1]).toContain('.noslop-design-hunks.md');
-  expect(design.prompt).toInclude('the file `.noslop-design-hunks.md` in your working directory');
+  expect(stub.seenFiles[0]).not.toContain(hunksFile);
+  expect(stub.seenFiles[1]).toContain(hunksFile);
   expect(design.prompt).toInclude(['- `src/c.ts`', '- `src/e.ts`', '- `src/parse.ts`'].join('\n'));
   expect(design.prompt).not.toInclude(`'${'c'.repeat(1000)}`);
   expect(design.prompt.length).toBeLessThanOrEqual(40_000);
