@@ -110,8 +110,10 @@ JSON, with every `>` escaped, so no title or reason can end the marker early. A 
 what the check needs to judge a disposition without the review result: the id, title, file, lens,
 severity, risk class, and whether the change wrote the code. The summary marker holds the reviewed
 head, the number of reviews so far, the ids that review reported, its count of failed calls, the
-filed follow-ups and the confirmed fixes. A forms marker, on the App's answer to a free-text reply,
-holds the id of the reply it answered.
+filed follow-ups, the confirmed fixes, the ids of the reviews it counted, and when the review it
+shows started. A retried post of a review that started before that review, such as one that failed
+at the summary write, leaves the summary in place and only sets the check again. A forms marker, on
+the App's answer to a free-text reply, holds the id of the reply it answered.
 
 Only a comment by the App's own login holds state. The adapter reads that login from GitHub's
 endpoint for the authenticated App when it connects, and treats a comment by anyone else, other bots

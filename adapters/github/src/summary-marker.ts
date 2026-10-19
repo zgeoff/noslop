@@ -11,6 +11,9 @@ export const summaryMarkerSchema = z.strictObject({
   followUps: z.array(z.string()).default([]),
   confirmed: z.array(z.string()).default([]),
   reviewIDs: z.array(z.string()).optional(),
+
+  // when the review that wrote the summary started, so a retry of an earlier review leaves it alone
+  startedAt: z.iso.datetime().optional(),
 });
 
 export type SummaryMarker = z.infer<typeof summaryMarkerSchema>;

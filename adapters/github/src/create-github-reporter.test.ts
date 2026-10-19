@@ -764,6 +764,60 @@ test('it runs a queued post of a pull request after the post before it fails at 
   expect(summaries[0]).toInclude('"reviews":1,"reviewIDs":["review-b"]');
 });
 
+test('it keeps a later summary and its check when an earlier review that failed at the summary is retried', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'b'.repeat(40),
+  });
+
+  githubServer.use(
+    http.post(
+      `${GITHUB_API_URL}/repos/:owner/:repo/issues/:number/comments`,
+      () => new HttpResponse(null, { status: 500 }),
+      { once: true },
+    ),
+  );
+
+  const first = buildMockReviewResult({
+    reviewID: 'review-a',
+    pullRequest: { owner: 'example', repo: 'app', number: 5 },
+    head: 'b'.repeat(40),
+    startedAt: '2026-10-17T10:00:00.000Z',
+    findings: [],
+  });
+
+  const second = buildMockReviewResult({
+    reviewID: 'review-b',
+    pullRequest: { owner: 'example', repo: 'app', number: 5 },
+    head: 'b'.repeat(40),
+    startedAt: '2026-10-17T10:05:00.000Z',
+    findings: [],
+    failedCalls: [{ id: 'L', lenses: ['correctness'], reason: 'the call timed out' }],
+  });
+
+  const failed = await ctx.reporter
+    .report(first, { logger: ctx.logger, options: {}, failedReporters: [] })
+    .then(
+      () => null,
+      (error: unknown) => error,
+    );
+
+  await ctx.reporter.report(second, { logger: ctx.logger, options: {}, failedReporters: [] });
+  await ctx.reporter.report(first, { logger: ctx.logger, options: {}, failedReporters: [] });
+
+  const summaries = githubCollections.issueComments.all().map((comment) => comment.body);
+
+  expect(failed).toMatchObject({ status: 500 });
+  expect(summaries).toHaveLength(1);
+  expect(summaries[0]).toInclude('"reviews":1,"reviewIDs":["review-b"]');
+  expect(summaries[0]).toInclude('"failedCalls":1');
+  expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('failure');
+});
+
 test('it files one follow-up issue when 2 posts of one review run at once', async () => {
   const ctx = setupTest();
 
