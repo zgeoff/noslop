@@ -1085,6 +1085,242 @@ test('it reviews the whole pull request from its merge base under --full', async
   expect(result.base).toBe(repo.commits[0] ?? '');
 });
 
+test('it raises no finding again on a new head that matches a finding answered not-a-defect', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
+    {
+      message: 'Add one',
+      files: { 'src/total.ts': 'export const zero = 0;\nexport const one = zero - 1;\n' },
+    },
+    {
+      message: 'Add the counts',
+      files: {
+        'src/total.ts': [
+          'export const zero = 0;',
+          ...Array.from({ length: 12 }, (_, index) => `export const count${index} = ${index};`),
+          'export const one =  zero - 1;',
+          '',
+        ].join('\n'),
+      },
+    },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    title: 'Add one and the counts',
+    body: 'Adds one and the counts.',
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[2] ?? '',
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[1] ?? '',
+    files: ['src/total.ts'],
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[2] ?? '',
+    files: ['src/total.ts'],
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/total.ts',
+    lines: Array.from({ length: 13 }, (_, index) => index + 2),
+  });
+
+  const thread = await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/total.ts',
+    line: 2,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:finding {"id":"1111111111111111","title":"Add one, not subtract it","path":"src/total.ts","lens":"correctness","severity":"P2","riskClass":null,"writtenByChange":true,"criterion":"wrong-behaviour-edge-path","rule":null,"head":"${repo.commits[1] ?? ''}"} -->`,
+  });
+
+  const reply = await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    body: 'not-a-defect one is the offset below zero',
+    authorLogin: 'dev',
+    inReplyToID: thread.id,
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":1,"reported":["1111111111111111"],"failedCalls":0} -->`,
+  });
+
+  const stub = buildStubAdapter({
+    light: [
+      {
+        findings: {
+          correctness: [
+            {
+              title: 'Make one equal to zero plus one',
+              body: 'The constant is named one but holds -1.',
+              anchor: { path: 'src/total.ts', startLine: 14, endLine: 14 },
+              secondLocation: null,
+              severity: 'P2',
+              criterion: 'wrong-behaviour-edge-path',
+              rule: null,
+              ruleQuote: null,
+              verdict: 'CONFIRMED',
+              unverifiedFact: null,
+              missingChange: false,
+              fix: null,
+            },
+          ],
+        },
+      },
+    ],
+    design: [{ findings: { design: [] } }],
+  });
+
+  await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'github', '--json'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  const result = reviewResultSchema.parse(JSON.parse(ctx.stdout.join('')));
+
+  expect([result.base, result.findings]).toStrictEqual([repo.commits[1] ?? '', []]);
+
+  expect(result.dropped).toStrictEqual([
+    {
+      lens: 'correctness',
+      callID: 'light',
+      title: 'Make one equal to zero plus one',
+      anchor: { path: 'src/total.ts', startLine: 14, endLine: 14 },
+      criterion: 'wrong-behaviour-edge-path',
+      reason: 'answered-not-a-defect',
+      rule: null,
+      ruleQuote: null,
+    },
+  ]);
+
+  expect(githubCollections.reviewComments.all().map((comment) => comment.id)).toStrictEqual([
+    thread.id,
+    reply.id,
+  ]);
+
+  expect(githubCollections.checkRuns.all().at(-1)).toMatchObject({
+    headSha: repo.commits[2] ?? '',
+    conclusion: 'success',
+  });
+});
+
+test('it refuses to review again the head that a review with no failed call covered', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
+    {
+      message: 'Add one',
+      files: { 'src/total.ts': 'export const zero = 0;\nexport const one = 1;\n' },
+    },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    title: 'Add one',
+    body: 'Adds one.',
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[1] ?? '',
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","reviews":1,"reported":[],"failedCalls":0} -->`,
+  });
+
+  const stub = buildStubAdapter({});
+
+  const code = await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'github', '--json'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  expect(code).toBe(1);
+
+  expect(ctx.stderr.join('')).toStartWith(
+    `noslop: noslop already reviewed ${(repo.commits[1] ?? '').slice(0, 12)}, the head of the pull request; push a commit to review it, or pass --full to review the whole change again`,
+  );
+
+  expect(stub.requests).toStrictEqual([]);
+});
+
+test('it reviews the head again after the review that covered it had a failed call', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
+    {
+      message: 'Add one',
+      files: { 'src/total.ts': 'export const zero = 0;\nexport const one = 1;\n' },
+    },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    title: 'Add one',
+    body: 'Adds one.',
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[1] ?? '',
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","reviews":1,"reported":[],"failedCalls":1} -->`,
+  });
+
+  const stub = buildStubAdapter({
+    light: [{ findings: { correctness: [] } }],
+    design: [{ findings: { design: [] } }],
+  });
+
+  const code = await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'json', '--json'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  const result = reviewResultSchema.parse(JSON.parse(ctx.stdout.join('')));
+
+  expect(code).toBe(0);
+  expect([result.base, result.head]).toStrictEqual([repo.commits[0] ?? '', repo.commits[1] ?? '']);
+});
+
 test('it tells the calls not to judge the description when it reviews only the new commits', async () => {
   const ctx = await setupTest();
 

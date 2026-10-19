@@ -49,6 +49,8 @@ function toFindingMarker(finding: Finding, head: string): FindingMarker {
     severity: finding.severity,
     riskClass: finding.riskClass ?? null,
     writtenByChange: finding.writtenByChange,
+    criterion: finding.criterion,
+    rule: finding.rule ?? null,
     head,
   };
 }

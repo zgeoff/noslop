@@ -1,9 +1,19 @@
 import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { basename, join, resolve } from 'node:path';
-import type { EarlierFinding, PullRequestRef, ReviewResult } from '@noslop/contract';
+import type {
+  DismissedFinding,
+  EarlierFinding,
+  PullRequestRef,
+  ReviewResult,
+} from '@noslop/contract';
 import { reviewResultSchema } from '@noslop/contract';
 import type { GitHubConnection, PullRequestState, SummaryMarker } from '@noslop/github';
-import { readLinkedIssue, readPullRequestState, readThreadDispositions } from '@noslop/github';
+import {
+  collectDismissedFindings,
+  readLinkedIssue,
+  readPullRequestState,
+  readThreadDispositions,
+} from '@noslop/github';
 import type { AnsweredFix } from '@noslop/review';
 import { runFixesOnlyReview, runReview } from '@noslop/review';
 import { loadStore, readEscapePaths } from '@noslop/sqlite';
@@ -143,6 +153,7 @@ export async function runReviewCommand(values: ReviewValues, ctx: CLIContext): P
         ...(change.mergeBase === null ? {} : { mergeBase: change.mergeBase }),
         round: change.round,
         earlierFindings: change.earlierFindings,
+        dismissedFindings: change.dismissedFindings,
         isPush: values.push,
         pastEscapes,
         ...(ctx.now === undefined ? {} : { now: ctx.now }),
@@ -202,6 +213,10 @@ interface ResolvedChange {
   round: number;
   earlierFindings: EarlierFinding[];
 
+  // the posted findings whose latest answer is `not-a-defect`, which the review drops when a new
+  // finding matches one
+  dismissedFindings: DismissedFinding[];
+
   // the findings whose latest answer is `fixed`, which a fixes-only run checks; read only for one
   fixes: AnsweredFix[];
 
@@ -248,6 +263,7 @@ async function resolveLocalChange(
     pullRequestBase: null,
     round: 1,
     earlierFindings: [],
+    dismissedFindings: [],
     fixes: [],
     lensHead: null,
   };
@@ -293,6 +309,14 @@ async function resolvePullRequestChange(
   const full = summary !== undefined && summary.failedCalls === 0 ? summary.head : null;
   const latest = values.fixesOnly ? findCompleteHead(summary) : full;
   const reviewed = values.full ? null : latest;
+
+  // a lens review of a head that a lens review with no failed call already covered would review the
+  // whole change again and raise its findings anew, so it runs only under --full
+  if (!values.full && !values.fixesOnly && findLensHead(summary) === state.headSha) {
+    throw new Error(
+      `noslop already reviewed ${state.headSha.slice(0, 12)}, the head of the pull request; push a commit to review it, or pass --full to review the whole change again`,
+    );
+  }
 
   await ctx.runner.run(
     [
@@ -349,6 +373,7 @@ async function resolvePullRequestChange(
       path: thread.marker.path,
       answer: thread.replies.at(-1)?.body.trim().split('\n')[0] ?? null,
     })),
+    dismissedFindings: collectDismissedFindings(state.threads),
     fixes: values.fixesOnly ? await readAnsweredFixes(connection, pullRequest, state) : [],
   };
 }

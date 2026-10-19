@@ -74,10 +74,13 @@ it posts anything.
 1. It posts one pull request review at the reviewed head, which is the commit the review ran
    against, with one inline comment per new finding at the finding's anchor. A finding is new when
    no finding comment or filed follow-up holds its id, so a finding that a re-review reports again
-   keeps its first thread. Each comment opens with the severity, the lens and the title, then the
-   body, the fact a PLAUSIBLE finding rests on and the fix. The accepted disposition forms and the
-   finding id with its lens, criterion and rule sit in collapsed blocks, so a person reads the
-   finding first. The finding marker comes last.
+   keeps its first thread. A finding that matches one answered `not-a-defect` posts no comment,
+   because the review drops it before the post, under
+   [findings answered not-a-defect](../review/findings.md#findings-answered-not-a-defect). Each
+   comment opens with the severity, the lens and the title, then the body, the fact a PLAUSIBLE
+   finding rests on and the fix. The accepted disposition forms and the finding id with its lens,
+   criterion and rule sit in collapsed blocks, so a person reads the finding first. The finding
+   marker comes last.
 2. When GitHub refuses the review because a line sits outside the diff, the reporter posts each
    comment on its own. A finding GitHub still refuses goes into an issue comment on the pull request
    that names its anchor. A person answers it with an issue comment that starts with the finding's
@@ -162,7 +165,8 @@ head of the last fully completed review. The CLI reads the summary marker, and w
 no failed call, differs from the current head and is an ancestor of it, its head becomes the base.
 Otherwise the base is the merge base of the pull request, and the review covers the whole change. A
 review with a failed call therefore never narrows the next one, and a force push that drops the
-reviewed head brings a full review.
+reviewed head brings a full review. A review of the head that a review with no failed call covered
+runs only under `--full`, under [the CLI](./cli.md).
 
 A re-review keeps to the files the pull request changes since its merge base. A merge from the base
 branch brings the base branch's own changes into the new commits, and those changes are not the pull

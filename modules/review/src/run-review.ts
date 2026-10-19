@@ -7,7 +7,9 @@ import type {
   Change,
   ChangedFile,
   Depth,
+  DismissedFinding,
   EarlierFinding,
+  Finding,
   LensID,
   LensNotReviewedFile,
   NotReviewedFile,
@@ -18,8 +20,8 @@ import type {
   Rule,
 } from '@noslop/contract';
 import { REVIEW_OUTPUT_VERSION } from '@noslop/contract';
-import type { AssembledFindings, RawFinding } from '@noslop/findings';
-import { buildFindings } from '@noslop/findings';
+import type { AssembledFindings, DismissedFindingsSplit, RawFinding } from '@noslop/findings';
+import { buildFindings, splitDismissedFindings } from '@noslop/findings';
 import { renderHunks } from '@noslop/lenses';
 import type { PlannedCall, Route } from '@noslop/routing';
 import type { Runner } from '@noslop/runner';
@@ -75,6 +77,10 @@ export interface RunReviewOptions {
   // the merge pass over the findings of this review and of the earlier ones
   round?: number;
   earlierFindings?: readonly EarlierFinding[];
+
+  // the findings of earlier reviews that the author answered `not-a-defect`; the review drops each new
+  // finding that matches one, so an answered finding never comes back under a new ID
+  dismissedFindings?: readonly DismissedFinding[];
 }
 
 export interface ReviewRun {
@@ -111,6 +117,11 @@ export async function runReview(options: RunReviewOptions): Promise<ReviewRun> {
   const records = batches.flatMap((batch) => batch.records);
   const passRecords = [merged.record, design?.record ?? null].filter((record) => record !== null);
 
+  const answered = await readDismissedFindings(ctx, [
+    ...merged.findings,
+    ...(design?.findings ?? []),
+  ]);
+
   return {
     result: {
       version: REVIEW_OUTPUT_VERSION,
@@ -125,20 +136,32 @@ export async function runReview(options: RunReviewOptions): Promise<ReviewRun> {
       riskClasses: stage.signals.riskClasses,
       lenses: collectRunLenses(ctx.route.lenses, records),
       calls: [...records, ...passRecords],
-      findings: [...merged.findings, ...(design?.findings ?? [])],
+      findings: answered.kept,
 
       // the rule and the quote each dropped taste finding cited, so the store shows whether the
       // quote check drops real findings
-      dropped: [...assembled.dropped, ...(design?.dropped ?? [])].map((item) => ({
-        lens: item.raw.lens,
-        callID: item.raw.callID,
-        title: item.raw.finding.title,
-        anchor: item.raw.finding.anchor,
-        criterion: item.raw.finding.criterion,
-        reason: item.reason,
-        rule: item.raw.finding.rule,
-        ruleQuote: item.raw.finding.ruleQuote,
-      })),
+      dropped: [
+        ...[...assembled.dropped, ...(design?.dropped ?? [])].map((item) => ({
+          lens: item.raw.lens,
+          callID: item.raw.callID,
+          title: item.raw.finding.title,
+          anchor: item.raw.finding.anchor,
+          criterion: item.raw.finding.criterion,
+          reason: item.reason,
+          rule: item.raw.finding.rule,
+          ruleQuote: item.raw.finding.ruleQuote,
+        })),
+        ...answered.dismissed.map((finding) => ({
+          lens: finding.lens,
+          callID: finding.callID,
+          title: finding.title,
+          anchor: finding.anchor,
+          criterion: finding.criterion,
+          reason: 'answered-not-a-defect' as const,
+          rule: finding.rule ?? null,
+          ruleQuote: null,
+        })),
+      ],
       failedCalls: [
         ...batches.flatMap((batch) => batch.failed),
         ...(design === null || design.failed === null ? [] : [design.failed]),
@@ -157,6 +180,76 @@ export async function runReview(options: RunReviewOptions): Promise<ReviewRun> {
       endedAt: now().toISOString(),
     },
   };
+}
+
+// splits off each finding that matches one answered `not-a-defect`, comparing the code each anchor
+// holds at its own head; a review with no such answer reads no code
+async function readDismissedFindings(
+  ctx: PassContext,
+  findings: readonly Finding[],
+): Promise<DismissedFindingsSplit> {
+  const answered = ctx.options.dismissedFindings ?? [];
+
+  if (answered.length === 0) {
+    return { kept: [...findings], dismissed: [] };
+  }
+
+  const files = new Map<string, Promise<string[] | null>>();
+
+  const readLines = (commit: string, path: string): Promise<string[] | null> => {
+    const key = `${commit}:${path}`;
+    const read = files.get(key) ?? readFileLines(ctx, commit, path);
+
+    files.set(key, read);
+
+    return read;
+  };
+
+  const quoted = await Promise.all(
+    findings.map(async (finding) => {
+      const lines = await readLines(ctx.change.head, finding.anchor.path);
+
+      return {
+        finding,
+        code: toAnchorCode(lines, finding.anchor.startLine, finding.anchor.endLine),
+      };
+    }),
+  );
+
+  const dismissed = await Promise.all(
+    answered.map(async (finding) => {
+      if (finding.head === null || finding.startLine === null || finding.endLine === null) {
+        return { finding, code: null };
+      }
+
+      const lines = await readLines(finding.head, finding.path);
+
+      return { finding, code: toAnchorCode(lines, finding.startLine, finding.endLine) };
+    }),
+  );
+
+  return splitDismissedFindings({
+    findings: quoted,
+    dismissed,
+    maxLines: ctx.options.config.thresholds.dismissedMaxLines,
+  });
+}
+
+// the lines of a file at a commit; null when git cannot show it, such as a commit a force push dropped
+async function readFileLines(
+  ctx: PassContext,
+  commit: string,
+  path: string,
+): Promise<string[] | null> {
+  const result = await ctx.options.runner.run(['git', 'show', `${commit}:${path}`], {
+    cwd: ctx.options.repoDir,
+  });
+
+  return result.exitCode === 0 ? result.stdout.split('\n') : null;
+}
+
+function toAnchorCode(lines: string[] | null, startLine: number, endLine: number): string | null {
+  return lines === null ? null : lines.slice(startLine - 1, endLine).join('\n');
 }
 
 interface PassContext {

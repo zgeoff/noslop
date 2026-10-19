@@ -8,6 +8,7 @@ export const dropReasonSchema = z.enum([
   'unknown-rule',
   'plausible-without-fact',
   'invalid',
+  'answered-not-a-defect',
 ]);
 
 export type DropReason = z.infer<typeof dropReasonSchema>;

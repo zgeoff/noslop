@@ -69,8 +69,11 @@ remote's URL. The base is the merge-base of the pull request's base and head. On
 re-review starts from the reviewed head of the last fully completed review, under the rule in
 [re-review and fix confirmation](./github-app.md#re-review-and-fix-confirmation). `--full` keeps the
 merge-base as the base, so the review covers the whole pull request again, such as to confirm a fix
-whose commit an earlier delta left out. `--fixes-only` runs no lens, under
-[the fixes-only run](./fixes-only-run.md).
+whose commit an earlier delta left out. The CLI refuses a review of a head that a lens review with
+no failed call already covered, and exits 1 before any call runs, because a review of an unchanged
+head would cover the whole pull request again and raise its findings under new IDs. `--full` lifts
+that refusal, and a review whose call failed leaves its head open to another review. `--fixes-only`
+runs no lens, under [the fixes-only run](./fixes-only-run.md).
 
 ## Output and reporters
 

@@ -30,7 +30,7 @@ test('it writes the heading, body, fact, fix, reply options, details and marker 
 
     Finding \`0123456789abcdef\` · lens naming-shape-and-comments · criterion wrong-behaviour-edge-path · rule none
     </details>
-    <!-- noslop:finding {"id":"0123456789abcdef","title":"Return the total of every item","path":"src/a.ts","lens":"naming-shape-and-comments","severity":"P2","riskClass":null,"writtenByChange":true,"head":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"} -->"
+    <!-- noslop:finding {"id":"0123456789abcdef","title":"Return the total of every item","path":"src/a.ts","lens":"naming-shape-and-comments","severity":"P2","riskClass":null,"writtenByChange":true,"criterion":"wrong-behaviour-edge-path","rule":null,"head":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"} -->"
   `);
 });
 

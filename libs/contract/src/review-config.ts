@@ -95,6 +95,12 @@ export const thresholdsSchema = z.strictObject({
     .describe(
       '2 findings on overlapping lines merge when every word of one title, and at least this many, is in the other title',
     ),
+  dismissedMaxLines: z
+    .int()
+    .nonnegative()
+    .describe(
+      'A new finding this many lines or fewer from a finding answered not-a-defect, in the same file under the same rule, is dropped',
+    ),
   parallelCalls: z.int().positive().describe('How many calls of one review run at once'),
   maxCallChars: z
     .int()
