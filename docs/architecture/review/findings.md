@@ -91,8 +91,8 @@ A review of a pull request drops each new finding that matches a posted finding 
 answer is `not-a-defect`, so an answered finding never comes back under a new title. A new finding
 matches when it has the answered finding's ID. It also matches when it sits in the same file under
 the same criterion and rule, and either its anchor lies within the config's line distance of the
-answered anchor, or the two anchors hold the same code. The CLI reads the code of each anchor at the
-head where it was posted, with indentation, runs of spaces and blank lines left out, so the code
+answered anchor, or the two anchors hold the same code. The review reads the code of each anchor at
+the head where it was posted, with indentation, runs of spaces and blank lines left out, so the code
 still matches after earlier lines move it. A posted finding whose comment holds no criterion matches
 by its ID alone. The review result keeps each such finding among the dropped ones, with its own
 reason, so the store counts it. Whether the `not-a-defect` answer is valid stays the check's
