@@ -1,8 +1,11 @@
-import type { Disposition, PullRequestRef } from '@noslop/contract';
+import type { Disposition, FixFileEvidence, PullRequestRef } from '@noslop/contract';
+import { buildFixFileEvidence } from '@noslop/contract';
 import { buildFixConfirmation } from './build-fix-confirmation';
 import type { GitHubClient } from './create-github-connection';
 import type { FixConfirmation } from './format-summary-comment';
 import type { FixState } from './pick-next-fix-state';
+import type { CommitFiles } from './read-commit-files';
+import { readCommitFiles } from './read-commit-files';
 import type { FixCommits } from './read-fix-commits';
 import { readFixCoverage } from './read-fix-coverage';
 import type { FindingThread } from './read-pull-request-state';
@@ -44,8 +47,8 @@ export interface FixConfirmationsInput {
 }
 
 // reads from GitHub what each `fixed` answer needs against one review, and leaves the decision to
-// buildFixConfirmation; the commit may change any file, since a fix such as a missing test lives
-// beside the finding's file
+// buildFixConfirmation; the commit may change any file of the pull request, since a fix such as a
+// missing test lives beside the finding's file
 export async function readFixConfirmations(
   client: GitHubClient,
   pr: PullRequestRef,
@@ -69,6 +72,16 @@ export async function readFixConfirmations(
     sincePosted.set(posted, commits);
 
     return commits;
+  };
+
+  const fileReads = new Map<string, Promise<CommitFiles>>();
+
+  const readFiles = (commit: string): Promise<CommitFiles> => {
+    const files = fileReads.get(commit) ?? readCommitFiles(client, pr, commit);
+
+    fileReads.set(commit, files);
+
+    return files;
   };
 
   const confirmations = input.threads.map(async (thread) => {
@@ -103,7 +116,17 @@ export async function readFixConfirmations(
           })
         : { changesSkipped: false, failure: null };
 
-    const coverage = { ...read, failure: read.failure ?? rewrite?.failure ?? null };
+    const commitFiles = match === null ? null : await readFiles(match);
+
+    const files =
+      commitFiles === null
+        ? { evidence: null, failure: null }
+        : buildFixFiles(commitFiles, input.fixCommits, thread.marker.path);
+
+    const coverage = {
+      ...read,
+      failure: read.failure ?? rewrite?.failure ?? files.failure,
+    };
 
     return [
       buildFixConfirmation({
@@ -117,6 +140,7 @@ export async function readFixConfirmations(
         coverage,
         held: input.held.get(`${thread.marker.id}:${commit}`) ?? 'silent',
         isReported: review.reported.includes(thread.marker.id),
+        files: files.evidence,
       }),
     ];
   });
@@ -136,6 +160,37 @@ function findOneCommit(fixCommits: FixCommits, sha: string): string | null {
   const matches = fixCommits.commits.filter((commit) => commit.startsWith(sha));
 
   return matches.length === 1 ? (matches[0] ?? null) : null;
+}
+
+interface FixFiles {
+  evidence: FixFileEvidence | null;
+
+  // why GitHub gave no whole file list of the commit or of the pull request
+  failure: string | null;
+}
+
+// what the fix commit's files show against the pull request's diff, with each rename's earlier path
+// on both sides, or why GitHub gave no whole list to judge them by
+function buildFixFiles(read: CommitFiles, fixCommits: FixCommits, findingPath: string): FixFiles {
+  if (read.failure !== null) {
+    return { evidence: null, failure: read.failure };
+  }
+
+  if (fixCommits.pullRequestFiles === null) {
+    return { evidence: null, failure: 'the pull request changes more files than GitHub lists' };
+  }
+
+  const evidence = buildFixFileEvidence({
+    commitFiles: read.files.flatMap((file) =>
+      file.previous_filename === undefined
+        ? [file.filename]
+        : [file.filename, file.previous_filename],
+    ),
+    pullRequestFiles: fixCommits.pullRequestFiles,
+    findingPath,
+  });
+
+  return { evidence, failure: null };
 }
 
 // the files a review left out for one lens: every file no call read, and each file the call of that

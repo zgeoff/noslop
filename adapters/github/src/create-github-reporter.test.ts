@@ -1992,6 +1992,7 @@ test('it strikes the comment of a confirmed fix and keeps its marker for the che
     repo: 'app',
     number: 5,
     sha: 'c'.repeat(40),
+    files: ['src/a.ts'],
   });
 
   await githubCollections.pullFiles.create({
@@ -2922,6 +2923,145 @@ test('it confirms a fix whose commit changes only another file, such as a test',
     });
   }
 
+  for (const path of ['src/a.ts', 'src/a.test.ts']) {
+    await githubCollections.pullFiles.create({
+      owner: 'example',
+      repo: 'app',
+      number: 5,
+      path,
+      lines: [1],
+    });
+  }
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'b'.repeat(40),
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const [thread] = githubCollections.reviewComments.all();
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    body: `fixed ${'c'.repeat(7)}`,
+    authorLogin: 'dev',
+    inReplyToID: thread?.id ?? null,
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      base: 'b'.repeat(40),
+      head: 'c'.repeat(40),
+      findings: [],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const summary = githubCollections.issueComments.all().map((comment) => comment.body);
+
+  expect(summary[0]).toInclude(
+    '✅ Return the total of every item: fixed in `ccccccc` (in other files of the pull request)',
+  );
+
+  expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('success');
+});
+
+test('it leaves a fix in another file open while the re-review still reports the finding', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'c'.repeat(40),
+  });
+
+  for (const commit of [
+    { sha: 'b'.repeat(40), files: ['src/a.ts'] },
+    { sha: 'c'.repeat(40), files: ['src/a.test.ts'] },
+  ]) {
+    await githubCollections.pullCommits.create({
+      owner: 'example',
+      repo: 'app',
+      number: 5,
+      ...commit,
+    });
+  }
+
+  for (const path of ['src/a.ts', 'src/a.test.ts']) {
+    await githubCollections.pullFiles.create({
+      owner: 'example',
+      repo: 'app',
+      number: 5,
+      path,
+      lines: [1],
+    });
+  }
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'b'.repeat(40),
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const [thread] = githubCollections.reviewComments.all();
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    body: `fixed ${'c'.repeat(7)}`,
+    authorLogin: 'dev',
+    inReplyToID: thread?.id ?? null,
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      base: 'b'.repeat(40),
+      head: 'c'.repeat(40),
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const summary = githubCollections.issueComments.all().map((comment) => comment.body);
+
+  expect(summary[0]).toInclude('❌ Return the total of every item: not fixed in `ccccccc`');
+  expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('failure');
+});
+
+test('it confirms no fix whose commit changes no file of the pull request', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'c'.repeat(40),
+  });
+
+  for (const commit of [
+    { sha: 'b'.repeat(40), files: ['src/a.ts'] },
+    { sha: 'c'.repeat(40), files: ['docs/notes.md'] },
+  ]) {
+    await githubCollections.pullCommits.create({
+      owner: 'example',
+      repo: 'app',
+      number: 5,
+      ...commit,
+    });
+  }
+
   await githubCollections.pullFiles.create({
     owner: 'example',
     repo: 'app',
@@ -2962,8 +3102,11 @@ test('it confirms a fix whose commit changes only another file, such as a test',
 
   const summary = githubCollections.issueComments.all().map((comment) => comment.body);
 
-  expect(summary[0]).toInclude('✅ Return the total of every item: fixed in');
-  expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('success');
+  expect(summary[0]).toInclude(
+    '❌ Return the total of every item: not fixed in `ccccccc` (the commit changes no file of the pull request)',
+  );
+
+  expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('failure');
 });
 
 test('it confirms no fix on a file the re-review left out', async () => {
@@ -4741,13 +4884,15 @@ test('it confirms a fix whose commit changes only a test and whose rebased copy 
     });
   }
 
-  await githubCollections.pullFiles.create({
-    owner: 'example',
-    repo: 'app',
-    number: 5,
-    path: 'src/a.ts',
-    lines: [1],
-  });
+  for (const path of ['src/a.ts', 'src/a.test.ts']) {
+    await githubCollections.pullFiles.create({
+      owner: 'example',
+      repo: 'app',
+      number: 5,
+      path,
+      lines: [1],
+    });
+  }
 
   await ctx.reporter.report(
     buildMockReviewResult({

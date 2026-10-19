@@ -14,12 +14,62 @@ test('it confirms a fix the review read in its range and did not report again', 
       coverage: { changesSkipped: false, failure: null },
       held: 'silent',
       isReported: false,
+      files: { changesPullRequest: true, changesFindingFile: true },
     }),
   ).toStrictEqual({
     id: '1111111111111111',
     title: 'Await the write',
     commit: 'abc1234',
     fixed: true,
+    changesFindingFile: true,
+  });
+});
+
+test('it confirms a fix whose commit changes only another file of the pull request and says so', () => {
+  expect(
+    buildFixConfirmation({
+      id: '1111111111111111',
+      title: 'Await the write',
+      commit: 'abc1234',
+      match: 'abc1234'.padEnd(40, '0'),
+      isInRange: true,
+      isFileSkipped: false,
+      isPartial: false,
+      coverage: { changesSkipped: false, failure: null },
+      held: 'silent',
+      isReported: false,
+      files: { changesPullRequest: true, changesFindingFile: false },
+    }),
+  ).toStrictEqual({
+    id: '1111111111111111',
+    title: 'Await the write',
+    commit: 'abc1234',
+    fixed: true,
+    changesFindingFile: false,
+  });
+});
+
+test('it confirms no fix whose commit changes no file of the pull request and says why', () => {
+  expect(
+    buildFixConfirmation({
+      id: '1111111111111111',
+      title: 'Await the write',
+      commit: 'abc1234',
+      match: 'abc1234'.padEnd(40, '0'),
+      isInRange: true,
+      isFileSkipped: false,
+      isPartial: false,
+      coverage: { changesSkipped: false, failure: null },
+      held: 'silent',
+      isReported: false,
+      files: { changesPullRequest: false, changesFindingFile: false },
+    }),
+  ).toStrictEqual({
+    id: '1111111111111111',
+    title: 'Await the write',
+    commit: 'abc1234',
+    fixed: false,
+    failure: 'the commit changes no file of the pull request',
   });
 });
 
@@ -33,6 +83,7 @@ test.each([
     'the commit reaches a file the review left out',
     { coverage: { changesSkipped: true, failure: null } },
   ],
+  ['GitHub listed no whole file list of the commit', { files: null }],
 ])('it confirms no fix when %s', (_label, change) => {
   expect(
     buildFixConfirmation({
@@ -46,6 +97,7 @@ test.each([
       coverage: { changesSkipped: false, failure: null },
       held: 'silent',
       isReported: false,
+      files: { changesPullRequest: true, changesFindingFile: true },
       ...change,
     }).fixed,
   ).toBe(false);
@@ -64,6 +116,7 @@ test('it keeps a fix an earlier review confirmed outside the range of this one',
       coverage: { changesSkipped: false, failure: null },
       held: 'confirmed',
       isReported: false,
+      files: { changesPullRequest: true, changesFindingFile: true },
     }).fixed,
   ).toBe(true);
 });
@@ -84,6 +137,7 @@ test.each([
       coverage: { changesSkipped: false, failure: null },
       held,
       isReported: false,
+      files: { changesPullRequest: true, changesFindingFile: true },
     }).fixed,
   ).toBe(false);
 });
@@ -101,6 +155,7 @@ test('it rejects a fix an earlier review confirmed once this review reports the 
       coverage: { changesSkipped: false, failure: null },
       held: 'retained',
       isReported: true,
+      files: { changesPullRequest: true, changesFindingFile: true },
     }).fixed,
   ).toBe(false);
 });
@@ -121,6 +176,7 @@ test('it names why GitHub could not show an unconfirmed fix whole', () => {
       },
       held: 'silent',
       isReported: false,
+      files: { changesPullRequest: true, changesFindingFile: true },
     }),
   ).toStrictEqual({
     id: '1111111111111111',

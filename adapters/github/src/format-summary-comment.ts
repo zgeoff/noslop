@@ -12,6 +12,10 @@ export interface FixConfirmation {
   commit: string;
   fixed: boolean;
 
+  // on a confirmed fix, whether its commit changes the finding's own file, which the summary shows as
+  // evidence and no fix needs
+  changesFindingFile?: boolean;
+
   // why the review could not judge the fix, on a fix it leaves unconfirmed
   failure?: string;
 }
@@ -60,7 +64,7 @@ export function formatSummaryComment(
       const sha = `\`${item.commit.slice(0, 7)}\``;
 
       const line = item.fixed
-        ? `✅ ${item.title}: fixed in ${sha}`
+        ? `✅ ${item.title}: fixed in ${sha}${formatFixFiles(item.changesFindingFile)}`
         : `❌ ${item.title}: not fixed in ${sha}${item.failure === undefined ? '' : ` (${item.failure})`}`;
 
       lines.push(line);
@@ -161,6 +165,16 @@ function formatNotReviewed(files: readonly NotReviewedFile[]): string {
   }
 
   return [`⚠️ ${count} left out of the review:`, ...lines].join('\n');
+}
+
+// which files the commit of a confirmed fix changes, as evidence for a reader: a fix such as a new
+// test may live outside the finding's file
+function formatFixFiles(changesFindingFile: boolean | undefined): string {
+  if (changesFindingFile === undefined) {
+    return '';
+  }
+
+  return changesFindingFile ? " (in the finding's file)" : ' (in other files of the pull request)';
 }
 
 function sortFindings(findings: readonly Finding[]): Finding[] {

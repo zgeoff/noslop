@@ -1,8 +1,11 @@
 import type { PullRequestRef } from '@noslop/contract';
 import type { GitHubClient } from './create-github-connection';
 import { expandSkippedPaths } from './expand-skipped-paths';
-import type { CommitFile } from './has-skipped-file';
+import { formatStatus } from './format-status';
 import { hasSkippedFile } from './has-skipped-file';
+import type { CommitFiles } from './read-commit-files';
+import { readCommitFiles } from './read-commit-files';
+import { toCommitFile } from './to-commit-file';
 
 export interface FixCoverage {
   changesSkipped: boolean;
@@ -43,13 +46,6 @@ export async function readFixCoverage(
   };
 }
 
-interface ReadCommitFiles {
-  files: CommitFile[];
-
-  // why GitHub gave no whole file list, which the summary shows beside the unconfirmed fix
-  failure: string | null;
-}
-
 // GitHub's compare lists at most 300 files of a range
 const COMPARE_FILES = 300;
 
@@ -60,7 +56,7 @@ async function readCompareFiles(
   pr: PullRequestRef,
   base: string,
   head: string,
-): Promise<ReadCommitFiles> {
+): Promise<CommitFiles> {
   // a fix at the head has no later commit to rename its file
   if (base === head) {
     return { files: [], failure: null };
@@ -84,62 +80,4 @@ async function readCompareFiles(
       failure: `GitHub could not compare the fix commit with the head (${formatStatus(error)})`,
     };
   }
-}
-
-// GitHub lists at most 3,000 files of one commit, 100 to a page
-const COMMIT_FILES_PER_PAGE = 100;
-const COMMIT_FILE_PAGES = 30;
-
-// reads every file a commit changes from GitHub, page by page; a failed read, or a commit past
-// GitHub's file cap, gives the failure in place of a whole list
-async function readCommitFiles(
-  client: GitHubClient,
-  pr: PullRequestRef,
-  commit: string,
-): Promise<ReadCommitFiles> {
-  const files: CommitFile[] = [];
-
-  try {
-    for (let page = 1; page <= COMMIT_FILE_PAGES; page += 1) {
-      const response = await client.request('GET /repos/{owner}/{repo}/commits/{ref}', {
-        owner: pr.owner,
-        repo: pr.repo,
-        ref: commit,
-        per_page: COMMIT_FILES_PER_PAGE,
-        page,
-      });
-
-      const listed = response.data.files ?? [];
-
-      files.push(...listed.map((file) => toCommitFile(file)));
-
-      if (listed.length < COMMIT_FILES_PER_PAGE) {
-        return { files, failure: null };
-      }
-    }
-
-    return { files, failure: 'the fix commit changes more files than GitHub lists' };
-  } catch (error) {
-    return {
-      files,
-      failure: `GitHub could not list the files of the fix commit (${formatStatus(error)})`,
-    };
-  }
-}
-
-// GitHub's entry for a changed file holds more fields than the coverage check reads
-function toCommitFile(file: CommitFile): CommitFile {
-  return file.previous_filename === undefined
-    ? { filename: file.filename }
-    : { filename: file.filename, previous_filename: file.previous_filename };
-}
-
-// the HTTP status of a failed GitHub request, or the error itself when it carries none
-function formatStatus(error: unknown): string {
-  return typeof error === 'object' &&
-    error !== null &&
-    'status' in error &&
-    typeof error.status === 'number'
-    ? `HTTP ${error.status}`
-    : String(error);
 }
