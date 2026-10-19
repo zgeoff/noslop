@@ -2,10 +2,11 @@
 
 ## [0.4.2](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.1...@noslop/cli@0.4.2) (2026-10-19)
 
-
 ### Features
 
-* **geo-1419:** drop a finding that matches one answered not-a-defect ([#48](https://github.com/zgeoff/noslop/issues/48)) ([3f4a026](https://github.com/zgeoff/noslop/commit/3f4a0260a446c893538e12e0ee0c528e48b5a8f2))
+- **geo-1419:** drop a finding that matches one answered not-a-defect
+  ([#48](https://github.com/zgeoff/noslop/issues/48))
+  ([3f4a026](https://github.com/zgeoff/noslop/commit/3f4a0260a446c893538e12e0ee0c528e48b5a8f2))
 
 ## [0.4.1](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.0...@noslop/cli@0.4.1) (2026-10-19)
 
