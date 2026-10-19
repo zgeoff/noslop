@@ -24,6 +24,10 @@ export interface CheckOutcomeInput {
   // the `fixed` shas that GitHub finds name more than one commit of the repo
   ambiguous: readonly string[];
 
+  // the pull request commit that holds the change of each `<finding id>:<sha>` answer whose commit a
+  // rebase rewrote
+  rewritten: ReadonlyMap<string, string>;
+
   // the values of the `deferred` dispositions whose issue exists
   existingIssues: ReadonlySet<string>;
   failedReporters: readonly string[];
@@ -124,13 +128,9 @@ function findFixedReason(
 ): string | null {
   const named = input.commits.filter((sha) => sha.startsWith(commit));
 
-  // a sha a rebase rewrote stands for the branch commit that a review matched to its change
-  const rewrite = input.summary?.rewritten?.find(
-    (entry) => entry.id === finding.id && entry.named === commit,
-  );
-
-  const rewritten = rewrite?.branch ?? '';
-  const matches = named.length === 0 && input.commits.includes(rewritten) ? [rewritten] : named;
+  // a sha a rebase rewrote stands for the pull request commit that holds its change
+  const rewritten = input.rewritten.get(`${finding.id}:${commit}`) ?? null;
+  const matches = named.length === 0 && rewritten !== null ? [rewritten] : named;
 
   if (matches.length === 0) {
     return `the commit ${commit} is not on the branch`;

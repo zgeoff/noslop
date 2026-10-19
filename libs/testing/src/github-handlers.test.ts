@@ -180,6 +180,27 @@ test('it compares a base after the head as behind, with the head as the merge ba
   });
 });
 
+test('it compares a commit off the branch with a branch commit as diverged, listing the branch line', async () => {
+  for (const commit of [
+    { sha: 'a'.repeat(40), isOnBranch: false },
+    { sha: 'b'.repeat(40), isOnBranch: true },
+    { sha: 'c'.repeat(40), isOnBranch: true },
+  ]) {
+    await githubCollections.pullCommits.create({ owner: 'example', repo: 'app', ...commit });
+  }
+
+  const response = await fetch(
+    `${GITHUB_API_URL}/repos/example/app/compare/${'a'.repeat(40)}...${'c'.repeat(40)}`,
+  );
+
+  const compare: unknown = await response.json();
+
+  expect(compare).toMatchObject({
+    status: 'diverged',
+    commits: [{ sha: 'b'.repeat(40) }, { sha: 'c'.repeat(40) }],
+  });
+});
+
 test('it compares a commit with itself as identical', async () => {
   await githubCollections.pullCommits.create({
     owner: 'example',

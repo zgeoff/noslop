@@ -63,16 +63,19 @@ export async function readFixConfirmations(
     }
 
     const commit = disposition.value;
-    const match = findOneCommit(input.fixCommits, commit);
+    const rewrite = input.fixCommits.rewritten.get(`${thread.marker.id}:${commit}`);
+    const match = rewrite === undefined ? findOneCommit(input.fixCommits, commit) : rewrite.commit;
     const posted = thread.marker.head;
 
     // a full review covers the whole branch, so only a commit after the head that posted the finding
-    // is a fix of it; a marker without that head leaves the review's range alone to decide
-    const after = posted === undefined ? range : await readSincePosted(posted);
+    // is a fix of it; a marker without that head leaves the review's range alone to decide, and a
+    // rewrite passed that check on the commits before the rebase
+    const isAfterChecked = posted === undefined || rewrite !== undefined;
+    const after = isAfterChecked ? range : await readSincePosted(posted);
     const isInRange = match !== null && range.includes(match) && after.includes(match);
     const isFileSkipped = skipped.has(thread.marker.path);
 
-    const coverage =
+    const read =
       isInRange && match !== null && !isFileSkipped && skipped.size > 0
         ? await readFixCoverage(client, pr, {
             commit: match,
@@ -81,6 +84,8 @@ export async function readFixConfirmations(
             findingPath: thread.marker.path,
           })
         : { changesSkipped: false, failure: null };
+
+    const coverage = { ...read, failure: read.failure ?? rewrite?.failure ?? null };
 
     return [
       buildFixConfirmation({

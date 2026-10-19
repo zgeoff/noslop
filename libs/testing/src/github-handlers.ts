@@ -138,7 +138,7 @@ export const githubHandlers = [
           HttpResponse.json({ message: 'No common ancestor', status: '422' }, { status: 422 }),
         )
         .with(null, () => buildNotFound())
-        .with({ status: P.union('ahead', 'behind', 'identical') }, (compare) =>
+        .with({ status: P.union('ahead', 'behind', 'identical', 'diverged') }, (compare) =>
           HttpResponse.json(compare),
         )
         .exhaustive();

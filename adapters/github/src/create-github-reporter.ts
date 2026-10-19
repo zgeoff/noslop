@@ -417,6 +417,7 @@ async function readConfirmations(
     commits: before.commits,
     dispositions,
     head: result.head,
+    threads: before.threads,
   });
 
   const previous = before.summary?.marker ?? null;
