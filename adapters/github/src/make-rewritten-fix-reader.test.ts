@@ -226,6 +226,39 @@ test('it finds no branch commit for a rewritten commit with a file GitHub gives 
   });
 });
 
+test('it finds no branch commit for a rewritten commit that reaches the 3,000 files GitHub lists of a commit', async () => {
+  const ctx = await setupTest();
+
+  const files = Array.from({ length: 3000 }, (_, index) => `src/file-${index}.ts`);
+  const patches = Object.fromEntries(files.map((path) => [path, '@@ -1,1 +1,1 @@\n-old\n+new']));
+
+  for (const commit of [
+    { sha: 'b'.repeat(40), isOnBranch: false },
+    { sha: 'c'.repeat(40), isOnBranch: true },
+  ]) {
+    await githubCollections.pullCommits.create({
+      owner: 'example',
+      repo: 'app',
+      number: 5,
+      sha: commit.sha,
+      files,
+      patches,
+      isOnBranch: commit.isOnBranch,
+    });
+  }
+
+  const fix = await ctx.readRewrittenFix({
+    sha: 'bbbbbbb',
+    posted: undefined,
+    candidates: ['c'.repeat(40)],
+  });
+
+  expect(fix).toStrictEqual({
+    commit: null,
+    failure: 'GitHub gives no whole patch of the commit bbbbbbb',
+  });
+});
+
 test('it finds no branch commit for a rewritten commit before the head that posted the finding', async () => {
   const ctx = await setupTest();
 
