@@ -127,9 +127,142 @@ test('it compares 2 commits as the commits after the base up to the head', async
   const compare: unknown = await response.json();
 
   expect(compare).toStrictEqual({
+    status: 'ahead',
+    merge_base_commit: { sha: 'a'.repeat(40) },
     commits: [{ sha: 'b'.repeat(40) }, { sha: 'c'.repeat(40) }],
     files: [],
   });
+});
+
+test('it compares a short base sha as the commit it starts', async () => {
+  for (const sha of ['a', 'b', 'c']) {
+    await githubCollections.pullCommits.create({
+      owner: 'example',
+      repo: 'app',
+      sha: sha.repeat(40),
+    });
+  }
+
+  const response = await fetch(
+    `${GITHUB_API_URL}/repos/example/app/compare/bbbbbbb...${'c'.repeat(40)}`,
+  );
+
+  const compare: unknown = await response.json();
+
+  expect(compare).toStrictEqual({
+    status: 'ahead',
+    merge_base_commit: { sha: 'b'.repeat(40) },
+    commits: [{ sha: 'c'.repeat(40) }],
+    files: [],
+  });
+});
+
+test('it compares a base after the head as behind, with the head as the merge base', async () => {
+  for (const sha of ['a', 'b', 'c']) {
+    await githubCollections.pullCommits.create({
+      owner: 'example',
+      repo: 'app',
+      sha: sha.repeat(40),
+    });
+  }
+
+  const response = await fetch(
+    `${GITHUB_API_URL}/repos/example/app/compare/${'c'.repeat(40)}...${'b'.repeat(40)}`,
+  );
+
+  const compare: unknown = await response.json();
+
+  expect(compare).toStrictEqual({
+    status: 'behind',
+    merge_base_commit: { sha: 'b'.repeat(40) },
+    commits: [],
+    files: [],
+  });
+});
+
+test('it compares a commit with itself as identical', async () => {
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    sha: 'a'.repeat(40),
+  });
+
+  const response = await fetch(
+    `${GITHUB_API_URL}/repos/example/app/compare/${'a'.repeat(40)}...${'a'.repeat(40)}`,
+  );
+
+  const compare: unknown = await response.json();
+
+  expect(compare).toStrictEqual({
+    status: 'identical',
+    merge_base_commit: { sha: 'a'.repeat(40) },
+    commits: [],
+    files: [],
+  });
+});
+
+test('it answers a compare from a short sha that names no commit with not found', async () => {
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    sha: 'a'.repeat(40),
+  });
+
+  const response = await fetch(
+    `${GITHUB_API_URL}/repos/example/app/compare/bbbbbbb...${'a'.repeat(40)}`,
+  );
+
+  expect(response.status).toBe(404);
+});
+
+test('it compares a full sha it holds no commit for as the base before every commit', async () => {
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    sha: 'a'.repeat(40),
+  });
+
+  const response = await fetch(
+    `${GITHUB_API_URL}/repos/example/app/compare/${'f'.repeat(40)}...${'a'.repeat(40)}`,
+  );
+
+  const compare: unknown = await response.json();
+
+  expect(compare).toStrictEqual({
+    status: 'ahead',
+    merge_base_commit: { sha: 'f'.repeat(40) },
+    commits: [{ sha: 'a'.repeat(40) }],
+    files: [],
+  });
+});
+
+test('it leaves a commit from the base branch out of the commits of the pull request and keeps it in a compare', async () => {
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 3,
+    sha: 'a'.repeat(40),
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 3,
+    sha: 'b'.repeat(40),
+    isFromBase: true,
+  });
+
+  const listed = await fetch(`${GITHUB_API_URL}/repos/example/app/pulls/3/commits`);
+
+  const compared = await fetch(
+    `${GITHUB_API_URL}/repos/example/app/compare/${'a'.repeat(40)}...${'b'.repeat(40)}`,
+  );
+
+  const commits: unknown = await listed.json();
+  const compare: unknown = await compared.json();
+
+  expect(commits).toStrictEqual([{ sha: 'a'.repeat(40) }]);
+  expect(compare).toMatchObject({ status: 'ahead', commits: [{ sha: 'b'.repeat(40) }] });
 });
 
 test('it lists the files of a compared range with each rename back to its path at the base', async () => {
@@ -148,6 +281,8 @@ test('it lists the files of a compared range with each rename back to its path a
   const compare: unknown = await response.json();
 
   expect(compare).toStrictEqual({
+    status: 'ahead',
+    merge_base_commit: { sha: 'a'.repeat(40) },
     commits: [{ sha: 'b'.repeat(40) }, { sha: 'c'.repeat(40) }],
     files: [
       { filename: 'data/b.ts', status: 'renamed', previous_filename: 'src/a.ts' },

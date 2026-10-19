@@ -15,12 +15,13 @@ import { formatSummaryComment } from './format-summary-comment';
 import { parseMarker } from './parse-marker';
 import { planReviewPost } from './plan-review-post';
 import { readAllPages } from './read-all-pages';
-import { readFixCoverage } from './read-fix-coverage';
+import { readFixCommits } from './read-fix-commits';
+import { readFixConfirmations } from './read-fix-confirmations';
 import type { FindingThread, PullRequestState } from './read-pull-request-state';
 import { readPullRequestState } from './read-pull-request-state';
-import { readRangeCommits } from './read-range-commits';
 import { readThreadDispositions } from './read-thread-dispositions';
 import { runGitHubCheck } from './run-github-check';
+import { toReviewedRange } from './to-reviewed-range';
 
 export interface GitHubReporterOptions {
   loadConnection: () => Promise<GitHubConnection>;
@@ -123,7 +124,7 @@ async function runReviewPost(
     await createFollowUpIssue(client, pr, finding);
   }
 
-  const confirmations = await buildConfirmations(client, pr, before, result);
+  const confirmations = await readConfirmations(client, pr, before, result);
 
   for (const item of confirmations) {
     if (item.failure !== undefined) {
@@ -145,6 +146,7 @@ async function runReviewPost(
 
   const marker = {
     head: result.head,
+    base: result.base,
     reviews: plan.reviews,
     reviewIDs: plan.reviewIDs,
     reported: result.findings.map((finding) => finding.id),
@@ -153,6 +155,7 @@ async function runReviewPost(
     confirmed: confirmations
       .filter((item) => item.fixed)
       .map((item) => `${item.id}:${item.commit}`),
+    notReviewed: result.notReviewed.map((file) => file.path),
     startedAt: result.startedAt,
   };
 
@@ -326,91 +329,53 @@ async function createFollowUpIssue(
   });
 }
 
-// a `fixed` finding is confirmed while no review reports it again, once a review whose range holds the
-// fix commit has read the fix; the commit may change any file, since a fix such as a missing test
-// lives beside the finding's file, and a fix outside the range keeps the earlier review's word
-async function buildConfirmations(
+// the fixes this review confirms; a fix answered after the review before it ran, inside that review's
+// range, counts as that review read it, as the check counted it, so the answer needs no extra review
+async function readConfirmations(
   client: GitHubClient,
   pr: PullRequestRef,
   before: PullRequestState,
   result: ReviewResult,
 ): Promise<FixConfirmation[]> {
   const dispositions = await readThreadDispositions(client, pr, before.threads);
-  const range = await readRangeCommits(client, pr, result.base, result.head);
 
-  const latest = new Map(dispositions.map((item) => [item.findingID, item]));
-  const reported = new Set(result.findings.map((finding) => finding.id));
-
-  // a review that left the finding's file out read nothing of it, so its silence confirms no fix; a
-  // not-reviewed file never fails the check alone, but a pending fix that reaches one stays
-  // unconfirmed, and its open finding fails the check
-  const skipped = new Set(result.notReviewed.map((file) => file.path));
-  const confirmed = new Set(before.summary?.marker.confirmed);
-  const sincePosted = new Map<string, Promise<string[]>>();
-
-  const readSincePosted = (posted: string): Promise<string[]> => {
-    const commits = sincePosted.get(posted) ?? readRangeCommits(client, pr, posted, result.head);
-
-    sincePosted.set(posted, commits);
-
-    return commits;
-  };
-
-  const confirmations = before.threads.map(async (thread) => {
-    const disposition = latest.get(thread.marker.id);
-
-    if (disposition?.kind !== 'fixed') {
-      return [];
-    }
-
-    const commit = disposition.value;
-    const match = findOneCommit(before.commits, commit);
-    const posted = thread.marker.head;
-
-    // a full review covers the whole branch, so only a commit after the head that posted the finding
-    // is a fix of it; a marker without that head leaves the review's range alone to decide
-    const after = posted === undefined ? range : await readSincePosted(posted);
-
-    const isInRange =
-      range.includes(match ?? '') &&
-      after.includes(match ?? '') &&
-      !skipped.has(thread.marker.path);
-
-    const coverage =
-      isInRange && match !== null && skipped.size > 0
-        ? await readFixCoverage(client, pr, {
-            commit: match,
-            head: result.head,
-            skipped,
-            findingPath: thread.marker.path,
-          })
-        : { changesSkipped: false, failure: null };
-
-    const isRead = isInRange && !coverage.changesSkipped;
-    const isHeld = confirmed.has(`${thread.marker.id}:${commit}`);
-    const fixed = !reported.has(thread.marker.id) && match !== null && (isRead || isHeld);
-
-    return [
-      {
-        id: thread.marker.id,
-        title: thread.marker.title,
-        commit,
-        fixed,
-        ...(fixed || coverage.failure === null ? {} : { failure: coverage.failure }),
-      },
-    ];
+  const commits = await readFixCommits(client, pr, {
+    commits: before.commits,
+    dispositions,
+    head: result.head,
   });
 
-  const all = await Promise.all(confirmations);
+  const previous = before.summary?.marker ?? null;
+  const previousRange = previous === null ? null : toReviewedRange(previous);
 
-  return all.flat();
-}
+  const earlier =
+    previous === null || previousRange === null
+      ? []
+      : await readFixConfirmations(client, pr, {
+          threads: before.threads,
+          dispositions,
+          commits,
+          review: previousRange,
+          held: new Set(previous.confirmed),
+        });
 
-// the one branch commit a `fixed` sha names; a prefix that 2 commits share names neither
-function findOneCommit(commits: readonly string[], sha: string): string | null {
-  const matches = commits.filter((commit) => commit.startsWith(sha));
+  const held = new Set([
+    ...(previous?.confirmed ?? []),
+    ...earlier.filter((item) => item.fixed).map((item) => `${item.id}:${item.commit}`),
+  ]);
 
-  return matches.length === 1 ? (matches[0] ?? null) : null;
+  return readFixConfirmations(client, pr, {
+    threads: before.threads,
+    dispositions,
+    commits,
+    review: {
+      base: result.base,
+      head: result.head,
+      reported: result.findings.map((finding) => finding.id),
+      notReviewed: result.notReviewed.map((file) => file.path),
+    },
+    held,
+  });
 }
 
 // strikes the heading of each finding comment whose fix the review confirms, and restores a struck

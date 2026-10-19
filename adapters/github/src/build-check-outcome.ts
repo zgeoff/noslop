@@ -8,7 +8,14 @@ export interface CheckOutcomeInput {
   // every disposition of the pull request, oldest first; a finding's latest one counts
   dispositions: readonly Disposition[];
   summary: SummaryMarker | null;
+
+  // each `<finding id>:<commit>` fix a review read: the ones the summary holds, and the ones answered
+  // after the review of the head that its range held
+  confirmed: readonly string[];
   currentHead: string;
+
+  // the commits a `fixed` answer can name, a commit that a merge from the base branch brought in
+  // among them
   commits: readonly string[];
 
   // the values of the `deferred` dispositions whose issue exists
@@ -123,7 +130,7 @@ function findFixedReason(
     return 'the re-review still finds it';
   }
 
-  if (input.summary?.confirmed.includes(`${finding.id}:${commit}`) !== true) {
+  if (!input.confirmed.includes(`${finding.id}:${commit}`)) {
     return `no re-review has read the commit ${commit} yet`;
   }
 

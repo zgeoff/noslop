@@ -35,6 +35,10 @@ export const githubCollections = {
 
       // the path each renamed file had before the commit, by its path after it
       renames: renamesSchema.default(buildNoRenames),
+
+      // a commit of the base branch that a merge brought into the pull request: it is on the branch,
+      // but GitHub's commit list of the pull request leaves it out
+      isFromBase: z.boolean().default(false),
     }),
   }),
 

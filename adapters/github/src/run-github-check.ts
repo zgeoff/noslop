@@ -3,9 +3,12 @@ import type { CheckOutcome } from './build-check-outcome';
 import { buildCheckOutcome } from './build-check-outcome';
 import { createFormsReplies } from './create-forms-replies';
 import type { GitHubClient, GitHubConnection } from './create-github-connection';
+import { readFixCommits } from './read-fix-commits';
+import { readFixConfirmations } from './read-fix-confirmations';
 import type { PullRequestState } from './read-pull-request-state';
 import { readPullRequestState } from './read-pull-request-state';
 import { readThreadDispositions } from './read-thread-dispositions';
+import { toReviewedRange } from './to-reviewed-range';
 
 export const CHECK_NAME = 'noslop';
 
@@ -34,12 +37,23 @@ export async function runGitHubCheck(
   const dispositions = await readThreadDispositions(client, pr, state.threads);
   const existingIssues = await readExistingIssues(client, pr, dispositions);
 
+  const commits = await readFixCommits(client, pr, {
+    commits: state.commits,
+    dispositions,
+    head: state.headSha,
+  });
+
+  const summary = state.summary?.marker ?? null;
+
+  const confirmed = await readCheckConfirmed(client, pr, { state, dispositions, commits });
+
   const outcome = buildCheckOutcome({
     findings: state.threads.map((thread) => thread.marker),
     dispositions,
-    summary: state.summary?.marker ?? null,
+    summary,
+    confirmed,
     currentHead: state.headSha,
-    commits: state.commits,
+    commits,
     existingIssues,
     failedReporters: options.failedReporters,
     unreadable: state.unreadable,
@@ -56,6 +70,47 @@ export async function runGitHubCheck(
   });
 
   return outcome;
+}
+
+interface CheckConfirmedInput {
+  state: PullRequestState;
+  dispositions: readonly Disposition[];
+  commits: readonly string[];
+}
+
+// the fixes the check counts: each one a review confirmed, and each one answered after the review of
+// the head, which that review's range held and read, so the answer needs no further review
+async function readCheckConfirmed(
+  client: GitHubClient,
+  pr: PullRequestRef,
+  input: CheckConfirmedInput,
+): Promise<string[]> {
+  const marker = input.state.summary?.marker;
+
+  if (marker === undefined) {
+    return [];
+  }
+
+  const range = toReviewedRange(marker);
+
+  if (range === null || marker.head !== input.state.headSha) {
+    return marker.confirmed;
+  }
+
+  const confirmations = await readFixConfirmations(client, pr, {
+    threads: input.state.threads,
+    dispositions: input.dispositions,
+    commits: input.commits,
+    review: range,
+    held: new Set(marker.confirmed),
+  });
+
+  return [
+    ...new Set([
+      ...marker.confirmed,
+      ...confirmations.filter((item) => item.fixed).map((item) => `${item.id}:${item.commit}`),
+    ]),
+  ];
 }
 
 async function readExistingIssues(
