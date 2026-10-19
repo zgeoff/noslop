@@ -1215,6 +1215,7 @@ test('it raises no finding again on a new head that matches a finding answered n
       reason: 'answered-not-a-defect',
       rule: null,
       ruleQuote: null,
+      answeredID: '1111111111111111',
     },
   ]);
 
@@ -1227,6 +1228,187 @@ test('it raises no finding again on a new head that matches a finding answered n
     headSha: repo.commits[2] ?? '',
     conclusion: 'success',
   });
+});
+
+test('it confirms no fix of a finding answered not-a-defect when the review that read the fix dropped a match of it', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
+    {
+      message: 'Add one',
+      files: { 'src/total.ts': 'export const zero = 0;\nexport const one = zero - 1;\n' },
+    },
+    {
+      message: 'Add the counts',
+      files: {
+        'src/total.ts': [
+          'export const zero = 0;',
+          ...Array.from({ length: 12 }, (_, index) => `export const count${index} = ${index};`),
+          'export const one =  zero - 1;',
+          '',
+        ].join('\n'),
+      },
+    },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    title: 'Add one and the counts',
+    body: 'Adds one and the counts.',
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[2] ?? '',
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[1] ?? '',
+    files: ['src/total.ts'],
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[2] ?? '',
+    files: ['src/total.ts'],
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/total.ts',
+    lines: Array.from({ length: 13 }, (_, index) => index + 2),
+  });
+
+  const thread = await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/total.ts',
+    line: 2,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:finding {"id":"1111111111111111","title":"Add one, not subtract it","path":"src/total.ts","lens":"correctness","severity":"P2","riskClass":null,"writtenByChange":true,"criterion":"wrong-behaviour-edge-path","rule":null,"head":"${repo.commits[1] ?? ''}"} -->`,
+  });
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    body: 'not-a-defect one is the offset below zero',
+    authorLogin: 'dev',
+    inReplyToID: thread.id,
+    createdAt: '2026-10-17T10:00:00.000Z',
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":1,"reported":["1111111111111111"],"failedCalls":0} -->`,
+  });
+
+  const stub = buildStubAdapter({
+    light: [
+      {
+        findings: {
+          correctness: [
+            {
+              title: 'Make one equal to zero plus one',
+              body: 'The constant is named one but holds -1.',
+              anchor: { path: 'src/total.ts', startLine: 14, endLine: 14 },
+              secondLocation: null,
+              severity: 'P2',
+              criterion: 'wrong-behaviour-edge-path',
+              rule: null,
+              ruleQuote: null,
+              verdict: 'CONFIRMED',
+              unverifiedFact: null,
+              missingChange: false,
+              fix: null,
+            },
+          ],
+        },
+      },
+    ],
+    design: [{ findings: { design: [] } }],
+  });
+
+  const context = ctx.buildContext(repo.path, stub.adapter);
+
+  await runCLI(['review', '--pr', '9', '--repo', 'example/app', '--report', 'github'], context);
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    body: `fixed ${(repo.commits[2] ?? '').slice(0, 7)}`,
+    authorLogin: 'dev',
+    inReplyToID: thread.id,
+    createdAt: '2026-10-17T11:00:00.000Z',
+  });
+
+  await runCLI(['check', '--pr', '9', '--repo', 'example/app'], context);
+
+  expect(githubCollections.checkRuns.all().at(-1)).toMatchObject({
+    headSha: repo.commits[2] ?? '',
+    conclusion: 'failure',
+    summary: expect.toInclude('the re-review still finds it'),
+  });
+});
+
+test('it reviews the whole pull request again at a head a complete review covered under --full', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
+    {
+      message: 'Add one',
+      files: { 'src/total.ts': 'export const zero = 0;\nexport const one = 1;\n' },
+    },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    title: 'Add one',
+    body: 'Adds one.',
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[1] ?? '',
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","reviews":1,"reported":[],"failedCalls":0} -->`,
+  });
+
+  const stub = buildStubAdapter({
+    light: [{ findings: { correctness: [] } }],
+    design: [{ findings: { design: [] } }],
+  });
+
+  const code = await runCLI(
+    ['review', '--pr', '9', '--full', '--repo', 'example/app', '--report', 'json', '--json'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  const result = reviewResultSchema.parse(JSON.parse(ctx.stdout.join('')));
+
+  expect(code).toBe(0);
+  expect([result.base, result.head]).toStrictEqual([repo.commits[0] ?? '', repo.commits[1] ?? '']);
 });
 
 test('it refuses to review again the head that a review with no failed call covered', async () => {

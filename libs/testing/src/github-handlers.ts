@@ -17,10 +17,11 @@ interface CommentUser {
   user: { login: string; type: string };
 }
 
-type ReviewCommentData = Pick<
-  Data<'GET /repos/{owner}/{repo}/pulls/{pull_number}/comments'>[number],
-  'id' | 'path' | 'line' | 'start_line' | 'body' | 'in_reply_to_id' | 'commit_id' | 'created_at'
-> &
+type PullComment = Data<'GET /repos/{owner}/{repo}/pulls/{pull_number}/comments'>[number];
+
+type ReviewCommentData = Pick<PullComment, 'id' | 'path' | 'body' | 'in_reply_to_id'> &
+  Pick<PullComment, 'commit_id' | 'created_at' | 'line' | 'start_line'> &
+  Pick<PullComment, 'original_line' | 'original_start_line'> &
   CommentUser;
 
 type IssueCommentData = Pick<
@@ -564,6 +565,8 @@ function toReviewCommentData(
     path: comment.path,
     line: comment.line,
     start_line: comment.startLine,
+    original_line: comment.originalLine ?? comment.line,
+    original_start_line: comment.originalStartLine ?? comment.startLine,
     body: comment.body,
     ...(comment.inReplyToID === null ? {} : { in_reply_to_id: comment.inReplyToID }),
     commit_id: comment.commitID,

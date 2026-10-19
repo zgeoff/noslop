@@ -53,6 +53,44 @@ test('it stores the comments of a review as the App and serves them back in page
   ]);
 });
 
+test('it serves the lines a moved review comment had when it was posted beside its current lines', async () => {
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/a.ts',
+    startLine: 40,
+    line: 42,
+    originalStartLine: 10,
+    originalLine: 12,
+  });
+
+  const response = await fetch(`${GITHUB_API_URL}/repos/example/app/pulls/5/comments`);
+  const comments: unknown = await response.json();
+
+  expect(comments).toMatchObject([
+    { start_line: 40, line: 42, original_start_line: 10, original_line: 12 },
+  ]);
+});
+
+test('it serves the current lines as the posted lines of a review comment that has not moved', async () => {
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/a.ts',
+    startLine: 3,
+    line: 4,
+  });
+
+  const response = await fetch(`${GITHUB_API_URL}/repos/example/app/pulls/5/comments`);
+  const comments: unknown = await response.json();
+
+  expect(comments).toMatchObject([
+    { start_line: 3, line: 4, original_start_line: 3, original_line: 4 },
+  ]);
+});
+
 test('it edits the body of a review comment in place', async () => {
   const comment = await githubCollections.reviewComments.create({
     owner: 'example',

@@ -28,7 +28,7 @@ test('it drops a finding in the same file under the same criterion a few lines f
       ],
       maxLines: 5,
     }),
-  ).toStrictEqual({ kept: [], dismissed: [finding] });
+  ).toStrictEqual({ kept: [], dismissed: [{ finding, answeredID: '1111111111111111' }] });
 });
 
 test('it keeps a finding further from an answered one than the line limit, over other code', () => {
@@ -86,7 +86,7 @@ test('it drops a finding far from an answered one when its anchor holds the same
       ],
       maxLines: 5,
     }),
-  ).toStrictEqual({ kept: [], dismissed: [finding] });
+  ).toStrictEqual({ kept: [], dismissed: [{ finding, answeredID: '1111111111111111' }] });
 });
 
 test('it keeps a finding near an answered one under another criterion', () => {
@@ -210,7 +210,10 @@ test('it matches an answered finding whose marker holds no criterion by its ID a
       ],
       maxLines: 5,
     }),
-  ).toStrictEqual({ kept: [near], dismissed: [same] });
+  ).toStrictEqual({
+    kept: [near],
+    dismissed: [{ finding: same, answeredID: '1111111111111111' }],
+  });
 });
 
 test('it never matches 2 anchors on blank code alone', () => {

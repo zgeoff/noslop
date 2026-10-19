@@ -95,8 +95,10 @@ answered anchor, or the two anchors hold the same code. The review reads the cod
 the head where it was posted, with indentation, runs of spaces and blank lines left out, so the code
 still matches after earlier lines move it. A posted finding whose comment holds no criterion matches
 by its ID alone. The review result keeps each such finding among the dropped ones, with its own
-reason, so the store counts it. Whether the `not-a-defect` answer is valid stays the check's
-question, under [the GitHub App](../output/github-app.md#dispositions).
+reason, so the store counts it. The review still reports the ID of the answered finding that each
+such finding matches, so a later `fixed` answer to that finding gets no confirmation from a review
+that found it again. Whether the `not-a-defect` answer is valid stays the check's question, under
+[the GitHub App](../output/github-app.md#dispositions).
 
 ## The risk class on a finding
 

@@ -151,15 +151,16 @@ export async function runReview(options: RunReviewOptions): Promise<ReviewRun> {
           rule: item.raw.finding.rule,
           ruleQuote: item.raw.finding.ruleQuote,
         })),
-        ...answered.dismissed.map((finding) => ({
-          lens: finding.lens,
-          callID: finding.callID,
-          title: finding.title,
-          anchor: finding.anchor,
-          criterion: finding.criterion,
+        ...answered.dismissed.map((item) => ({
+          lens: item.finding.lens,
+          callID: item.finding.callID,
+          title: item.finding.title,
+          anchor: item.finding.anchor,
+          criterion: item.finding.criterion,
           reason: 'answered-not-a-defect' as const,
-          rule: finding.rule ?? null,
+          rule: item.finding.rule ?? null,
           ruleQuote: null,
+          answeredID: item.answeredID,
         })),
       ],
       failedCalls: [

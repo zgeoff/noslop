@@ -17,7 +17,9 @@ export interface DismissedFindingsInput {
 
 export interface DismissedFindingsSplit {
   kept: Finding[];
-  dismissed: Finding[];
+
+  // each dropped finding with the ID of the answered finding it matches
+  dismissed: { finding: Finding; answeredID: string }[];
 }
 
 // splits off each finding that matches one the author answered `not-a-defect`: the same ID, or the
@@ -25,14 +27,16 @@ export interface DismissedFindingsSplit {
 // marker holds no criterion matches by its ID alone
 export function splitDismissedFindings(input: DismissedFindingsInput): DismissedFindingsSplit {
   const kept: Finding[] = [];
-  const dismissed: Finding[] = [];
+  const dismissed: DismissedFindingsSplit['dismissed'] = [];
 
   for (const item of input.findings) {
-    const isDismissed = input.dismissed.some((answered) =>
-      isAnsweredBy(item, answered, input.maxLines),
-    );
+    const answered = input.dismissed.find((earlier) => isAnsweredBy(item, earlier, input.maxLines));
 
-    (isDismissed ? dismissed : kept).push(item.finding);
+    if (answered === undefined) {
+      kept.push(item.finding);
+    } else {
+      dismissed.push({ finding: item.finding, answeredID: answered.finding.id });
+    }
   }
 
   return { kept, dismissed };

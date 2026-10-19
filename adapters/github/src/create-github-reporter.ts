@@ -183,17 +183,25 @@ async function runReviewPost(
 }
 
 // the range this review read; a fixes-only run reported no finding, so a fix it judged not fixed
-// counts as reported again, and its range reads only the fixes it judged fixed
+// counts as reported again, and its range reads only the fixes it judged fixed; a finding the review
+// dropped as answered `not-a-defect` counts as reported, so it confirms no fix of the answered finding
 function toOwnRange(result: ReviewResult): KeptRange {
   const checks = result.fixChecks;
   const rejected = (checks ?? []).filter((check) => !check.fixed);
+
+  const answered = result.dropped.flatMap((item) =>
+    item.answeredID === undefined ? [] : [item.answeredID],
+  );
 
   return {
     base: result.base,
     head: result.head,
     reported: [
-      ...result.findings.map((finding) => finding.id),
-      ...rejected.map((check) => check.findingID),
+      ...new Set([
+        ...result.findings.map((finding) => finding.id),
+        ...rejected.map((check) => check.findingID),
+        ...answered,
+      ]),
     ],
     notReviewed: result.notReviewed.map((file) => file.path),
     notReviewedByLens: toLensNotReviewedPaths(result),
