@@ -47,6 +47,7 @@ export function createNoslopReviewer(options: NoslopReviewerOptions): CaseReview
           repo: corpusCase.id,
           base: getReplayBase(corpusCase),
           head: corpusCase.head,
+          ...(corpusCase.reviewedHead === undefined ? {} : { mergeBase: corpusCase.base }),
           config: options.loaded.config,
           mergeModel: options.loaded.config.adapters[options.adapter.id]?.mergeModel ?? null,
           depth: options.depth,

@@ -31,6 +31,7 @@ export async function runStaticEvalCommand(
           repoDir: corpusCase.repo,
           base: getReplayBase(corpusCase),
           head: corpusCase.head,
+          ...(corpusCase.reviewedHead === undefined ? {} : { mergeBase: corpusCase.base }),
           config: loaded.config,
           cacheDir: join(ctx.cacheDir, 'index'),
           title: corpusCase.title,

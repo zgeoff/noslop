@@ -11,6 +11,11 @@ export interface ReadChangeOptions {
   base: string;
   head: string;
   config: ReviewConfig;
+
+  // the merge base of a pull request whose base is an earlier head of it; the change keeps only the
+  // files the pull request changes since its merge base, so a merge from the base branch brings in no
+  // file the pull request never touched
+  mergeBase?: string;
 }
 
 // reads the change between 2 commits through git, resolving each ref to its full commit so every line
@@ -19,6 +24,7 @@ export interface ReadChangeOptions {
 export async function readChange(options: ReadChangeOptions): Promise<Change> {
   const base = await resolveCommit(options, options.base);
   const head = await resolveCommit(options, options.head);
+  const owned = await readOwnedPaths(options, head);
 
   const diff = await runGit(options, [
     '-c',
@@ -37,6 +43,10 @@ export async function readChange(options: ReadChangeOptions): Promise<Change> {
   const excluded: string[] = [];
 
   for (const parsed of parseDiff(diff)) {
+    if (owned !== null && !owned.has(parsed.path)) {
+      continue;
+    }
+
     if (isGlobMatch(parsed.path, options.config.generated)) {
       excluded.push(parsed.path);
       continue;
@@ -70,6 +80,32 @@ async function resolveCommit(options: ReadChangeOptions, ref: string): Promise<s
   ]);
 
   return sha.trim();
+}
+
+// the paths the pull request changes since its merge base, or null when the change has no merge base
+// to keep to; the filter runs on the parsed diff, since a pathspec on the diff itself would stop git
+// pairing a rename whose old path the list leaves out
+async function readOwnedPaths(
+  options: ReadChangeOptions,
+  head: string,
+): Promise<Set<string> | null> {
+  if (options.mergeBase === undefined) {
+    return null;
+  }
+
+  const listed = await runGit(options, [
+    '-c',
+    'core.quotePath=false',
+    'diff',
+    '--name-only',
+    '-z',
+    '--no-ext-diff',
+    '--find-renames',
+    options.mergeBase,
+    head,
+  ]);
+
+  return new Set(listed.split('\0').filter((path) => path !== ''));
 }
 
 async function hasShebang(

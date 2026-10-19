@@ -165,6 +165,67 @@ test('it keeps the path of an empty new file, a path with a space and a quoted p
   ]);
 });
 
+test('it keeps to the files the pull request changes since its merge base after a merge from the base', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    {
+      message: 'base',
+      files: { 'src/total.ts': 'export const total = 0;\n', 'docs/guide.md': '# Guide\n' },
+    },
+    { message: 'Count one', files: { 'src/total.ts': 'export const total = 1;\n' } },
+    { message: 'Expand the guide', files: { 'docs/guide.md': '# Guide\n\nRead me.\n' }, parent: 0 },
+    {
+      message: 'Merge main and count two',
+      files: { 'src/total.ts': 'export const total = 2;\n' },
+      parent: 1,
+      merged: 2,
+    },
+  ]);
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: repo.commits[1] ?? '',
+    head: repo.commits[3] ?? '',
+    mergeBase: repo.commits[2] ?? '',
+    config: BUILT_IN_DEFAULTS,
+  });
+
+  expect(change.files.map((file) => [file.path, file.addedLines, file.deletedLines])).toStrictEqual(
+    [['src/total.ts', 1, 1]],
+  );
+});
+
+test('it reads every file between 2 commits when no merge base limits the change', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    {
+      message: 'base',
+      files: { 'src/total.ts': 'export const total = 0;\n', 'docs/guide.md': '# Guide\n' },
+    },
+    { message: 'Count one', files: { 'src/total.ts': 'export const total = 1;\n' } },
+    { message: 'Expand the guide', files: { 'docs/guide.md': '# Guide\n\nRead me.\n' }, parent: 0 },
+    {
+      message: 'Merge main and count two',
+      files: { 'src/total.ts': 'export const total = 2;\n' },
+      parent: 1,
+      merged: 2,
+    },
+  ]);
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: repo.commits[1] ?? '',
+    head: repo.commits[3] ?? '',
+    config: BUILT_IN_DEFAULTS,
+  });
+
+  expect(change.files.map((file) => file.path)).toStrictEqual(['docs/guide.md', 'src/total.ts']);
+});
+
 test('it rejects a ref that names no commit', async () => {
   const ctx = await setupTest();
 

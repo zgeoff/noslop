@@ -738,6 +738,75 @@ test('it reviews a pull request from the head of its last review', async () => {
   expect(result.base).toBe(repo.commits[1] ?? '');
 });
 
+test('it reviews only the files the pull request changes after it merges its base branch', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'AGENTS.md': '# Agents\n\nRun the tests before every push.\n',
+        'skills/notes/SKILL.md': '# Notes\n\nKeep each note short.\n',
+      },
+    },
+    {
+      message: 'Name the test command',
+      files: { 'AGENTS.md': '# Agents\n\nRun the tests before every push with bun test.\n' },
+    },
+    {
+      message: 'Widen the notes skill',
+      files: {
+        'skills/notes/SKILL.md':
+          '# Notes\n\nKeep each note short.\n\nPrefer one note for each open question.\n',
+      },
+      parent: 0,
+    },
+    {
+      message: 'Merge main and name the lint command',
+      files: {
+        'AGENTS.md':
+          '# Agents\n\nRun the tests before every push with bun test.\n\nConsider a lint run after each edit.\n',
+      },
+      parent: 1,
+      merged: 2,
+    },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    title: 'Name the commands',
+    body: 'Names the test and lint commands.',
+    baseSha: repo.commits[2] ?? '',
+    headSha: repo.commits[3] ?? '',
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","reviews":1,"reported":[],"failedCalls":0} -->`,
+  });
+
+  const stub = buildStubAdapter({});
+
+  await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'json', '--json'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  const result = reviewResultSchema.parse(JSON.parse(ctx.stdout.join('')));
+
+  expect(result.base).toBe(repo.commits[1] ?? '');
+
+  expect(result.findings.map((finding) => [finding.anchor.path, finding.title])).toStrictEqual([
+    ['AGENTS.md', 'Instruction rule leaves a choice open with "consider"'],
+  ]);
+});
+
 test('it reviews the whole pull request from its merge base under --full', async () => {
   const ctx = await setupTest();
 

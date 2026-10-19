@@ -48,6 +48,10 @@ export interface RunReviewOptions {
   // the base is the last reviewed head of the pull request, not its merge base; a review without it
   // covers the whole change
   isIncremental?: boolean;
+
+  // the merge base of an incremental review's pull request, so the review keeps to the files the pull
+  // request changes and never reviews what a merge from the base branch brought in
+  mergeBase?: string;
   isPush: boolean;
   pastEscapes: readonly string[];
   readConsumerFile?: (repo: string, path: string) => Promise<string | null>;
