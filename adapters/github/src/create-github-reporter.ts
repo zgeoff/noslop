@@ -332,10 +332,11 @@ async function createFollowUpIssue(
 }
 
 // the range the summary marker keeps for a `fixed` answer after the review; a review that left out
-// more paths than the marker holds keeps no range, so such an answer waits for the next review
+// more paths than the marker holds keeps no range, so such an answer waits for the next review; the
+// budget counts the paths as the marker writes them, escapes included
 function buildRangeFields(result: ReviewResult): { base?: string; notReviewed?: string[] } {
   const notReviewed = result.notReviewed.map((file) => file.path);
-  const chars = notReviewed.reduce((total, path) => total + path.length, 0);
+  const chars = formatMarker('summary', notReviewed).length;
 
   return chars > MARKER_PATH_CHARS ? {} : { base: result.base, notReviewed };
 }

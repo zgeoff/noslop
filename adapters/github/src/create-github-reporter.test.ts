@@ -714,6 +714,54 @@ test('it keeps no range in the summary marker of a review that left out more pat
   expect(state.summary?.marker).not.toContainAnyKeys(['base', 'notReviewed']);
 });
 
+test('it keeps no range in the summary marker when the left-out paths pass the budget only before their escapes', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'b'.repeat(40),
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    sha: 'b'.repeat(40),
+  });
+
+  const notReviewed = Array.from({ length: 60 }, (_, index) => ({
+    path: `data/${String(index).padStart(3, '0')}-${'>'.repeat(190)}.jsonl`,
+    reason: 'data' as const,
+  }));
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'b'.repeat(40),
+      findings: [],
+      notReviewed,
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const connection = await createGitHubConnection({
+    appID: 1,
+    privateKey: buildStubAppKey(),
+    installationID: 7,
+  });
+
+  const state = await readPullRequestState(connection, {
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+  });
+
+  expect(state.summary?.marker).toMatchObject({ head: 'b'.repeat(40), reviews: 1 });
+  expect(state.summary?.marker).not.toContainAnyKeys(['base', 'notReviewed']);
+});
+
 test('it strikes the comment of a confirmed fix and keeps its marker for the check', async () => {
   const ctx = setupTest();
 
