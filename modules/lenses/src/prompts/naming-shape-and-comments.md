@@ -28,8 +28,9 @@ Look for:
 
 Check each candidate:
 
-1. Cite the rule from the rules file by name. A finding with no named rule is dropped, except for
-   rules 1, 2, 6 and 7 above, which hold in every repo.
+1. Cite the rule from the rules file by name. Cite a comment finding to the `Comments` section of
+   the `code-style` skill. A finding with no named rule is dropped, except for rules 1, 2, 6 and 7
+   above, which hold in every repo.
 2. Quote the name or comment in the title.
 3. For rule 7, name the typed parameter, return or variable the `any` value reaches.
 
