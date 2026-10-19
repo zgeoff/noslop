@@ -7,11 +7,11 @@ import { buildStubRunner, createStubCLI } from '@noslop/testing';
 import { createCodexReviewReviewer } from './create-codex-review-reviewer';
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'noslop-codex-review-'));
+  const directory = await mkdtemp(join(tmpdir(), 'noslop-codex-review-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  return { dir };
+  return { directory };
 }
 
 test('it runs codex review read-only against the case base in the worktree', async () => {
@@ -21,7 +21,7 @@ test('it runs codex review read-only against the case base in the worktree', asy
 
   const reviewer = createCodexReviewReviewer({
     runner: stub.runner,
-    tempDir: ctx.dir,
+    tempDir: ctx.directory,
     timeoutMs: 60_000,
   });
 
@@ -51,7 +51,7 @@ test('it runs codex review read-only against the case base in the worktree', asy
         '-c',
         'sandbox_mode="read-only"',
         '-o',
-        expect.toStartWith(join(ctx.dir, 'codex-review-')),
+        expect.toStartWith(join(ctx.directory, 'codex-review-')),
       ],
       options: { cwd: '/work/case-1', timeoutMs: 60_000 },
     },
@@ -65,7 +65,7 @@ test('it runs codex review against the last reviewed head of a re-review case', 
 
   const reviewer = createCodexReviewReviewer({
     runner: stub.runner,
-    tempDir: ctx.dir,
+    tempDir: ctx.directory,
     timeoutMs: 60_000,
   });
 
@@ -96,7 +96,7 @@ test('it runs codex review against the last reviewed head of a re-review case', 
         '-c',
         'sandbox_mode="read-only"',
         '-o',
-        expect.toStartWith(join(ctx.dir, 'codex-review-')),
+        expect.toStartWith(join(ctx.directory, 'codex-review-')),
       ],
       options: { cwd: '/work/case-1', timeoutMs: 60_000 },
     },
@@ -110,7 +110,7 @@ test('it records a failed review when codex writes no review', async () => {
 
   const reviewer = createCodexReviewReviewer({
     runner: stub.runner,
-    tempDir: ctx.dir,
+    tempDir: ctx.directory,
     timeoutMs: 60_000,
   });
 
@@ -145,7 +145,7 @@ test('it reads the token use of a review from the session of the thread it start
   const today = new Date();
 
   const childFile = join(
-    ctx.dir,
+    ctx.directory,
     'codex-home',
     'sessions',
     String(today.getFullYear()),
@@ -167,7 +167,7 @@ test('it reads the token use of a review from the session of the thread it start
 
   await utimes(childFile, later, later);
 
-  const stub = await createStubCLI(ctx.dir, {
+  const stub = await createStubCLI(ctx.directory, {
     outputFlag: '-o',
     lastMessage:
       '- [P2] Subtract in place of the sum — /work/case-1/add.ts:2-2\n  The sum turns into a difference.',
@@ -183,10 +183,10 @@ test('it reads the token use of a review from the session of the thread it start
 
   const reviewer = createCodexReviewReviewer({
     runner: createRunner(),
-    tempDir: ctx.dir,
+    tempDir: ctx.directory,
     timeoutMs: 60_000,
     command: stub.path,
-    codexHome: join(ctx.dir, 'codex-home'),
+    codexHome: join(ctx.directory, 'codex-home'),
   });
 
   const review = await reviewer.reviewCase(
@@ -200,7 +200,7 @@ test('it reads the token use of a review from the session of the thread it start
       findings: [],
       escapes: [],
     },
-    ctx.dir,
+    ctx.directory,
   );
 
   expect(review.tokens).toStrictEqual({
@@ -214,7 +214,7 @@ test('it reads the token use of a review from the session of the thread it start
 test('it rejects a finished review that names no thread', async () => {
   const ctx = await setupTest();
 
-  const stub = await createStubCLI(ctx.dir, {
+  const stub = await createStubCLI(ctx.directory, {
     outputFlag: '-o',
     lastMessage: 'No findings.',
     stdout: '',
@@ -225,10 +225,10 @@ test('it rejects a finished review that names no thread', async () => {
 
   const reviewer = createCodexReviewReviewer({
     runner: createRunner(),
-    tempDir: ctx.dir,
+    tempDir: ctx.directory,
     timeoutMs: 60_000,
     command: stub.path,
-    codexHome: join(ctx.dir, 'codex-home'),
+    codexHome: join(ctx.directory, 'codex-home'),
   });
 
   expect(
@@ -243,7 +243,7 @@ test('it rejects a finished review that names no thread', async () => {
         findings: [],
         escapes: [],
       },
-      ctx.dir,
+      ctx.directory,
     ),
   ).rejects.toThrowWithMessage(
     Error,
@@ -257,7 +257,7 @@ test('it removes the session files of its own review and never another run', asy
   const today = new Date();
 
   const day = join(
-    ctx.dir,
+    ctx.directory,
     'codex-home',
     'sessions',
     String(today.getFullYear()),
@@ -290,7 +290,7 @@ test('it removes the session files of its own review and never another run', asy
   await utimes(join(day, 'rollout-child.jsonl'), later, later);
   await utimes(join(day, 'rollout-other.jsonl'), later, later);
 
-  const stub = await createStubCLI(ctx.dir, {
+  const stub = await createStubCLI(ctx.directory, {
     outputFlag: '-o',
     lastMessage: 'No findings.',
     stdout: '{"type":"thread.started","thread_id":"t_parent"}\n',
@@ -301,10 +301,10 @@ test('it removes the session files of its own review and never another run', asy
 
   const reviewer = createCodexReviewReviewer({
     runner: createRunner(),
-    tempDir: ctx.dir,
+    tempDir: ctx.directory,
     timeoutMs: 60_000,
     command: stub.path,
-    codexHome: join(ctx.dir, 'codex-home'),
+    codexHome: join(ctx.directory, 'codex-home'),
   });
 
   await reviewer.reviewCase(
@@ -318,7 +318,7 @@ test('it removes the session files of its own review and never another run', asy
       findings: [],
       escapes: [],
     },
-    ctx.dir,
+    ctx.directory,
   );
 
   const left = await readdir(day);

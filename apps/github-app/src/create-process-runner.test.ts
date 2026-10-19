@@ -10,27 +10,27 @@ async function setupTest() {
   onTestFinished(() => rm(temp, { recursive: true, force: true }));
 
   // the shell prints the folder with its symlinks resolved
-  const dir = await realpath(temp);
+  const directory = await realpath(temp);
 
-  return { dir, runner: createProcessRunner() };
+  return { directory, runner: createProcessRunner() };
 }
 
 test('it runs a process in the folder with the given variables and returns its exit code and stderr', async () => {
   const ctx = await setupTest();
 
   const result = await ctx.runner.run(['sh', '-c', 'echo "$PWD $NOSLOP_PROBE" >&2; exit 3'], {
-    cwd: ctx.dir,
+    cwd: ctx.directory,
     env: { NOSLOP_PROBE: 'set' },
   });
 
-  expect(result).toStrictEqual({ exitCode: 3, stderr: `${ctx.dir} set\n` });
+  expect(result).toStrictEqual({ exitCode: 3, stderr: `${ctx.directory} set\n` });
 });
 
 test('it starts a child without the variables that point git at another repo', async () => {
   const ctx = await setupTest();
 
   const result = await ctx.runner.run(['sh', '-c', 'echo "[$GIT_DIR]" >&2'], {
-    cwd: ctx.dir,
+    cwd: ctx.directory,
     env: { GIT_DIR: '/elsewhere/.git' },
   });
 

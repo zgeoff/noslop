@@ -6,17 +6,17 @@ import { createRunner } from '@noslop/runner';
 import { createStubCLI } from './create-stub-cli';
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'noslop-stub-cli-'));
+  const directory = await mkdtemp(join(tmpdir(), 'noslop-stub-cli-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  return { dir, runner: createRunner() };
+  return { directory, runner: createRunner() };
 }
 
 test('it records the arguments and stdin, writes the last message and exits as scripted', async () => {
   const ctx = await setupTest();
 
-  const stub = await createStubCLI(ctx.dir, {
+  const stub = await createStubCLI(ctx.directory, {
     outputFlag: '-o',
     lastMessage: '{"ok":true}',
     stdout: 'events\n',
@@ -25,10 +25,13 @@ test('it records the arguments and stdin, writes the last message and exits as s
     delayMs: 0,
   });
 
-  const result = await ctx.runner.run([stub.path, 'exec', '-o', join(ctx.dir, 'last.txt'), '-'], {
-    cwd: ctx.dir,
-    stdin: 'the prompt',
-  });
+  const result = await ctx.runner.run(
+    [stub.path, 'exec', '-o', join(ctx.directory, 'last.txt'), '-'],
+    {
+      cwd: ctx.directory,
+      stdin: 'the prompt',
+    },
+  );
 
   expect([result.exitCode, result.stdout, result.stderr]).toStrictEqual([
     3,
@@ -37,10 +40,10 @@ test('it records the arguments and stdin, writes the last message and exits as s
   ]);
 
   const record = await stub.readRecord();
-  const lastMessage = await Bun.file(join(ctx.dir, 'last.txt')).text();
+  const lastMessage = await Bun.file(join(ctx.directory, 'last.txt')).text();
 
   expect(record).toStrictEqual({
-    args: ['exec', '-o', join(ctx.dir, 'last.txt'), '-'],
+    args: ['exec', '-o', join(ctx.directory, 'last.txt'), '-'],
     stdin: 'the prompt',
   });
 
@@ -50,11 +53,11 @@ test('it records the arguments and stdin, writes the last message and exits as s
 test('it runs from a folder whose path holds a quote', async () => {
   const ctx = await setupTest();
 
-  const dir = join(ctx.dir, "it's here");
+  const directory = join(ctx.directory, "it's here");
 
-  await Bun.write(join(dir, '.keep'), '');
+  await Bun.write(join(directory, '.keep'), '');
 
-  const stub = await createStubCLI(dir, {
+  const stub = await createStubCLI(directory, {
     outputFlag: null,
     lastMessage: null,
     stdout: 'ran\n',
@@ -63,7 +66,7 @@ test('it runs from a folder whose path holds a quote', async () => {
     delayMs: 0,
   });
 
-  const result = await ctx.runner.run([stub.path], { cwd: dir });
+  const result = await ctx.runner.run([stub.path], { cwd: directory });
 
   expect([result.exitCode, result.stdout]).toStrictEqual([0, 'ran\n']);
 });
@@ -71,7 +74,7 @@ test('it runs from a folder whose path holds a quote', async () => {
 test('it writes no last message when the arguments lack the output flag', async () => {
   const ctx = await setupTest();
 
-  const stub = await createStubCLI(ctx.dir, {
+  const stub = await createStubCLI(ctx.directory, {
     outputFlag: '-o',
     lastMessage: '{"ok":true}',
     stdout: '',
@@ -80,9 +83,9 @@ test('it writes no last message when the arguments lack the output flag', async 
     delayMs: 0,
   });
 
-  await ctx.runner.run([stub.path, 'exec'], { cwd: ctx.dir });
+  await ctx.runner.run([stub.path, 'exec'], { cwd: ctx.directory });
 
-  const exists = await Bun.file(join(ctx.dir, 'last.txt')).exists();
+  const exists = await Bun.file(join(ctx.directory, 'last.txt')).exists();
 
   expect(exists).toBe(false);
 });

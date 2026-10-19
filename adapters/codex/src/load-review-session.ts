@@ -93,7 +93,7 @@ async function collectSessionFiles(query: ReviewSessionQuery): Promise<string[]>
   for (let day = query.since - DAY_MS; day <= Date.now() + DAY_MS; day += DAY_MS) {
     const date = new Date(day);
 
-    const dir = join(
+    const directory = join(
       query.codexHome,
       'sessions',
       String(date.getFullYear()),
@@ -101,13 +101,13 @@ async function collectSessionFiles(query: ReviewSessionQuery): Promise<string[]>
       String(date.getDate()).padStart(2, '0'),
     );
 
-    const names = await readdir(dir).catch(() => []);
+    const names = await readdir(directory).catch(() => []);
 
     for (const name of names.filter((candidate) => candidate.endsWith('.jsonl'))) {
-      const info = await stat(join(dir, name)).catch(() => null);
+      const info = await stat(join(directory, name)).catch(() => null);
 
       if (info !== null && info.mtimeMs >= query.since) {
-        files.push(join(dir, name));
+        files.push(join(directory, name));
       }
     }
   }

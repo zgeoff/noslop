@@ -7,7 +7,7 @@ test('it lists what ran, each finding at its anchor and each failed call', () =>
     buildMockReviewResult({
       depth: 'deep',
       findings: [buildMockFinding()],
-      failedCalls: [{ id: 'B', lenses: ['security'], reason: 'codex timed out' }],
+      failedCalls: [{ id: 'security', lenses: ['security'], reason: 'codex timed out' }],
     }),
   );
 
@@ -16,7 +16,7 @@ test('it lists what ran, each finding at its anchor and each failed call', () =>
     lenses: correctness
 
     P2 CONFIRMED src/a.ts:1 [correctness] Return the total of every item
-    failed call B (security): codex timed out
+    failed call security (security): codex timed out
     "
   `);
 });

@@ -8,7 +8,7 @@ const DEPTH_EFFORT: Readonly<Record<Depth, Effort>> = {
   deep: 'high',
 };
 
-const LIGHT_CALL = 'L';
+const LIGHT_CALL = 'light';
 
 interface CallGroup {
   callID: string;

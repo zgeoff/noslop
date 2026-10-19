@@ -18,7 +18,8 @@ is a config change.
 Routing walks the calls in the order of their IDs and puts each fired lens into the first call that
 lists it. A call holds only the lenses of its list that fired, and a call with no fired lens is left
 out. A fired lens that no call lists runs in a call of its own, so a grouping that leaves a lens out
-never drops it.
+never drops it. That call takes the lens's name as its ID, so the config load refuses a call that
+takes a lens's name without listing that lens, because the two calls would share one ID.
 
 At Light, every fired lens goes into one call, because a Light change is small enough for one prompt
 to hold. At Standard and Deep, the calls follow the grouping, one call per group that fired, so a

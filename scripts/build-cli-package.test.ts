@@ -5,19 +5,19 @@ import { join } from 'node:path';
 import { buildCLIPackage } from './build-cli-package';
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'noslop-cli-package-'));
+  const directory = await mkdtemp(join(tmpdir(), 'noslop-cli-package-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
   // the repo's TypeScript, which checks a project that installs the packed package
   const tsc = join(import.meta.dir, '..', 'node_modules', '.bin', 'tsc');
 
-  return { dir, tsc };
+  return { directory, tsc };
 }
 
 test('it builds a manifest that names the bundle, the subpath exports and no workspace dependency', async () => {
   const ctx = await setupTest();
-  const manifest = await buildCLIPackage(ctx.dir);
+  const manifest = await buildCLIPackage(ctx.directory);
 
   expect(manifest).toMatchObject({
     name: '@noslop/cli',
@@ -43,9 +43,9 @@ test('it builds a manifest that names the bundle, the subpath exports and no wor
 test('it writes the bundles, their declarations, the manifest, the README and the LICENSE', async () => {
   const ctx = await setupTest();
 
-  await buildCLIPackage(ctx.dir);
+  await buildCLIPackage(ctx.directory);
 
-  const files = await readdir(ctx.dir);
+  const files = await readdir(ctx.directory);
 
   expect(files).toIncludeAllMembers([
     'cli.js',
@@ -74,9 +74,9 @@ test('it writes the bundles, their declarations, the manifest, the README and th
 test('it bundles the lens prompts and leaves the native parser to npm', async () => {
   const ctx = await setupTest();
 
-  await buildCLIPackage(ctx.dir);
+  await buildCLIPackage(ctx.directory);
 
-  const bundle = await Bun.file(join(ctx.dir, 'cli.js')).text();
+  const bundle = await Bun.file(join(ctx.directory, 'cli.js')).text();
 
   expect(bundle).toStartWith('#!/usr/bin/env bun\n');
   expect(bundle).toInclude('{{criteria}}');
@@ -86,8 +86,8 @@ test('it bundles the lens prompts and leaves the native parser to npm', async ()
 test('it ships declarations that a project importing the contract from the tarball type-checks against', async () => {
   const ctx = await setupTest();
 
-  const packageDir = join(ctx.dir, 'package');
-  const projectDir = join(ctx.dir, 'project');
+  const packageDir = join(ctx.directory, 'package');
+  const projectDir = join(ctx.directory, 'project');
 
   await buildCLIPackage(packageDir);
 

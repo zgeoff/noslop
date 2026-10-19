@@ -36,7 +36,7 @@ test('it gives each part of a split call an ID that no other call of the review 
   const plan = planCallBatch({
     calls: [
       {
-        callID: 'A',
+        callID: 'correctness',
         lenses: ['correctness'],
         effort: 'medium',
         model: null,
@@ -44,7 +44,7 @@ test('it gives each part of a split call an ID that no other call of the review 
         files,
       },
       {
-        callID: 'A-part-2',
+        callID: 'correctness-part-2',
         lenses: ['security'],
         effort: 'medium',
         model: null,
@@ -65,7 +65,11 @@ test('it gives each part of a split call an ID that no other call of the review 
     maxFileChars: 250_000,
   });
 
-  expect(plan.parts.map((part) => part.call.callID)).toStrictEqual(['A', 'A-part-2-2', 'A-part-2']);
+  expect(plan.parts.map((part) => part.call.callID)).toStrictEqual([
+    'correctness',
+    'correctness-part-2-2',
+    'correctness-part-2',
+  ]);
 });
 
 test('it lists no file as not reviewed when another call reads its hunks', () => {
@@ -74,7 +78,7 @@ test('it lists no file as not reviewed when another call reads its hunks', () =>
   const plan = planCallBatch({
     calls: [
       {
-        callID: 'A',
+        callID: 'correctness',
         lenses: ['correctness'],
         effort: 'medium',
         model: null,
@@ -82,7 +86,7 @@ test('it lists no file as not reviewed when another call reads its hunks', () =>
         files: [file],
       },
       {
-        callID: 'E',
+        callID: 'intent',
         lenses: ['intent'],
         effort: 'medium',
         model: null,
@@ -116,7 +120,7 @@ test('it lists no file as not reviewed when another call reads its hunks', () =>
     maxFileChars: 2000,
   });
 
-  expect(plan.parts.map((part) => part.call.callID)).toStrictEqual(['E']);
+  expect(plan.parts.map((part) => part.call.callID)).toStrictEqual(['intent']);
   expect(plan.notReviewed).toStrictEqual([]);
 });
 
@@ -139,7 +143,7 @@ test('it lists a file as not reviewed when the only call that keeps it reads no 
   const plan = planCallBatch({
     calls: [
       {
-        callID: 'A',
+        callID: 'correctness',
         lenses: ['correctness'],
         effort: 'medium',
         model: null,
@@ -147,7 +151,7 @@ test('it lists a file as not reviewed when the only call that keeps it reads no 
         files: [table, readme],
       },
       {
-        callID: 'H',
+        callID: 'documentation',
         lenses: ['documentation'],
         effort: 'medium',
         model: null,
@@ -178,7 +182,7 @@ test("it lists a file under the lens whose call leaves it out when another lens'
   const plan = planCallBatch({
     calls: [
       {
-        callID: 'A',
+        callID: 'correctness',
         lenses: ['correctness', 'tests'],
         effort: 'medium',
         model: null,
@@ -186,7 +190,7 @@ test("it lists a file under the lens whose call leaves it out when another lens'
         files: [file],
       },
       {
-        callID: 'E',
+        callID: 'intent',
         lenses: ['intent'],
         effort: 'medium',
         model: null,

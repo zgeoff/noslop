@@ -8,7 +8,7 @@ test('it keeps a call whole when its prompt fits the limit', () => {
 
   const planned = planCallParts({
     call: {
-      callID: 'A',
+      callID: 'correctness',
       lenses: ['correctness'],
       effort: 'medium',
       model: null,
@@ -28,11 +28,11 @@ test('it keeps a call whole when its prompt fits the limit', () => {
     data: [],
     maxCallChars: 1_000_000,
     maxFileChars: 250_000,
-    taken: new Set(['A']),
+    taken: new Set(['correctness']),
   });
 
   expect(planned.parts.map((part) => [part.call.callID, part.call.files])).toStrictEqual([
-    ['A', [file]],
+    ['correctness', [file]],
   ]);
 
   expect(planned.notReviewed).toStrictEqual([]);
@@ -76,7 +76,7 @@ test('it splits a call over the limit into parts that each fit, with every file 
 
   const planned = planCallParts({
     call: {
-      callID: 'A',
+      callID: 'correctness',
       lenses: ['correctness'],
       effort: 'medium',
       model: null,
@@ -87,14 +87,14 @@ test('it splits a call over the limit into parts that each fit, with every file 
     data: [],
     maxCallChars,
     maxFileChars: 250_000,
-    taken: new Set(['A']),
+    taken: new Set(['correctness']),
   });
 
   expect(
     planned.parts.map((part) => [part.call.callID, part.call.files.map((file) => file.path)]),
   ).toStrictEqual([
-    ['A', ['src/a.ts', 'src/b.ts']],
-    ['A-part-2', ['src/c.ts', 'src/d.ts']],
+    ['correctness', ['src/a.ts', 'src/b.ts']],
+    ['correctness-part-2', ['src/c.ts', 'src/d.ts']],
   ]);
 
   expect(planned.parts.map((part) => part.prompt.length)).toSatisfyAll(
@@ -158,7 +158,7 @@ test('it splits a call with many data files by the reasons its part prompts list
 
   const planned = planCallParts({
     call: {
-      callID: 'A',
+      callID: 'correctness',
       lenses: ['correctness'],
       effort: 'medium',
       model: null,
@@ -169,14 +169,14 @@ test('it splits a call with many data files by the reasons its part prompts list
     data: ['samples/**'],
     maxCallChars: single.length,
     maxFileChars: 250_000,
-    taken: new Set(['A']),
+    taken: new Set(['correctness']),
   });
 
   expect(
     planned.parts.map((part) => [part.call.callID, part.call.files.map((file) => file.path)]),
   ).toStrictEqual([
-    ['A', ['src/a.ts']],
-    ['A-part-2', ['src/b.ts']],
+    ['correctness', ['src/a.ts']],
+    ['correctness-part-2', ['src/b.ts']],
   ]);
 
   expect(planned.parts.map((part) => part.prompt.length)).toSatisfyAll(
@@ -227,7 +227,7 @@ test('it keeps a file whose own part prompt fits the limit exactly', () => {
 
   const planned = planCallParts({
     call: {
-      callID: 'A',
+      callID: 'correctness',
       lenses: ['correctness'],
       effort: 'medium',
       model: null,
@@ -238,14 +238,14 @@ test('it keeps a file whose own part prompt fits the limit exactly', () => {
     data: [],
     maxCallChars: single.length,
     maxFileChars: 250_000,
-    taken: new Set(['A']),
+    taken: new Set(['correctness']),
   });
 
   expect(
     planned.parts.map((part) => [part.call.callID, part.call.files.map((file) => file.path)]),
   ).toStrictEqual([
-    ['A', ['src/a.ts']],
-    ['A-part-2', ['src/b.ts']],
+    ['correctness', ['src/a.ts']],
+    ['correctness-part-2', ['src/b.ts']],
   ]);
 
   expect(planned.parts.map((part) => part.prompt.length)).toSatisfyAll(
@@ -291,7 +291,7 @@ test('it names the files of the other parts in each part prompt', () => {
 
   const planned = planCallParts({
     call: {
-      callID: 'A',
+      callID: 'correctness',
       lenses: ['correctness'],
       effort: 'medium',
       model: null,
@@ -302,7 +302,7 @@ test('it names the files of the other parts in each part prompt', () => {
     data: [],
     maxCallChars: base.length + 6000,
     maxFileChars: 250_000,
-    taken: new Set(['A']),
+    taken: new Set(['correctness']),
   });
 
   expect(planned.parts.map((part) => part.prompt)).toStrictEqual([
@@ -383,7 +383,7 @@ test('it sends each part the hunks and slice items of its own files only', () =>
 
   const planned = planCallParts({
     call: {
-      callID: 'A',
+      callID: 'correctness',
       lenses: ['correctness'],
       effort: 'medium',
       model: null,
@@ -394,7 +394,7 @@ test('it sends each part the hunks and slice items of its own files only', () =>
     data: [],
     maxCallChars: base.length + 6000,
     maxFileChars: 250_000,
-    taken: new Set(['A']),
+    taken: new Set(['correctness']),
   });
 
   const [first, second] = planned.parts.map((part) => part.prompt);
@@ -445,7 +445,7 @@ test('it gives a later part an ID that no configured call holds', () => {
 
   const planned = planCallParts({
     call: {
-      callID: 'A',
+      callID: 'correctness',
       lenses: ['correctness'],
       effort: 'medium',
       model: null,
@@ -456,10 +456,13 @@ test('it gives a later part an ID that no configured call holds', () => {
     data: [],
     maxCallChars: base.length + 6000,
     maxFileChars: 250_000,
-    taken: new Set(['A', 'A-part-2']),
+    taken: new Set(['correctness', 'correctness-part-2']),
   });
 
-  expect(planned.parts.map((part) => part.call.callID)).toStrictEqual(['A', 'A-part-2-2']);
+  expect(planned.parts.map((part) => part.call.callID)).toStrictEqual([
+    'correctness',
+    'correctness-part-2-2',
+  ]);
 });
 
 test('it leaves a file that matches a data glob out of the call and lists it', () => {
@@ -468,7 +471,7 @@ test('it leaves a file that matches a data glob out of the call and lists it', (
 
   const planned = planCallParts({
     call: {
-      callID: 'A',
+      callID: 'correctness',
       lenses: ['correctness'],
       effort: 'medium',
       model: null,
@@ -488,7 +491,7 @@ test('it leaves a file that matches a data glob out of the call and lists it', (
     data: ['samples/**'],
     maxCallChars: 1_000_000,
     maxFileChars: 250_000,
-    taken: new Set(['A']),
+    taken: new Set(['correctness']),
   });
 
   expect(planned.parts.map((part) => part.call.files)).toStrictEqual([[code]]);
@@ -518,7 +521,7 @@ test('it leaves out a file whose hunks pass the file limit and lists it as too l
 
   const planned = planCallParts({
     call: {
-      callID: 'A',
+      callID: 'correctness',
       lenses: ['correctness'],
       effort: 'medium',
       model: null,
@@ -538,7 +541,7 @@ test('it leaves out a file whose hunks pass the file limit and lists it as too l
     data: [],
     maxCallChars: 1_000_000,
     maxFileChars: 2000,
-    taken: new Set(['A']),
+    taken: new Set(['correctness']),
   });
 
   expect(planned.parts.map((part) => part.call.files)).toStrictEqual([[code]]);
@@ -551,7 +554,7 @@ test('it counts the slice items of a file toward the file limit', () => {
 
   const planned = planCallParts({
     call: {
-      callID: 'A',
+      callID: 'correctness',
       lenses: ['correctness'],
       effort: 'medium',
       model: null,
@@ -584,7 +587,7 @@ test('it counts the slice items of a file toward the file limit', () => {
     data: [],
     maxCallChars: 1_000_000,
     maxFileChars: 2000,
-    taken: new Set(['A']),
+    taken: new Set(['correctness']),
   });
 
   expect(planned.parts.map((part) => part.call.files)).toStrictEqual([[code]]);
@@ -627,7 +630,7 @@ test('it lists a file that overflows a call alone as too large in the review and
 
   const planned = planCallParts({
     call: {
-      callID: 'A',
+      callID: 'correctness',
       lenses: ['correctness'],
       effort: 'medium',
       model: null,
@@ -638,11 +641,11 @@ test('it lists a file that overflows a call alone as too large in the review and
     data: [],
     maxCallChars: base.length + 3000,
     maxFileChars: 250_000,
-    taken: new Set(['A']),
+    taken: new Set(['correctness']),
   });
 
   expect(planned.parts.map((part) => [part.call.callID, part.call.files])).toStrictEqual([
-    ['A', [code]],
+    ['correctness', [code]],
   ]);
 
   expect(planned.parts[0]?.prompt).toInclude('- `src/table.ts`: too large for one call');
@@ -685,7 +688,7 @@ test('it runs no part and lists every file when each file overflows a call alone
 
   const planned = planCallParts({
     call: {
-      callID: 'A',
+      callID: 'correctness',
       lenses: ['correctness'],
       effort: 'medium',
       model: null,
@@ -696,7 +699,7 @@ test('it runs no part and lists every file when each file overflows a call alone
     data: [],
     maxCallChars: base.length + 3000,
     maxFileChars: 250_000,
-    taken: new Set(['A']),
+    taken: new Set(['correctness']),
   });
 
   expect(planned.parts).toStrictEqual([]);
@@ -712,7 +715,7 @@ test('it runs the call whole when the input around the files overflows alone', (
 
   const planned = planCallParts({
     call: {
-      callID: 'A',
+      callID: 'correctness',
       lenses: ['correctness'],
       effort: 'medium',
       model: null,
@@ -732,11 +735,11 @@ test('it runs the call whole when the input around the files overflows alone', (
     data: [],
     maxCallChars: 1000,
     maxFileChars: 250_000,
-    taken: new Set(['A']),
+    taken: new Set(['correctness']),
   });
 
   expect(planned.parts.map((part) => [part.call.callID, part.call.files])).toStrictEqual([
-    ['A', [file]],
+    ['correctness', [file]],
   ]);
 
   expect(planned.notReviewed).toStrictEqual([]);

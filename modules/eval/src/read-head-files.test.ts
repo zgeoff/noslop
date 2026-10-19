@@ -7,17 +7,17 @@ import { createTestRepo } from '@noslop/testing';
 import { readHeadFiles } from './read-head-files';
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'noslop-read-head-files-'));
+  const directory = await mkdtemp(join(tmpdir(), 'noslop-read-head-files-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  return { dir, runner: createRunner() };
+  return { directory, runner: createRunner() };
 }
 
 test('it reads every file at the head, in nested folders too', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'a.ts': 'export const a = 1;\n' } },
     { message: 'head', files: { 'src/client/picker.ts': 'export const picker = 1;\n' } },
   ]);
@@ -45,7 +45,7 @@ test('it reads no files when the clone is missing', async () => {
   const files = await readHeadFiles(
     {
       id: 'case-1',
-      repo: join(ctx.dir, 'missing'),
+      repo: join(ctx.directory, 'missing'),
       base: 'a'.repeat(40),
       head: 'b'.repeat(40),
       title: 'feat: head',
@@ -62,7 +62,7 @@ test('it reads no files when the clone is missing', async () => {
 test('it reads no files when the clone lacks the head', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'a.ts': 'export const a = 1;\n' } },
   ]);
 

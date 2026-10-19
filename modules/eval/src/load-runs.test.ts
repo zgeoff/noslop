@@ -5,11 +5,11 @@ import { join } from 'node:path';
 import { loadRuns } from './load-runs';
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'noslop-runs-'));
+  const directory = await mkdtemp(join(tmpdir(), 'noslop-runs-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  return { dir };
+  return { directory };
 }
 
 test('it reads a recorded run of case reviews', async () => {
@@ -36,9 +36,9 @@ test('it reads a recorded run of case reviews', async () => {
     },
   ];
 
-  await Bun.write(join(ctx.dir, 'run.json'), JSON.stringify(runs));
+  await Bun.write(join(ctx.directory, 'run.json'), JSON.stringify(runs));
 
-  const loaded = await loadRuns(join(ctx.dir, 'run.json'));
+  const loaded = await loadRuns(join(ctx.directory, 'run.json'));
 
   expect(loaded).toStrictEqual(runs);
 });
@@ -56,7 +56,7 @@ test('it reads the criterion and the rule of a taste finding', async () => {
   };
 
   await Bun.write(
-    join(ctx.dir, 'run.json'),
+    join(ctx.directory, 'run.json'),
     JSON.stringify([
       {
         caseID: 'case-1',
@@ -72,7 +72,7 @@ test('it reads the criterion and the rule of a taste finding', async () => {
     ]),
   );
 
-  const runs = await loadRuns(join(ctx.dir, 'run.json'));
+  const runs = await loadRuns(join(ctx.directory, 'run.json'));
 
   expect(runs[0]?.review.findings).toStrictEqual([finding]);
 });
@@ -91,7 +91,7 @@ test('it reads the findings a review dropped, with the rule and the quote', asyn
   ];
 
   await Bun.write(
-    join(ctx.dir, 'run.json'),
+    join(ctx.directory, 'run.json'),
     JSON.stringify([
       {
         caseID: 'case-1',
@@ -108,7 +108,7 @@ test('it reads the findings a review dropped, with the rule and the quote', asyn
     ]),
   );
 
-  const runs = await loadRuns(join(ctx.dir, 'run.json'));
+  const runs = await loadRuns(join(ctx.directory, 'run.json'));
 
   expect(runs[0]?.review.dropped).toStrictEqual(dropped);
 });
@@ -117,7 +117,7 @@ test('it reads no cache counts from a run recorded before them', async () => {
   const ctx = await setupTest();
 
   await Bun.write(
-    join(ctx.dir, 'run.json'),
+    join(ctx.directory, 'run.json'),
     JSON.stringify([
       {
         caseID: 'case-1',
@@ -133,7 +133,7 @@ test('it reads no cache counts from a run recorded before them', async () => {
     ]),
   );
 
-  const loaded = await loadRuns(join(ctx.dir, 'run.json'));
+  const loaded = await loadRuns(join(ctx.directory, 'run.json'));
 
   expect(loaded[0]?.review.tokens).toStrictEqual({
     input: 9000,
@@ -147,7 +147,7 @@ test('it rejects a run whose finding has no anchor', async () => {
   const ctx = await setupTest();
 
   await Bun.write(
-    join(ctx.dir, 'run.json'),
+    join(ctx.directory, 'run.json'),
     JSON.stringify([
       {
         caseID: 'case-1',
@@ -163,7 +163,7 @@ test('it rejects a run whose finding has no anchor', async () => {
     ]),
   );
 
-  expect(loadRuns(join(ctx.dir, 'run.json'))).rejects.toMatchObject({
+  expect(loadRuns(join(ctx.directory, 'run.json'))).rejects.toMatchObject({
     issues: [{ path: [0, 'review', 'findings', 0, 'anchor'] }],
   });
 });

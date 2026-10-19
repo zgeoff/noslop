@@ -165,9 +165,9 @@ function formatNotReviewed(files: readonly NotReviewedFile[]): string {
 
 function sortFindings(findings: readonly Finding[]): Finding[] {
   return findings.toSorted(
-    (a, b) =>
-      SEVERITIES.indexOf(a.severity) - SEVERITIES.indexOf(b.severity) ||
-      a.anchor.path.localeCompare(b.anchor.path),
+    (left, right) =>
+      SEVERITIES.indexOf(left.severity) - SEVERITIES.indexOf(right.severity) ||
+      left.anchor.path.localeCompare(right.anchor.path),
   );
 }
 

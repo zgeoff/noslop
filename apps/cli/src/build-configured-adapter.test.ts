@@ -5,12 +5,12 @@ import { buildStubAdapter } from '@noslop/testing';
 import { buildConfiguredAdapter } from './build-configured-adapter';
 
 test('it gives a call with no model or timeout of its own the ones the config sets', async () => {
-  const stub = buildStubAdapter({ A: [{ findings: { correctness: [] } }] });
+  const stub = buildStubAdapter({ correctness: [{ findings: { correctness: [] } }] });
   const adapter = buildConfiguredAdapter(stub.adapter, { model: 'large', timeoutMs: 5000 });
 
   await adapter.runCall(
     {
-      callID: 'A',
+      callID: 'correctness',
       lenses: ['correctness'],
       prompt: 'Review the change.',
       outputSchema: buildCallOutputSchema(['correctness']),
@@ -30,12 +30,12 @@ test('it gives a call with no model or timeout of its own the ones the config se
 });
 
 test('it keeps the model and timeout a lens sets for its call', async () => {
-  const stub = buildStubAdapter({ A: [{ findings: { correctness: [] } }] });
+  const stub = buildStubAdapter({ correctness: [{ findings: { correctness: [] } }] });
   const adapter = buildConfiguredAdapter(stub.adapter, { model: 'large', timeoutMs: 5000 });
 
   await adapter.runCall(
     {
-      callID: 'A',
+      callID: 'correctness',
       lenses: ['correctness'],
       prompt: 'Review the change.',
       outputSchema: buildCallOutputSchema(['correctness']),

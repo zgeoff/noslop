@@ -9,7 +9,7 @@ test('it keeps a finding on a changed line with its ID, severity and change mark
     raw: [
       {
         lens: 'correctness',
-        callID: 'A',
+        callID: 'correctness',
         finding: {
           title: 'Keep the items until the write succeeds',
           body: 'The loop deletes each item before the write, so a failed write loses them.',
@@ -42,7 +42,7 @@ test('it keeps a finding on a changed line with its ID, severity and change mark
           'Keep the items until the write succeeds',
         ),
         lens: 'correctness',
-        callID: 'A',
+        callID: 'correctness',
         title: 'Keep the items until the write succeeds',
         body: 'The loop deletes each item before the write, so a failed write loses them.',
         anchor: { path: 'src/a.ts', startLine: 1, endLine: 1 },
@@ -62,7 +62,7 @@ test('it drops findings that break the finding rules, each with its reason', () 
     raw: [
       {
         lens: 'correctness',
-        callID: 'A',
+        callID: 'correctness',
         finding: {
           title: 'Off the diff',
           body: 'The anchor sits in a file the change leaves alone.',
@@ -80,7 +80,7 @@ test('it drops findings that break the finding rules, each with its reason', () 
       },
       {
         lens: 'naming-shape-and-comments',
-        callID: 'C',
+        callID: 'architecture',
         finding: {
           title: 'Rename the helper',
           body: 'The name breaks a rule the rules file does not hold.',
@@ -98,7 +98,7 @@ test('it drops findings that break the finding rules, each with its reason', () 
       },
       {
         lens: 'deploy-and-config',
-        callID: 'D',
+        callID: 'platform',
         finding: {
           title: 'Check the port in production',
           body: 'The port may differ in production.',
@@ -155,7 +155,7 @@ test('it drops a finding on a context line unless it cites a second location or 
     raw: [
       {
         lens: 'correctness',
-        callID: 'A',
+        callID: 'correctness',
         finding: {
           title: 'Fix the context line',
           body: 'The line the change left alone is wrong.',
@@ -173,7 +173,7 @@ test('it drops a finding on a context line unless it cites a second location or 
       },
       {
         lens: 'cross-repo-and-platform-limits',
-        callID: 'D',
+        callID: 'platform',
         finding: {
           title: 'Update the consumer that reads the old shape',
           body: 'The consumer still reads the field the change renamed.',
@@ -210,7 +210,7 @@ test('it merges 2 findings of one defect into the one with the higher severity',
     raw: [
       {
         lens: 'failure-handling-and-observability',
-        callID: 'A',
+        callID: 'correctness',
         finding: {
           title: 'Catch the failed write',
           body: 'A failed write leaves the job running.',
@@ -228,7 +228,7 @@ test('it merges 2 findings of one defect into the one with the higher severity',
       },
       {
         lens: 'correctness',
-        callID: 'A',
+        callID: 'correctness',
         finding: {
           title: 'Catch the failed write!',
           body: 'A failed write loses the batch.',
@@ -261,7 +261,7 @@ test('it merges a shorter wording of one defect on overlapping lines', () => {
     raw: [
       {
         lens: 'correctness',
-        callID: 'A',
+        callID: 'correctness',
         finding: {
           title: "Keep the transient watcher's interval when replacing it",
           body: 'The new unit starts at the default interval, so the watcher runs 10 times as often.',
@@ -279,7 +279,7 @@ test('it merges a shorter wording of one defect on overlapping lines', () => {
       },
       {
         lens: 'deploy-and-config',
-        callID: 'D',
+        callID: 'platform',
         finding: {
           title: "Keep the transient watcher's interval when replacing it on the first install",
           body: 'The first install drops the interval the transient unit ran with.',
@@ -303,7 +303,7 @@ test('it merges a shorter wording of one defect on overlapping lines', () => {
   });
 
   expect(result.findings.map((finding) => [finding.lens, finding.callID])).toStrictEqual([
-    ['correctness', 'A'],
+    ['correctness', 'correctness'],
   ]);
 });
 
@@ -312,7 +312,7 @@ test('it keeps a test finding apart from a fix finding on the same lines', () =>
     raw: [
       {
         lens: 'correctness',
-        callID: 'A',
+        callID: 'correctness',
         finding: {
           title: 'Stop piping the find into sort so a failed listing stops the reset',
           body: 'The pipe takes the exit status of sort, so a failed find goes unseen.',
@@ -330,7 +330,7 @@ test('it keeps a test finding apart from a fix finding on the same lines', () =>
       },
       {
         lens: 'tests',
-        callID: 'E',
+        callID: 'intent',
         finding: {
           title: 'Add a failed-listing test so a failed find stops the reset',
           body: 'No test makes the find fail, so the pipe hides it.',
@@ -361,7 +361,7 @@ test('it keeps 2 findings on overlapping lines whose titles each hold a word the
     raw: [
       {
         lens: 'correctness',
-        callID: 'A',
+        callID: 'correctness',
         finding: {
           title: 'Reject null values in the request body',
           body: 'A null field in the request reaches the write.',
@@ -379,7 +379,7 @@ test('it keeps 2 findings on overlapping lines whose titles each hold a word the
       },
       {
         lens: 'failure-handling-and-observability',
-        callID: 'A',
+        callID: 'correctness',
         finding: {
           title: 'Reject null values in the response body',
           body: 'A null field in the response reaches the client.',
@@ -410,7 +410,7 @@ test('it marks the risk class whose paths hold the anchor', () => {
     raw: [
       {
         lens: 'security',
-        callID: 'B',
+        callID: 'security',
         finding: {
           title: 'Refuse a session with no user',
           body: 'The check lets a session with no user through.',
@@ -441,7 +441,7 @@ test('it keeps 2 taste findings on one line that quote different rules', () => {
     raw: [
       {
         lens: 'naming-shape-and-comments',
-        callID: 'C',
+        callID: 'architecture',
         finding: {
           title: 'Name the helper for what it returns',
           body: 'The name hides the value the helper returns.',
@@ -459,7 +459,7 @@ test('it keeps 2 taste findings on one line that quote different rules', () => {
       },
       {
         lens: 'naming-shape-and-comments',
-        callID: 'C',
+        callID: 'architecture',
         finding: {
           title: 'Move the helper below its caller',
           body: 'The helper sits above the export that calls it.',
@@ -522,7 +522,7 @@ test('it anchors a deleted line to the head line after it, as the static stage d
     raw: [
       {
         lens: 'failure-handling-and-observability',
-        callID: 'A',
+        callID: 'correctness',
         finding: {
           title: 'Restore the rollback on a failed write',
           body: 'The change deletes the rollback, so a failed write leaves the partial state.',
@@ -571,7 +571,7 @@ test('it gives one defect reported at 2 places of a file 2 different IDs', () =>
   const result = buildFindings({
     raw: [1, 3].map((line) => ({
       lens: 'correctness' as const,
-      callID: 'A',
+      callID: 'correctness',
       finding: {
         title: 'Await the write',
         body: 'The write is not awaited, so its failure goes unseen.',

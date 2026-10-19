@@ -6,16 +6,16 @@ import { BUILT_IN_DEFAULTS } from './built-in-defaults';
 import { loadConfig } from './load-config';
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'noslop-config-'));
+  const directory = await mkdtemp(join(tmpdir(), 'noslop-config-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  return { dir };
+  return { directory };
 }
 
 test('it runs the built-in defaults when the repo has no review.json', async () => {
   const ctx = await setupTest();
-  const loaded = await loadConfig({ repoDir: ctx.dir });
+  const loaded = await loadConfig({ repoDir: ctx.directory });
 
   expect(loaded).toMatchObject({ config: BUILT_IN_DEFAULTS, chain: [], rules: null });
   expect(loaded.sources['thresholds.lightMaxLines']).toBe('built-in');
@@ -23,7 +23,7 @@ test('it runs the built-in defaults when the repo has no review.json', async () 
 
 test('it returns only the config, sources, chain, rules, missing rules and hash', async () => {
   const ctx = await setupTest();
-  const loaded = await loadConfig({ repoDir: ctx.dir });
+  const loaded = await loadConfig({ repoDir: ctx.directory });
 
   expect(loaded).toContainAllKeys(['config', 'sources', 'chain', 'rules', 'missingRules', 'hash']);
 });
@@ -32,12 +32,12 @@ test('it merges the repo file over its local parent over the defaults', async ()
   const ctx = await setupTest();
 
   await Bun.write(
-    join(ctx.dir, 'shared', 'base.json'),
+    join(ctx.directory, 'shared', 'base.json'),
     JSON.stringify({ lenses: { security: { effort: 'high' } }, report: ['json', 'sqlite'] }),
   );
 
   await Bun.write(
-    join(ctx.dir, 'repo', 'review.json'),
+    join(ctx.directory, 'repo', 'review.json'),
     JSON.stringify({
       extends: '../shared/base.json',
       lenses: { reuse: { model: 'small' } },
@@ -45,7 +45,7 @@ test('it merges the repo file over its local parent over the defaults', async ()
     }),
   );
 
-  const loaded = await loadConfig({ repoDir: join(ctx.dir, 'repo') });
+  const loaded = await loadConfig({ repoDir: join(ctx.directory, 'repo') });
 
   expect(loaded.config.lenses).toStrictEqual({
     security: { effort: 'high' },
@@ -56,13 +56,13 @@ test('it merges the repo file over its local parent over the defaults', async ()
   expect(Object.keys(loaded.config.riskClasses)).not.toContain('money');
 
   expect(loaded.chain).toStrictEqual([
-    join(ctx.dir, 'shared', 'base.json'),
-    join(ctx.dir, 'repo', 'review.json'),
+    join(ctx.directory, 'shared', 'base.json'),
+    join(ctx.directory, 'repo', 'review.json'),
   ]);
 
   expect(loaded.sources).toMatchObject({
-    'lenses.security.effort': join(ctx.dir, 'shared', 'base.json'),
-    'lenses.reuse.model': join(ctx.dir, 'repo', 'review.json'),
+    'lenses.security.effort': join(ctx.directory, 'shared', 'base.json'),
+    'lenses.reuse.model': join(ctx.directory, 'repo', 'review.json'),
     'thresholds.lightMaxLines': 'built-in',
   });
 });
@@ -71,7 +71,7 @@ test('it reads a parent from a github config repo through the remote reader', as
   const ctx = await setupTest();
 
   await Bun.write(
-    join(ctx.dir, 'review.json'),
+    join(ctx.directory, 'review.json'),
     JSON.stringify({ extends: 'github:example/noslop-config@v1' }),
   );
 
@@ -81,7 +81,7 @@ test('it reads a parent from a github config repo through the remote reader', as
   };
 
   const loaded = await loadConfig({
-    repoDir: ctx.dir,
+    repoDir: ctx.directory,
     readRemoteFile: (location) =>
       Promise.resolve(remoteFiles[`${location.path}@${location.ref}`] ?? null),
   });
@@ -100,10 +100,14 @@ test('it reads a parent from a github config repo through the remote reader', as
 test('it loads the rules file named relative to the repo file', async () => {
   const ctx = await setupTest();
 
-  await Bun.write(join(ctx.dir, 'review.json'), JSON.stringify({ rules: './patterns.md' }));
-  await Bun.write(join(ctx.dir, 'patterns.md'), '## No positional booleans\n\n1. Pass an object.');
+  await Bun.write(join(ctx.directory, 'review.json'), JSON.stringify({ rules: './patterns.md' }));
 
-  const loaded = await loadConfig({ repoDir: ctx.dir });
+  await Bun.write(
+    join(ctx.directory, 'patterns.md'),
+    '## No positional booleans\n\n1. Pass an object.',
+  );
+
+  const loaded = await loadConfig({ repoDir: ctx.directory });
 
   expect(loaded.rules).toStrictEqual([
     { name: 'patterns.md', body: '## No positional booleans\n\n1. Pass an object.', paths: null },
@@ -114,14 +118,18 @@ test('it loads each file of a rules list as one rule under its path', async () =
   const ctx = await setupTest();
 
   await Bun.write(
-    join(ctx.dir, 'review.json'),
+    join(ctx.directory, 'review.json'),
     JSON.stringify({ rules: ['skills/code/SKILL.md', { path: 'skills/tests/SKILL.md' }] }),
   );
 
-  await Bun.write(join(ctx.dir, 'skills/code/SKILL.md'), '## Naming\n\n1. Start with a verb.');
-  await Bun.write(join(ctx.dir, 'skills/tests/SKILL.md'), '## Naming\n\n1. Start with "it".');
+  await Bun.write(
+    join(ctx.directory, 'skills/code/SKILL.md'),
+    '## Naming\n\n1. Start with a verb.',
+  );
 
-  const loaded = await loadConfig({ repoDir: ctx.dir });
+  await Bun.write(join(ctx.directory, 'skills/tests/SKILL.md'), '## Naming\n\n1. Start with "it".');
+
+  const loaded = await loadConfig({ repoDir: ctx.directory });
 
   expect(loaded.rules).toStrictEqual([
     { name: 'skills/code/SKILL.md', body: '## Naming\n\n1. Start with a verb.', paths: null },
@@ -133,13 +141,16 @@ test('it labels the rules of an absolute rules path with the file name alone', a
   const ctx = await setupTest();
 
   await Bun.write(
-    join(ctx.dir, 'repo', 'review.json'),
-    JSON.stringify({ rules: join(ctx.dir, 'shared', 'patterns.md') }),
+    join(ctx.directory, 'repo', 'review.json'),
+    JSON.stringify({ rules: join(ctx.directory, 'shared', 'patterns.md') }),
   );
 
-  await Bun.write(join(ctx.dir, 'shared', 'patterns.md'), '## Naming\n\n1. Start with a verb.');
+  await Bun.write(
+    join(ctx.directory, 'shared', 'patterns.md'),
+    '## Naming\n\n1. Start with a verb.',
+  );
 
-  const loaded = await loadConfig({ repoDir: join(ctx.dir, 'repo') });
+  const loaded = await loadConfig({ repoDir: join(ctx.directory, 'repo') });
 
   expect(loaded.rules).toStrictEqual([
     { name: 'patterns.md', body: '## Naming\n\n1. Start with a verb.', paths: null },
@@ -150,14 +161,14 @@ test('it fails the load when a rules file entry lists skip', async () => {
   const ctx = await setupTest();
 
   await Bun.write(
-    join(ctx.dir, 'review.json'),
+    join(ctx.directory, 'review.json'),
     JSON.stringify({ rules: ['a.md', { path: 'b.md', skip: ['Loading the skill'] }] }),
   );
 
-  await Bun.write(join(ctx.dir, 'a.md'), '## Naming\n\n1. Start with a verb.');
-  await Bun.write(join(ctx.dir, 'b.md'), '## Naming\n\n1. Start with a verb.');
+  await Bun.write(join(ctx.directory, 'a.md'), '## Naming\n\n1. Start with a verb.');
+  await Bun.write(join(ctx.directory, 'b.md'), '## Naming\n\n1. Start with a verb.');
 
-  expect(loadConfig({ repoDir: ctx.dir })).rejects.toThrowWithMessage(
+  expect(loadConfig({ repoDir: ctx.directory })).rejects.toThrowWithMessage(
     Error,
     /rules\.1: Unrecognized key: "skip"/u,
   );
@@ -167,7 +178,7 @@ test('it replaces an inherited repo: entry that the child writes with a leading 
   const ctx = await setupTest();
 
   await Bun.write(
-    join(ctx.dir, 'review.json'),
+    join(ctx.directory, 'review.json'),
     JSON.stringify({
       extends: './shared/review.json',
       rules: [{ path: 'repo:./skills/SKILL.md', references: { 'nix.md': ['**/*.nix'] } }],
@@ -175,14 +186,14 @@ test('it replaces an inherited repo: entry that the child writes with a leading 
   );
 
   await Bun.write(
-    join(ctx.dir, 'shared', 'review.json'),
+    join(ctx.directory, 'shared', 'review.json'),
     JSON.stringify({ rules: ['repo:skills/SKILL.md'] }),
   );
 
-  await Bun.write(join(ctx.dir, 'skills/SKILL.md'), 'Use test.each.');
-  await Bun.write(join(ctx.dir, 'skills/nix.md'), 'Boot once.');
+  await Bun.write(join(ctx.directory, 'skills/SKILL.md'), 'Use test.each.');
+  await Bun.write(join(ctx.directory, 'skills/nix.md'), 'Boot once.');
 
-  const loaded = await loadConfig({ repoDir: ctx.dir });
+  const loaded = await loadConfig({ repoDir: ctx.directory });
 
   expect(loaded.config.rules).toStrictEqual([
     {
@@ -197,20 +208,20 @@ test('it appends the rules of a file to the rules it inherits', async () => {
   const ctx = await setupTest();
 
   await Bun.write(
-    join(ctx.dir, 'review.json'),
+    join(ctx.directory, 'review.json'),
     JSON.stringify({ extends: './shared/review.json', rules: ['skills/project/SKILL.md'] }),
   );
 
   await Bun.write(
-    join(ctx.dir, 'shared', 'review.json'),
+    join(ctx.directory, 'shared', 'review.json'),
     JSON.stringify({ rules: ['code.md', 'tests.md'] }),
   );
 
-  await Bun.write(join(ctx.dir, 'shared', 'code.md'), 'Start a name with a verb.');
-  await Bun.write(join(ctx.dir, 'shared', 'tests.md'), 'Title a test with it.');
-  await Bun.write(join(ctx.dir, 'skills/project/SKILL.md'), 'Keep the store in one file.');
+  await Bun.write(join(ctx.directory, 'shared', 'code.md'), 'Start a name with a verb.');
+  await Bun.write(join(ctx.directory, 'shared', 'tests.md'), 'Title a test with it.');
+  await Bun.write(join(ctx.directory, 'skills/project/SKILL.md'), 'Keep the store in one file.');
 
-  const loaded = await loadConfig({ repoDir: ctx.dir });
+  const loaded = await loadConfig({ repoDir: ctx.directory });
 
   expect(loaded.rules?.map((rule) => rule.name)).toStrictEqual([
     'code.md',
@@ -223,18 +234,22 @@ test('it replaces an inherited rules entry for the same path with the child entr
   const ctx = await setupTest();
 
   await Bun.write(
-    join(ctx.dir, 'review.json'),
+    join(ctx.directory, 'review.json'),
     JSON.stringify({
       extends: './shared/review.json',
       rules: [{ path: './shared/SKILL.md', references: { 'nix.md': ['**/*.nix'] } }],
     }),
   );
 
-  await Bun.write(join(ctx.dir, 'shared', 'review.json'), JSON.stringify({ rules: ['SKILL.md'] }));
-  await Bun.write(join(ctx.dir, 'shared', 'SKILL.md'), 'Use test.each.');
-  await Bun.write(join(ctx.dir, 'shared', 'nix.md'), 'Boot once.');
+  await Bun.write(
+    join(ctx.directory, 'shared', 'review.json'),
+    JSON.stringify({ rules: ['SKILL.md'] }),
+  );
 
-  const loaded = await loadConfig({ repoDir: ctx.dir });
+  await Bun.write(join(ctx.directory, 'shared', 'SKILL.md'), 'Use test.each.');
+  await Bun.write(join(ctx.directory, 'shared', 'nix.md'), 'Boot once.');
+
+  const loaded = await loadConfig({ repoDir: ctx.directory });
 
   expect(loaded.rules?.map((rule) => [rule.body, rule.paths])).toStrictEqual([
     ['Use test.each.', null],
@@ -246,14 +261,18 @@ test('it drops the inherited rules when a file sets rules to null', async () => 
   const ctx = await setupTest();
 
   await Bun.write(
-    join(ctx.dir, 'review.json'),
+    join(ctx.directory, 'review.json'),
     JSON.stringify({ extends: './shared/review.json', rules: null }),
   );
 
-  await Bun.write(join(ctx.dir, 'shared', 'review.json'), JSON.stringify({ rules: ['code.md'] }));
-  await Bun.write(join(ctx.dir, 'shared', 'code.md'), 'Start a name with a verb.');
+  await Bun.write(
+    join(ctx.directory, 'shared', 'review.json'),
+    JSON.stringify({ rules: ['code.md'] }),
+  );
 
-  const loaded = await loadConfig({ repoDir: ctx.dir });
+  await Bun.write(join(ctx.directory, 'shared', 'code.md'), 'Start a name with a verb.');
+
+  const loaded = await loadConfig({ repoDir: ctx.directory });
 
   expect(loaded.rules).toBeNull();
 });
@@ -262,7 +281,7 @@ test('it loads each reference of a rules file with the globs that gate it', asyn
   const ctx = await setupTest();
 
   await Bun.write(
-    join(ctx.dir, 'review.json'),
+    join(ctx.directory, 'review.json'),
     JSON.stringify({
       rules: [
         { path: 'skills/testing/SKILL.md', references: { 'references/nix.md': ['**/*.nix'] } },
@@ -270,14 +289,14 @@ test('it loads each reference of a rules file with the globs that gate it', asyn
     }),
   );
 
-  await Bun.write(join(ctx.dir, 'skills/testing/SKILL.md'), '## Loops\n\n1. Use test.each.');
+  await Bun.write(join(ctx.directory, 'skills/testing/SKILL.md'), '## Loops\n\n1. Use test.each.');
 
   await Bun.write(
-    join(ctx.dir, 'skills/testing/references/nix.md'),
+    join(ctx.directory, 'skills/testing/references/nix.md'),
     '## VM tests\n\n1. Boot once.',
   );
 
-  const loaded = await loadConfig({ repoDir: ctx.dir });
+  const loaded = await loadConfig({ repoDir: ctx.directory });
 
   expect(loaded.rules).toStrictEqual([
     { name: 'skills/testing/SKILL.md', body: '## Loops\n\n1. Use test.each.', paths: null },
@@ -293,18 +312,21 @@ test('it reads a repo: rules path from the reviewed repo when a remote parent na
   const ctx = await setupTest();
 
   await Bun.write(
-    join(ctx.dir, 'review.json'),
+    join(ctx.directory, 'review.json'),
     JSON.stringify({ extends: 'github:example/noslop-config' }),
   );
 
-  await Bun.write(join(ctx.dir, 'skills/code/SKILL.md'), '## Naming\n\n1. Start with a verb.');
+  await Bun.write(
+    join(ctx.directory, 'skills/code/SKILL.md'),
+    '## Naming\n\n1. Start with a verb.',
+  );
 
   const remoteFiles: Record<string, string> = {
     'review.json': JSON.stringify({ rules: ['repo:skills/code/SKILL.md'] }),
   };
 
   const loaded = await loadConfig({
-    repoDir: ctx.dir,
+    repoDir: ctx.directory,
     readRemoteFile: (location) => Promise.resolve(remoteFiles[location.path] ?? null),
   });
 
@@ -316,9 +338,9 @@ test('it reads a repo: rules path from the reviewed repo when a remote parent na
 test('it fails the load when a file of the rules list does not exist', async () => {
   const ctx = await setupTest();
 
-  await Bun.write(join(ctx.dir, 'review.json'), JSON.stringify({ rules: ['missing.md'] }));
+  await Bun.write(join(ctx.directory, 'review.json'), JSON.stringify({ rules: ['missing.md'] }));
 
-  expect(loadConfig({ repoDir: ctx.dir })).rejects.toThrowWithMessage(
+  expect(loadConfig({ repoDir: ctx.directory })).rejects.toThrowWithMessage(
     Error,
     /the rules file .*missing\.md does not exist/u,
   );
@@ -327,14 +349,14 @@ test('it fails the load when a file of the rules list does not exist', async () 
 test('it gives 2 rules lists that differ only in a file text 2 hashes', async () => {
   const ctx = await setupTest();
 
-  await Bun.write(join(ctx.dir, 'review.json'), JSON.stringify({ rules: ['a.md'] }));
-  await Bun.write(join(ctx.dir, 'a.md'), '## Naming\n\n1. Start with a verb.');
+  await Bun.write(join(ctx.directory, 'review.json'), JSON.stringify({ rules: ['a.md'] }));
+  await Bun.write(join(ctx.directory, 'a.md'), '## Naming\n\n1. Start with a verb.');
 
-  const first = await loadConfig({ repoDir: ctx.dir });
+  const first = await loadConfig({ repoDir: ctx.directory });
 
-  await Bun.write(join(ctx.dir, 'a.md'), '## Naming\n\n1. Start with a noun.');
+  await Bun.write(join(ctx.directory, 'a.md'), '## Naming\n\n1. Start with a noun.');
 
-  const second = await loadConfig({ repoDir: ctx.dir });
+  const second = await loadConfig({ repoDir: ctx.directory });
 
   expect(first.hash).not.toBe(second.hash);
 });
@@ -342,10 +364,14 @@ test('it gives 2 rules lists that differ only in a file text 2 hashes', async ()
 test('it loads the rules file when the repo directory is a relative path', async () => {
   const ctx = await setupTest();
 
-  await Bun.write(join(ctx.dir, 'review.json'), JSON.stringify({ rules: './patterns.md' }));
-  await Bun.write(join(ctx.dir, 'patterns.md'), '## No positional booleans\n\n1. Pass an object.');
+  await Bun.write(join(ctx.directory, 'review.json'), JSON.stringify({ rules: './patterns.md' }));
 
-  const loaded = await loadConfig({ repoDir: relative(process.cwd(), ctx.dir) });
+  await Bun.write(
+    join(ctx.directory, 'patterns.md'),
+    '## No positional booleans\n\n1. Pass an object.',
+  );
+
+  const loaded = await loadConfig({ repoDir: relative(process.cwd(), ctx.directory) });
 
   expect(loaded.rules).toStrictEqual([
     { name: 'patterns.md', body: '## No positional booleans\n\n1. Pass an object.', paths: null },
@@ -355,10 +381,10 @@ test('it loads the rules file when the repo directory is a relative path', async
 test('it fails the load on a cycle in the extends chain', async () => {
   const ctx = await setupTest();
 
-  await Bun.write(join(ctx.dir, 'review.json'), JSON.stringify({ extends: './a.json' }));
-  await Bun.write(join(ctx.dir, 'a.json'), JSON.stringify({ extends: './review.json' }));
+  await Bun.write(join(ctx.directory, 'review.json'), JSON.stringify({ extends: './a.json' }));
+  await Bun.write(join(ctx.directory, 'a.json'), JSON.stringify({ extends: './review.json' }));
 
-  expect(loadConfig({ repoDir: ctx.dir })).rejects.toThrowWithMessage(
+  expect(loadConfig({ repoDir: ctx.directory })).rejects.toThrowWithMessage(
     Error,
     /the extends chain has a cycle/u,
   );
@@ -367,22 +393,42 @@ test('it fails the load on a cycle in the extends chain', async () => {
 test('it fails the load when a parent does not exist', async () => {
   const ctx = await setupTest();
 
-  await Bun.write(join(ctx.dir, 'review.json'), JSON.stringify({ extends: './missing.json' }));
+  await Bun.write(
+    join(ctx.directory, 'review.json'),
+    JSON.stringify({ extends: './missing.json' }),
+  );
 
-  expect(loadConfig({ repoDir: ctx.dir })).rejects.toThrowWithMessage(Error, /does not exist/u);
+  expect(loadConfig({ repoDir: ctx.directory })).rejects.toThrowWithMessage(
+    Error,
+    /does not exist/u,
+  );
 });
 
 test('it fails the load when the merged config breaks the schema', async () => {
   const ctx = await setupTest();
 
   await Bun.write(
-    join(ctx.dir, 'review.json'),
+    join(ctx.directory, 'review.json'),
     JSON.stringify({ lenses: { security: { effort: 'max' } } }),
   );
 
-  expect(loadConfig({ repoDir: ctx.dir })).rejects.toThrowWithMessage(
+  expect(loadConfig({ repoDir: ctx.directory })).rejects.toThrowWithMessage(
     Error,
     /lenses\.security\.effort/u,
+  );
+});
+
+test('it fails the load when a call takes the name of a lens it does not list', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(
+    join(ctx.directory, 'review.json'),
+    JSON.stringify({ calls: { security: ['tests'], intent: ['intent'] } }),
+  );
+
+  expect(loadConfig({ repoDir: ctx.directory })).rejects.toThrowWithMessage(
+    Error,
+    'the merged config is not valid:\ncalls.security: the call security takes the name of the lens security but does not list it; list the lens in the call, or rename the call',
   );
 });
 
@@ -390,11 +436,11 @@ test('it loads a file that names its JSON Schema', async () => {
   const ctx = await setupTest();
 
   await Bun.write(
-    join(ctx.dir, 'review.json'),
+    join(ctx.directory, 'review.json'),
     JSON.stringify({ $schema: './review.schema.json', report: ['json'] }),
   );
 
-  const loaded = await loadConfig({ repoDir: ctx.dir });
+  const loaded = await loadConfig({ repoDir: ctx.directory });
 
   expect(loaded.config.report).toStrictEqual(['json']);
 });
@@ -402,11 +448,11 @@ test('it loads a file that names its JSON Schema', async () => {
 test('it gives 2 loads of the same config the same hash', async () => {
   const ctx = await setupTest();
 
-  await Bun.write(join(ctx.dir, 'review.json'), JSON.stringify({ report: ['json'] }));
+  await Bun.write(join(ctx.directory, 'review.json'), JSON.stringify({ report: ['json'] }));
 
   const loads = await Promise.all([
-    loadConfig({ repoDir: ctx.dir }),
-    loadConfig({ repoDir: ctx.dir }),
+    loadConfig({ repoDir: ctx.directory }),
+    loadConfig({ repoDir: ctx.directory }),
   ]);
 
   expect(loads[0]?.hash).toBe(loads[1]?.hash ?? '');
@@ -415,20 +461,20 @@ test('it gives 2 loads of the same config the same hash', async () => {
 test('it gives 2 checkouts of one commit in 2 folders the same hash', async () => {
   const ctx = await setupTest();
 
-  const checkouts = [join(ctx.dir, 'one'), join(ctx.dir, 'nested', 'two')];
+  const checkouts = [join(ctx.directory, 'one'), join(ctx.directory, 'nested', 'two')];
 
   await Promise.all(
-    checkouts.flatMap((dir) => [
+    checkouts.flatMap((directory) => [
       Bun.write(
-        join(dir, 'review.json'),
+        join(directory, 'review.json'),
         JSON.stringify({ rules: ['./RULES.md', { path: './docs/style.md' }] }),
       ),
-      Bun.write(join(dir, 'RULES.md'), '# Rules\n\nName things well.\n'),
-      Bun.write(join(dir, 'docs', 'style.md'), '# Style\n\nKeep it short.\n'),
+      Bun.write(join(directory, 'RULES.md'), '# Rules\n\nName things well.\n'),
+      Bun.write(join(directory, 'docs', 'style.md'), '# Style\n\nKeep it short.\n'),
     ]),
   );
 
-  const loads = await Promise.all(checkouts.map((dir) => loadConfig({ repoDir: dir })));
+  const loads = await Promise.all(checkouts.map((directory) => loadConfig({ repoDir: directory })));
 
   expect(loads[0]?.hash).toBe(loads[1]?.hash ?? '');
 });
@@ -436,13 +482,13 @@ test('it gives 2 checkouts of one commit in 2 folders the same hash', async () =
 test('it gives a checkout named by an absolute and a relative path the same hash', async () => {
   const ctx = await setupTest();
 
-  await Bun.write(join(ctx.dir, 'review.json'), JSON.stringify({ rules: './RULES.md' }));
-  await Bun.write(join(ctx.dir, 'RULES.md'), '# Rules\n\nName things well.\n');
+  await Bun.write(join(ctx.directory, 'review.json'), JSON.stringify({ rules: './RULES.md' }));
+  await Bun.write(join(ctx.directory, 'RULES.md'), '# Rules\n\nName things well.\n');
 
-  const relativeDir = relative(process.cwd(), ctx.dir);
+  const relativeDir = relative(process.cwd(), ctx.directory);
 
   const loads = await Promise.all([
-    loadConfig({ repoDir: ctx.dir }),
+    loadConfig({ repoDir: ctx.directory }),
     loadConfig({ repoDir: relativeDir }),
   ]);
 
@@ -453,7 +499,7 @@ test('it loads no rules from a repo: file or a reference that the repo does not 
   const ctx = await setupTest();
 
   await Bun.write(
-    join(ctx.dir, 'review.json'),
+    join(ctx.directory, 'review.json'),
     JSON.stringify({
       rules: [
         { path: 'repo:skills/code/SKILL.md', references: { 'references/nix.md': ['**/*.nix'] } },
@@ -462,9 +508,12 @@ test('it loads no rules from a repo: file or a reference that the repo does not 
     }),
   );
 
-  await Bun.write(join(ctx.dir, 'skills/code/SKILL.md'), '## Naming\n\n1. Start with a verb.');
+  await Bun.write(
+    join(ctx.directory, 'skills/code/SKILL.md'),
+    '## Naming\n\n1. Start with a verb.',
+  );
 
-  const loaded = await loadConfig({ repoDir: ctx.dir });
+  const loaded = await loadConfig({ repoDir: ctx.directory });
 
   expect(loaded.rules).toStrictEqual([
     { name: 'skills/code/SKILL.md', body: '## Naming\n\n1. Start with a verb.', paths: null },
@@ -479,13 +528,13 @@ test('it loads no rules from a repo: file or a reference that the repo does not 
 test('it gives a missing repo: file and an empty one 2 hashes', async () => {
   const ctx = await setupTest();
 
-  await Bun.write(join(ctx.dir, 'review.json'), JSON.stringify({ rules: ['repo:a.md'] }));
+  await Bun.write(join(ctx.directory, 'review.json'), JSON.stringify({ rules: ['repo:a.md'] }));
 
-  const missing = await loadConfig({ repoDir: ctx.dir });
+  const missing = await loadConfig({ repoDir: ctx.directory });
 
-  await Bun.write(join(ctx.dir, 'a.md'), '');
+  await Bun.write(join(ctx.directory, 'a.md'), '');
 
-  const empty = await loadConfig({ repoDir: ctx.dir });
+  const empty = await loadConfig({ repoDir: ctx.directory });
 
   expect(missing.hash).not.toBe(empty.hash);
 });
@@ -503,12 +552,12 @@ test.each([
 ])('it fails the load on %s', async (_label, config) => {
   const ctx = await setupTest();
 
-  await Bun.write(join(ctx.dir, 'repo', 'review.json'), JSON.stringify(config));
-  await Bun.write(join(ctx.dir, 'repo', 'SKILL.md'), '## Naming\n\n1. Start with a verb.');
-  await Bun.write(join(ctx.dir, 'outside.md'), '## Outside\n\n1. Read me.');
-  await Bun.write(join(ctx.dir, 'x.md'), '## Outside\n\n1. Read me.');
+  await Bun.write(join(ctx.directory, 'repo', 'review.json'), JSON.stringify(config));
+  await Bun.write(join(ctx.directory, 'repo', 'SKILL.md'), '## Naming\n\n1. Start with a verb.');
+  await Bun.write(join(ctx.directory, 'outside.md'), '## Outside\n\n1. Read me.');
+  await Bun.write(join(ctx.directory, 'x.md'), '## Outside\n\n1. Read me.');
 
-  expect(loadConfig({ repoDir: join(ctx.dir, 'repo') })).rejects.toThrowWithMessage(
+  expect(loadConfig({ repoDir: join(ctx.directory, 'repo') })).rejects.toThrowWithMessage(
     Error,
     /leaves the folder it is relative to/u,
   );

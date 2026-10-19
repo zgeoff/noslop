@@ -12,11 +12,11 @@ import { createTestRepo } from '@noslop/testing';
 const ADAPTER = Bun.env['NOSLOP_E2E_ADAPTER'];
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'noslop-e2e-'));
+  const directory = await mkdtemp(join(tmpdir(), 'noslop-e2e-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  return { dir, runner: createRunner() };
+  return { directory, runner: createRunner() };
 }
 
 test.skipIf(ADAPTER === undefined)(
@@ -24,7 +24,7 @@ test.skipIf(ADAPTER === undefined)(
   async () => {
     const ctx = await setupTest();
 
-    const repo = await createTestRepo(join(ctx.dir, 'shop'), [
+    const repo = await createTestRepo(join(ctx.directory, 'shop'), [
       {
         message: 'Add the stock and order queries',
         files: {
@@ -108,7 +108,7 @@ test.skipIf(ADAPTER === undefined)(
       ],
       {
         cwd: repo.path,
-        env: { XDG_CACHE_HOME: join(ctx.dir, 'cache') },
+        env: { XDG_CACHE_HOME: join(ctx.directory, 'cache') },
         timeoutMs: 1_800_000,
       },
     );

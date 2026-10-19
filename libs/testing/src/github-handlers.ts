@@ -98,8 +98,8 @@ export const githubHandlers = [
   http.get<RepoParams & { ref: string }>(
     `${GITHUB_API_URL}/repos/:owner/:repo/commits/:ref`,
     (info) => {
-      const commit = githubCollections.pullCommits.findFirst((q) =>
-        q.where({
+      const commit = githubCollections.pullCommits.findFirst((query) =>
+        query.where({
           owner: info.params.owner,
           repo: info.params.repo,
           sha: (sha) => sha.startsWith(info.params.ref),
@@ -127,8 +127,8 @@ export const githubHandlers = [
     (info) => {
       const [base = '', head = ''] = info.params.basehead.split('...');
 
-      const records = githubCollections.pullCommits.findMany((q) =>
-        q.where({ owner: info.params.owner, repo: info.params.repo }),
+      const records = githubCollections.pullCommits.findMany((query) =>
+        query.where({ owner: info.params.owner, repo: info.params.repo }),
       );
 
       const search = new URL(info.request.url).searchParams;
@@ -146,8 +146,8 @@ export const githubHandlers = [
   ),
 
   http.get<PullParams>(`${GITHUB_API_URL}/repos/:owner/:repo/pulls/:number`, (info) => {
-    const pull = githubCollections.pullRequests.findFirst((q) =>
-      q.where({
+    const pull = githubCollections.pullRequests.findFirst((query) =>
+      query.where({
         owner: info.params.owner,
         repo: info.params.repo,
         number: Number(info.params.number),
@@ -169,8 +169,8 @@ export const githubHandlers = [
   }),
 
   http.get<PullParams>(`${GITHUB_API_URL}/repos/:owner/:repo/pulls/:number/commits`, (info) => {
-    const commits = githubCollections.pullCommits.findMany((q) =>
-      q.where({
+    const commits = githubCollections.pullCommits.findMany((query) =>
+      query.where({
         owner: info.params.owner,
         repo: info.params.repo,
         number: Number(info.params.number),
@@ -185,8 +185,8 @@ export const githubHandlers = [
   }),
 
   http.get<PullParams>(`${GITHUB_API_URL}/repos/:owner/:repo/pulls/:number/comments`, (info) => {
-    const comments = githubCollections.reviewComments.findMany((q) =>
-      q.where({
+    const comments = githubCollections.reviewComments.findMany((query) =>
+      query.where({
         owner: info.params.owner,
         repo: info.params.repo,
         number: Number(info.params.number),
@@ -270,8 +270,8 @@ export const githubHandlers = [
   http.post<CommentParams, BodyInput>(
     `${GITHUB_API_URL}/repos/:owner/:repo/pulls/:number/comments/:commentID/replies`,
     async (info) => {
-      const parent = githubCollections.reviewComments.findFirst((q) =>
-        q.where({
+      const parent = githubCollections.reviewComments.findFirst((query) =>
+        query.where({
           owner: info.params.owner,
           repo: info.params.repo,
           id: Number(info.params.commentID),
@@ -307,8 +307,8 @@ export const githubHandlers = [
       const input = await info.request.json();
 
       const comment = await githubCollections.reviewComments.update(
-        (q) =>
-          q.where({
+        (query) =>
+          query.where({
             owner: info.params.owner,
             repo: info.params.repo,
             id: Number(info.params.commentID),
@@ -334,8 +334,8 @@ export const githubHandlers = [
       const input = await info.request.json();
 
       const comment = await githubCollections.issueComments.update(
-        (q) =>
-          q.where({
+        (query) =>
+          query.where({
             owner: info.params.owner,
             repo: info.params.repo,
             id: Number(info.params.commentID),
@@ -356,8 +356,8 @@ export const githubHandlers = [
   ),
 
   http.get<PullParams>(`${GITHUB_API_URL}/repos/:owner/:repo/issues/:number/comments`, (info) => {
-    const comments = githubCollections.issueComments.findMany((q) =>
-      q.where({
+    const comments = githubCollections.issueComments.findMany((query) =>
+      query.where({
         owner: info.params.owner,
         repo: info.params.repo,
         number: Number(info.params.number),
@@ -388,8 +388,8 @@ export const githubHandlers = [
   ),
 
   http.get<PullParams>(`${GITHUB_API_URL}/repos/:owner/:repo/issues/:number`, (info) => {
-    const issue = githubCollections.issues.findFirst((q) =>
-      q.where({
+    const issue = githubCollections.issues.findFirst((query) =>
+      query.where({
         owner: info.params.owner,
         repo: info.params.repo,
         number: Number(info.params.number),
@@ -407,7 +407,7 @@ export const githubHandlers = [
     const input = await info.request.json();
 
     const numbers = githubCollections.issues
-      .findMany((q) => q.where({ owner: info.params.owner, repo: info.params.repo }))
+      .findMany((query) => query.where({ owner: info.params.owner, repo: info.params.repo }))
       .map((issue) => issue.number);
 
     const issue = await githubCollections.issues.create({
@@ -424,8 +424,8 @@ export const githubHandlers = [
 
   // every issue of the repo, open or closed, as GitHub pages them
   http.get<RepoParams>(`${GITHUB_API_URL}/repos/:owner/:repo/issues`, (info) => {
-    const issues = githubCollections.issues.findMany((q) =>
-      q.where({ owner: info.params.owner, repo: info.params.repo }),
+    const issues = githubCollections.issues.findMany((query) =>
+      query.where({ owner: info.params.owner, repo: info.params.repo }),
     );
 
     const page = toPage(info.request, issues);
@@ -443,8 +443,8 @@ export const githubHandlers = [
   http.get<RepoParams & { login: string }>(
     `${GITHUB_API_URL}/repos/:owner/:repo/collaborators/:login/permission`,
     (info) => {
-      const collaborator = githubCollections.collaborators.findFirst((q) =>
-        q.where({ owner: info.params.owner, repo: info.params.repo, login: info.params.login }),
+      const collaborator = githubCollections.collaborators.findFirst((query) =>
+        query.where({ owner: info.params.owner, repo: info.params.repo, login: info.params.login }),
       );
 
       return HttpResponse.json({ permission: collaborator?.permission ?? 'none' });
@@ -477,8 +477,8 @@ export const githubHandlers = [
     (info) => {
       const name = info.params.branch.join('/');
 
-      const branch = githubCollections.branches.findFirst((q) =>
-        q.where({ owner: info.params.owner, repo: info.params.repo, name }),
+      const branch = githubCollections.branches.findFirst((query) =>
+        query.where({ owner: info.params.owner, repo: info.params.repo, name }),
       );
 
       if (branch === undefined) {
@@ -494,8 +494,8 @@ export const githubHandlers = [
     (info) => {
       const ref = new URL(info.request.url).searchParams.get('ref') ?? 'main';
 
-      const file = githubCollections.files.findFirst((q) =>
-        q.where({
+      const file = githubCollections.files.findFirst((query) =>
+        query.where({
           owner: info.params.owner,
           repo: info.params.repo,
           ref,
@@ -550,8 +550,8 @@ function isCommentable(
   number: number,
   comment: Pick<ReviewCommentInput, 'path' | 'line' | 'start_line'>,
 ): boolean {
-  const file = githubCollections.pullFiles.findFirst((q) =>
-    q.where({ owner: repo.owner, repo: repo.repo, number, path: comment.path }),
+  const file = githubCollections.pullFiles.findFirst((query) =>
+    query.where({ owner: repo.owner, repo: repo.repo, number, path: comment.path }),
   );
 
   const lines = [comment.start_line ?? comment.line, comment.line];

@@ -70,7 +70,7 @@ test('it writes the severity mix, the failed calls and each fix of a re-review',
 
   const result = buildMockReviewResult({
     findings,
-    failedCalls: [{ id: 'B', lenses: ['security'], reason: 'codex timed out' }],
+    failedCalls: [{ id: 'security', lenses: ['security'], reason: 'codex timed out' }],
   });
 
   expect(
@@ -113,7 +113,7 @@ test('it writes the severity mix, the failed calls and each fix of a re-review',
 
     Review 2 · \`bbbbbbbbbbbb\` against \`aaaaaaaaaaaa\` · light depth · lenses correctness
 
-    Failed call \`B\` (security): codex timed out
+    Failed call \`security\` (security): codex timed out
     </details>
     <!-- noslop:summary {"head":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","reviews":2,"reported":[],"failedCalls":1,"followUps":[],"confirmed":[]} -->"
   `);

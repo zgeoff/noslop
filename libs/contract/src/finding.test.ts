@@ -6,7 +6,7 @@ test('it accepts a complete CONFIRMED finding', () => {
   const payload: Finding = {
     id: '0123456789abcdef',
     lens: 'correctness',
-    callID: 'A',
+    callID: 'correctness',
     title: 'Keep the items in the queue until the batch write succeeds',
     body: 'The loop deletes every item, then writes the batch.',
     anchor: { path: 'src/queue.ts', startLine: 12, endLine: 14 },
@@ -48,7 +48,7 @@ test('it rejects a PLAUSIBLE finding with no unverified fact', () => {
   const result = findingSchema.safeParse({
     id: '0123456789abcdef',
     lens: 'security',
-    callID: 'B',
+    callID: 'security',
     title: 'Check the actor before the read',
     body: 'The query reads any row.',
     anchor: { path: 'src/db.ts', startLine: 4, endLine: 4 },
@@ -65,7 +65,7 @@ test('it rejects a severity that its criterion does not set', () => {
   const result = findingSchema.safeParse({
     id: '0123456789abcdef',
     lens: 'security',
-    callID: 'B',
+    callID: 'security',
     title: 'Check the actor before the read',
     body: 'The query reads any row.',
     anchor: { path: 'src/db.ts', startLine: 4, endLine: 4 },
@@ -82,7 +82,7 @@ test('it rejects a title longer than 80 characters', () => {
   const result = findingSchema.safeParse({
     id: '0123456789abcdef',
     lens: 'correctness',
-    callID: 'A',
+    callID: 'correctness',
     title: 'x'.repeat(81),
     body: 'The loop deletes every item, then writes the batch.',
     anchor: { path: 'src/queue.ts', startLine: 12, endLine: 14 },
@@ -99,7 +99,7 @@ test('it rejects a lens that is not in the lens set', () => {
   const result = findingSchema.safeParse({
     id: '0123456789abcdef',
     lens: 'performance',
-    callID: 'A',
+    callID: 'correctness',
     title: 'Keep the items in the queue until the batch write succeeds',
     body: 'The loop deletes every item, then writes the batch.',
     anchor: { path: 'src/queue.ts', startLine: 12, endLine: 14 },

@@ -162,17 +162,18 @@ function parseHeaderPath(rest: string): string {
   return rest.slice(0, rest.indexOf(' '));
 }
 
-const ESCAPES: Readonly<Record<string, string>> = {
-  n: '\n',
-  t: '\t',
-  r: '\r',
-  '"': '"',
-  '\\': '\\',
-  a: '\u0007',
-  b: '\b',
-  f: '\f',
-  v: '\v',
-};
+// each key is the character git writes after a backslash, so the table maps characters, not names
+const ESCAPES: ReadonlyMap<string, string> = new Map([
+  ['n', '\n'],
+  ['t', '\t'],
+  ['r', '\r'],
+  ['"', '"'],
+  ['\\', '\\'],
+  ['a', '\u0007'],
+  ['b', '\b'],
+  ['f', '\f'],
+  ['v', '\v'],
+]);
 
 // git ends a path that holds a space with a tab, and quotes a path that holds a special character,
 // with C escapes and octal bytes for the rest
@@ -202,7 +203,7 @@ function parseGitPath(raw: string): string {
     if (octal === undefined) {
       const next = body.charAt(index + 1);
 
-      bytes.push(...encoder.encode(ESCAPES[next] ?? next));
+      bytes.push(...encoder.encode(ESCAPES.get(next) ?? next));
 
       index += 1;
     } else {

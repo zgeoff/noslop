@@ -57,14 +57,14 @@ export function createCodexAdapter(options: CodexAdapterOptions): ReviewAdapter 
     defaultTimeoutMs: 1_200_000,
     efforts: { low: 'low', medium: 'medium', high: 'high' },
     runCall: async (call, ctx) => {
-      const dir = await mkdtemp(
+      const directory = await mkdtemp(
         join(ctx.tempDir, `codex-${call.callID.slice(0, CALL_ID_IN_DIR)}-`),
       );
 
       try {
-        return await runCodexCall(call, dir, adapter, options);
+        return await runCodexCall(call, directory, adapter, options);
       } finally {
-        await rm(dir, { recursive: true, force: true });
+        await rm(directory, { recursive: true, force: true });
       }
     },
   };
@@ -74,12 +74,12 @@ export function createCodexAdapter(options: CodexAdapterOptions): ReviewAdapter 
 
 async function runCodexCall<Output>(
   call: CallRequest<Output>,
-  dir: string,
+  directory: string,
   adapter: ReviewAdapter,
   options: CodexAdapterOptions,
 ): Promise<CallResult<Output>> {
-  const schemaPath = join(dir, 'output-schema.json');
-  const lastPath = join(dir, 'last-message.json');
+  const schemaPath = join(directory, 'output-schema.json');
+  const lastPath = join(directory, 'last-message.json');
 
   const userConfig = await readCodexConfig(join(readCodexHome(options), 'config.toml'));
 

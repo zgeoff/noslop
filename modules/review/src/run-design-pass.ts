@@ -163,9 +163,9 @@ async function writeDesignPrompt(input: DesignPassInput): Promise<string> {
 
   // a folder that mkdtemp creates holds a name no checked-out path holds, so the hunks file never
   // replaces a file of the repo; the review removes the worktree, the folder with it, after the pass
-  const dir = await mkdtemp(join(input.worktree, '.noslop-design-'));
+  const directory = await mkdtemp(join(input.worktree, '.noslop-design-'));
 
-  const hunksFile = join(relative(input.worktree, dir), 'hunks.md');
+  const hunksFile = join(relative(input.worktree, directory), 'hunks.md');
 
   await Bun.write(join(input.worktree, hunksFile), `${renderHunks(files)}\n`);
 

@@ -9,17 +9,17 @@ import { runEval } from './run-eval';
 import type { CaseReview } from './types';
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'noslop-run-eval-'));
+  const directory = await mkdtemp(join(tmpdir(), 'noslop-run-eval-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  return { dir, workDir: join(dir, 'work'), runner: createRunner() };
+  return { directory, workDir: join(directory, 'work'), runner: createRunner() };
 }
 
 test('it reviews each case in a detached worktree of its head and removes the worktree', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'a.ts': 'export const a = 1;\n' } },
     { message: 'head', files: { 'a.ts': 'export const a = 2;\n' } },
   ]);
@@ -65,7 +65,7 @@ test('it reviews each case in a detached worktree of its head and removes the wo
 test('it replays cases at once and keeps their order when a later case ends first', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'a.ts': 'export const a = 1;\n' } },
     { message: 'head', files: { 'a.ts': 'export const a = 2;\n' } },
   ]);
@@ -136,7 +136,7 @@ test('it replays cases at once and keeps their order when a later case ends firs
 test('it hands a reviewer that checks out the head itself the repo and adds no worktree', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'a.ts': 'export const a = 1;\n' } },
     { message: 'head', files: { 'a.ts': 'export const a = 2;\n' } },
   ]);
@@ -186,7 +186,7 @@ test('it records a failed review and reports it when the repo does not exist', a
     cases: [
       {
         id: 'case-1',
-        repo: join(ctx.dir, 'missing'),
+        repo: join(ctx.directory, 'missing'),
         base: 'a'.repeat(40),
         head: 'b'.repeat(40),
         title: 'feat: gone',
@@ -209,7 +209,7 @@ test('it records a failed review and reports it when the repo does not exist', a
 test('it records a failed review when the head is not in the repo', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'a.ts': 'export const a = 1;\n' } },
   ]);
 

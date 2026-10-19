@@ -6,11 +6,11 @@ import { loadStore } from './load-store';
 import { writeEscape } from './write-escape';
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'noslop-store-'));
+  const directory = await mkdtemp(join(tmpdir(), 'noslop-store-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  const store = await loadStore(join(dir, 'store.sqlite'));
+  const store = await loadStore(join(directory, 'store.sqlite'));
 
   onTestFinished(() => store.destroy());
 

@@ -293,8 +293,11 @@ function collectMissingBumps(inputs: ChangeFindingInputs): ModelFinding[] {
     }
 
     const [owner] = inputs.manifests
-      .filter((manifest) => manifest.dir === '.' || entry.file.path.startsWith(`${manifest.dir}/`))
-      .toSorted((left, right) => right.dir.length - left.dir.length);
+      .filter(
+        (manifest) =>
+          manifest.directory === '.' || entry.file.path.startsWith(`${manifest.directory}/`),
+      )
+      .toSorted((left, right) => right.directory.length - left.directory.length);
 
     if (owner !== undefined && !owner.isPrivate) {
       needing.set(owner.path, owner);

@@ -143,14 +143,15 @@ function mergeRulesLayers(files: readonly ChainFile[]): { rules: unknown; source
   return merged;
 }
 
-function isSamePath(a: unknown, b: unknown): boolean {
-  const path: unknown = typeof a === 'object' && a !== null ? Reflect.get(a, 'path') : undefined;
+function isSamePath(left: unknown, right: unknown): boolean {
+  const path: unknown =
+    typeof left === 'object' && left !== null ? Reflect.get(left, 'path') : undefined;
 
   return (
     typeof path === 'string' &&
-    typeof b === 'object' &&
-    b !== null &&
-    Reflect.get(b, 'path') === path
+    typeof right === 'object' &&
+    right !== null &&
+    Reflect.get(right, 'path') === path
   );
 }
 

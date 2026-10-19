@@ -22,9 +22,9 @@ import { createJSONReporter } from './create-json-reporter';
 import { runCLI } from './run-cli';
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'noslop-cli-'));
+  const directory = await mkdtemp(join(tmpdir(), 'noslop-cli-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
   const stdout: string[] = [];
   const stderr: string[] = [];
@@ -32,8 +32,8 @@ async function setupTest() {
   const buildContext = (cwd: string, adapter: ReviewAdapter): CLIContext => ({
     runner: createRunner(),
     cwd,
-    cacheDir: join(dir, 'cache'),
-    dataDir: join(dir, 'data'),
+    cacheDir: join(directory, 'cache'),
+    dataDir: join(directory, 'data'),
     logger: getLogger(['test']),
     writeStdout: (text) => {
       stdout.push(text);
@@ -47,7 +47,7 @@ async function setupTest() {
         json: createJSONReporter((text) => {
           stdout.push(text);
         }),
-        sqlite: createSQLiteReporter(join(dir, 'data', 'store.sqlite')),
+        sqlite: createSQLiteReporter(join(directory, 'data', 'store.sqlite')),
         github: createGitHubReporter({ loadConnection }),
       })[id] ?? null,
     loadGitHubConnection: loadConnection,
@@ -56,13 +56,13 @@ async function setupTest() {
   const privateKey = buildStubAppKey();
   const loadConnection = () => createGitHubConnection({ appID: 1, privateKey, installationID: 7 });
 
-  return { dir, stdout, stderr, buildContext };
+  return { directory, stdout, stderr, buildContext };
 }
 
 test('it reviews the change between 2 commits and prints the result as JSON', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
     {
       message: 'Add the total\n\nSums the items.',
@@ -80,7 +80,7 @@ test('it reviews the change between 2 commits and prints the result as JSON', as
   ]);
 
   const stub = buildStubAdapter({
-    L: [
+    light: [
       {
         findings: {
           correctness: [
@@ -113,7 +113,7 @@ test('it reviews the change between 2 commits and prints the result as JSON', as
 
   const result = reviewResultSchema.parse(JSON.parse(ctx.stdout.join('')));
 
-  const left = await readdir(join(ctx.dir, 'cache', 'reviews'));
+  const left = await readdir(join(ctx.directory, 'cache', 'reviews'));
 
   expect(code).toBe(0);
 
@@ -137,13 +137,13 @@ test('it reviews the change between 2 commits and prints the result as JSON', as
 test('it titles the review with the head subject and gives the calls every commit message', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/a.ts': 'export const a = 1;\n' } },
     { message: 'Start the change\n\nFirst step.', files: { 'src/a.ts': 'export const a = 2;\n' } },
     { message: 'Finish the change', files: { 'src/a.ts': 'export const a = 3;\n' } },
   ]);
 
-  const stub = buildStubAdapter({ L: [{ findings: { correctness: [] } }] });
+  const stub = buildStubAdapter({ light: [{ findings: { correctness: [] } }] });
 
   await runCLI(
     ['review', '--base', repo.commits[0] ?? '', '--head', repo.commits[2] ?? '', '--json'],
@@ -161,7 +161,7 @@ test('it titles the review with the head subject and gives the calls every commi
 test('it reviews a local change that edits review.json under the config of its base', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: {
@@ -178,7 +178,7 @@ test('it reviews a local change that edits review.json under the config of its b
     },
   ]);
 
-  const stub = buildStubAdapter({ L: [{ findings: { correctness: [] } }] });
+  const stub = buildStubAdapter({ light: [{ findings: { correctness: [] } }] });
 
   await runCLI(
     ['review', '--base', repo.commits[0] ?? '', '--head', repo.commits[1] ?? '', '--json'],
@@ -191,7 +191,7 @@ test('it reviews a local change that edits review.json under the config of its b
 test('it reviews a pull request that edits review.json under the config of its base', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: {
@@ -218,7 +218,7 @@ test('it reviews a pull request that edits review.json under the config of its b
     headSha: repo.commits[1] ?? '',
   });
 
-  const stub = buildStubAdapter({ L: [{ findings: { correctness: [] } }] });
+  const stub = buildStubAdapter({ light: [{ findings: { correctness: [] } }] });
 
   await runCLI(
     ['review', '--pr', '9', '--repo', 'example/app', '--report', 'json', '--json'],
@@ -231,7 +231,7 @@ test('it reviews a pull request that edits review.json under the config of its b
 test("it follows the base commit's symlinks to its config files", async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: {
@@ -250,7 +250,7 @@ test("it follows the base commit's symlinks to its config files", async () => {
     },
   ]);
 
-  const stub = buildStubAdapter({ L: [{ findings: { correctness: [] } }] });
+  const stub = buildStubAdapter({ light: [{ findings: { correctness: [] } }] });
 
   await runCLI(
     ['review', '--base', repo.commits[0] ?? '', '--head', repo.commits[1] ?? '', '--json'],
@@ -263,7 +263,7 @@ test("it follows the base commit's symlinks to its config files", async () => {
 test('it reads a config file whose name starts with 2 dots from the base commit', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: {
@@ -281,7 +281,7 @@ test('it reads a config file whose name starts with 2 dots from the base commit'
     },
   ]);
 
-  const stub = buildStubAdapter({ L: [{ findings: { correctness: [] } }] });
+  const stub = buildStubAdapter({ light: [{ findings: { correctness: [] } }] });
 
   await runCLI(
     ['review', '--base', repo.commits[0] ?? '', '--head', repo.commits[1] ?? '', '--json'],
@@ -294,12 +294,12 @@ test('it reads a config file whose name starts with 2 dots from the base commit'
 test('it prints a summary for a person without --json', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'docs/guide.md': '# Guide\n' } },
     { message: 'Edit the guide', files: { 'docs/guide.md': '# Guide\n\nRun the tool.\n' } },
   ]);
 
-  const stub = buildStubAdapter({ D: [{ findings: { documentation: [] } }] });
+  const stub = buildStubAdapter({ light: [{ findings: { documentation: [] } }] });
 
   const code = await runCLI(
     ['review', '--base', repo.commits[0] ?? '', '--head', repo.commits[1] ?? ''],
@@ -313,7 +313,7 @@ test('it prints a summary for a person without --json', async () => {
 test('it records the review in the store and answers a store query', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: {
@@ -325,7 +325,7 @@ test('it records the review in the store and answers a store query', async () =>
   ]);
 
   const stub = buildStubAdapter({
-    L: [
+    light: [
       {
         findings: {
           correctness: [
@@ -369,7 +369,7 @@ test('it records the review in the store and answers a store query', async () =>
 test('it prints the merged config with the source of each key', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'review.json': '{ "adapter": "claude" }\n' } },
   ]);
 
@@ -391,7 +391,7 @@ test('it prints the merged config with the source of each key', async () => {
 test('it prints the config as JSON with only its config, sources, chain, missing rules and hash', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'review.json': '{ "adapter": "claude" }\n' } },
   ]);
 
@@ -409,7 +409,7 @@ test('it prints the config as JSON with only its config, sources, chain, missing
 test('it names each repo: rules file that the repo does not hold', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'review.json': '{ "rules": ["repo:skills/tests/SKILL.md"] }\n' } },
   ]);
 
@@ -427,7 +427,7 @@ test('it exits 1 and names the problem when a command fails', async () => {
 
   const code = await runCLI(
     ['store', 'query', 'no-such-query'],
-    ctx.buildContext(ctx.dir, buildStubAdapter({}).adapter),
+    ctx.buildContext(ctx.directory, buildStubAdapter({}).adapter),
   );
 
   expect(code).toBe(1);
@@ -437,7 +437,7 @@ test('it exits 1 and names the problem when a command fails', async () => {
 test('it reviews a pull request from GitHub and posts its findings and the check', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
     {
       message: 'Add the total',
@@ -471,7 +471,7 @@ test('it reviews a pull request from GitHub and posts its findings and the check
   });
 
   const stub = buildStubAdapter({
-    L: [
+    light: [
       {
         findings: {
           correctness: [
@@ -523,7 +523,7 @@ test('it reviews a pull request from GitHub and posts its findings and the check
 test('it gives the calls the issue that the pull request body closes', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
     {
       message: 'Add one',
@@ -550,7 +550,7 @@ test('it gives the calls the issue that the pull request body closes', async () 
   });
 
   const stub = buildStubAdapter({
-    L: [{ findings: { correctness: [], intent: [] } }],
+    light: [{ findings: { correctness: [], intent: [] } }],
   });
 
   await runCLI(
@@ -566,7 +566,7 @@ test('it gives the calls the issue that the pull request body closes', async () 
 test('it fires the intent lens on a local change with the text of the issue file', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
     {
       message: 'Add one',
@@ -575,12 +575,12 @@ test('it fires the intent lens on a local change with the text of the issue file
   ]);
 
   await Bun.write(
-    join(ctx.dir, 'issue.md'),
+    join(ctx.directory, 'issue.md'),
     'GEO-12 Export a constant for one\n\nCallers write 1.\n',
   );
 
   const stub = buildStubAdapter({
-    L: [{ findings: { correctness: [], intent: [] } }],
+    light: [{ findings: { correctness: [], intent: [] } }],
   });
 
   const code = await runCLI(
@@ -589,7 +589,7 @@ test('it fires the intent lens on a local change with the text of the issue file
       '--base',
       repo.commits[0] ?? '',
       '--issue-file',
-      join(ctx.dir, 'issue.md'),
+      join(ctx.directory, 'issue.md'),
       '--report',
       'json',
       '--json',
@@ -610,7 +610,7 @@ test('it fires the intent lens on a local change with the text of the issue file
 test('it gives the calls the issue file in place of the issue the pull request body closes', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
     {
       message: 'Add one',
@@ -636,10 +636,10 @@ test('it gives the calls the issue file in place of the issue the pull request b
     body: 'Callers write 1 by hand.',
   });
 
-  await Bun.write(join(ctx.dir, 'issue.md'), 'GEO-12 Export one from the totals module\n');
+  await Bun.write(join(ctx.directory, 'issue.md'), 'GEO-12 Export one from the totals module\n');
 
   const stub = buildStubAdapter({
-    L: [{ findings: { correctness: [], intent: [] } }],
+    light: [{ findings: { correctness: [], intent: [] } }],
   });
 
   await runCLI(
@@ -650,7 +650,7 @@ test('it gives the calls the issue file in place of the issue the pull request b
       '--repo',
       'example/app',
       '--issue-file',
-      join(ctx.dir, 'issue.md'),
+      join(ctx.directory, 'issue.md'),
       '--report',
       'json',
       '--json',
@@ -668,7 +668,7 @@ test('it gives the calls the issue file in place of the issue the pull request b
 test('it fails the review when the issue file does not exist', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
     {
       message: 'Add one',
@@ -691,7 +691,7 @@ test('it fails the review when the issue file does not exist', async () => {
 test('it reviews a pull request from the head of its last review', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
     {
       message: 'Add one',
@@ -725,7 +725,7 @@ test('it reviews a pull request from the head of its last review', async () => {
   });
 
   const stub = buildStubAdapter({
-    L: [{ findings: { correctness: [] } }],
+    light: [{ findings: { correctness: [] } }],
   });
 
   await runCLI(
@@ -741,7 +741,7 @@ test('it reviews a pull request from the head of its last review', async () => {
 test('it reviews only the files the pull request changes after it merges its base branch', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: {
@@ -810,7 +810,7 @@ test('it reviews only the files the pull request changes after it merges its bas
 test('it confirms no fix through a merge from the base branch that brings in a source file over the file limit', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: {
@@ -904,7 +904,7 @@ test('it confirms no fix through a merge from the base branch that brings in a s
     body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":1,"reported":["${findingID}"],"failedCalls":0} -->`,
   });
 
-  const stub = buildStubAdapter({ L: [{ findings: { correctness: [] } }] });
+  const stub = buildStubAdapter({ light: [{ findings: { correctness: [] } }] });
 
   await runCLI(
     ['review', '--pr', '9', '--repo', 'example/app', '--report', 'github'],
@@ -921,7 +921,7 @@ test('it confirms no fix through a merge from the base branch that brings in a s
 test('it confirms a fix through a merge from the base branch that brings in a lockfile over the file limit', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: { 'src/total.ts': 'export const zero = 0;\n', 'bun.lock': '{}\n' },
@@ -1013,7 +1013,7 @@ test('it confirms a fix through a merge from the base branch that brings in a lo
   });
 
   const stub = buildStubAdapter({
-    L: [{ findings: { correctness: [] } }],
+    light: [{ findings: { correctness: [] } }],
     design: [{ findings: { design: [] } }],
   });
 
@@ -1028,7 +1028,7 @@ test('it confirms a fix through a merge from the base branch that brings in a lo
 test('it reviews the whole pull request from its merge base under --full', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
     {
       message: 'Add one',
@@ -1062,7 +1062,7 @@ test('it reviews the whole pull request from its merge base under --full', async
   });
 
   const stub = buildStubAdapter({
-    L: [{ findings: { correctness: [] } }],
+    light: [{ findings: { correctness: [] } }],
   });
 
   await runCLI(
@@ -1078,7 +1078,7 @@ test('it reviews the whole pull request from its merge base under --full', async
 test('it tells the calls not to judge the description when it reviews only the new commits', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/parse.ts': 'export const parse = 0;\n' } },
     {
       message: 'Add the printer and the cache',
@@ -1118,7 +1118,7 @@ test('it tells the calls not to judge the description when it reviews only the n
   });
 
   const stub = buildStubAdapter({
-    L: [{ findings: { correctness: [] } }],
+    light: [{ findings: { correctness: [] } }],
   });
 
   await runCLI(
@@ -1138,7 +1138,7 @@ test('it tells the calls not to judge the description when it reviews only the n
 test('it runs no design pass on the first review of a pull request', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/parse.ts': 'export const parse = 0;\n' } },
     { message: 'Fix the parser', files: { 'src/parse.ts': 'export const parse = 1;\n' } },
   ]);
@@ -1154,7 +1154,7 @@ test('it runs no design pass on the first review of a pull request', async () =>
   });
 
   const stub = buildStubAdapter({
-    L: [{ findings: { correctness: [] } }],
+    light: [{ findings: { correctness: [] } }],
     design: [{ findings: { design: [] } }],
   });
 
@@ -1163,13 +1163,13 @@ test('it runs no design pass on the first review of a pull request', async () =>
     ctx.buildContext(repo.path, stub.adapter),
   );
 
-  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['L']);
+  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['light']);
 });
 
 test('it runs the design pass on a later review over both rounds of findings, the whole diff and the body, and no linked issue', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/parse.ts': 'export const parse = 0;\n' } },
     {
       message: 'Add the scanner',
@@ -1235,7 +1235,7 @@ test('it runs the design pass on a later review over both rounds of findings, th
   });
 
   const stub = buildStubAdapter({
-    L: [
+    light: [
       {
         findings: {
           correctness: [
@@ -1272,7 +1272,7 @@ test('it runs the design pass on a later review over both rounds of findings, th
     throw new Error('the review made no design call');
   }
 
-  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['L', 'design']);
+  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['light', 'design']);
   expect(stub.requests[0]?.prompt).toInclude('Text that only the issue holds.');
   expect(design.prompt).toInclude('Title: Parse the header line\n\nParses the header line.');
   expect(design.prompt).toInclude('"title": "Accept a space before the header value"');
@@ -1287,7 +1287,7 @@ test('it runs the design pass on a later review over both rounds of findings, th
 test('it confirms no fix of a design finding when the design call fails', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
     {
       message: 'Add the scanner',
@@ -1363,7 +1363,7 @@ test('it confirms no fix of a design finding when the design call fails', async 
   });
 
   const stub = buildStubAdapter({
-    L: [{ findings: { correctness: [] } }],
+    light: [{ findings: { correctness: [] } }],
     design: [{ error: 'the model CLI timed out' }, { error: 'the model CLI timed out' }],
   });
 
@@ -1386,7 +1386,7 @@ test('it confirms no fix of a design finding when the config turns the design pa
 
   const config = '{ "designPass": { "enabled": false, "effort": "medium" } }\n';
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: { 'review.json': config, 'src/scan.ts': 'export const zero = 0;\n' },
@@ -1470,7 +1470,7 @@ test('it confirms no fix of a design finding when the config turns the design pa
     body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":1,"reported":["2222222222222222"],"failedCalls":0} -->`,
   });
 
-  const stub = buildStubAdapter({ L: [{ findings: { correctness: [] } }] });
+  const stub = buildStubAdapter({ light: [{ findings: { correctness: [] } }] });
 
   await runCLI(
     ['review', '--pr', '9', '--repo', 'example/app', '--report', 'github'],
@@ -1481,7 +1481,7 @@ test('it confirms no fix of a design finding when the config turns the design pa
     .all()
     .findLast((comment) => comment.body.includes('<!-- noslop:summary'));
 
-  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['L']);
+  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['light']);
   expect(summary?.body).toInclude('"confirmed":[]');
   expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('failure');
 });
@@ -1489,7 +1489,7 @@ test('it confirms no fix of a design finding when the config turns the design pa
 test('it confirms the fix of a design finding when the design call passes and reports it no more', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
     {
       message: 'Add the scanner',
@@ -1565,7 +1565,7 @@ test('it confirms the fix of a design finding when the design call passes and re
   });
 
   const stub = buildStubAdapter({
-    L: [{ findings: { correctness: [] } }],
+    light: [{ findings: { correctness: [] } }],
     design: [{ findings: { design: [] } }],
   });
 
@@ -1588,7 +1588,7 @@ test('it confirms the fix of a design finding when the design call passes and re
 test('it keeps a description finding when it reviews the whole pull request', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/parse.ts': 'export const parse = 0;\n' } },
     { message: 'Fix the parser', files: { 'src/parse.ts': 'export const parse = 1;\n' } },
   ]);
@@ -1604,7 +1604,7 @@ test('it keeps a description finding when it reviews the whole pull request', as
   });
 
   const stub = buildStubAdapter({
-    L: [
+    light: [
       {
         findings: {
           correctness: [
@@ -1651,7 +1651,7 @@ test('it keeps a description finding when it reviews the whole pull request', as
 test('it refuses --full without --pr', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
   ]);
 
@@ -1670,7 +1670,7 @@ test('it refuses --full without --pr', async () => {
 test('it records an escape in the store and counts it in recall', async () => {
   const ctx = await setupTest();
 
-  const context = ctx.buildContext(ctx.dir, buildStubAdapter({}).adapter);
+  const context = ctx.buildContext(ctx.directory, buildStubAdapter({}).adapter);
 
   await runCLI(
     [
@@ -1724,7 +1724,7 @@ test('it refuses escape lines that are no line range', async () => {
       '--lines',
       'four',
     ],
-    ctx.buildContext(ctx.dir, buildStubAdapter({}).adapter),
+    ctx.buildContext(ctx.directory, buildStubAdapter({}).adapter),
   );
 
   expect(code).toBe(1);
@@ -1764,10 +1764,10 @@ test('it records the dispositions of a pull request in the store when it sets th
 
   await runCLI(
     ['check', '--pr', '9', '--repo', 'example/app'],
-    ctx.buildContext(ctx.dir, buildStubAdapter({}).adapter),
+    ctx.buildContext(ctx.directory, buildStubAdapter({}).adapter),
   );
 
-  const store = await loadStore(join(ctx.dir, 'data', 'store.sqlite'));
+  const store = await loadStore(join(ctx.directory, 'data', 'store.sqlite'));
 
   onTestFinished(() => store.destroy());
 
@@ -1802,7 +1802,7 @@ test('it sets the check of a pull request again from its replies', async () => {
 
   const code = await runCLI(
     ['check', '--pr', '9', '--repo', 'example/app', '--json'],
-    ctx.buildContext(ctx.dir, buildStubAdapter({}).adapter),
+    ctx.buildContext(ctx.directory, buildStubAdapter({}).adapter),
   );
 
   const outcome: unknown = JSON.parse(ctx.stdout.join(''));
@@ -1819,7 +1819,7 @@ test('it verifies a pull request review against its head and the config of its b
   const taste = 'Name each total for what it sums.\n';
   const parent = '{ "lenses": { "correctness": { "model": "shared-model" } } }\n';
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: {
@@ -1871,7 +1871,7 @@ test('it verifies a pull request review against its head and the config of its b
     content: parent,
   });
 
-  const stub = buildStubAdapter({ L: [{ findings: { correctness: [] } }] });
+  const stub = buildStubAdapter({ light: [{ findings: { correctness: [] } }] });
 
   await runCLI(
     ['review', '--pr', '9', '--repo', 'example/app', '--report', 'json', '--json'],
@@ -1880,10 +1880,10 @@ test('it verifies a pull request review against its head and the config of its b
 
   const reviewed = reviewResultSchema.parse(JSON.parse(ctx.stdout.splice(0).join('')));
 
-  await Bun.write(join(ctx.dir, 'result.json'), JSON.stringify(reviewed));
+  await Bun.write(join(ctx.directory, 'result.json'), JSON.stringify(reviewed));
 
   const code = await runCLI(
-    ['verify', join(ctx.dir, 'result.json'), '--json'],
+    ['verify', join(ctx.directory, 'result.json'), '--json'],
     ctx.buildContext(repo.path, stub.adapter),
   );
 
@@ -1901,7 +1901,7 @@ test('it verifies a pull request review against its head and the config of its b
 test('it refuses a result whose head is no longer the head of the pull request', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'review.json': '{}\n', 'src/a.ts': 'export const a = 1;\n' } },
     { message: 'Change a', files: { 'src/a.ts': 'export const a = 2;\n' } },
   ]);
@@ -1929,23 +1929,23 @@ test('it refuses a result whose head is no longer the head of the pull request',
     content: '{}\n',
   });
 
-  const stub = buildStubAdapter({ L: [{ findings: { correctness: [] } }] });
+  const stub = buildStubAdapter({ light: [{ findings: { correctness: [] } }] });
 
   await runCLI(
     ['review', '--pr', '9', '--repo', 'example/app', '--report', 'json', '--json'],
     ctx.buildContext(repo.path, stub.adapter),
   );
 
-  await Bun.write(join(ctx.dir, 'result.json'), ctx.stdout.splice(0).join(''));
+  await Bun.write(join(ctx.directory, 'result.json'), ctx.stdout.splice(0).join(''));
 
-  await githubCollections.pullRequests.update((q) => q.where({ number: 9 }), {
+  await githubCollections.pullRequests.update((query) => query.where({ number: 9 }), {
     data(record) {
       record.headSha = 'c'.repeat(40);
     },
   });
 
   const code = await runCLI(
-    ['verify', join(ctx.dir, 'result.json')],
+    ['verify', join(ctx.directory, 'result.json')],
     ctx.buildContext(repo.path, stub.adapter),
   );
 
@@ -1958,7 +1958,7 @@ test('it refuses a result whose head is no longer the head of the pull request',
 test('it refuses a result when the config on the base branch changed after the review', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'review.json': '{}\n', 'src/a.ts': 'export const a = 1;\n' } },
     { message: 'Change a', files: { 'src/a.ts': 'export const a = 2;\n' } },
   ]);
@@ -1986,17 +1986,17 @@ test('it refuses a result when the config on the base branch changed after the r
     content: '{ "lenses": { "correctness": { "model": "stricter-model" } } }\n',
   });
 
-  const stub = buildStubAdapter({ L: [{ findings: { correctness: [] } }] });
+  const stub = buildStubAdapter({ light: [{ findings: { correctness: [] } }] });
 
   await runCLI(
     ['review', '--pr', '9', '--repo', 'example/app', '--report', 'json', '--json'],
     ctx.buildContext(repo.path, stub.adapter),
   );
 
-  await Bun.write(join(ctx.dir, 'result.json'), ctx.stdout.splice(0).join(''));
+  await Bun.write(join(ctx.directory, 'result.json'), ctx.stdout.splice(0).join(''));
 
   const code = await runCLI(
-    ['verify', join(ctx.dir, 'result.json')],
+    ['verify', join(ctx.directory, 'result.json')],
     ctx.buildContext(repo.path, stub.adapter),
   );
 
@@ -2010,7 +2010,7 @@ test('it refuses a result when the config on the base branch changed after the r
 test('it refuses a result that matches the config at the pull request base when the base branch moved on to a new config', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'review.json': '{}\n', 'src/a.ts': 'export const a = 1;\n' } },
     { message: 'Change a', files: { 'src/a.ts': 'export const a = 2;\n' } },
   ]);
@@ -2046,17 +2046,17 @@ test('it refuses a result that matches the config at the pull request base when 
     content: '{ "lenses": { "correctness": { "model": "stricter-model" } } }\n',
   });
 
-  const stub = buildStubAdapter({ L: [{ findings: { correctness: [] } }] });
+  const stub = buildStubAdapter({ light: [{ findings: { correctness: [] } }] });
 
   await runCLI(
     ['review', '--pr', '9', '--repo', 'example/app', '--report', 'json', '--json'],
     ctx.buildContext(repo.path, stub.adapter),
   );
 
-  await Bun.write(join(ctx.dir, 'result.json'), ctx.stdout.splice(0).join(''));
+  await Bun.write(join(ctx.directory, 'result.json'), ctx.stdout.splice(0).join(''));
 
   const code = await runCLI(
-    ['verify', join(ctx.dir, 'result.json')],
+    ['verify', join(ctx.directory, 'result.json')],
     ctx.buildContext(repo.path, stub.adapter),
   );
 
@@ -2072,7 +2072,7 @@ test('it refuses a result when the parent config the base branch extends changed
 
   const config = '{ "extends": "github:example/shared" }\n';
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'review.json': config, 'src/a.ts': 'export const a = 1;\n' } },
     { message: 'Change a', files: { 'src/a.ts': 'export const a = 2;\n' } },
   ]);
@@ -2108,23 +2108,23 @@ test('it refuses a result when the parent config the base branch extends changed
     content: '{ "lenses": { "correctness": { "model": "shared-model" } } }\n',
   });
 
-  const stub = buildStubAdapter({ L: [{ findings: { correctness: [] } }] });
+  const stub = buildStubAdapter({ light: [{ findings: { correctness: [] } }] });
 
   await runCLI(
     ['review', '--pr', '9', '--repo', 'example/app', '--report', 'json', '--json'],
     ctx.buildContext(repo.path, stub.adapter),
   );
 
-  await Bun.write(join(ctx.dir, 'result.json'), ctx.stdout.splice(0).join(''));
+  await Bun.write(join(ctx.directory, 'result.json'), ctx.stdout.splice(0).join(''));
 
-  await githubCollections.files.update((q) => q.where({ repo: 'shared' }), {
+  await githubCollections.files.update((query) => query.where({ repo: 'shared' }), {
     data(record) {
       record.content = '{ "lenses": { "correctness": { "model": "other-model" } } }\n';
     },
   });
 
   const code = await runCLI(
-    ['verify', join(ctx.dir, 'result.json')],
+    ['verify', join(ctx.directory, 'result.json')],
     ctx.buildContext(repo.path, stub.adapter),
   );
 
@@ -2141,7 +2141,7 @@ test('it verifies a result against the config of the base branch the pull reques
   const release = '{ "lenses": { "correctness": { "model": "release-model" } } }\n';
   const main = '{ "lenses": { "correctness": { "model": "main-model" } } }\n';
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'review.json': release, 'src/a.ts': 'export const a = 1;\n' } },
     { message: 'Change a', files: { 'src/a.ts': 'export const a = 2;\n' } },
   ]);
@@ -2185,17 +2185,17 @@ test('it verifies a result against the config of the base branch the pull reques
     content: main,
   });
 
-  const stub = buildStubAdapter({ L: [{ findings: { correctness: [] } }] });
+  const stub = buildStubAdapter({ light: [{ findings: { correctness: [] } }] });
 
   await runCLI(
     ['review', '--pr', '9', '--repo', 'example/app', '--report', 'json', '--json'],
     ctx.buildContext(repo.path, stub.adapter),
   );
 
-  await Bun.write(join(ctx.dir, 'result.json'), ctx.stdout.splice(0).join(''));
+  await Bun.write(join(ctx.directory, 'result.json'), ctx.stdout.splice(0).join(''));
 
   const code = await runCLI(
-    ['verify', join(ctx.dir, 'result.json')],
+    ['verify', join(ctx.directory, 'result.json')],
     ctx.buildContext(repo.path, stub.adapter),
   );
 
@@ -2204,7 +2204,11 @@ test('it verifies a result against the config of the base branch the pull reques
 
 test('it refuses to verify when no result file is named', async () => {
   const ctx = await setupTest();
-  const code = await runCLI(['verify'], ctx.buildContext(ctx.dir, buildStubAdapter({}).adapter));
+
+  const code = await runCLI(
+    ['verify'],
+    ctx.buildContext(ctx.directory, buildStubAdapter({}).adapter),
+  );
 
   expect({ code, stderr: ctx.stderr.join('') }).toStrictEqual({
     code: 1,
@@ -2217,7 +2221,7 @@ test('it refuses to verify a result file that does not exist', async () => {
 
   const code = await runCLI(
     ['verify', 'missing.json'],
-    ctx.buildContext(ctx.dir, buildStubAdapter({}).adapter),
+    ctx.buildContext(ctx.directory, buildStubAdapter({}).adapter),
   );
 
   expect({ code, stderr: ctx.stderr.join('') }).toStrictEqual({
@@ -2229,11 +2233,11 @@ test('it refuses to verify a result file that does not exist', async () => {
 test('it refuses to verify a result file that is not valid JSON', async () => {
   const ctx = await setupTest();
 
-  await Bun.write(join(ctx.dir, 'result.json'), '{ "version": ');
+  await Bun.write(join(ctx.directory, 'result.json'), '{ "version": ');
 
   const code = await runCLI(
     ['verify', 'result.json'],
-    ctx.buildContext(ctx.dir, buildStubAdapter({}).adapter),
+    ctx.buildContext(ctx.directory, buildStubAdapter({}).adapter),
   );
 
   expect({ code, stderr: ctx.stderr.join('') }).toStrictEqual({
@@ -2247,9 +2251,9 @@ test('it refuses a result whose config names a rules file outside the repo and n
 
   const config = '{ "rules": ["../shared/taste.md"] }\n';
 
-  await Bun.write(join(ctx.dir, 'shared', 'taste.md'), 'Name each total for what it sums.\n');
+  await Bun.write(join(ctx.directory, 'shared', 'taste.md'), 'Name each total for what it sums.\n');
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'review.json': config, 'src/a.ts': 'export const a = 1;\n' } },
     { message: 'Change a', files: { 'src/a.ts': 'export const a = 2;\n' } },
   ]);
@@ -2277,14 +2281,14 @@ test('it refuses a result whose config names a rules file outside the repo and n
     content: config,
   });
 
-  const stub = buildStubAdapter({ L: [{ findings: { correctness: [] } }] });
+  const stub = buildStubAdapter({ light: [{ findings: { correctness: [] } }] });
 
   await runCLI(
     ['review', '--pr', '9', '--repo', 'example/app', '--report', 'json', '--json'],
     ctx.buildContext(repo.path, stub.adapter),
   );
 
-  await Bun.write(join(ctx.dir, 'result.json'), ctx.stdout.splice(0).join(''));
+  await Bun.write(join(ctx.directory, 'result.json'), ctx.stdout.splice(0).join(''));
 
   const requested = mock<(path: string) => void>();
 
@@ -2297,7 +2301,7 @@ test('it refuses a result whose config names a rules file outside the repo and n
   });
 
   const code = await runCLI(
-    ['verify', join(ctx.dir, 'result.json')],
+    ['verify', join(ctx.directory, 'result.json')],
     ctx.buildContext(repo.path, stub.adapter),
   );
 
@@ -2312,7 +2316,7 @@ test('it refuses a result whose config names a rules file outside the repo and n
 test('it refuses a result that breaks the result contract before it asks GitHub anything', async () => {
   const ctx = await setupTest();
 
-  await Bun.write(join(ctx.dir, 'result.json'), '{ "version": 999 }');
+  await Bun.write(join(ctx.directory, 'result.json'), '{ "version": 999 }');
 
   const requested = mock<(url: string) => void>();
 
@@ -2326,7 +2330,7 @@ test('it refuses a result that breaks the result contract before it asks GitHub 
 
   const code = await runCLI(
     ['verify', 'result.json'],
-    ctx.buildContext(ctx.dir, buildStubAdapter({}).adapter),
+    ctx.buildContext(ctx.directory, buildStubAdapter({}).adapter),
   );
 
   expect(code).toBe(1);
@@ -2339,13 +2343,13 @@ test('it refuses to verify a result that reviews no pull request', async () => {
   const ctx = await setupTest();
 
   await Bun.write(
-    join(ctx.dir, 'result.json'),
+    join(ctx.directory, 'result.json'),
     JSON.stringify(buildMockReviewResult({ pullRequest: null })),
   );
 
   const code = await runCLI(
     ['verify', 'result.json'],
-    ctx.buildContext(ctx.dir, buildStubAdapter({}).adapter),
+    ctx.buildContext(ctx.directory, buildStubAdapter({}).adapter),
   );
 
   expect({ code, stderr: ctx.stderr.join('') }).toStrictEqual({
@@ -2357,7 +2361,7 @@ test('it refuses to verify a result that reviews no pull request', async () => {
 test('it posts a verified review result to its pull request as the App', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: { 'review.json': '{}\n', 'src/total.ts': 'export const zero = 0;\n' },
@@ -2407,7 +2411,7 @@ test('it posts a verified review result to its pull request as the App', async (
   });
 
   const stub = buildStubAdapter({
-    L: [
+    light: [
       {
         findings: {
           correctness: [
@@ -2436,10 +2440,10 @@ test('it posts a verified review result to its pull request as the App', async (
     ctx.buildContext(repo.path, stub.adapter),
   );
 
-  await Bun.write(join(ctx.dir, 'result.json'), ctx.stdout.splice(0).join(''));
+  await Bun.write(join(ctx.directory, 'result.json'), ctx.stdout.splice(0).join(''));
 
   const code = await runCLI(
-    ['post', join(ctx.dir, 'result.json')],
+    ['post', join(ctx.directory, 'result.json')],
     ctx.buildContext(repo.path, stub.adapter),
   );
 
@@ -2490,11 +2494,11 @@ test('it refuses to post a result that does not verify and posts nothing', async
     head: 'b'.repeat(40),
   });
 
-  await Bun.write(join(ctx.dir, 'result.json'), JSON.stringify(result));
+  await Bun.write(join(ctx.directory, 'result.json'), JSON.stringify(result));
 
   const code = await runCLI(
     ['post', 'result.json'],
-    ctx.buildContext(ctx.dir, buildStubAdapter({}).adapter),
+    ctx.buildContext(ctx.directory, buildStubAdapter({}).adapter),
   );
 
   expect(code).toBe(1);
@@ -2522,11 +2526,11 @@ test('it posts a result that does not verify under --no-verify', async () => {
     head: 'b'.repeat(40),
   });
 
-  await Bun.write(join(ctx.dir, 'result.json'), JSON.stringify(result));
+  await Bun.write(join(ctx.directory, 'result.json'), JSON.stringify(result));
 
   const code = await runCLI(
     ['post', 'result.json', '--no-verify'],
-    ctx.buildContext(ctx.dir, buildStubAdapter({}).adapter),
+    ctx.buildContext(ctx.directory, buildStubAdapter({}).adapter),
   );
 
   expect(code).toBe(0);
@@ -2557,7 +2561,7 @@ test('it fails the check when no noslop review covers the head of the pull reque
 
   const code = await runCLI(
     ['check', '--pr', '9', '--repo', 'example/app'],
-    ctx.buildContext(ctx.dir, buildStubAdapter({}).adapter),
+    ctx.buildContext(ctx.directory, buildStubAdapter({}).adapter),
   );
 
   expect({ code, stderr: ctx.stderr.join('') }).toStrictEqual({
@@ -2586,7 +2590,7 @@ test('it fails the check when the pull request holds no noslop summary at all', 
 
   const code = await runCLI(
     ['check', '--pr', '9', '--repo', 'example/app'],
-    ctx.buildContext(ctx.dir, buildStubAdapter({}).adapter),
+    ctx.buildContext(ctx.directory, buildStubAdapter({}).adapter),
   );
 
   expect({ code, stderr: ctx.stderr.join('') }).toStrictEqual({
@@ -2624,7 +2628,7 @@ test('it exits 0 and sets a failing check when a review covers the head but a ca
 
   const code = await runCLI(
     ['check', '--pr', '9', '--repo', 'example/app'],
-    ctx.buildContext(ctx.dir, buildStubAdapter({}).adapter),
+    ctx.buildContext(ctx.directory, buildStubAdapter({}).adapter),
   );
 
   expect({ code, stderr: ctx.stderr.join('') }).toStrictEqual({ code: 0, stderr: '' });
@@ -2637,14 +2641,14 @@ test('it exits 0 and sets a failing check when a review covers the head but a ca
 test('it resumes an eval, keeping the cases the out folder holds and replaying the rest', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/a.ts': 'export const a = 1;\n' } },
     { message: 'head', files: { 'src/a.ts': 'export const a = 2;\n' } },
   ]);
 
   for (const id of ['case-a', 'case-b']) {
     await Bun.write(
-      join(ctx.dir, 'corpus', id, 'case.json'),
+      join(ctx.directory, 'corpus', id, 'case.json'),
       JSON.stringify({
         id,
         repo: repo.path,
@@ -2659,7 +2663,7 @@ test('it resumes an eval, keeping the cases the out folder holds and replaying t
   }
 
   await Bun.write(
-    join(ctx.dir, 'out', 'runs.json'),
+    join(ctx.directory, 'out', 'runs.json'),
     JSON.stringify([
       {
         caseID: 'case-a',
@@ -2675,24 +2679,31 @@ test('it resumes an eval, keeping the cases the out folder holds and replaying t
     ]),
   );
 
-  const stub = buildStubAdapter({ L: [{ findings: { correctness: [] } }] });
+  const stub = buildStubAdapter({ light: [{ findings: { correctness: [] } }] });
 
   const code = await runCLI(
-    ['eval', '--corpus', join(ctx.dir, 'corpus'), '--out', join(ctx.dir, 'out'), '--resume'],
-    ctx.buildContext(ctx.dir, stub.adapter),
+    [
+      'eval',
+      '--corpus',
+      join(ctx.directory, 'corpus'),
+      '--out',
+      join(ctx.directory, 'out'),
+      '--resume',
+    ],
+    ctx.buildContext(ctx.directory, stub.adapter),
   );
 
-  const runs: unknown = await Bun.file(join(ctx.dir, 'out', 'runs.json')).json();
+  const runs: unknown = await Bun.file(join(ctx.directory, 'out', 'runs.json')).json();
 
   expect(code).toBe(0);
-  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['L']);
+  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['light']);
   expect(runs).toMatchObject([{ caseID: 'case-a' }, { caseID: 'case-b' }]);
 });
 
 test("it reads the repo: rules of an eval case from the case's repo and records the rule a finding cites", async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: {
@@ -2715,10 +2726,10 @@ test("it reads the repo: rules of an eval case from the case's repo and records 
     },
   ]);
 
-  await Bun.write(join(ctx.dir, 'review.json'), JSON.stringify({ rules: ['repo:RULES.md'] }));
+  await Bun.write(join(ctx.directory, 'review.json'), JSON.stringify({ rules: ['repo:RULES.md'] }));
 
   await Bun.write(
-    join(ctx.dir, 'corpus', 'case-a', 'case.json'),
+    join(ctx.directory, 'corpus', 'case-a', 'case.json'),
     JSON.stringify({
       id: 'case-a',
       repo: repo.path,
@@ -2732,7 +2743,7 @@ test("it reads the repo: rules of an eval case from the case's repo and records 
   );
 
   const stub = buildStubAdapter({
-    L: [
+    light: [
       {
         findings: {
           correctness: [],
@@ -2759,11 +2770,11 @@ test("it reads the repo: rules of an eval case from the case's repo and records 
   });
 
   await runCLI(
-    ['eval', '--corpus', join(ctx.dir, 'corpus'), '--out', join(ctx.dir, 'out')],
-    ctx.buildContext(ctx.dir, stub.adapter),
+    ['eval', '--corpus', join(ctx.directory, 'corpus'), '--out', join(ctx.directory, 'out')],
+    ctx.buildContext(ctx.directory, stub.adapter),
   );
 
-  const runs: unknown = await Bun.file(join(ctx.dir, 'out', 'runs.json')).json();
+  const runs: unknown = await Bun.file(join(ctx.directory, 'out', 'runs.json')).json();
 
   expect(stub.requests[0]?.prompt).toInclude('### RULES.md\n\n## Naming');
 
@@ -2781,7 +2792,7 @@ test("it reads the repo: rules of an eval case from the case's repo and records 
 test('it records in the eval run a taste finding whose quote the rules file does not hold', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: {
@@ -2804,10 +2815,10 @@ test('it records in the eval run a taste finding whose quote the rules file does
     },
   ]);
 
-  await Bun.write(join(ctx.dir, 'review.json'), JSON.stringify({ rules: ['repo:RULES.md'] }));
+  await Bun.write(join(ctx.directory, 'review.json'), JSON.stringify({ rules: ['repo:RULES.md'] }));
 
   await Bun.write(
-    join(ctx.dir, 'corpus', 'case-a', 'case.json'),
+    join(ctx.directory, 'corpus', 'case-a', 'case.json'),
     JSON.stringify({
       id: 'case-a',
       repo: repo.path,
@@ -2821,7 +2832,7 @@ test('it records in the eval run a taste finding whose quote the rules file does
   );
 
   const stub = buildStubAdapter({
-    L: [
+    light: [
       {
         findings: {
           correctness: [],
@@ -2848,11 +2859,11 @@ test('it records in the eval run a taste finding whose quote the rules file does
   });
 
   await runCLI(
-    ['eval', '--corpus', join(ctx.dir, 'corpus'), '--out', join(ctx.dir, 'out')],
-    ctx.buildContext(ctx.dir, stub.adapter),
+    ['eval', '--corpus', join(ctx.directory, 'corpus'), '--out', join(ctx.directory, 'out')],
+    ctx.buildContext(ctx.directory, stub.adapter),
   );
 
-  const runs: unknown = await Bun.file(join(ctx.dir, 'out', 'runs.json')).json();
+  const runs: unknown = await Bun.file(join(ctx.directory, 'out', 'runs.json')).json();
 
   expect(runs).toMatchObject([
     {
@@ -2876,7 +2887,7 @@ test('it records in the eval run a taste finding whose quote the rules file does
 test('it replays an eval case with a last reviewed head as a re-review of the push alone', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/parse.ts': 'export const parse = 0;\n' } },
     {
       message: 'Add the printer',
@@ -2895,7 +2906,7 @@ test('it replays an eval case with a last reviewed head as a re-review of the pu
   ]);
 
   await Bun.write(
-    join(ctx.dir, 'corpus', 'case-a', 'case.json'),
+    join(ctx.directory, 'corpus', 'case-a', 'case.json'),
     JSON.stringify({
       id: 'case-a',
       repo: repo.path,
@@ -2910,11 +2921,11 @@ test('it replays an eval case with a last reviewed head as a re-review of the pu
     }),
   );
 
-  const stub = buildStubAdapter({ L: [{ findings: { correctness: [], intent: [] } }] });
+  const stub = buildStubAdapter({ light: [{ findings: { correctness: [], intent: [] } }] });
 
   await runCLI(
-    ['eval', '--corpus', join(ctx.dir, 'corpus'), '--out', join(ctx.dir, 'out')],
-    ctx.buildContext(ctx.dir, stub.adapter),
+    ['eval', '--corpus', join(ctx.directory, 'corpus'), '--out', join(ctx.directory, 'out')],
+    ctx.buildContext(ctx.directory, stub.adapter),
   );
 
   const prompt = stub.requests[0]?.prompt;
@@ -2923,7 +2934,7 @@ test('it replays an eval case with a last reviewed head as a re-review of the pu
     throw new Error('the replay made no call');
   }
 
-  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['L']);
+  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['light']);
   expect(prompt).toInclude(`from commit ${repo.commits[1] ?? ''} to commit`);
   expect(prompt).toInclude('## Incremental review');
   expect(prompt).toInclude('# Lens: intent');
@@ -2935,13 +2946,13 @@ test('it replays an eval case with a last reviewed head as a re-review of the pu
 test('it replays an eval case with no last reviewed head as a review of the whole change', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/parse.ts': 'export const parse = 0;\n' } },
     { message: 'Fix the parser', files: { 'src/parse.ts': 'export const parse = 1;\n' } },
   ]);
 
   await Bun.write(
-    join(ctx.dir, 'corpus', 'case-a', 'case.json'),
+    join(ctx.directory, 'corpus', 'case-a', 'case.json'),
     JSON.stringify({
       id: 'case-a',
       repo: repo.path,
@@ -2954,11 +2965,11 @@ test('it replays an eval case with no last reviewed head as a review of the whol
     }),
   );
 
-  const stub = buildStubAdapter({ L: [{ findings: { correctness: [] } }] });
+  const stub = buildStubAdapter({ light: [{ findings: { correctness: [] } }] });
 
   await runCLI(
-    ['eval', '--corpus', join(ctx.dir, 'corpus'), '--out', join(ctx.dir, 'out')],
-    ctx.buildContext(ctx.dir, stub.adapter),
+    ['eval', '--corpus', join(ctx.directory, 'corpus'), '--out', join(ctx.directory, 'out')],
+    ctx.buildContext(ctx.directory, stub.adapter),
   );
 
   const prompt = stub.requests[0]?.prompt;
@@ -2975,13 +2986,13 @@ test('it replays an eval case with no last reviewed head as a review of the whol
 test('it replays the depth of each case with no model call under --static', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/a.ts': 'export const a = 1;\n' } },
     { message: 'head', files: { 'src/a.ts': 'export const a = 2;\n' } },
   ]);
 
   await Bun.write(
-    join(ctx.dir, 'corpus', 'case-a', 'case.json'),
+    join(ctx.directory, 'corpus', 'case-a', 'case.json'),
     JSON.stringify({
       id: 'case-a',
       repo: repo.path,
@@ -3005,17 +3016,24 @@ test('it replays the depth of each case with no model call under --static', asyn
   const stub = buildStubAdapter({});
 
   const code = await runCLI(
-    ['eval', '--corpus', join(ctx.dir, 'corpus'), '--out', join(ctx.dir, 'out'), '--static'],
-    ctx.buildContext(ctx.dir, stub.adapter),
+    [
+      'eval',
+      '--corpus',
+      join(ctx.directory, 'corpus'),
+      '--out',
+      join(ctx.directory, 'out'),
+      '--static',
+    ],
+    ctx.buildContext(ctx.directory, stub.adapter),
   );
 
-  const written: unknown = await Bun.file(join(ctx.dir, 'out', 'static.json')).json();
+  const written: unknown = await Bun.file(join(ctx.directory, 'out', 'static.json')).json();
 
   expect(code).toBe(0);
   expect(stub.requests).toStrictEqual([]);
 
   expect(written).toMatchObject({
-    runs: [{ caseID: 'case-a', plan: { depth: 'light', calls: ['L'], maxCalls: 2 } }],
+    runs: [{ caseID: 'case-a', plan: { depth: 'light', calls: ['light'], maxCalls: 2 } }],
     score: { lightMisses: [{ caseID: 'case-a', kind: 'p1', text: 'Keep a at 1' }] },
   });
 });
@@ -3023,7 +3041,7 @@ test('it replays the depth of each case with no model call under --static', asyn
 test('it plans a re-review case under --static from its last reviewed head', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/parse.ts': 'export const parse = 0;\n' } },
     {
       message: 'Add the session check',
@@ -3044,7 +3062,7 @@ test('it plans a re-review case under --static from its last reviewed head', asy
   ]);
 
   await Bun.write(
-    join(ctx.dir, 'corpus', 'case-a', 'case.json'),
+    join(ctx.directory, 'corpus', 'case-a', 'case.json'),
     JSON.stringify({
       id: 'case-a',
       repo: repo.path,
@@ -3061,21 +3079,28 @@ test('it plans a re-review case under --static from its last reviewed head', asy
   const stub = buildStubAdapter({});
 
   await runCLI(
-    ['eval', '--corpus', join(ctx.dir, 'corpus'), '--out', join(ctx.dir, 'out'), '--static'],
-    ctx.buildContext(ctx.dir, stub.adapter),
+    [
+      'eval',
+      '--corpus',
+      join(ctx.directory, 'corpus'),
+      '--out',
+      join(ctx.directory, 'out'),
+      '--static',
+    ],
+    ctx.buildContext(ctx.directory, stub.adapter),
   );
 
-  const written: unknown = await Bun.file(join(ctx.dir, 'out', 'static.json')).json();
+  const written: unknown = await Bun.file(join(ctx.directory, 'out', 'static.json')).json();
 
   expect(written).toMatchObject({
-    runs: [{ caseID: 'case-a', plan: { depth: 'light', calls: ['L'] } }],
+    runs: [{ caseID: 'case-a', plan: { depth: 'light', calls: ['light'] } }],
   });
 });
 
 test('it plans a re-review case under --static from the files the change makes after a merge from its base', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/parse.ts': 'export const parse = 0;\n' } },
     { message: 'Count the tokens', files: { 'src/parse.ts': 'export const parse = 1;\n' } },
     {
@@ -3095,7 +3120,7 @@ test('it plans a re-review case under --static from the files the change makes a
   ]);
 
   await Bun.write(
-    join(ctx.dir, 'corpus', 'case-a', 'case.json'),
+    join(ctx.directory, 'corpus', 'case-a', 'case.json'),
     JSON.stringify({
       id: 'case-a',
       repo: repo.path,
@@ -3112,21 +3137,28 @@ test('it plans a re-review case under --static from the files the change makes a
   const stub = buildStubAdapter({});
 
   await runCLI(
-    ['eval', '--corpus', join(ctx.dir, 'corpus'), '--out', join(ctx.dir, 'out'), '--static'],
-    ctx.buildContext(ctx.dir, stub.adapter),
+    [
+      'eval',
+      '--corpus',
+      join(ctx.directory, 'corpus'),
+      '--out',
+      join(ctx.directory, 'out'),
+      '--static',
+    ],
+    ctx.buildContext(ctx.directory, stub.adapter),
   );
 
-  const written: unknown = await Bun.file(join(ctx.dir, 'out', 'static.json')).json();
+  const written: unknown = await Bun.file(join(ctx.directory, 'out', 'static.json')).json();
 
   expect(written).toMatchObject({
-    runs: [{ caseID: 'case-a', plan: { depth: 'light', calls: ['L'] } }],
+    runs: [{ caseID: 'case-a', plan: { depth: 'light', calls: ['light'] } }],
   });
 });
 
 test('it replays a re-review case over the files the change makes after a merge from its base', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/parse.ts': 'export const parse = 0;\n' } },
     { message: 'Count the tokens', files: { 'src/parse.ts': 'export const parse = 1;\n' } },
     {
@@ -3146,7 +3178,7 @@ test('it replays a re-review case over the files the change makes after a merge 
   ]);
 
   await Bun.write(
-    join(ctx.dir, 'corpus', 'case-a', 'case.json'),
+    join(ctx.directory, 'corpus', 'case-a', 'case.json'),
     JSON.stringify({
       id: 'case-a',
       repo: repo.path,
@@ -3160,11 +3192,11 @@ test('it replays a re-review case over the files the change makes after a merge 
     }),
   );
 
-  const stub = buildStubAdapter({ L: [{ findings: { correctness: [] } }] });
+  const stub = buildStubAdapter({ light: [{ findings: { correctness: [] } }] });
 
   await runCLI(
-    ['eval', '--corpus', join(ctx.dir, 'corpus'), '--out', join(ctx.dir, 'out')],
-    ctx.buildContext(ctx.dir, stub.adapter),
+    ['eval', '--corpus', join(ctx.directory, 'corpus'), '--out', join(ctx.directory, 'out')],
+    ctx.buildContext(ctx.directory, stub.adapter),
   );
 
   const prompt = stub.requests[0]?.prompt;
@@ -3173,7 +3205,7 @@ test('it replays a re-review case over the files the change makes after a merge 
     throw new Error('the replay made no call');
   }
 
-  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['L']);
+  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['light']);
   expect(prompt).toInclude('### src/parse.ts (modified)');
   expect(prompt).not.toInclude('src/auth/session.ts');
 });
@@ -3181,13 +3213,13 @@ test('it replays a re-review case over the files the change makes after a merge 
 test('it plans the intent call under --static for a case with a linked issue', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/a.ts': 'export const a = 1;\n' } },
     { message: 'head', files: { 'src/a.ts': 'export const a = 2;\n' } },
   ]);
 
   await Bun.write(
-    join(ctx.dir, 'corpus', 'case-a', 'case.json'),
+    join(ctx.directory, 'corpus', 'case-a', 'case.json'),
     JSON.stringify({
       id: 'case-a',
       repo: repo.path,
@@ -3205,33 +3237,33 @@ test('it plans the intent call under --static for a case with a linked issue', a
     [
       'eval',
       '--corpus',
-      join(ctx.dir, 'corpus'),
+      join(ctx.directory, 'corpus'),
       '--out',
-      join(ctx.dir, 'out'),
+      join(ctx.directory, 'out'),
       '--static',
       '--depth',
       'standard',
     ],
-    ctx.buildContext(ctx.dir, buildStubAdapter({}).adapter),
+    ctx.buildContext(ctx.directory, buildStubAdapter({}).adapter),
   );
 
-  const written: unknown = await Bun.file(join(ctx.dir, 'out', 'static.json')).json();
+  const written: unknown = await Bun.file(join(ctx.directory, 'out', 'static.json')).json();
 
   expect(written).toMatchObject({
-    runs: [{ caseID: 'case-a', plan: { depth: 'standard', calls: ['A', 'E'] } }],
+    runs: [{ caseID: 'case-a', plan: { depth: 'standard', calls: ['correctness', 'intent'] } }],
   });
 });
 
 test('it plans every case at the depth that --depth names', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/a.ts': 'export const a = 1;\n' } },
     { message: 'head', files: { 'src/a.ts': 'export const a = 2;\n' } },
   ]);
 
   await Bun.write(
-    join(ctx.dir, 'corpus', 'case-a', 'case.json'),
+    join(ctx.directory, 'corpus', 'case-a', 'case.json'),
     JSON.stringify({
       id: 'case-a',
       repo: repo.path,
@@ -3248,17 +3280,17 @@ test('it plans every case at the depth that --depth names', async () => {
     [
       'eval',
       '--corpus',
-      join(ctx.dir, 'corpus'),
+      join(ctx.directory, 'corpus'),
       '--out',
-      join(ctx.dir, 'out'),
+      join(ctx.directory, 'out'),
       '--static',
       '--depth',
       'standard',
     ],
-    ctx.buildContext(ctx.dir, buildStubAdapter({}).adapter),
+    ctx.buildContext(ctx.directory, buildStubAdapter({}).adapter),
   );
 
-  const written: unknown = await Bun.file(join(ctx.dir, 'out', 'static.json')).json();
+  const written: unknown = await Bun.file(join(ctx.directory, 'out', 'static.json')).json();
 
   expect(code).toBe(0);
   expect(written).toMatchObject({ runs: [{ caseID: 'case-a', plan: { depth: 'standard' } }] });
@@ -3268,10 +3300,10 @@ test('it refuses a --depth that names no depth', async () => {
   const ctx = await setupTest();
 
   await Bun.write(
-    join(ctx.dir, 'corpus', 'case-a', 'case.json'),
+    join(ctx.directory, 'corpus', 'case-a', 'case.json'),
     JSON.stringify({
       id: 'case-a',
-      repo: join(ctx.dir, 'repo'),
+      repo: join(ctx.directory, 'repo'),
       base: 'a'.repeat(40),
       head: 'b'.repeat(40),
       title: 'Change a',
@@ -3282,8 +3314,8 @@ test('it refuses a --depth that names no depth', async () => {
   );
 
   const code = await runCLI(
-    ['eval', '--corpus', join(ctx.dir, 'corpus'), '--static', '--depth', 'deepest'],
-    ctx.buildContext(ctx.dir, buildStubAdapter({}).adapter),
+    ['eval', '--corpus', join(ctx.directory, 'corpus'), '--static', '--depth', 'deepest'],
+    ctx.buildContext(ctx.directory, buildStubAdapter({}).adapter),
   );
 
   expect(code).toBe(1);
@@ -3295,7 +3327,7 @@ test('it puts an unknown option on stderr and keeps stdout empty', async () => {
 
   const code = await runCLI(
     ['review', '--no-such-flag', '--json'],
-    ctx.buildContext(ctx.dir, buildStubAdapter({}).adapter),
+    ctx.buildContext(ctx.directory, buildStubAdapter({}).adapter),
   );
 
   expect(code).toBe(1);
@@ -3306,7 +3338,7 @@ test('it puts an unknown option on stderr and keeps stdout empty', async () => {
 test('it reads the repo config when it runs from a subfolder', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: { 'review.json': '{ "adapter": "claude" }\n', 'src/a.ts': 'export const a = 1;\n' },

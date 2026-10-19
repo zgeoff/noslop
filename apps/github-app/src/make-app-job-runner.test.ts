@@ -6,11 +6,11 @@ import { buildStubRunner } from '@noslop/testing';
 import { makeAppJobRunner } from './make-app-job-runner';
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'noslop-app-job-runner-'));
+  const directory = await mkdtemp(join(tmpdir(), 'noslop-app-job-runner-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  return { dir };
+  return { directory };
 }
 
 test('it runs a review job through the noslop bin the cli dependency installs, not a cli source file', async () => {
@@ -29,7 +29,7 @@ test('it runs a review job through the noslop bin the cli dependency installs, n
       privateKey: 'app-key',
       webhookSecret: 'hook-secret',
       port: 3000,
-      reposDir: ctx.dir,
+      reposDir: ctx.directory,
     },
     { runner: stub.runner, mintToken: () => Promise.resolve('ghs_token') },
   );

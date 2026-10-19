@@ -8,11 +8,11 @@ import { createTestRepo } from '@noslop/testing';
 import { planReview } from './plan-review';
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'noslop-plan-review-'));
+  const directory = await mkdtemp(join(tmpdir(), 'noslop-plan-review-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  return { dir, runner: createRunner() };
+  return { directory, runner: createRunner() };
 }
 
 test('it counts no merge pass in the most calls when the config turns it off', async () => {
@@ -22,7 +22,7 @@ test('it counts no merge pass in the most calls when the config turns it off', a
     ['a', 'b', 'c', 'd', 'e'].map((name) => [`src/auth/${name}.ts`, `export const ${name} = 2;\n`]),
   );
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: Object.fromEntries(Object.keys(files).map((path) => [path, 'export const x = 1;\n'])),
@@ -54,7 +54,7 @@ test('it counts no merge pass in the most calls when the config turns it off', a
 test('it plans the depth and the calls of a change with no model call', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/auth/session.ts': 'export const ttl = 60;\n' } },
     { message: 'head', files: { 'src/auth/session.ts': 'export const ttl = 6000;\n' } },
   ]);
@@ -78,5 +78,5 @@ test('it plans the depth and the calls of a change with no model call', async ()
     plan.stage.signals.riskClasses,
     plan.route.calls.map((call) => call.callID),
     plan.maxCalls,
-  ]).toStrictEqual(['standard', ['auth'], ['A', 'B'], 3]);
+  ]).toStrictEqual(['standard', ['auth'], ['correctness', 'security'], 3]);
 });

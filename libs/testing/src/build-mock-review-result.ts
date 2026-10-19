@@ -17,7 +17,7 @@ export function buildMockReviewResult(overrides: Partial<ReviewResult> = {}): Re
     lenses: ['correctness'],
     calls: [
       {
-        id: 'L',
+        id: 'light',
         lenses: ['correctness'],
         depth: 'light',
         adapter: 'codex',
