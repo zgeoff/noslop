@@ -195,13 +195,15 @@ review applies to itself. A reply that lands while a later review publishes, or 
 still counts the review that read its commit. The next review applies the rule to the kept ranges as
 well, and keeps each fix it confirms in its own summary marker.
 
-A newer verdict on a finding replaces every older one. The reviews count newest first, and the first
-review that read the fix or reported the finding again decides, so a review that reports the finding
-after an older one confirmed its fix leaves it open, whatever older ranges the marker keeps. A
-repost of the latest review keeps its range once, and another review of the same range with other
-verdicts keeps its own entry. A review with a failed call keeps its range in order, and that range
-rejects each finding the review reported but confirms no fix. The marker keeps only the ranges that
-fit under GitHub's comment limit, newest first, and a review whose own range does not fit keeps
+A newer verdict on a finding replaces every older one. One transition table holds the fix lifecycle:
+each review's verdict moves a `fixed` answer between silent, confirmed, retained and rejected, and
+the marker keeps a fix only while it is confirmed or retained. The reviews count newest first, and
+the first review that read the fix or reported the finding again decides, so a review that reports
+the finding after an older one confirmed its fix leaves it open, whatever older ranges the marker
+keeps. A repost of the latest review keeps its range once, and another review of the same range with
+other verdicts keeps its own entry. A review with a failed call keeps its range in order, and that
+range rejects each finding the review reported but confirms no fix. The marker keeps only the ranges
+that fit under GitHub's comment limit, newest first, and a review whose own range does not fit keeps
 none, so such a reply waits for the next review.
 
 The re-check is the second review of a pull request. From the third review on, the reporter sends

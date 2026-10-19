@@ -1,4 +1,6 @@
 import type { FixConfirmation } from './format-summary-comment';
+import type { FixState, FixVerdict } from './pick-next-fix-state';
+import { HELD_FIX_STATES, pickNextFixState } from './pick-next-fix-state';
 import type { FixCoverage } from './read-fix-coverage';
 
 // what GitHub shows of one `fixed` answer against one review, read before the decision
@@ -17,19 +19,20 @@ export interface FixEvidence {
   isFileSkipped: boolean;
   coverage: FixCoverage;
 
-  // an earlier review confirmed this fix
-  isHeld: boolean;
+  // where the answer stands after the earlier reviews
+  held: FixState;
 
   // the review reported the finding again
   isReported: boolean;
 }
 
-// a `fixed` finding is confirmed while no review reports it again, once a review whose range holds the
-// fix commit has read the fix: the finding's file and every file the commit reaches; a fix outside the
-// range keeps the earlier review's word
+// the review moves the answer through the fix lifecycle: it rejects a finding it reports again, and
+// confirms a fix whose commit its range holds once it read the finding's file and every file the
+// commit reaches; a sha that names no single commit holds no fix
 export function buildFixConfirmation(evidence: FixEvidence): FixConfirmation {
   const isRead = evidence.isInRange && !evidence.isFileSkipped && !evidence.coverage.changesSkipped;
-  const fixed = !evidence.isReported && evidence.match !== null && (isRead || evidence.isHeld);
+  const state = pickNextFixState(evidence.held, pickReviewVerdict(evidence.isReported, isRead));
+  const fixed = evidence.match !== null && HELD_FIX_STATES.has(state);
   const failure = evidence.coverage.failure;
 
   return {
@@ -39,4 +42,12 @@ export function buildFixConfirmation(evidence: FixEvidence): FixConfirmation {
     fixed,
     ...(fixed || failure === null ? {} : { failure }),
   };
+}
+
+function pickReviewVerdict(isReported: boolean, isRead: boolean): FixVerdict {
+  if (isReported) {
+    return 'rejected';
+  }
+
+  return isRead ? 'confirmed' : 'none';
 }

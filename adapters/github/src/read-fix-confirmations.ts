@@ -2,6 +2,7 @@ import type { Disposition, PullRequestRef } from '@noslop/contract';
 import { buildFixConfirmation } from './build-fix-confirmation';
 import type { GitHubClient } from './create-github-connection';
 import type { FixConfirmation } from './format-summary-comment';
+import type { FixState } from './pick-next-fix-state';
 import type { FixCommits } from './read-fix-commits';
 import { readFixCoverage } from './read-fix-coverage';
 import type { FindingThread } from './read-pull-request-state';
@@ -22,8 +23,9 @@ export interface FixConfirmationsInput {
   fixCommits: FixCommits;
   review: ReviewedRange;
 
-  // each `<finding id>:<commit>` fix an earlier review confirmed
-  held: ReadonlySet<string>;
+  // where each `<finding id>:<commit>` answer stands after the earlier reviews; an answer it lacks is
+  // silent
+  held: ReadonlyMap<string, FixState>;
 }
 
 // reads from GitHub what each `fixed` answer needs against one review, and leaves the decision to
@@ -89,7 +91,7 @@ export async function readFixConfirmations(
         isInRange,
         isFileSkipped,
         coverage,
-        isHeld: input.held.has(`${thread.marker.id}:${commit}`),
+        held: input.held.get(`${thread.marker.id}:${commit}`) ?? 'silent',
         isReported: review.reported.includes(thread.marker.id),
       }),
     ];

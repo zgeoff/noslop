@@ -424,7 +424,7 @@ async function readConfirmations(
   // this review's verdict is the newest, so the earlier reviews' word counts only where it is silent
   const earlier =
     previous === null
-      ? { confirmed: [] }
+      ? null
       : await readHeldFixes(client, pr, {
           threads: before.threads,
           dispositions,
@@ -432,7 +432,7 @@ async function readConfirmations(
           marker: previous,
         });
 
-  const held = new Set(earlier.confirmed);
+  const held = earlier?.states ?? new Map();
 
   return readFixConfirmations(client, pr, {
     threads: before.threads,

@@ -15,7 +15,11 @@ test('it holds a fix a kept range read and did not report again', () => {
         },
       ],
     }),
-  ).toStrictEqual({ confirmed: ['1111111111111111:abc1234'], failures: new Map() });
+  ).toStrictEqual({
+    confirmed: ['1111111111111111:abc1234'],
+    states: new Map([['1111111111111111:abc1234', 'retained']]),
+    failures: new Map(),
+  });
 });
 
 test('it holds no fix that a newer range reported again after an older one confirmed it', () => {
@@ -136,6 +140,7 @@ test('it gives the failure of a fix it leaves unconfirmed', () => {
     }),
   ).toStrictEqual({
     confirmed: [],
+    states: new Map([['1111111111111111:abc1234', 'silent']]),
     failures: new Map([['1111111111111111', 'GitHub lists only part of the files of the commit']]),
   });
 });

@@ -32,7 +32,7 @@ export async function readHeldFixes(
             dispositions: input.dispositions,
             fixCommits: input.fixCommits,
             review,
-            held: new Set(),
+            held: new Map(),
           }),
     })),
   );

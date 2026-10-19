@@ -11,7 +11,7 @@ test('it confirms a fix the review read in its range and did not report again', 
       isInRange: true,
       isFileSkipped: false,
       coverage: { changesSkipped: false, failure: null },
-      isHeld: false,
+      held: 'silent',
       isReported: false,
     }),
   ).toStrictEqual({
@@ -41,7 +41,7 @@ test.each([
       isInRange: true,
       isFileSkipped: false,
       coverage: { changesSkipped: false, failure: null },
-      isHeld: false,
+      held: 'silent',
       isReported: false,
       ...change,
     }).fixed,
@@ -58,10 +58,45 @@ test('it keeps a fix an earlier review confirmed outside the range of this one',
       isInRange: false,
       isFileSkipped: false,
       coverage: { changesSkipped: false, failure: null },
-      isHeld: true,
+      held: 'confirmed',
       isReported: false,
     }).fixed,
   ).toBe(true);
+});
+
+test.each([
+  ['a rejected', 'rejected'],
+  ['a silent', 'silent'],
+] as const)('it confirms no fix outside the range of this review for %s answer', (_label, held) => {
+  expect(
+    buildFixConfirmation({
+      id: '1111111111111111',
+      title: 'Await the write',
+      commit: 'abc1234',
+      match: 'abc1234'.padEnd(40, '0'),
+      isInRange: false,
+      isFileSkipped: false,
+      coverage: { changesSkipped: false, failure: null },
+      held,
+      isReported: false,
+    }).fixed,
+  ).toBe(false);
+});
+
+test('it rejects a fix an earlier review confirmed once this review reports the finding again', () => {
+  expect(
+    buildFixConfirmation({
+      id: '1111111111111111',
+      title: 'Await the write',
+      commit: 'abc1234',
+      match: 'abc1234'.padEnd(40, '0'),
+      isInRange: false,
+      isFileSkipped: false,
+      coverage: { changesSkipped: false, failure: null },
+      held: 'retained',
+      isReported: true,
+    }).fixed,
+  ).toBe(false);
 });
 
 test('it names why GitHub could not show an unconfirmed fix whole', () => {
@@ -77,7 +112,7 @@ test('it names why GitHub could not show an unconfirmed fix whole', () => {
         changesSkipped: true,
         failure: 'the fix commit changes more files than GitHub lists',
       },
-      isHeld: false,
+      held: 'silent',
       isReported: false,
     }),
   ).toStrictEqual({
