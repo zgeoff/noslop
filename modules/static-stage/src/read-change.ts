@@ -41,13 +41,22 @@ export async function readChange(options: ReadChangeOptions): Promise<Change> {
 
   const files: ChangedFile[] = [];
   const excluded: string[] = [];
-  const baseOnly: string[] = [];
+  const baseOnly: ChangedFile[] = [];
 
   for (const parsed of parseDiff(diff)) {
+    const lines = parsed.hunks.flatMap((hunk) => hunk.lines);
+    const kind = pickFileKind(parsed.path, options.config);
+
     // a rename keeps either side the pull request changes, so a deletion of its own survives a rename
     // whose new path only the base branch changed
     if (owned !== null && !owned.has(parsed.path) && !owned.has(parsed.oldPath ?? parsed.path)) {
-      baseOnly.push(parsed.path);
+      baseOnly.push({
+        ...parsed,
+        kind,
+        addedLines: lines.filter((line) => line.kind === 'added').length,
+        deletedLines: lines.filter((line) => line.kind === 'deleted').length,
+      });
+
       continue;
     }
 
@@ -55,9 +64,6 @@ export async function readChange(options: ReadChangeOptions): Promise<Change> {
       excluded.push(parsed.path);
       continue;
     }
-
-    const lines = parsed.hunks.flatMap((hunk) => hunk.lines);
-    const kind = pickFileKind(parsed.path, options.config);
 
     // a script with no extension, such as an executable in a bin folder, names its language in its
     // first line, which a hunk can leave out, so the stage reads it from the committed file

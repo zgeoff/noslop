@@ -37,7 +37,7 @@ export interface Change {
 
   // the files of an incremental review's new commits that only a merge from the base branch changes,
   // which the change leaves out
-  baseOnly?: string[];
+  baseOnly?: ChangedFile[];
 }
 
 // a place in a file at the reviewed head

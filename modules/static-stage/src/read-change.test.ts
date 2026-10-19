@@ -290,7 +290,9 @@ test('it lists the files only the base branch changes apart after a merge from t
     config: BUILT_IN_DEFAULTS,
   });
 
-  expect(change.baseOnly).toStrictEqual(['docs/guide.md']);
+  expect(change.baseOnly?.map((file) => [file.path, file.status, file.addedLines])).toStrictEqual([
+    ['docs/guide.md', 'modified', 2],
+  ]);
 });
 
 test('it keeps both hunks of a file that the pull request and the base branch each change', async () => {
