@@ -57,5 +57,4 @@ config, so moving a lens into its own call is a config change.
   call follows them.
 - 2026-10-19: the call IDs are words in place of the letters A to H, and the Light call is `light`
   in place of L. Routing walks the calls in the order of their IDs, so the calls of a review come in
-  the alphabetical order of the words. A config that names a call by its letter makes a call of that
-  name beside the default calls, and rows in an existing store keep the letters.
+  the alphabetical order of the words. Rows in an existing store keep the letters.
