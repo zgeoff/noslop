@@ -185,6 +185,7 @@ test('it writes the hunks of every file but a data file to a new file in the wor
   const ctx = await setupTest();
 
   await Bun.write(join(ctx.dir, 'hunks.md'), 'a checked-out file\n');
+  await Bun.write(join(ctx.dir, '.noslop-design-hunks.md'), 'another checked-out file\n');
 
   const stub = buildStubAdapter({ design: [{ findings: { design: [] } }] });
 
@@ -290,9 +291,14 @@ test('it writes the hunks of every file but a data file to a new file in the wor
 
   const hunks = await Bun.file(join(ctx.dir, hunksFile)).text();
   const checkedOut = await Bun.file(join(ctx.dir, 'hunks.md')).text();
+  const otherCheckedOut = await Bun.file(join(ctx.dir, '.noslop-design-hunks.md')).text();
 
-  expect(stub.seenFiles).toStrictEqual([['hunks.md', hunksFile].toSorted()]);
+  expect(stub.seenFiles).toStrictEqual([
+    ['.noslop-design-hunks.md', 'hunks.md', hunksFile].toSorted(),
+  ]);
+
   expect(checkedOut).toBe('a checked-out file\n');
+  expect(otherCheckedOut).toBe('another checked-out file\n');
 
   expect(prompt).toInclude(
     ['- `src/a.ts`', '- `src/big.ts`', '- `src/c.ts`', '- `src/d.ts`'].join('\n'),
