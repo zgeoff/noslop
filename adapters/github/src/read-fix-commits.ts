@@ -24,7 +24,7 @@ export async function readFixCommits(
   );
 
   const found = await Promise.all(
-    [...named].map((sha) => findHeadCommit(client, pr, sha, input.head)),
+    [...named].map((sha) => readHeadCommit(client, pr, sha, input.head)),
   );
 
   return [...new Set([...input.commits, ...found.filter((sha) => sha !== null)])];
@@ -33,7 +33,7 @@ export async function readFixCommits(
 // the full sha of the commit a sha names when the head holds it: GitHub's compare of the commit with
 // the head is ahead or identical, and its merge base is the commit itself; a sha that names no
 // commit, or more than one, gives null
-async function findHeadCommit(
+async function readHeadCommit(
   client: GitHubClient,
   pr: PullRequestRef,
   sha: string,

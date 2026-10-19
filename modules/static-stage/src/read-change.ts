@@ -43,7 +43,9 @@ export async function readChange(options: ReadChangeOptions): Promise<Change> {
   const excluded: string[] = [];
 
   for (const parsed of parseDiff(diff)) {
-    if (owned !== null && !owned.has(parsed.path)) {
+    // a rename keeps either side the pull request changes, so a deletion of its own survives a rename
+    // whose new path only the base branch changed
+    if (owned !== null && !owned.has(parsed.path) && !owned.has(parsed.oldPath ?? parsed.path)) {
       continue;
     }
 

@@ -12,6 +12,9 @@ export interface CheckOutcomeInput {
   // each `<finding id>:<commit>` fix a review read: the ones the summary holds, and the ones answered
   // after the review of the head that its range held
   confirmed: readonly string[];
+
+  // why GitHub could not show a fix whole, by finding id, so the check names it
+  fixFailures: ReadonlyMap<string, string>;
   currentHead: string;
 
   // the commits a `fixed` answer can name, a commit that a merge from the base branch brought in
@@ -128,6 +131,12 @@ function findFixedReason(
 
   if (input.summary?.reported.includes(finding.id) === true) {
     return 'the re-review still finds it';
+  }
+
+  const failure = input.fixFailures.get(finding.id);
+
+  if (failure !== undefined) {
+    return `the review could not read the commit ${commit}: ${failure}`;
   }
 
   if (!input.confirmed.includes(`${finding.id}:${commit}`)) {

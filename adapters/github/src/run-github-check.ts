@@ -45,13 +45,14 @@ export async function runGitHubCheck(
 
   const summary = state.summary?.marker ?? null;
 
-  const confirmed = await readCheckConfirmed(client, pr, { state, dispositions, commits });
+  const fixes = await readCheckFixes(client, pr, { state, dispositions, commits });
 
   const outcome = buildCheckOutcome({
     findings: state.threads.map((thread) => thread.marker),
     dispositions,
     summary,
-    confirmed,
+    confirmed: fixes.confirmed,
+    fixFailures: fixes.failures,
     currentHead: state.headSha,
     commits,
     existingIssues,
@@ -72,29 +73,36 @@ export async function runGitHubCheck(
   return outcome;
 }
 
-interface CheckConfirmedInput {
+interface CheckFixesInput {
   state: PullRequestState;
   dispositions: readonly Disposition[];
   commits: readonly string[];
 }
 
+interface CheckFixes {
+  confirmed: string[];
+
+  // why GitHub could not show the fix whole, by finding id, for each fix the check leaves unconfirmed
+  failures: Map<string, string>;
+}
+
 // the fixes the check counts: each one a review confirmed, and each one answered after the review of
 // the head, which that review's range held and read, so the answer needs no further review
-async function readCheckConfirmed(
+async function readCheckFixes(
   client: GitHubClient,
   pr: PullRequestRef,
-  input: CheckConfirmedInput,
-): Promise<string[]> {
+  input: CheckFixesInput,
+): Promise<CheckFixes> {
   const marker = input.state.summary?.marker;
 
   if (marker === undefined) {
-    return [];
+    return { confirmed: [], failures: new Map() };
   }
 
   const range = toReviewedRange(marker);
 
   if (range === null || marker.head !== input.state.headSha) {
-    return marker.confirmed;
+    return { confirmed: marker.confirmed, failures: new Map() };
   }
 
   const confirmations = await readFixConfirmations(client, pr, {
@@ -105,12 +113,16 @@ async function readCheckConfirmed(
     held: new Set(marker.confirmed),
   });
 
-  return [
-    ...new Set([
-      ...marker.confirmed,
-      ...confirmations.filter((item) => item.fixed).map((item) => `${item.id}:${item.commit}`),
-    ]),
-  ];
+  const confirmed = new Set([
+    ...marker.confirmed,
+    ...confirmations.filter((item) => item.fixed).map((item) => `${item.id}:${item.commit}`),
+  ]);
+
+  const failures = new Map(
+    confirmations.flatMap((item) => (item.failure === undefined ? [] : [[item.id, item.failure]])),
+  );
+
+  return { confirmed: [...confirmed], failures };
 }
 
 async function readExistingIssues(

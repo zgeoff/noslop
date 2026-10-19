@@ -197,6 +197,47 @@ test('it keeps to the files the pull request changes since its merge base after 
   );
 });
 
+test('it keeps a rename whose old path the pull request deletes when only its new path is the base branch file', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/old.ts': 'export const total = 0;\n',
+        'src/new.ts': 'export const count = 1;\nexport const size = 2;\n',
+      },
+    },
+    {
+      message: 'Move the count',
+      files: {
+        'src/old.ts': 'export const count = 1;\nexport const size = 2;\n',
+        'src/new.ts': null,
+      },
+    },
+    {
+      message: 'Drop the old file',
+      files: {
+        'src/old.ts': null,
+        'src/new.ts': 'export const count = 1;\nexport const size = 2;\n',
+      },
+    },
+  ]);
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: repo.commits[1] ?? '',
+    head: repo.commits[2] ?? '',
+    mergeBase: repo.commits[0] ?? '',
+    config: BUILT_IN_DEFAULTS,
+  });
+
+  expect(change.files.map((file) => [file.oldPath, file.path, file.status])).toStrictEqual([
+    ['src/old.ts', 'src/new.ts', 'renamed'],
+  ]);
+});
+
 test('it reads every file between 2 commits when no merge base limits the change', async () => {
   const ctx = await setupTest();
 

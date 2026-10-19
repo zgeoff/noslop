@@ -2404,6 +2404,112 @@ test('it plans a re-review case under --static from its last reviewed head', asy
   });
 });
 
+test('it plans a re-review case under --static from the files the change makes after a merge from its base', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'src/parse.ts': 'export const parse = 0;\n' } },
+    { message: 'Count the tokens', files: { 'src/parse.ts': 'export const parse = 1;\n' } },
+    {
+      message: 'Add the session check',
+      files: {
+        'src/auth/session.ts':
+          'export function isSignedIn(token: string): boolean {\n  return token !== "";\n}\n',
+      },
+      parent: 0,
+    },
+    {
+      message: 'Merge main and fix the parser',
+      files: { 'src/parse.ts': 'export const parse = 2;\n' },
+      parent: 1,
+      merged: 2,
+    },
+  ]);
+
+  await Bun.write(
+    join(ctx.dir, 'corpus', 'case-a', 'case.json'),
+    JSON.stringify({
+      id: 'case-a',
+      repo: repo.path,
+      base: repo.commits[2],
+      head: repo.commits[3],
+      reviewedHead: repo.commits[1],
+      title: 'Fix the parser',
+      body: '',
+      findings: [],
+      escapes: [],
+    }),
+  );
+
+  const stub = buildStubAdapter({});
+
+  await runCLI(
+    ['eval', '--corpus', join(ctx.dir, 'corpus'), '--out', join(ctx.dir, 'out'), '--static'],
+    ctx.buildContext(ctx.dir, stub.adapter),
+  );
+
+  const written: unknown = await Bun.file(join(ctx.dir, 'out', 'static.json')).json();
+
+  expect(written).toMatchObject({
+    runs: [{ caseID: 'case-a', plan: { depth: 'light', calls: ['L'] } }],
+  });
+});
+
+test('it replays a re-review case over the files the change makes after a merge from its base', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'src/parse.ts': 'export const parse = 0;\n' } },
+    { message: 'Count the tokens', files: { 'src/parse.ts': 'export const parse = 1;\n' } },
+    {
+      message: 'Add the session check',
+      files: {
+        'src/auth/session.ts':
+          'export function isSignedIn(token: string): boolean {\n  return token !== "";\n}\n',
+      },
+      parent: 0,
+    },
+    {
+      message: 'Merge main and fix the parser',
+      files: { 'src/parse.ts': 'export const parse = 2;\n' },
+      parent: 1,
+      merged: 2,
+    },
+  ]);
+
+  await Bun.write(
+    join(ctx.dir, 'corpus', 'case-a', 'case.json'),
+    JSON.stringify({
+      id: 'case-a',
+      repo: repo.path,
+      base: repo.commits[2],
+      head: repo.commits[3],
+      reviewedHead: repo.commits[1],
+      title: 'Fix the parser',
+      body: '',
+      findings: [],
+      escapes: [],
+    }),
+  );
+
+  const stub = buildStubAdapter({ L: [{ findings: { correctness: [] } }] });
+
+  await runCLI(
+    ['eval', '--corpus', join(ctx.dir, 'corpus'), '--out', join(ctx.dir, 'out')],
+    ctx.buildContext(ctx.dir, stub.adapter),
+  );
+
+  const prompt = stub.requests[0]?.prompt;
+
+  if (prompt === undefined) {
+    throw new Error('the replay made no call');
+  }
+
+  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['L']);
+  expect(prompt).toInclude('### src/parse.ts (modified)');
+  expect(prompt).not.toInclude('src/auth/session.ts');
+});
+
 test('it plans the intent call under --static for a case with a linked issue', async () => {
   const ctx = await setupTest();
 

@@ -27,6 +27,9 @@ export interface GitHubReporterOptions {
   loadConnection: () => Promise<GitHubConnection>;
 }
 
+// the most characters of left-out paths the summary marker keeps, far under GitHub's comment limit
+const MARKER_PATH_CHARS = 16_000;
+
 // posts one pull request review with an inline comment per new finding, the summary, then the check
 // run; a finding outside the diff goes to an issue comment, and after the one re-check a non-security
 // finding in code the change did not write goes to a follow-up issue
@@ -146,7 +149,7 @@ async function runReviewPost(
 
   const marker = {
     head: result.head,
-    base: result.base,
+    ...buildRangeFields(result),
     reviews: plan.reviews,
     reviewIDs: plan.reviewIDs,
     reported: result.findings.map((finding) => finding.id),
@@ -155,7 +158,6 @@ async function runReviewPost(
     confirmed: confirmations
       .filter((item) => item.fixed)
       .map((item) => `${item.id}:${item.commit}`),
-    notReviewed: result.notReviewed.map((file) => file.path),
     startedAt: result.startedAt,
   };
 
@@ -327,6 +329,15 @@ async function createFollowUpIssue(
       formatMarker('follow-up', { id: finding.id, pullRequest: pr.number }),
     ].join('\n'),
   });
+}
+
+// the range the summary marker keeps for a `fixed` answer after the review; a review that left out
+// more paths than the marker holds keeps no range, so such an answer waits for the next review
+function buildRangeFields(result: ReviewResult): { base?: string; notReviewed?: string[] } {
+  const notReviewed = result.notReviewed.map((file) => file.path);
+  const chars = notReviewed.reduce((total, path) => total + path.length, 0);
+
+  return chars > MARKER_PATH_CHARS ? {} : { base: result.base, notReviewed };
 }
 
 // the fixes this review confirms; a fix answered after the review before it ran, inside that review's

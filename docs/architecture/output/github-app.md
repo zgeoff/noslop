@@ -188,7 +188,10 @@ later delta without the commit leaves it unconfirmed.
 A `fixed` reply posted after the re-review of its commit counts on the next check, with no further
 review. The summary marker keeps the range of the latest review and the files it left out, so the
 check applies the same rule to that review as the review applies to itself. The next review applies
-it to the review before it as well, and keeps each fix it confirms in its own summary marker.
+it to the review before it as well, and keeps each fix it confirms in its own summary marker. A
+review with a failed call keeps no range for this rule. A review that left out more paths than the
+marker can hold under GitHub's comment limit keeps no range either, so such a reply waits for the
+next review.
 
 The re-check is the second review of a pull request. From the third review on, the reporter sends
 each new finding in code the change did not write to a follow-up issue. A security finding, and any

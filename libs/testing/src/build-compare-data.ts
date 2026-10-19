@@ -1,3 +1,4 @@
+import type { Endpoints } from '@octokit/types';
 import { collectRangeFiles } from './collect-range-files';
 
 interface CompareCommit {
@@ -6,11 +7,16 @@ interface CompareCommit {
   renames: Record<string, string>;
 }
 
+type Compare = Endpoints['GET /repos/{owner}/{repo}/compare/{basehead}']['response']['data'];
+
+// the fields of GitHub's compare that the adapter reads, typed from the endpoint
 export interface CompareData {
-  status: 'ahead' | 'behind' | 'identical';
-  merge_base_commit: { sha: string };
-  commits: { sha: string }[];
-  files: ReturnType<typeof collectRangeFiles>;
+  status: Extract<Compare['status'], 'ahead' | 'behind' | 'identical'>;
+  merge_base_commit: Pick<Compare['merge_base_commit'], 'sha'>;
+  commits: Pick<Compare['commits'][number], 'sha'>[];
+  files: (Pick<NonNullable<Compare['files']>[number], 'filename' | 'previous_filename'> & {
+    status?: string;
+  })[];
 }
 
 // GitHub's compare of 2 commits of one line of history, oldest first: the base is an ancestor of the

@@ -52,6 +52,7 @@ test('it passes when the review ran on the head and every finding holds a valid 
       confirmed: ['1111111111111111:abc1234'],
     },
     confirmed: ['1111111111111111:abc1234'],
+    fixFailures: new Map(),
     currentHead: 'f'.repeat(40),
     commits: ['abc1234'.padEnd(40, '0'), 'f'.repeat(40)],
     existingIssues: new Set(['#12']),
@@ -163,6 +164,7 @@ test('it lists each finding whose disposition is not valid, with the reason', ()
       confirmed: [],
     },
     confirmed: [],
+    fixFailures: new Map(),
     currentHead: 'f'.repeat(40),
     commits: ['f'.repeat(40)],
     existingIssues: new Set(['#12']),
@@ -265,6 +267,7 @@ test('it fails a fixed finding that is still found or that no re-review read', (
       confirmed: [],
     },
     confirmed: [],
+    fixFailures: new Map(),
     currentHead: 'f'.repeat(40),
     commits: ['abc1234'.padEnd(40, '0'), 'f'.repeat(40)],
     existingIssues: new Set(),
@@ -276,6 +279,54 @@ test('it fails a fixed finding that is still found or that no re-review read', (
     'the re-review still finds it',
     'the issue #99 does not exist',
     'no re-review has read the commit abc1234 yet',
+  ]);
+});
+
+test('it names why GitHub could not show a fixed finding whole', () => {
+  const outcome = buildCheckOutcome({
+    findings: [
+      {
+        id: '1111111111111111',
+        title: 'Await the write',
+        path: 'src/a.ts',
+        lens: 'correctness',
+        severity: 'P2',
+        riskClass: null,
+        writtenByChange: true,
+      },
+    ],
+    dispositions: [
+      {
+        findingID: '1111111111111111',
+        kind: 'fixed',
+        value: 'abc1234',
+        author: 'dev',
+        authorIsOwner: false,
+        source: 'github',
+        at: '2026-10-17T10:00:00.000Z',
+      },
+    ],
+    summary: {
+      head: 'f'.repeat(40),
+      reviews: 2,
+      reported: [],
+      failedCalls: 0,
+      followUps: [],
+      confirmed: [],
+    },
+    confirmed: [],
+    fixFailures: new Map([
+      ['1111111111111111', 'GitHub could not list the files of the fix commit (HTTP 502)'],
+    ]),
+    currentHead: 'f'.repeat(40),
+    commits: ['abc1234'.padEnd(40, '0'), 'f'.repeat(40)],
+    existingIssues: new Set(),
+    failedReporters: [],
+    unreadable: 0,
+  });
+
+  expect(outcome.open.map((item) => item.reason)).toStrictEqual([
+    'the review could not read the commit abc1234: GitHub could not list the files of the fix commit (HTTP 502)',
   ]);
 });
 
@@ -312,6 +363,7 @@ test('it fails a fixed finding whose sha matches 2 commits on the branch', () =>
       confirmed: ['1111111111111111:abc1234'],
     },
     confirmed: ['1111111111111111:abc1234'],
+    fixFailures: new Map(),
     currentHead: 'f'.repeat(40),
     commits: ['abc1234'.padEnd(40, 'a'), 'abc1234'.padEnd(40, 'c'), 'f'.repeat(40)],
     existingIssues: new Set(),
@@ -341,6 +393,7 @@ test('it fails when a finding comment holds a marker noslop cannot read', () => 
       confirmed: [],
     },
     confirmed: [],
+    fixFailures: new Map(),
     currentHead: 'f'.repeat(40),
     commits: ['f'.repeat(40)],
     existingIssues: new Set(),
@@ -369,6 +422,7 @@ test('it fails when no review ran on the current head, a call failed or a report
       confirmed: [],
     },
     confirmed: [],
+    fixFailures: new Map(),
     currentHead: 'f'.repeat(40),
     commits: [],
     existingIssues: new Set(),
@@ -430,6 +484,7 @@ test('it judges a finding by its latest disposition', () => {
       confirmed: [],
     },
     confirmed: [],
+    fixFailures: new Map(),
     currentHead: 'f'.repeat(40),
     commits: ['f'.repeat(40)],
     existingIssues: new Set(),
