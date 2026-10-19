@@ -13,6 +13,7 @@ import { formatMarker } from './format-marker';
 import type { FixConfirmation } from './format-summary-comment';
 import { formatSummaryComment } from './format-summary-comment';
 import { parseMarker } from './parse-marker';
+import { planReviewPost } from './plan-review-post';
 import { readAllPages } from './read-all-pages';
 import { readFixCoverage } from './read-fix-coverage';
 import type { FindingThread, PullRequestState } from './read-pull-request-state';
@@ -24,9 +25,6 @@ import { runGitHubCheck } from './run-github-check';
 export interface GitHubReporterOptions {
   loadConnection: () => Promise<GitHubConnection>;
 }
-
-// a re-review after this many reviews of one pull request is past the one re-check
-const RECHECKED_REVIEWS = 2;
 
 // posts one pull request review with an inline comment per new finding, the summary, then the check
 // run; a finding outside the diff goes to an issue comment, and after the one re-check a non-security
@@ -100,30 +98,19 @@ async function runReviewPost(
 
   const posted = new Set([...before.threads.map((thread) => thread.marker.id), ...filed]);
 
-  // a post of a result the summary already counted, such as a retry after a failed request, is the
-  // same review, so it never moves a pull request toward the re-check limit
-  const counted = before.summary?.marker.reviewIDs ?? [];
-  const isRepost = counted.includes(result.reviewID);
-  const reviews = (before.summary?.marker.reviews ?? 0) + (isRepost ? 0 : 1);
+  const plan = planReviewPost({ summary: before.summary?.marker ?? null, posted }, result);
 
-  // a retry of a review that a later one followed posted everything before the later one did, so it
-  // leaves the later summary in place and only sets the check again from the current answers
-  if (isRepost && counted.at(-1) !== result.reviewID) {
+  // a retry of an earlier review leaves the later summary in place and only sets the check again
+  // from the current answers
+  if (!plan.writesSummary) {
     await runCheck(connection, pr, result.head, ctx);
 
     return;
   }
 
-  const fresh = result.findings.filter((finding) => !posted.has(finding.id));
+  const followUps = plan.followUps;
 
-  const followUps =
-    reviews > RECHECKED_REVIEWS
-      ? fresh.filter((finding) => finding.lens !== 'security' && !finding.writtenByChange)
-      : [];
-
-  const inline = fresh.filter((finding) => !followUps.includes(finding));
-
-  const unanchored = await createReviewComments(client, pr, result.head, inline);
+  const unanchored = await createReviewComments(client, pr, result.head, plan.inline);
 
   for (const finding of unanchored) {
     await createIssueComment(client, pr, formatUnanchoredComment(finding, result.head));
@@ -158,14 +145,15 @@ async function runReviewPost(
 
   const marker = {
     head: result.head,
-    reviews,
-    reviewIDs: isRepost ? counted : [...counted, result.reviewID],
+    reviews: plan.reviews,
+    reviewIDs: plan.reviewIDs,
     reported: result.findings.map((finding) => finding.id),
     failedCalls: result.failedCalls.length,
     followUps: [...filed, ...followUps.map((finding) => finding.id)],
     confirmed: confirmations
       .filter((item) => item.fixed)
       .map((item) => `${item.id}:${item.commit}`),
+    startedAt: result.startedAt,
   };
 
   await writeSummaryComment(
