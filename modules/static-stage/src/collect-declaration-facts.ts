@@ -1,6 +1,7 @@
 import { match } from 'ts-pattern';
 import type { AnalyzeContext } from './analyze-context';
 import type { ASTNode } from './ast-node';
+import { getCalleeName } from './get-callee-name';
 import { getField } from './get-field';
 import { getFields } from './get-fields';
 import { getNodeText } from './get-node-text';
@@ -26,9 +27,9 @@ const INSTRUCTION_KEYS = new Set([
   'developerInstructions',
 ]);
 
-// records the imports, the exports, the declared types with their keys, the `any` types, the config
-// reads, and the security facts a declaration shows: an allow-or-deny function, a row mapper, a
-// credential path and text placed into a model's instructions
+// records the imports, the exports, the declared types with their keys, the `any` types and the calls
+// that return `any`, the config reads, and the security facts a declaration shows: an allow-or-deny
+// function, a row mapper, a credential path and text placed into a model's instructions
 export function collectDeclarationFacts(
   node: ASTNode,
   ancestors: readonly ASTNode[],
@@ -50,6 +51,9 @@ export function collectDeclarationFacts(
     .with('TSAnyKeyword', () => {
       ctx.analysis.anyTypes.push(line);
     })
+    .with('CallExpression', () => {
+      collectAnyCall(node, line, ctx);
+    })
     .with('MemberExpression', () => {
       collectConfigRead(node, line, ctx);
     })
@@ -64,6 +68,19 @@ export function collectDeclarationFacts(
         collectSecurityFunction(node, ancestors, ctx);
       }
     });
+}
+
+// the standard calls whose result is typed `any`: a parsed JSON text, and a fetch response's body,
+// whose reader is a `.json` call with no argument
+function collectAnyCall(node: ASTNode, line: number, ctx: AnalyzeContext): void {
+  const name = getCalleeName(node);
+
+  if (
+    name === 'JSON.parse' ||
+    (name?.endsWith('.json') === true && getFields(node, 'arguments').length === 0)
+  ) {
+    ctx.analysis.anyCalls.push({ name, line });
+  }
 }
 
 function collectCredentialPath(node: ASTNode, line: number, ctx: AnalyzeContext): void {

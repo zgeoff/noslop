@@ -22,8 +22,9 @@ Look for:
    it gives, so each new cast that keeps a disable comment is seen.
 7. A value typed `any` that the change passes where a typed value is expected: an argument to a
    typed parameter, a typed return, or a typed variable. The `typeClaims` slice lists each `any`
-   type the change writes as `any-type`. An `any` that a call returns, such as a parsed JSON value,
-   counts too. Lint cannot see this claim, because `any` turns the type check off.
+   type the change writes as `any-type`, and each call it adds whose result is typed `any`, such as
+   a parsed JSON value, as `any-value`. Lint cannot see this claim, because `any` turns the type
+   check off.
 
 Check each candidate:
 

@@ -1668,6 +1668,88 @@ test('it lists an any type the change adds', async () => {
   ]);
 });
 
+test('it lists each call the change adds whose result is typed any', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/order.ts': [
+          'interface Order {',
+          '  id: string;',
+          '}',
+          '',
+          'export function readOrder(text: string): Order {',
+          '  return { id: text };',
+          '}',
+          '',
+          'export async function readRemoteOrder(url: string): Promise<Order> {',
+          '  return { id: url };',
+          '}',
+          '',
+        ].join('\n'),
+      },
+    },
+    {
+      message: 'head',
+      files: {
+        'src/order.ts': [
+          'interface Order {',
+          '  id: string;',
+          '}',
+          '',
+          'export function readOrder(text: string): Order {',
+          '  return JSON.parse(text);',
+          '}',
+          '',
+          'export async function readRemoteOrder(url: string): Promise<Order> {',
+          '  const response = await fetch(url);',
+          '',
+          '  return response.json();',
+          '}',
+          '',
+        ].join('\n'),
+      },
+    },
+  ]);
+
+  const config = BUILT_IN_DEFAULTS;
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config,
+    title: 'feat: parse orders',
+    body: '',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(result.slices.typeClaims).toStrictEqual([
+    {
+      location: { path: 'src/order.ts', startLine: 6, endLine: 6 },
+      kind: 'any-value',
+      detail: 'calls JSON.parse, which returns `any`',
+    },
+    {
+      location: { path: 'src/order.ts', startLine: 12, endLine: 12 },
+      kind: 'any-value',
+      detail: 'calls response.json, which returns `any`',
+    },
+  ]);
+});
+
 test('it lists no type claim for as const, satisfies, another rule or a disable comment the change did not add', async () => {
   const ctx = await setupTest();
 

@@ -74,8 +74,9 @@ export interface SourceAnalysis {
   types: TypeDeclaration[];
   typeTests: { typeName: string; key: string; line: number }[];
 
-  // the line of each `any` type the file writes
+  // the line of each `any` type the file writes, and each call whose result is typed `any`
   anyTypes: number[];
+  anyCalls: { name: string; line: number }[];
   schemaBounds: { property: string; max: number; line: number }[];
   configReads: { name: string; line: number }[];
 }
@@ -94,6 +95,7 @@ export function buildSourceAnalysis(path: string): SourceAnalysis {
     types: [],
     typeTests: [],
     anyTypes: [],
+    anyCalls: [],
     schemaBounds: [],
     configReads: [],
   };

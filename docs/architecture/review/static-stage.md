@@ -63,10 +63,11 @@ that nothing consumes holds no edge, so the cross-repo lens stays off.
 
 The type-claim slice lists each line that the change adds to code or a test with a type the checker
 cannot confirm: a disable comment for one of the config's
-[cast rules](../config/your-own-rules.md#cast-rules), and an `any` type. A disable comment counts
-only on a line the change adds, so a cast that keeps an older comment stays out of the slice. An
-`as const` assertion and a `satisfies` expression keep the check on, so the slice skips them. Any
-entry fires the naming-shape-and-comments lens.
+[cast rules](../config/your-own-rules.md#cast-rules), an `any` type, and a standard call whose
+result is typed `any`, such as a JSON parse. A disable comment counts only on a line the change
+adds, so a cast that keeps an older comment stays out of the slice. An `as const` assertion and a
+`satisfies` expression keep the check on, so the slice skips them. Any entry fires the
+naming-shape-and-comments lens.
 
 ### The reuse slice and the base index
 

@@ -144,10 +144,10 @@ export interface CommentDensity {
 }
 
 // a line the change adds that claims a type the type checker cannot confirm: a disable comment for a
-// rule that bans type assertions, or an `any` type
+// rule that bans type assertions, an `any` type, or a call whose result is typed `any`
 export interface TypeClaimEntry {
   location: SourceLocation;
-  kind: 'cast-disable' | 'any-type';
+  kind: 'cast-disable' | 'any-type' | 'any-value';
   detail: string;
 }
 

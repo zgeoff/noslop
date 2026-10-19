@@ -26,11 +26,6 @@ export interface FileSlices {
   migrations: string[];
 }
 
-// the directive of an oxlint or eslint disable comment, whose rule names follow it and end at the
-// `--` before the reason
-const DISABLE_DIRECTIVE =
-  /^\s*(?:oxlint|eslint)-disable(?:-next-line|-line)?\s+(?<rules>[^]*?)(?:\s--|$)/u;
-
 const MIGRATION_PATH = /(?:^|\/)migrations?\//u;
 const SOURCE_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.mts', '.cts', '/index.ts', '/index.js'];
 
@@ -168,6 +163,11 @@ function collectLineFacts(entry: AnalyzedFile, slices: FileSlices): void {
   }
 }
 
+// the directive of an oxlint or eslint disable comment, whose rule names follow it and end at the
+// `--` before the reason
+const DISABLE_DIRECTIVE =
+  /^\s*(?:oxlint|eslint)-disable(?:-next-line|-line)?\s+(?<rules>[^]*?)(?:\s--|$)/u;
+
 // a type claim in a test file escapes the type checker as one in code does, so both kinds count
 function collectTypeClaims(
   entry: AnalyzedFile,
@@ -205,6 +205,16 @@ function collectTypeClaims(
         location: { path, startLine: line, endLine: line },
         kind: 'any-type',
         detail: 'writes an `any` type',
+      });
+    }
+  }
+
+  for (const call of analysis.anyCalls) {
+    if (entry.lines.added.has(call.line)) {
+      slices.typeClaims.push({
+        location: { path, startLine: call.line, endLine: call.line },
+        kind: 'any-value',
+        detail: `calls ${call.name}, which returns \`any\``,
       });
     }
   }
