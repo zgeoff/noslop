@@ -1,29 +1,17 @@
 import { z } from 'zod';
 
-const shaSchema = z.string().regex(/^[0-9a-f]{40}$/u);
-
-const reviewedRangeSchema = z.strictObject({
-  base: shaSchema,
-  head: shaSchema,
-  reported: z.array(z.string()),
-  notReviewed: z.array(z.string()),
-
-  // a review with a failed call, whose range rejects the findings it reported and confirms no fix
-  partial: z.boolean().optional(),
-});
-
 // the latest review as the summary marker keeps it; `followUps` stops a later review filing an issue
 // twice, `confirmed` holds each `<finding id>:<commit>` fix a re-review read, so a later delta keeps
 // it, and `reviewIDs` holds every review counted, so a repost of any of them adds no review
 export const summaryMarkerSchema = z.strictObject({
-  head: shaSchema,
+  head: buildShaSchema(),
 
   // the range the review covered and the files it left out, so an answer after it counts its read
-  base: shaSchema.optional(),
+  base: buildShaSchema().optional(),
 
   // the ranges of the reviews before it, newest first, so an answer that a later review passed by
   // still counts the review that read its commit
-  earlier: z.array(reviewedRangeSchema).optional(),
+  earlier: z.array(buildReviewedRangeSchema()).optional(),
   reviews: z.int().positive(),
   reported: z.array(z.string()),
   failedCalls: z.int().nonnegative(),
@@ -37,3 +25,19 @@ export const summaryMarkerSchema = z.strictObject({
 });
 
 export type SummaryMarker = z.infer<typeof summaryMarkerSchema>;
+
+function buildReviewedRangeSchema() {
+  return z.strictObject({
+    base: buildShaSchema(),
+    head: buildShaSchema(),
+    reported: z.array(z.string()),
+    notReviewed: z.array(z.string()),
+
+    // a review with a failed call, whose range rejects the findings it reported and confirms no fix
+    partial: z.boolean().optional(),
+  });
+}
+
+function buildShaSchema() {
+  return z.string().regex(/^[0-9a-f]{40}$/u);
+}
