@@ -23,6 +23,7 @@ import { readPullRequestState } from './read-pull-request-state';
 import { readThreadDispositions } from './read-thread-dispositions';
 import { runGitHubCheck } from './run-github-check';
 import type { SummaryMarker } from './summary-marker';
+import type { KeptRange } from './to-reviewed-ranges';
 import { toReviewedRanges } from './to-reviewed-ranges';
 
 export interface GitHubReporterOptions {
@@ -348,9 +349,18 @@ interface RangeFields {
 function buildRangeFields(result: ReviewResult, previous: SummaryMarker | null): RangeFields {
   const notReviewed = result.notReviewed.map((file) => file.path);
 
-  // a repost of a review keeps its own range once, so it evicts no earlier one
+  const own: KeptRange = {
+    base: result.base,
+    head: result.head,
+    reported: result.findings.map((finding) => finding.id),
+    notReviewed,
+    isPartial: result.failedCalls.length > 0,
+  };
+
+  // a repost of a review keeps its own range once, so it evicts no earlier one; another review of the
+  // same range keeps its verdicts, so a rejection it holds outlives every older confirmation
   const earlier = (previous === null ? [] : toReviewedRanges(previous))
-    .filter((range) => range.base !== result.base || range.head !== result.head)
+    .filter((range) => !isSameRange(range, own))
     .slice(0, EARLIER_RANGES)
     .map((range) => {
       const kept: NonNullable<SummaryMarker['earlier']>[number] = {
@@ -377,6 +387,20 @@ function buildRangeFields(result: ReviewResult, previous: SummaryMarker | null):
   }
 
   return {};
+}
+
+function isSameRange(range: KeptRange, other: KeptRange): boolean {
+  return (
+    range.base === other.base &&
+    range.head === other.head &&
+    range.isPartial === other.isPartial &&
+    isSameList(range.reported, other.reported) &&
+    isSameList(range.notReviewed, other.notReviewed)
+  );
+}
+
+function isSameList(list: readonly string[], other: readonly string[]): boolean {
+  return list.length === other.length && list.every((item, index) => item === other[index]);
 }
 
 // the fixes this review confirms; a fix answered after the review before it ran, inside that review's

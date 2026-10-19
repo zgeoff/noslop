@@ -1416,6 +1416,215 @@ test('it fails the check when a review whose calls failed reports a late confirm
   );
 });
 
+test('it fails the check when a review reports a late confirmed fix again and a later review of the same range skips its file', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'd'.repeat(40),
+  });
+
+  for (const sha of ['b', 'c', 'd']) {
+    await githubCollections.pullCommits.create({
+      owner: 'example',
+      repo: 'app',
+      number: 5,
+      sha: sha.repeat(40),
+      files: ['src/a.ts'],
+    });
+  }
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/a.ts',
+    lines: [1],
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'b'.repeat(40),
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      base: 'b'.repeat(40),
+      head: 'c'.repeat(40),
+      findings: [],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const [thread] = githubCollections.reviewComments.all();
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    body: `fixed ${'c'.repeat(7)}`,
+    authorLogin: 'dev',
+    inReplyToID: thread?.id ?? null,
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      base: 'c'.repeat(40),
+      head: 'd'.repeat(40),
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      base: 'c'.repeat(40),
+      head: 'd'.repeat(40),
+      findings: [],
+      notReviewed: [{ path: 'src/a.ts', reason: 'too-large' }],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('failure');
+
+  expect(githubCollections.checkRuns.all().at(-1)?.summary).toInclude(
+    `no re-review has read the commit ${'c'.repeat(7)} yet`,
+  );
+});
+
+test('it fails the check when a review whose range passes the marker budget reports a late confirmed fix again', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'e'.repeat(40),
+  });
+
+  for (const sha of ['b', 'c', 'd', 'e']) {
+    await githubCollections.pullCommits.create({
+      owner: 'example',
+      repo: 'app',
+      number: 5,
+      sha: sha.repeat(40),
+      files: ['src/a.ts'],
+    });
+  }
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/a.ts',
+    lines: [1],
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'b'.repeat(40),
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      base: 'b'.repeat(40),
+      head: 'c'.repeat(40),
+      findings: [],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const [thread] = githubCollections.reviewComments.all();
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    body: `fixed ${'c'.repeat(7)}`,
+    authorLogin: 'dev',
+    inReplyToID: thread?.id ?? null,
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      base: 'c'.repeat(40),
+      head: 'd'.repeat(40),
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+      notReviewed: Array.from({ length: 60 }, (_, index) => ({
+        path: `data/${String(index).padStart(3, '0')}-${'x'.repeat(290)}.jsonl`,
+        reason: 'data' as const,
+      })),
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      base: 'd'.repeat(40),
+      head: 'e'.repeat(40),
+      findings: [],
+      notReviewed: [{ path: 'src/a.ts', reason: 'too-large' }],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('failure');
+
+  expect(githubCollections.checkRuns.all().at(-1)?.summary).toInclude(
+    `no re-review has read the commit ${'c'.repeat(7)} yet`,
+  );
+});
+
+test('it fails the check when the summary marker of the App holds a kept range it cannot read', async () => {
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'c'.repeat(40),
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${'c'.repeat(40)}","base":"${'b'.repeat(40)}","notReviewed":[],"earlier":[{"base":"${'a'.repeat(40)}","head":"${'b'.repeat(40)}","notReviewed":[]}],"reviews":2,"reported":[],"failedCalls":0,"followUps":[],"confirmed":[]} -->`,
+  });
+
+  const connection = await createGitHubConnection({
+    appID: 1,
+    privateKey: buildStubAppKey(),
+    installationID: 7,
+  });
+
+  const outcome = await runGitHubCheck(
+    connection,
+    { owner: 'example', repo: 'app', number: 5 },
+    { failedReporters: [] },
+  );
+
+  expect(outcome.conclusion).toBe('failure');
+  expect(outcome.title).toBe(`No noslop review for this commit, ${'c'.repeat(12)}.`);
+});
+
 test('it fails the check when a review reports a late confirmed fix again and more reviews follow than the marker keeps', async () => {
   const ctx = setupTest();
 
