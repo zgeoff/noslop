@@ -38,14 +38,15 @@ A case holds the path to a local clone of the repo, the base and head commits of
 title and body, the labelled findings, and the escapes. A case may also hold the text of its linked
 issue, which the intent lens needs to run, and the head an earlier review of the pull request
 covered. A case with that reviewed head is a re-review: each reviewer replays it from the reviewed
-head, so the diff holds only the push, and noslop runs it as the
-[re-review](../output/github-app.md#re-review-and-fix-confirmation) of a live pull request, with the
-description left unjudged. A labelled finding holds its anchor, title, severity, the lens it belongs
-to when one fits, and its label: `true-positive`, `false-positive` or `disputed`. An escape holds
-the defect, whether the diff showed it, and its anchor and lens when they are known. Before a run,
-the harness checks that each labelled path names a file at the case's head, and it stops with the
-case and the paths when one does not, because a label on a missing file can never match. A case
-whose clone or head it cannot read skips the check, and the replay records that case as failed.
+head, so the diff holds only the push to the files the change makes since its base, and noslop runs
+it as the [re-review](../output/github-app.md#re-review-and-fix-confirmation) of a live pull
+request, with the description left unjudged. A labelled finding holds its anchor, title, severity,
+the lens it belongs to when one fits, and its label: `true-positive`, `false-positive` or
+`disputed`. An escape holds the defect, whether the diff showed it, and its anchor and lens when
+they are known. Before a run, the harness checks that each labelled path names a file at the case's
+head, and it stops with the case and the paths when one does not, because a label on a missing file
+can never match. A case whose clone or head it cannot read skips the check, and the replay records
+that case as failed.
 
 ## A run
 

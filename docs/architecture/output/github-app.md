@@ -109,11 +109,12 @@ Each comment the App posts ends with a hidden HTML comment that holds its kind a
 JSON, with every `>` escaped, so no title or reason can end the marker early. A finding marker holds
 what the check needs to judge a disposition without the review result: the id, title, file, lens,
 severity, risk class, and whether the change wrote the code. The summary marker holds the reviewed
-head, the number of reviews so far, the ids that review reported, its count of failed calls, the
-filed follow-ups, the confirmed fixes, the ids of the reviews it counted, and when the review it
-shows started. A retried post of a review that started before that review, such as one that failed
-at the summary write, leaves the summary in place and only sets the check again. A forms marker, on
-the App's answer to a free-text reply, holds the id of the reply it answered.
+head and the base of its range, the number of reviews so far, the ids that review reported, its
+count of failed calls, the files it left out, the filed follow-ups, the confirmed fixes, the ids of
+the reviews it counted, and when the review it shows started. A retried post of a review that
+started before that review, such as one that failed at the summary write, leaves the summary in
+place and only sets the check again. A forms marker, on the App's answer to a free-text reply, holds
+the id of the reply it answered.
 
 Only a comment by the App's own login holds state. The adapter reads that login from GitHub's
 endpoint for the authenticated App when it connects, and treats a comment by anyone else, other bots
@@ -141,7 +142,8 @@ reply once with the accepted forms, and the forms marker stops a later run answe
 kind is valid under its own rule:
 
 - `fixed <commit>` is valid when the sha names exactly one commit on the branch and a re-review that
-  read the commit no longer reports the finding.
+  read the commit no longer reports the finding. A commit that a merge from the base branch brought
+  in is on the branch, although GitHub's commit list of the pull request leaves it out.
 - `not-a-defect <reason>` is valid with any reason.
 - `deferred <issue>` is valid when the change did not write the code, the finding is no P1, security
   or risk-class finding, and the issue exists. The issue is `#<number>` in the same repo,
@@ -160,6 +162,12 @@ Otherwise the base is the merge base of the pull request, and the review covers 
 review with a failed call therefore never narrows the next one, and a force push that drops the
 reviewed head brings a full review.
 
+A re-review keeps to the files the pull request changes since its merge base. A merge from the base
+branch brings the base branch's own changes into the new commits, and those changes are not the pull
+request's work. The re-review therefore drops every file of the new commits that the diff from the
+merge base to the head leaves out, before the static stage and the calls read the change. A file
+that both the pull request and the base branch change stays whole.
+
 A re-review leaves the pull request's description unjudged. Its title and body describe the whole
 pull request, while its diff holds only the new commits, so a file the body names can look missing
 from that diff. The prompt of each re-review call therefore asks the lenses to report no mismatch
@@ -175,9 +183,12 @@ commit that renames the fixed file into a left-out path counts the same way. Whe
 the files of the fix commit whole, the fix stays unconfirmed and the summary names the failure. The
 summary marker keeps each confirmed fix as the finding id and the commit, so a later delta without
 the commit keeps the confirmation. A fix that a re-review still reports stays unconfirmed, and a
-later delta without the commit leaves it unconfirmed. The re-review reads the dispositions present
-when it runs, so a `fixed` reply posted after the re-review of its commit finds no review that read
-it, and the check keeps the finding open.
+later delta without the commit leaves it unconfirmed.
+
+A `fixed` reply posted after the re-review of its commit counts on the next check, with no further
+review. The summary marker keeps the range of the latest review and the files it left out, so the
+check applies the same rule to that review as the review applies to itself. The next review applies
+it to the review before it as well, and keeps each fix it confirms in its own summary marker.
 
 The re-check is the second review of a pull request. From the third review on, the reporter sends
 each new finding in code the change did not write to a follow-up issue. A security finding, and any
