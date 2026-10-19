@@ -223,8 +223,24 @@ export const reviewConfigSchema = z.strictObject({
   lenses: z
     .partialRecord(lensIDSchema, lensOverrideSchema)
     .describe('Overrides for each lens, by lens id'),
+
+  // a lens that no call lists runs in a call of its own under the lens's name, so a call named
+  // after a lens must list that lens, or the two calls would share one ID
   calls: z
     .record(z.string(), z.array(lensIDSchema))
+    .superRefine((calls, ctx) => {
+      for (const [callID, lenses] of Object.entries(calls)) {
+        const lens = lensIDSchema.safeParse(callID);
+
+        if (lens.success && !lenses.includes(lens.data)) {
+          ctx.addIssue({
+            code: 'custom',
+            path: [callID],
+            message: `the call ${callID} takes the name of the lens ${lens.data} but does not list it; list the lens in the call, or rename the call`,
+          });
+        }
+      }
+    })
     .describe('The grouping of lenses into model calls, by call id'),
   thresholds: thresholdsSchema.describe(
     'The limits that routing, depth and the static stage apply',

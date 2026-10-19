@@ -418,6 +418,20 @@ test('it fails the load when the merged config breaks the schema', async () => {
   );
 });
 
+test('it fails the load when a call takes the name of a lens it does not list', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(
+    join(ctx.directory, 'review.json'),
+    JSON.stringify({ calls: { security: ['tests'], intent: ['intent'] } }),
+  );
+
+  expect(loadConfig({ repoDir: ctx.directory })).rejects.toThrowWithMessage(
+    Error,
+    'the merged config is not valid:\ncalls.security: the call security takes the name of the lens security but does not list it; list the lens in the call, or rename the call',
+  );
+});
+
 test('it loads a file that names its JSON Schema', async () => {
   const ctx = await setupTest();
 
