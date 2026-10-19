@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.1](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.0...@noslop/cli@0.4.1) (2026-10-19)
+
+### Features
+
+- **geo-1372:** count a fixed commit that changes any file of the pr
+  ([#45](https://github.com/zgeoff/noslop/issues/45))
+  ([d744906](https://github.com/zgeoff/noslop/commit/d7449068e9bf3aa62676ee97dc0035346fff60dc))
+
 ## [0.4.0](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.3.0...@noslop/cli@0.4.0) (2026-10-19)
 
 ### ⚠ BREAKING CHANGES
