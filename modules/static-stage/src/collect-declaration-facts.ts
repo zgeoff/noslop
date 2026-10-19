@@ -70,16 +70,11 @@ export function collectDeclarationFacts(
     });
 }
 
-// the standard calls whose result is typed `any`: a parsed JSON text, and a fetch response's body,
-// whose reader is a `.json` call with no argument
+// `JSON.parse` is the one call whose result is typed `any` by its name alone; any other call, such as
+// a `.json()` reader, needs its receiver's type, which the syntax tree does not hold
 function collectAnyCall(node: ASTNode, line: number, ctx: AnalyzeContext): void {
-  const name = getCalleeName(node);
-
-  if (
-    name === 'JSON.parse' ||
-    (name?.endsWith('.json') === true && getFields(node, 'arguments').length === 0)
-  ) {
-    ctx.analysis.anyCalls.push({ name, line });
+  if (getCalleeName(node) === 'JSON.parse') {
+    ctx.analysis.jsonParses.push(line);
   }
 }
 

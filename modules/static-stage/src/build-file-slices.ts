@@ -209,12 +209,12 @@ function collectTypeClaims(
     }
   }
 
-  for (const call of analysis.anyCalls) {
-    if (entry.lines.added.has(call.line)) {
+  for (const line of new Set(analysis.jsonParses)) {
+    if (entry.lines.added.has(line)) {
       slices.typeClaims.push({
-        location: { path, startLine: call.line, endLine: call.line },
+        location: { path, startLine: line, endLine: line },
         kind: 'any-value',
-        detail: `calls ${call.name}, which returns \`any\``,
+        detail: 'calls JSON.parse, which returns `any`',
       });
     }
   }

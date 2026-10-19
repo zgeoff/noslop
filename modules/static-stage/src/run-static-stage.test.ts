@@ -1668,7 +1668,7 @@ test('it lists an any type the change adds', async () => {
   ]);
 });
 
-test('it lists each call the change adds whose result is typed any', async () => {
+test('it lists each JSON.parse call the change adds', async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
@@ -1684,10 +1684,6 @@ test('it lists each call the change adds whose result is typed any', async () =>
           '  return { id: text };',
           '}',
           '',
-          'export async function readRemoteOrder(url: string): Promise<Order> {',
-          '  return { id: url };',
-          '}',
-          '',
         ].join('\n'),
       },
     },
@@ -1701,12 +1697,6 @@ test('it lists each call the change adds whose result is typed any', async () =>
           '',
           'export function readOrder(text: string): Order {',
           '  return JSON.parse(text);',
-          '}',
-          '',
-          'export async function readRemoteOrder(url: string): Promise<Order> {',
-          '  const response = await fetch(url);',
-          '',
-          '  return response.json();',
           '}',
           '',
         ].join('\n'),
@@ -1742,12 +1732,78 @@ test('it lists each call the change adds whose result is typed any', async () =>
       kind: 'any-value',
       detail: 'calls JSON.parse, which returns `any`',
     },
+  ]);
+});
+
+test('it lists no any value for a JSON.parse call the change kept or a typed json reader', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
-      location: { path: 'src/order.ts', startLine: 12, endLine: 12 },
-      kind: 'any-value',
-      detail: 'calls response.json, which returns `any`',
+      message: 'base',
+      files: {
+        'src/order.ts': [
+          'interface Order {',
+          '  id: string;',
+          '}',
+          '',
+          'export function readOrder(text: string): Order {',
+          '  return JSON.parse(text);',
+          '}',
+          '',
+          'export function countOrders(): number {',
+          '  return 0;',
+          '}',
+          '',
+        ].join('\n'),
+      },
+    },
+    {
+      message: 'head',
+      files: {
+        'src/order.ts': [
+          'interface Order {',
+          '  id: string;',
+          '}',
+          '',
+          'export function readOrder(text: string): Order {',
+          '  return JSON.parse(text);',
+          '}',
+          '',
+          'export function countOrders(): number {',
+          '  const reader = { json: (): number => 1 };',
+          '',
+          '  return reader.json();',
+          '}',
+          '',
+        ].join('\n'),
+      },
     },
   ]);
+
+  const config = BUILT_IN_DEFAULTS;
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config,
+    title: 'feat: count orders',
+    body: '',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(result.slices.typeClaims).toStrictEqual([]);
 });
 
 test('it lists no type claim for as const, satisfies, another rule or a disable comment the change did not add', async () => {
