@@ -143,6 +143,14 @@ export interface CommentDensity {
   target: number;
 }
 
+// a line the change adds that claims a type the type checker cannot confirm: a disable comment for a
+// rule that bans type assertions, or an `any` type
+export interface TypeClaimEntry {
+  location: SourceLocation;
+  kind: 'cast-disable' | 'any-type';
+  detail: string;
+}
+
 // what routing reads to fire the lenses and pick the depth
 export interface RiskSignals {
   riskClasses: string[];
@@ -169,6 +177,7 @@ export interface Slices {
   instructions: InstructionsEntry[];
   prose: ProseEntry[];
   comments: CommentDensity;
+  typeClaims: TypeClaimEntry[];
   interfaces: SourceLocation[];
   migrations: string[];
   events: SourceLocation[];

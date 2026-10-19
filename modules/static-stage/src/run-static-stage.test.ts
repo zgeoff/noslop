@@ -1545,6 +1545,202 @@ test('it shortlists a base function that a new function repeats', async () => {
   ).toStrictEqual([['formatName', ['formatUserName']]]);
 });
 
+test('it lists each disable comment the change adds for a cast rule, one entry per comment', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/a.ts': 'export const a = 1;\n' } },
+    {
+      message: 'head',
+      files: {
+        'src/order.ts': [
+          'interface Order {',
+          '  id: string;',
+          '}',
+          '',
+          'export function readOrder(raw: unknown, fallback: unknown): Order[] {',
+          '  // oxlint-disable-next-line typescript/consistent-type-assertions -- the queue checks each order',
+          '  const first = raw as Order;',
+          '  // eslint-disable-next-line local/no-loose-cast -- the fallback comes from a fixed list',
+          '  const second = fallback as Order;',
+          '',
+          '  return [first, second];',
+          '}',
+          '',
+        ].join('\n'),
+      },
+    },
+  ]);
+
+  const config = {
+    ...BUILT_IN_DEFAULTS,
+    castRules: ['typescript/consistent-type-assertions', 'local/no-loose-cast'],
+  };
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config,
+    title: 'feat: read orders',
+    body: '',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(result.slices.typeClaims).toStrictEqual([
+    {
+      location: { path: 'src/order.ts', startLine: 6, endLine: 6 },
+      kind: 'cast-disable',
+      detail: 'disables typescript/consistent-type-assertions',
+    },
+    {
+      location: { path: 'src/order.ts', startLine: 8, endLine: 8 },
+      kind: 'cast-disable',
+      detail: 'disables local/no-loose-cast',
+    },
+  ]);
+});
+
+test('it lists an any type the change adds', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/order.ts':
+          'export interface Order {\n  id: string;\n}\n\nexport function saveOrder(order: Order): string {\n  return order.id;\n}\n',
+      },
+    },
+    {
+      message: 'head',
+      files: {
+        'src/import-order.ts': [
+          "import { saveOrder } from './order';",
+          '',
+          'export function importOrder(raw: any): string {',
+          '  return saveOrder(raw);',
+          '}',
+          '',
+        ].join('\n'),
+      },
+    },
+  ]);
+
+  const config = BUILT_IN_DEFAULTS;
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config,
+    title: 'feat: import orders',
+    body: '',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(result.slices.typeClaims).toStrictEqual([
+    {
+      location: { path: 'src/import-order.ts', startLine: 3, endLine: 3 },
+      kind: 'any-type',
+      detail: 'writes an `any` type',
+    },
+  ]);
+});
+
+test('it lists no type claim for as const, satisfies, another rule or a disable comment the change did not add', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/order.ts': [
+          'interface Order {',
+          '  id: string;',
+          '}',
+          '',
+          'export function readOrder(raw: unknown): Order {',
+          '  // oxlint-disable-next-line typescript/consistent-type-assertions -- the queue checks each order',
+          '  const order = raw as Order;',
+          '',
+          '  return order;',
+          '}',
+          '',
+        ].join('\n'),
+      },
+    },
+    {
+      message: 'head',
+      files: {
+        'src/order.ts': [
+          'interface Order {',
+          '  id: string;',
+          '}',
+          '',
+          "export const STATES = ['open', 'shut'] as const;",
+          '',
+          "export const DEFAULT_ORDER = { id: 'none' } satisfies Order;",
+          '',
+          'export function readOrder(raw: unknown): Order {',
+          '  // oxlint-disable-next-line typescript/consistent-type-assertions -- the queue checks each order',
+          '  const order = raw as Order;',
+          '  // oxlint-disable-next-line no-console -- the operator reads this line',
+          '  console.log(order.id);',
+          '',
+          '  return order;',
+          '}',
+          '',
+        ].join('\n'),
+      },
+    },
+  ]);
+
+  const config = BUILT_IN_DEFAULTS;
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config,
+    title: 'feat: log each order',
+    body: '',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(result.slices.typeClaims).toStrictEqual([]);
+});
+
 test('it keeps an access check in the security slice when only its body changes', async () => {
   const ctx = await setupTest();
 

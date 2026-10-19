@@ -63,6 +63,10 @@ export const BUILT_IN_DEFAULTS: ReviewConfig = {
     invariant: { calls: ['invariant', 'assert'], imports: ['tiny-invariant', 'node:assert'] },
     events: { calls: ['emit', 'publish'], imports: [] },
   },
+  castRules: [
+    'typescript/consistent-type-assertions',
+    '@typescript-eslint/consistent-type-assertions',
+  ],
   lenses: {},
   calls: {
     correctness: [

@@ -26,9 +26,9 @@ const INSTRUCTION_KEYS = new Set([
   'developerInstructions',
 ]);
 
-// records the imports, the exports, the declared types with their keys, the config reads, and the
-// security facts a declaration shows: an allow-or-deny function, a row mapper, a credential path and
-// text placed into a model's instructions
+// records the imports, the exports, the declared types with their keys, the `any` types, the config
+// reads, and the security facts a declaration shows: an allow-or-deny function, a row mapper, a
+// credential path and text placed into a model's instructions
 export function collectDeclarationFacts(
   node: ASTNode,
   ancestors: readonly ASTNode[],
@@ -46,6 +46,9 @@ export function collectDeclarationFacts(
     })
     .with('TSInterfaceDeclaration', 'TSTypeAliasDeclaration', () => {
       collectType(node, exported, ctx);
+    })
+    .with('TSAnyKeyword', () => {
+      ctx.analysis.anyTypes.push(line);
     })
     .with('MemberExpression', () => {
       collectConfigRead(node, line, ctx);

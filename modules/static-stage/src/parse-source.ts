@@ -6,7 +6,7 @@ export interface ParsedSource {
   path: string;
   text: string;
   program: ASTNode;
-  comments: { kind: 'line' | 'block'; startLine: number; endLine: number }[];
+  comments: { kind: 'line' | 'block'; text: string; startLine: number; endLine: number }[];
   hasErrors: boolean;
   getLine: (offset: number) => number;
 }
@@ -36,6 +36,7 @@ export function parseSource(path: string, text: string): ParsedSource | null {
     program,
     comments: result.comments.map((comment) => ({
       kind: comment.type === 'Line' ? 'line' : 'block',
+      text: comment.value,
       startLine: getLine(comment.start),
       endLine: getLine(comment.end),
     })),

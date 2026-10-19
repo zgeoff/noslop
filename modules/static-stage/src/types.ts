@@ -20,6 +20,7 @@ export type {
   SourceLocation,
   TestsEntry,
   ThrowEntry,
+  TypeClaimEntry,
   ValueOrigin,
   WriteEntry,
 } from '@noslop/contract';

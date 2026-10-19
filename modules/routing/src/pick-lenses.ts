@@ -34,7 +34,8 @@ const TRIGGERS: Readonly<Record<LensID, (input: RouteInput) => boolean>> = {
     ),
   'naming-shape-and-comments': (input) =>
     input.slices.functions.some((entry) => entry.isNew && entry.exported) ||
-    input.slices.comments.perThousand > input.slices.comments.target,
+    input.slices.comments.perThousand > input.slices.comments.target ||
+    input.slices.typeClaims.length > 0,
   'cross-repo-and-platform-limits': (input) => input.slices.edges.length > 0,
   'deploy-and-config': (input) => input.slices.config.length > 0,
   intent: (input) => input.linkedIssue !== null,
