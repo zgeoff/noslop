@@ -1012,7 +1012,10 @@ test('it confirms a fix through a merge from the base branch that brings in a lo
     body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":1,"reported":["${findingID}"],"failedCalls":0} -->`,
   });
 
-  const stub = buildStubAdapter({ L: [{ findings: { correctness: [] } }] });
+  const stub = buildStubAdapter({
+    L: [{ findings: { correctness: [] } }],
+    design: [{ findings: { design: [] } }],
+  });
 
   await runCLI(
     ['review', '--pr', '9', '--repo', 'example/app', '--report', 'github'],
@@ -1279,6 +1282,202 @@ test('it runs the design pass on a later review over both rounds of findings, th
   expect(design.prompt).toInclude('### src/parse.ts (modified)');
   expect(design.prompt).not.toInclude('Text that only the issue holds.');
   expect(design.prompt).not.toInclude('## Linked issue');
+});
+
+test('it confirms no fix of a design finding when the design call fails', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
+    {
+      message: 'Add the scanner',
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = ":";\n' },
+    },
+    {
+      message: 'Use the library parser',
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = "=";\n' },
+    },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    title: 'Parse the header line',
+    body: 'Parses the header line.',
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[2] ?? '',
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[1] ?? '',
+    files: ['src/scan.ts'],
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[2] ?? '',
+    files: ['src/scan.ts'],
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/scan.ts',
+    lines: [2],
+  });
+
+  const thread = await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/scan.ts',
+    line: 2,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:finding {"id":"2222222222222222","title":"Split the header line with the library parser","path":"src/scan.ts","lens":"design","severity":"P2","riskClass":null,"writtenByChange":true,"head":"${repo.commits[1] ?? ''}"} -->`,
+  });
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    body: `fixed ${(repo.commits[2] ?? '').slice(0, 7)}`,
+    authorLogin: 'dev',
+    inReplyToID: thread.id,
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":1,"reported":["2222222222222222"],"failedCalls":0} -->`,
+  });
+
+  const stub = buildStubAdapter({
+    L: [{ findings: { correctness: [] } }],
+    design: [{ error: 'the model CLI timed out' }, { error: 'the model CLI timed out' }],
+  });
+
+  await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'github'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  const summary = githubCollections.issueComments
+    .all()
+    .findLast((comment) => comment.body.includes('<!-- noslop:summary'));
+
+  expect(summary?.body).toInclude('"failedCalls":1');
+  expect(summary?.body).toInclude('"confirmed":[]');
+  expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('failure');
+});
+
+test('it confirms the fix of a design finding when the design call passes and reports it no more', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
+    {
+      message: 'Add the scanner',
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = ":";\n' },
+    },
+    {
+      message: 'Use the library parser',
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = "=";\n' },
+    },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    title: 'Parse the header line',
+    body: 'Parses the header line.',
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[2] ?? '',
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[1] ?? '',
+    files: ['src/scan.ts'],
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[2] ?? '',
+    files: ['src/scan.ts'],
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/scan.ts',
+    lines: [2],
+  });
+
+  const thread = await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/scan.ts',
+    line: 2,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:finding {"id":"2222222222222222","title":"Split the header line with the library parser","path":"src/scan.ts","lens":"design","severity":"P2","riskClass":null,"writtenByChange":true,"head":"${repo.commits[1] ?? ''}"} -->`,
+  });
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    body: `fixed ${(repo.commits[2] ?? '').slice(0, 7)}`,
+    authorLogin: 'dev',
+    inReplyToID: thread.id,
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":1,"reported":["2222222222222222"],"failedCalls":0} -->`,
+  });
+
+  const stub = buildStubAdapter({
+    L: [{ findings: { correctness: [] } }],
+    design: [{ findings: { design: [] } }],
+  });
+
+  await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'github'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  const summary = githubCollections.issueComments
+    .all()
+    .findLast((comment) => comment.body.includes('<!-- noslop:summary'));
+
+  expect(summary?.body).toInclude(
+    `"confirmed":["2222222222222222:${(repo.commits[2] ?? '').slice(0, 7)}"]`,
+  );
+
+  expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('success');
 });
 
 test('it keeps a description finding when it reviews the whole pull request', async () => {

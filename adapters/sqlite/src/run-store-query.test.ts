@@ -360,6 +360,148 @@ test('#recall-by-lens counts the escapes whose lens ran on the change and report
   ]);
 });
 
+test('#recall-by-lens counts a lens that ran in a call of the review as well as a lens the review lists', async () => {
+  const ctx = await setupTest();
+
+  await writeReview(
+    ctx.store,
+    buildMockReviewResult({ reviewID: 'review-listed', head: 'b'.repeat(40), calls: [] }),
+  );
+
+  await writeReview(
+    ctx.store,
+    buildMockReviewResult({
+      reviewID: 'review-design',
+      head: 'c'.repeat(40),
+      calls: [
+        {
+          id: 'design',
+          lenses: ['design'],
+          depth: 'light',
+          adapter: 'codex',
+          model: null,
+          effort: 'medium',
+          status: 'ok',
+          attempts: 1,
+          tokens: { input: 100, cachedInput: 400, cacheWrite: 20, output: 10 },
+          durationMs: 1000,
+        },
+      ],
+    }),
+  );
+
+  await ctx.store
+    .insertInto('escapes')
+    .values([
+      {
+        escape_id: 'escape-1',
+        repo: 'example/app',
+        issue: '#12',
+        head: 'b'.repeat(40),
+        lens: 'correctness',
+        defect: 'The total skips the first item',
+        path: null,
+        start_line: null,
+        end_line: null,
+        recorded_at: '2026-10-18T00:00:00.000Z',
+      },
+      {
+        escape_id: 'escape-2',
+        repo: 'example/app',
+        issue: '#13',
+        head: 'c'.repeat(40),
+        lens: 'design',
+        defect: 'The parser rebuilds a library by hand',
+        path: null,
+        start_line: null,
+        end_line: null,
+        recorded_at: '2026-10-18T00:00:00.000Z',
+      },
+    ])
+    .execute();
+
+  const rows = await runStoreQuery(ctx.store, 'recall-by-lens');
+
+  expect(rows).toStrictEqual([
+    { lens: 'correctness', escapes: 1, lensRan: 1, lensReported: 0 },
+    { lens: 'design', escapes: 1, lensRan: 1, lensReported: 0 },
+  ]);
+});
+
+test('#recall-by-depth counts a lens that ran in a call of the review as well as a lens the review lists', async () => {
+  const ctx = await setupTest();
+
+  await writeReview(
+    ctx.store,
+    buildMockReviewResult({
+      reviewID: 'review-listed',
+      head: 'b'.repeat(40),
+      depth: 'light',
+      calls: [],
+    }),
+  );
+
+  await writeReview(
+    ctx.store,
+    buildMockReviewResult({
+      reviewID: 'review-design',
+      head: 'c'.repeat(40),
+      depth: 'standard',
+      calls: [
+        {
+          id: 'design',
+          lenses: ['design'],
+          depth: 'standard',
+          adapter: 'codex',
+          model: null,
+          effort: 'medium',
+          status: 'ok',
+          attempts: 1,
+          tokens: { input: 100, cachedInput: 400, cacheWrite: 20, output: 10 },
+          durationMs: 1000,
+        },
+      ],
+    }),
+  );
+
+  await ctx.store
+    .insertInto('escapes')
+    .values([
+      {
+        escape_id: 'escape-1',
+        repo: 'example/app',
+        issue: '#12',
+        head: 'b'.repeat(40),
+        lens: 'correctness',
+        defect: 'The total skips the first item',
+        path: null,
+        start_line: null,
+        end_line: null,
+        recorded_at: '2026-10-18T00:00:00.000Z',
+      },
+      {
+        escape_id: 'escape-2',
+        repo: 'example/app',
+        issue: '#13',
+        head: 'c'.repeat(40),
+        lens: 'design',
+        defect: 'The parser rebuilds a library by hand',
+        path: null,
+        start_line: null,
+        end_line: null,
+        recorded_at: '2026-10-18T00:00:00.000Z',
+      },
+    ])
+    .execute();
+
+  const rows = await runStoreQuery(ctx.store, 'recall-by-depth');
+
+  expect(rows).toStrictEqual([
+    { depth: 'light', escapes: 1, lensRan: 1, lensReported: 0 },
+    { depth: 'standard', escapes: 1, lensRan: 1, lensReported: 0 },
+  ]);
+});
+
 test('#recall-by-depth counts each escape at the depth of the latest review of its change', async () => {
   const ctx = await setupTest();
 

@@ -1,9 +1,12 @@
 import type { Logger } from '@logtape/logtape';
 import type {
   CallRecord,
+  CallRequest,
+  CallResult,
   ChangedFile,
   Depth,
   EarlierFinding,
+  FailedCall,
   Finding,
   ReviewAdapter,
   ReviewConfig,
@@ -40,16 +43,31 @@ export interface DesignPass {
   findings: Finding[];
   dropped: AssembledFindings['dropped'];
   record: CallRecord;
+  failed: FailedCall | null;
 }
 
 // the most findings the design pass reports, since it judges one approach: the pull request's
 const MAX_DESIGN_FINDINGS = 1;
 
+// a failed attempt is retried once, as a lens call is
+const ATTEMPTS = 2;
+
 // one call after the merge pass that asks whether a better approach meets the task the pull request
-// states; Assemble checks its finding against the whole pull request, and a failed pass adds no
-// finding and fails no review, since the other lenses still covered the head
+// states; Assemble checks its finding against the whole pull request; a pass that fails twice is a
+// failed call of the review, as a lens call is, so the review confirms no fix, a design fix included
 export async function runDesignPass(input: DesignPassInput): Promise<DesignPass> {
   const started = performance.now();
+
+  const request: CallRequest = {
+    callID: input.callID,
+    lenses: ['design'],
+    prompt: buildDesignPrompt({ ...input, ...planDesignFiles(input) }),
+    outputSchema: buildCallOutputSchema(['design']),
+    effort: input.config.designPass.effort,
+    model: null,
+    cwd: input.worktree,
+    timeoutMs: null,
+  };
 
   const record: CallRecord = {
     id: input.callID,
@@ -64,20 +82,21 @@ export async function runDesignPass(input: DesignPassInput): Promise<DesignPass>
     durationMs: 0,
   };
 
-  try {
-    const result = await input.adapter.runCall(
-      {
-        callID: input.callID,
-        lenses: ['design'],
-        prompt: buildDesignPrompt({ ...input, ...planDesignFiles(input) }),
-        outputSchema: buildCallOutputSchema(['design']),
-        effort: input.config.designPass.effort,
-        model: null,
-        cwd: input.worktree,
-        timeoutMs: null,
-      },
-      { tempDir: input.tempDir, logger: input.logger },
-    );
+  let reason = '';
+
+  for (let attempt = 1; attempt <= ATTEMPTS; attempt += 1) {
+    const result = await tryRunCall(input, request);
+
+    if (result instanceof Error) {
+      reason = result.message;
+
+      input.logger.warn('the design pass failed on attempt {attempt}: {reason}', {
+        attempt,
+        reason,
+      });
+
+      continue;
+    }
 
     const assembled = buildFindings({
       raw: (result.output.findings.design ?? []).map((finding) => ({
@@ -97,20 +116,35 @@ export async function runDesignPass(input: DesignPassInput): Promise<DesignPass>
       record: {
         ...record,
         model: result.model,
+        attempts: attempt,
         tokens: result.tokens,
         durationMs: Math.round(performance.now() - started),
       },
+      failed: null,
     };
-  } catch (error) {
-    input.logger.warn('the design pass failed, so the review reports no design finding: {reason}', {
-      reason: error instanceof Error ? error.message : String(error),
-    });
+  }
 
-    return {
-      findings: [],
-      dropped: [],
-      record: { ...record, status: 'failed', durationMs: Math.round(performance.now() - started) },
-    };
+  return {
+    findings: [],
+    dropped: [],
+    record: {
+      ...record,
+      status: 'failed',
+      attempts: ATTEMPTS,
+      durationMs: Math.round(performance.now() - started),
+    },
+    failed: { id: input.callID, lenses: ['design'], reason },
+  };
+}
+
+async function tryRunCall(
+  input: DesignPassInput,
+  request: CallRequest,
+): Promise<CallResult | Error> {
+  try {
+    return await input.adapter.runCall(request, { tempDir: input.tempDir, logger: input.logger });
+  } catch (error) {
+    return error instanceof Error ? error : new Error(String(error));
   }
 }
 

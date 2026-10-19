@@ -46,9 +46,9 @@ flowchart LR
    [the design lens](./lenses.md#the-design-lens), which asks whether a better approach meets the
    task the pull request states. A first review runs no design pass, because a single round of
    findings shows no repeated patching. Assemble checks the pass's finding against the whole pull
-   request, and the review keeps at most one. The pass runs when the config turns it on. When the
-   call fails, the review keeps the other findings and is not counted as failed, as with the merge
-   pass, because the lens calls still covered the head.
+   request, and the review keeps at most one. The pass runs when the config turns it on. A design
+   call that fails is retried once, and a design call that fails again is a failed call of the
+   review, as a lens call is, because the review then read no design fix.
 8. **Report.** The CLI prints the result, as JSON or as a summary, and runs each reporter the config
    lists, or the ones its flag names.
 

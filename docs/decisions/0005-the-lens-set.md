@@ -40,7 +40,8 @@ linked issue.
   is wrong. The findings of 2 or more reviews show that pattern, so the design lens starts at the
   second review.
 - A pull request body that promises more than its task needs is its own defect, so the design lens
-  judges the approach against the body and noslop stays unaware of any issue tracker.
+  judges the approach against the body, and its call holds no linked issue. The other lenses still
+  read the issue that the body closes.
 
 ## Alternatives
 
@@ -54,6 +55,8 @@ linked issue.
   under [0008](0008-stacking-lenses-into-calls.md).
 - The design lens costs one more call on each review after the first, and a review of a local
   change, which has no earlier review, never runs it.
+- A design call that fails is a failed call of the review, as a lens call is, so that review
+  confirms no fix.
 
 ## Changes
 

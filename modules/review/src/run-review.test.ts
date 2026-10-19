@@ -1453,7 +1453,7 @@ test('it reports the finding of the design pass on a file that only an earlier r
   ]);
 });
 
-test('it keeps the lens findings and fails no review when the design pass fails', async () => {
+test('it keeps the lens findings and lists the design call as failed when it fails twice', async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.dir, 'repo'), [
@@ -1484,7 +1484,7 @@ test('it keeps the lens findings and fails no review when the design pass fails'
         },
       },
     ],
-    design: [{ error: 'the model CLI timed out' }],
+    design: [{ error: 'the model CLI timed out' }, { error: 'the model CLI timed out' }],
   });
 
   await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
@@ -1516,12 +1516,14 @@ test('it keeps the lens findings and fails no review when the design pass fails'
     'Start the parse at 0',
   ]);
 
-  expect(run.result.calls.map((call) => [call.id, call.status])).toStrictEqual([
-    ['L', 'ok'],
-    ['design', 'failed'],
+  expect(run.result.calls.map((call) => [call.id, call.status, call.attempts])).toStrictEqual([
+    ['L', 'ok', 1],
+    ['design', 'failed', 2],
   ]);
 
-  expect(run.result.failedCalls).toStrictEqual([]);
+  expect(run.result.failedCalls).toStrictEqual([
+    { id: 'design', lenses: ['design'], reason: 'the model CLI timed out' },
+  ]);
 });
 
 test('it runs no design pass on a later review when the config turns it off', async () => {

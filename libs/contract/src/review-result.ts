@@ -28,7 +28,7 @@ export type CallRecord = z.infer<typeof callRecordSchema>;
 
 export const failedCallSchema = z.strictObject({
   id: z.string().min(1),
-  lenses: z.array(lensIDSchema).min(1),
+  lenses: z.array(callLensSchema).min(1),
   reason: z.string().min(1),
 });
 

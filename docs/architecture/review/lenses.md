@@ -58,10 +58,10 @@ every review of a pull request after its first, under [the pipeline](./pipeline.
 The task is what the pull request's title and body state. The design call holds those, the findings
 of this review, the findings that the earlier reviews posted with the first line of the latest
 answer to each, and the hunks of the whole pull request since its merge base. It holds no linked
-issue, so the lens judges the approach against what the pull request promises and never against a
-tracker that noslop does not read. A re-review's own diff holds only its new commits, while an
-approach spans every round, so the call reads the whole pull request. When those hunks pass the call
-limit, the call leaves out the files that do not fit and lists them.
+issue, so the lens judges the approach against what the pull request promises and never against an
+issue. A re-review's own diff holds only its new commits, while an approach spans every round, so
+the call reads the whole pull request. When those hunks pass the call limit, the call leaves out the
+files that do not fit and lists them.
 
 The lens reports at most one finding. It names the simpler approach and the findings that approach
 would remove, and it reports nothing when the findings show no repeated patching and the change is
