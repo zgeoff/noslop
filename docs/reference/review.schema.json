@@ -938,6 +938,19 @@
                 }
               ]
             },
+            "dismissedMaxLines": {
+              "description": "A new finding this many lines or fewer from a finding answered not-a-defect, in the same file under the same rule, is dropped",
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
             "parallelCalls": {
               "description": "How many calls of one review run at once",
               "anyOf": [

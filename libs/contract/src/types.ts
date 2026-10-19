@@ -1,6 +1,7 @@
 import type { Logger } from '@logtape/logtape';
 import type { z } from 'zod';
 import type { CallOutput } from './build-call-output-schema';
+import type { Criterion } from './criterion';
 import type { Disposition } from './disposition';
 import type { Effort } from './effort';
 import type { Finding, FindingLens } from './finding';
@@ -77,6 +78,20 @@ export interface EarlierFinding {
   title: string;
   path: string;
   answer: string | null;
+}
+
+// a posted finding whose latest answer is `not-a-defect`, so a later review drops a new finding that
+// matches it; a field is null when the marker predates it, and the lines are null outside the diff
+export interface DismissedFinding {
+  id: string;
+  path: string;
+  criterion: Criterion | null;
+  rule: string | null;
+
+  // the head of the review that posted it, where its lines sit
+  head: string | null;
+  startLine: number | null;
+  endLine: number | null;
 }
 
 export interface DispositionSource {

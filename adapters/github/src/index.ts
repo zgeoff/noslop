@@ -1,3 +1,4 @@
+export * from './collect-dismissed-findings';
 export * from './create-github-connection';
 export * from './create-github-disposition-source';
 export * from './create-github-file-reader';

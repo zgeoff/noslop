@@ -82,6 +82,11 @@ export const githubCollections = {
       path: z.string().default('src/index.ts'),
       line: z.int().default(1),
       startLine: z.int().nullable().default(null),
+
+      // the lines at the commit the comment was posted on, which GitHub keeps when a later push moves
+      // the comment; null when the comment has not moved since
+      originalLine: z.int().nullable().default(null),
+      originalStartLine: z.int().nullable().default(null),
       body: z.string().default(() => faker.lorem.sentence()),
       authorLogin: z.string().default(() => faker.internet.username()),
       authorType: z.enum(['User', 'Bot']).default('User'),

@@ -25,8 +25,10 @@ export interface FindingThread {
   body: string;
   marker: FindingMarker;
 
-  // the line the comment anchors to at the head that posted it, or null for a finding outside the diff
+  // the last line and the first line the comment anchors to at the head that posted it, or null for a
+  // finding outside the diff; a comment on one line starts on its last line
   line: number | null;
+  startLine: number | null;
   replies: Reply[];
 
   // the replies noslop already answered with the accepted forms
@@ -115,6 +117,7 @@ export async function readPullRequestState(
 
     if (marker !== null && comment.in_reply_to_id === undefined) {
       const line = comment.original_line ?? comment.line ?? null;
+      const startLine = comment.original_start_line ?? comment.start_line ?? line;
 
       const thread = buildThread({
         source: 'review',
@@ -122,6 +125,7 @@ export async function readPullRequestState(
         body: comment.body,
         marker,
         line,
+        startLine,
       });
 
       threads.set(Number(comment.id), thread);
@@ -173,6 +177,7 @@ export async function readPullRequestState(
           body,
           marker,
           line: null,
+          startLine: null,
         });
 
         byFindingID.set(marker.id, thread);
@@ -231,7 +236,10 @@ interface GitHubComment {
   created_at?: string;
 }
 
-type PostedFinding = Pick<FindingThread, 'source' | 'commentID' | 'body' | 'marker' | 'line'>;
+type PostedFinding = Pick<
+  FindingThread,
+  'source' | 'commentID' | 'body' | 'marker' | 'line' | 'startLine'
+>;
 
 function buildThread(posted: PostedFinding): FindingThread {
   return { ...posted, replies: [], answered: new Set() };

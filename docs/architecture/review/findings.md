@@ -85,6 +85,21 @@ disposition from the reply in a finding's thread and keys it by the ID, and
 [the findings store](../measurement/store.md) reopens a `fixed` finding when a later review reports
 the same ID.
 
+## Findings answered not-a-defect
+
+A review of a pull request drops each new finding that matches a posted finding whose latest typed
+answer is `not-a-defect`, so an answered finding never comes back under a new title. A new finding
+matches when it has the answered finding's ID. It also matches when it sits in the same file under
+the same criterion and rule, and either its anchor lies within the config's line distance of the
+answered anchor, or the two anchors hold the same code. The review reads the code of each anchor at
+the head where it was posted, with indentation, runs of spaces and blank lines left out, so the code
+still matches after earlier lines move it. A posted finding whose comment holds no criterion matches
+by its ID alone. The review result keeps each such finding among the dropped ones, with its own
+reason, so the store counts it. The review still reports the ID of the answered finding that each
+such finding matches, so a later `fixed` answer to that finding gets no confirmation from a review
+that found it again. Whether the `not-a-defect` answer is valid stays the check's question, under
+[the GitHub App](../output/github-app.md#dispositions).
+
 ## The risk class on a finding
 
 A finding whose anchor sits in the paths of a marked risk class carries that class's name. The

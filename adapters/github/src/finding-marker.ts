@@ -1,4 +1,4 @@
-import { findingLensSchema, severitySchema } from '@noslop/contract';
+import { criterionSchema, findingLensSchema, severitySchema } from '@noslop/contract';
 import { z } from 'zod';
 
 // what the finding comment's marker keeps of the finding: enough to judge a disposition and to list an
@@ -11,6 +11,11 @@ export const findingMarkerSchema = z.strictObject({
   severity: severitySchema,
   riskClass: z.string().min(1).nullable(),
   writtenByChange: z.boolean(),
+
+  // the criterion and the rule the finding cites, so a later review matches a new finding to it; a
+  // marker posted before the fields holds neither
+  criterion: criterionSchema.optional(),
+  rule: z.string().min(1).nullable().optional(),
 
   // the head of the review that posted the finding, so only a commit after it confirms a fix; a
   // marker posted before the field holds none

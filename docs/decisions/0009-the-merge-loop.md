@@ -2,6 +2,7 @@
 
 - Date: 2026-10-17
 - Status: decided
+- Updated: 2026-10-20
 
 noslop posts as its own GitHub App. It posts each finding as an inline review comment and posts a
 required check run. The check passes only when every finding, P3 included, has a disposition, on the
@@ -27,6 +28,11 @@ not fixed. There is one re-check. A new finding after it becomes a follow-up iss
 security finding or sits in code the pull request wrote. When the head moves, the App reviews the
 new commits.
 
+A later review drops a new finding that matches one the author answered `not-a-defect` on the same
+pull request, so the author answers each finding once. A head that a review with no failed call
+covered gets no second review unless one is asked for in full, because that review would raise the
+whole pull request's findings again.
+
 ## Why
 
 - A record from the reviewer's own identity cannot be replaced by an author's summary.
@@ -45,3 +51,8 @@ new commits.
 
 - Only the owner gives `accepted-risk`.
 - Findings and dispositions go to the findings store, under [0012](0012-the-findings-store.md).
+
+## Changes
+
+- 2026-10-20: a later review drops a finding that matches one answered `not-a-defect`, and a head
+  that a complete review covered gets a second review only in full.

@@ -8,6 +8,7 @@ export const dropReasonSchema = z.enum([
   'unknown-rule',
   'plausible-without-fact',
   'invalid',
+  'answered-not-a-defect',
 ]);
 
 export type DropReason = z.infer<typeof dropReasonSchema>;
@@ -23,6 +24,13 @@ export const droppedFindingSchema = z.strictObject({
   reason: dropReasonSchema,
   rule: z.string().nullable(),
   ruleQuote: z.string().nullable(),
+
+  // the posted finding answered `not-a-defect` that a dropped finding matches, which the review still
+  // reports, so its silence never confirms a fix of that finding
+  answeredID: z
+    .string()
+    .regex(/^[0-9a-f]{16}$/u)
+    .optional(),
 });
 
 export type DroppedFinding = z.infer<typeof droppedFindingSchema>;

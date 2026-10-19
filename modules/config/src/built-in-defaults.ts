@@ -95,6 +95,7 @@ export const BUILT_IN_DEFAULTS: ReviewConfig = {
     reuseShortlistSize: 5,
     reuseMinScore: 0.5,
     mergeMinSharedWords: 3,
+    dismissedMaxLines: 5,
     parallelCalls: 4,
 
     // Codex refuses an input over 1,048,576 characters, so a prompt stays under it with room to spare
