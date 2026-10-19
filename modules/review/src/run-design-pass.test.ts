@@ -178,10 +178,10 @@ test('it gives the hunks of every file but a data file when they fit the call li
   expect(prompt).toInclude('### src/a.ts (modified)');
   expect(prompt).toInclude('- `samples/headers.jsonl`: a data file the config names');
   expect(prompt).not.toInclude('{"header":"one"}');
-  expect(prompt).not.toInclude('## Changed files');
+  expect(prompt).not.toInclude('.noslop-design-hunks.md');
 });
 
-test('it lists every file but a data file for the model to read when the hunks pass the call limit', async () => {
+test('it writes the hunks of every file but a data file to a file in the worktree when they pass the call limit', async () => {
   const ctx = await setupTest();
 
   const stub = buildStubAdapter({ design: [{ findings: { design: [] } }] });
@@ -278,7 +278,10 @@ test('it lists every file but a data file for the model to read when the hunks p
 
   const prompt = stub.requests[0]?.prompt ?? '';
 
-  expect(prompt).toInclude(`\`git diff ${'a'.repeat(40)} ${'b'.repeat(40)} -- <path>\``);
+  const hunks = await Bun.file(join(ctx.dir, '.noslop-design-hunks.md')).text();
+
+  expect(stub.seenFiles).toStrictEqual([['.noslop-design-hunks.md']]);
+  expect(prompt).toInclude('the file `.noslop-design-hunks.md` in your working directory');
 
   expect(prompt).toInclude(
     ['- `src/a.ts`', '- `src/big.ts`', '- `src/c.ts`', '- `src/d.ts`'].join('\n'),
@@ -286,7 +289,10 @@ test('it lists every file but a data file for the model to read when the hunks p
 
   expect(prompt).toInclude('- `samples/headers.jsonl`: a data file the config names');
   expect(prompt).not.toInclude('### src/');
-  expect(prompt).not.toInclude(`'${'b'.repeat(1000)}`);
   expect(prompt).not.toInclude(`'${'c'.repeat(1000)}`);
   expect(prompt.length).toBeLessThanOrEqual(40_000);
+  expect(hunks).toInclude('### src/a.ts (modified)');
+  expect(hunks).toInclude('### src/d.ts (modified)');
+  expect(hunks).toInclude(`export const c = '${'c'.repeat(34_000)}';`);
+  expect(hunks).not.toInclude('{"header":"one"}');
 });

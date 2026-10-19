@@ -1,3 +1,4 @@
+import { join } from 'node:path';
 import type { Logger } from '@logtape/logtape';
 import type {
   CallRecord,
@@ -14,7 +15,7 @@ import type {
 import { buildCallOutputSchema } from '@noslop/contract';
 import type { AssembledFindings } from '@noslop/findings';
 import { buildFindings } from '@noslop/findings';
-import { buildDesignPrompt } from '@noslop/lenses';
+import { buildDesignPrompt, renderHunks } from '@noslop/lenses';
 
 export interface DesignPassInput {
   title: string;
@@ -32,8 +33,8 @@ export interface DesignPassInput {
   callID: string;
   depth: Depth;
 
-  // the worktree of the head, which the model reads to check the approach it proposes, and to read
-  // the diff itself when the hunks pass the call limit
+  // the worktree of the head, which the model reads to check the approach it proposes, and which
+  // holds the hunks file when the hunks pass the call limit
   worktree: string;
   tempDir: string;
   logger: Logger;
@@ -61,7 +62,7 @@ export async function runDesignPass(input: DesignPassInput): Promise<DesignPass>
   const request: CallRequest = {
     callID: input.callID,
     lenses: ['design'],
-    prompt: planDesignPrompt(input),
+    prompt: await writeDesignPrompt(input),
     outputSchema: buildCallOutputSchema(['design']),
     effort: input.config.designPass.effort,
     model: null,
@@ -137,26 +138,35 @@ export async function runDesignPass(input: DesignPassInput): Promise<DesignPass>
   };
 }
 
+// the file in the head worktree that holds the hunks when they pass the call limit; the worktree is
+// the review's own, and the review removes it after the design pass
+const HUNKS_FILE = '.noslop-design-hunks.md';
+
 // the prompt with the hunks of every file but the data files, which no call reads; when that whole
-// prompt passes the call limit, the prompt lists the files instead and the model reads their diff in
-// the worktree, so the design call leaves out no part of the pull request it judges
-function planDesignPrompt(input: DesignPassInput): string {
+// prompt passes the call limit, the hunks go to a file in the worktree that the prompt names, which
+// every adapter's read tools open, so the design call leaves out no part of the pull request
+async function writeDesignPrompt(input: DesignPassInput): Promise<string> {
   const globs = input.config.data.map((glob) => new Bun.Glob(glob));
   const isData = (file: ChangedFile) => globs.some((glob) => glob.match(file.path));
+  const files = input.files.filter((file) => !isData(file));
 
   const shared = {
     ...input,
-    files: input.files.filter((file) => !isData(file)),
+    files,
     leftOut: input.files
       .filter((file) => isData(file))
       .map((file) => ({ path: file.path, reason: 'data' as const })),
   };
 
-  const inline = buildDesignPrompt({ ...shared, isDiffListed: false });
+  const inline = buildDesignPrompt({ ...shared, hunksFile: null });
 
-  return inline.length <= input.config.thresholds.maxCallChars
-    ? inline
-    : buildDesignPrompt({ ...shared, isDiffListed: true });
+  if (inline.length <= input.config.thresholds.maxCallChars) {
+    return inline;
+  }
+
+  await Bun.write(join(input.worktree, HUNKS_FILE), `${renderHunks(files)}\n`);
+
+  return buildDesignPrompt({ ...shared, hunksFile: HUNKS_FILE });
 }
 
 async function tryRunCall(

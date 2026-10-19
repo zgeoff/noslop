@@ -26,9 +26,10 @@ export interface DesignPromptInput {
   base: string;
   head: string;
 
-  // the hunks pass the call limit, so the prompt lists the files and the model reads their diff in
-  // its working directory, which leaves no part of the pull request out
-  isDiffListed: boolean;
+  // the path, in the model's working directory, of a file that holds the rendered hunks when they pass
+  // the call limit; the prompt then names that file in their place, so a model whose only tools read
+  // files still reads every hunk, and the call leaves no part of the pull request out
+  hunksFile: string | null;
 }
 
 // the prompt of the design pass: the shared header, the design lens, and its input, with the
@@ -60,9 +61,10 @@ export function buildDesignPrompt(input: DesignPromptInput): string {
   ];
 
   if (input.files.length > 0) {
-    const diff = input.isDiffListed
-      ? renderListedDiff(input)
-      : `## Hunks\n\n${renderHunks(input.files)}`;
+    const diff =
+      input.hunksFile === null
+        ? `## Hunks\n\n${renderHunks(input.files)}`
+        : renderHunksFile(input.files, input.hunksFile);
 
     sections.push(diff);
   }
@@ -74,11 +76,11 @@ export function buildDesignPrompt(input: DesignPromptInput): string {
   return `${sections.join('\n\n')}\n`;
 }
 
-function renderListedDiff(input: DesignPromptInput): string {
+function renderHunksFile(files: readonly ChangedFile[], hunksFile: string): string {
   return [
-    '## Changed files',
-    `The hunks of this pull request are too large for this input. Read the diff of each file below in your working directory with \`git diff ${input.base} ${input.head} -- <path>\`, and read every file before you judge the approach.`,
-    input.files.map((file) => `- ${formatPathCode(file.path)}`).join('\n'),
+    '## Hunks',
+    `The hunks of this pull request are too large for this input, so the file ${formatPathCode(hunksFile)} in your working directory holds them, in the form this section would, with the head line number beside each line. Read that file whole before you judge the approach. It holds the hunks of these files:`,
+    files.map((file) => `- ${formatPathCode(file.path)}`).join('\n'),
   ].join('\n\n');
 }
 

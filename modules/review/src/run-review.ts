@@ -9,6 +9,7 @@ import type {
   Depth,
   EarlierFinding,
   LensID,
+  LensNotReviewedFile,
   NotReviewedFile,
   PullRequestRef,
   ReviewAdapter,
@@ -147,7 +148,10 @@ export async function runReview(options: RunReviewOptions): Promise<ReviewRun> {
       notReviewed: collectNotReviewed(ctx, batches),
 
       // a reporter reads no silence of a lens as a fix on a file that the lens's call left out
-      notReviewedByLens: batches.flatMap((batch) => batch.notReviewedByLens),
+      notReviewedByLens: [
+        ...batches.flatMap((batch) => batch.notReviewedByLens),
+        ...collectDesignNotReviewed(ctx, design),
+      ],
       configHash: options.configHash,
       startedAt,
       endedAt: now().toISOString(),
@@ -405,6 +409,26 @@ function collectNotReviewed(ctx: PassContext, batches: readonly CallBatch[]): No
   });
 
   return [...listed, ...data, ...baseOnly];
+}
+
+// a later review that runs no design call, such as one whose config turns the pass off, read no design
+// fix, so it lists the file of each earlier design finding as not reviewed by the design lens, and a
+// reporter reads no silence there as a fix; a review that runs the call leaves no file out of it
+function collectDesignNotReviewed(
+  ctx: PassContext,
+  design: DesignPass | null,
+): LensNotReviewedFile[] {
+  if (design !== null) {
+    return [];
+  }
+
+  const paths = new Set(
+    (ctx.options.earlierFindings ?? [])
+      .filter((finding) => finding.lens === 'design')
+      .map((finding) => finding.path),
+  );
+
+  return [...paths].map((path) => ({ path, lenses: ['design'] }));
 }
 
 // the fired lenses that a call ran, in the route's order; a call whose files each overflow a call

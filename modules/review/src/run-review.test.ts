@@ -1725,7 +1725,114 @@ test('it gives the design pass the findings the merge pass keeps', async () => {
   expect(design.prompt).not.toInclude('Keep the items flush is meant to write');
 });
 
-test('it gives the design call every file of a pull request whose hunks pass the call limit, as a diff to read', async () => {
+test('it lists the file of an earlier design finding as not reviewed by the design lens when the pass is off', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'src/parse.ts': 'export const parse = 0;\n' } },
+    { message: 'Fix the parser', files: { 'src/parse.ts': 'export const parse = 1;\n' } },
+  ]);
+
+  const stub = buildStubAdapter({ L: [{ findings: { correctness: [] } }] });
+
+  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+
+  const run = await runReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/parse',
+    base: repo.commits[0] ?? '',
+    head: repo.commits[1] ?? '',
+    round: 2,
+    earlierFindings: [
+      {
+        id: '3333333333333333',
+        lens: 'design',
+        severity: 'P2',
+        title: 'Split the header line with the library parser',
+        path: 'src/parse.ts',
+        answer: 'fixed 1a2b3c4',
+      },
+      {
+        id: '4444444444444444',
+        lens: 'correctness',
+        severity: 'P2',
+        title: 'Start the parse at 0',
+        path: 'src/scan.ts',
+        answer: null,
+      },
+    ],
+    config: { ...BUILT_IN_DEFAULTS, designPass: { enabled: false, effort: 'medium' } },
+    configHash: 'hash',
+    rules: null,
+    adapter: stub.adapter,
+    logger: ctx.logger,
+    tempDir: join(ctx.dir, 'temp'),
+    cacheDir: null,
+    title: 'Fix the parser',
+    body: '',
+    linkedIssue: null,
+    pullRequest: null,
+    isPush: false,
+    pastEscapes: [],
+  });
+
+  expect(run.result.notReviewedByLens).toStrictEqual([
+    { path: 'src/parse.ts', lenses: ['design'] },
+  ]);
+});
+
+test('it lists no file as not reviewed by the design lens when the design call runs', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'src/parse.ts': 'export const parse = 0;\n' } },
+    { message: 'Fix the parser', files: { 'src/parse.ts': 'export const parse = 1;\n' } },
+  ]);
+
+  const stub = buildStubAdapter({
+    L: [{ findings: { correctness: [] } }],
+    design: [{ findings: { design: [] } }],
+  });
+
+  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+
+  const run = await runReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/parse',
+    base: repo.commits[0] ?? '',
+    head: repo.commits[1] ?? '',
+    round: 2,
+    earlierFindings: [
+      {
+        id: '3333333333333333',
+        lens: 'design',
+        severity: 'P2',
+        title: 'Split the header line with the library parser',
+        path: 'src/parse.ts',
+        answer: 'fixed 1a2b3c4',
+      },
+    ],
+    config: BUILT_IN_DEFAULTS,
+    configHash: 'hash',
+    rules: null,
+    adapter: stub.adapter,
+    logger: ctx.logger,
+    tempDir: join(ctx.dir, 'temp'),
+    cacheDir: null,
+    title: 'Fix the parser',
+    body: '',
+    linkedIssue: null,
+    pullRequest: null,
+    isPush: false,
+    pastEscapes: [],
+  });
+
+  expect(run.result.notReviewedByLens).toStrictEqual([]);
+});
+
+test('it gives the design call every file of a pull request whose hunks pass the call limit, in a file it reads', async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.dir, 'repo'), [
@@ -1799,11 +1906,9 @@ test('it gives the design call every file of a pull request whose hunks pass the
   }
 
   expect(stub.requests.map((request) => request.callID)).toStrictEqual(['L', 'design']);
-
-  expect(design.prompt).toInclude(
-    `\`git diff ${repo.commits[0] ?? ''} ${repo.commits[2] ?? ''} -- <path>\``,
-  );
-
+  expect(stub.seenFiles[0]).not.toContain('.noslop-design-hunks.md');
+  expect(stub.seenFiles[1]).toContain('.noslop-design-hunks.md');
+  expect(design.prompt).toInclude('the file `.noslop-design-hunks.md` in your working directory');
   expect(design.prompt).toInclude(['- `src/c.ts`', '- `src/e.ts`', '- `src/parse.ts`'].join('\n'));
   expect(design.prompt).not.toInclude(`'${'c'.repeat(1000)}`);
   expect(design.prompt.length).toBeLessThanOrEqual(40_000);
