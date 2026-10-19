@@ -413,6 +413,8 @@ function buildRangeFields(own: KeptRange, previous: SummaryMarker | null): Range
         kept.partial = true;
       }
 
+      // an earlier fixes-only range keeps its list, so a reply posted after it never confirms through
+      // its silence
       if (range.checked !== undefined) {
         kept.checked = [...range.checked];
       }

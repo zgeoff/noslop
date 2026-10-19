@@ -37,6 +37,7 @@ test('it lists the verdict of each fix check and raises no finding', async () =>
     pullRequest: { owner: 'example', repo: 'app', number: 9 },
     base: repo.commits[0] ?? '',
     head: repo.commits[1] ?? '',
+    lensHead: null,
     title: 'Scan the header line',
     configHash: 'hash',
     fixes: [
@@ -48,6 +49,7 @@ test('it lists the verdict of each fix check and raises no finding', async () =>
         line: 1,
         comment: 'An empty separator splits the line into single characters.',
         commit: (repo.commits[1] ?? '').slice(0, 7),
+        postedHead: null,
       },
     ],
     maxFileChars: 10_000,
@@ -96,6 +98,7 @@ test('it gives the call the numbered code around the anchored line at the review
     pullRequest: { owner: 'example', repo: 'app', number: 9 },
     base: repo.commits[0] ?? '',
     head: repo.commits[1] ?? '',
+    lensHead: null,
     title: 'Scan the header line',
     configHash: 'hash',
     fixes: [
@@ -107,6 +110,7 @@ test('it gives the call the numbered code around the anchored line at the review
         line: 2,
         comment: 'An empty separator splits the line into single characters.',
         commit: (repo.commits[1] ?? '').slice(0, 7),
+        postedHead: null,
       },
     ],
     maxFileChars: 10_000,
@@ -146,6 +150,7 @@ test('it lists no verdict and records the failed call when the call fails', asyn
     pullRequest: { owner: 'example', repo: 'app', number: 9 },
     base: repo.commits[0] ?? '',
     head: repo.commits[1] ?? '',
+    lensHead: null,
     title: 'Scan the header line',
     configHash: 'hash',
     fixes: [
@@ -157,6 +162,7 @@ test('it lists no verdict and records the failed call when the call fails', asyn
         line: 1,
         comment: 'An empty separator splits the line into single characters.',
         commit: (repo.commits[1] ?? '').slice(0, 7),
+        postedHead: null,
       },
     ],
     maxFileChars: 10_000,
@@ -172,7 +178,7 @@ test('it lists no verdict and records the failed call when the call fails', asyn
   ]);
 });
 
-test('it asks nothing about a fix whose commit came before the reviewed head', async () => {
+test('it asks nothing about a fix before the reviewed head when no posting or lens head bounds it', async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
@@ -193,6 +199,7 @@ test('it asks nothing about a fix whose commit came before the reviewed head', a
     pullRequest: { owner: 'example', repo: 'app', number: 9 },
     base: repo.commits[1] ?? '',
     head: repo.commits[2] ?? '',
+    lensHead: null,
     title: 'Scan the header line',
     configHash: 'hash',
     fixes: [
@@ -204,6 +211,7 @@ test('it asks nothing about a fix whose commit came before the reviewed head', a
         line: 1,
         comment: 'An empty separator splits the line into single characters.',
         commit: (repo.commits[1] ?? '').slice(0, 7),
+        postedHead: null,
       },
     ],
     maxFileChars: 10_000,
@@ -214,6 +222,61 @@ test('it asks nothing about a fix whose commit came before the reviewed head', a
 
   expect(stub.requests).toStrictEqual([]);
   expect(result.fixChecks).toStrictEqual([]);
+});
+
+test('it asks about a fixed reply whose commit came before the run, from the head that posted the finding', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const separator = "";\n' } },
+    {
+      message: 'Reject an empty separator',
+      files: { 'src/scan.ts': 'export const separator = ":";\n' },
+    },
+    { message: 'Add a tab', files: { 'src/tab.ts': 'export const tab = "\\t";\n' } },
+  ]);
+
+  const stub = buildStubAdapter({
+    'fix-1111111111111111': [{ fixed: true, reason: 'The separator is a colon now.' }],
+  });
+
+  const result = await runFixesOnlyReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/app',
+    pullRequest: { owner: 'example', repo: 'app', number: 9 },
+    base: repo.commits[1] ?? '',
+    head: repo.commits[2] ?? '',
+    lensHead: repo.commits[0] ?? '',
+    title: 'Scan the header line',
+    configHash: 'hash',
+    fixes: [
+      {
+        id: '1111111111111111',
+        title: 'Reject an empty separator',
+        lens: 'correctness',
+        path: 'src/scan.ts',
+        line: 1,
+        comment: 'An empty separator splits the line into single characters.',
+        commit: (repo.commits[1] ?? '').slice(0, 7),
+        postedHead: repo.commits[0] ?? '',
+      },
+    ],
+    maxFileChars: 10_000,
+    adapter: stub.adapter,
+    tempDir: ctx.directory,
+    logger: ctx.logger,
+  });
+
+  expect(stub.requests[0]?.prompt).toInclude(
+    '-export const separator = "";\n+export const separator = ":";',
+  );
+
+  expect(result.base).toBe(repo.commits[0] ?? '');
+
+  expect(result.fixChecks).toStrictEqual([
+    { findingID: '1111111111111111', fixed: true, reason: 'The separator is a colon now.' },
+  ]);
 });
 
 test('it asks nothing about a fix whose diff passes the file limit and names the file as too large', async () => {
@@ -236,6 +299,7 @@ test('it asks nothing about a fix whose diff passes the file limit and names the
     pullRequest: { owner: 'example', repo: 'app', number: 9 },
     base: repo.commits[0] ?? '',
     head: repo.commits[1] ?? '',
+    lensHead: null,
     title: 'Scan the header line',
     configHash: 'hash',
     fixes: [
@@ -247,6 +311,7 @@ test('it asks nothing about a fix whose diff passes the file limit and names the
         line: 1,
         comment: 'An empty separator splits the line into single characters.',
         commit: (repo.commits[1] ?? '').slice(0, 7),
+        postedHead: null,
       },
     ],
     maxFileChars: 40,
@@ -280,6 +345,7 @@ test('it judges the fix of a static finding not fixed with no call', async () =>
     pullRequest: { owner: 'example', repo: 'app', number: 9 },
     base: repo.commits[0] ?? '',
     head: repo.commits[1] ?? '',
+    lensHead: null,
     title: 'Scan the header line',
     configHash: 'hash',
     fixes: [
@@ -291,6 +357,7 @@ test('it judges the fix of a static finding not fixed with no call', async () =>
         line: 1,
         comment: 'A debugger statement stops the program in a browser.',
         commit: (repo.commits[1] ?? '').slice(0, 7),
+        postedHead: null,
       },
     ],
     maxFileChars: 10_000,

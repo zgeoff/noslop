@@ -1734,7 +1734,7 @@ test('it refuses --fixes-only on a pull request that no review covered yet', asy
   expect(code).toBe(1);
 
   expect(ctx.stderr.join('')).toStartWith(
-    'noslop: --fixes-only needs new commits after the head of an earlier review with no failed call',
+    'noslop: --fixes-only needs an earlier review with no failed call whose head the branch still holds',
   );
 
   expect(githubCollections.checkRuns.all()).toStrictEqual([]);
@@ -2207,6 +2207,139 @@ test('it confirms no fixed reply posted after a --fixes-only review that never c
     summary: expect.toInclude(
       `\`1111111111111111\` Reject an empty separator: no re-review has read the commit ${(repo.commits[2] ?? '').slice(0, 7)} yet`,
     ),
+  });
+});
+
+test('it keeps a fixed reply posted after 2 --fixes-only reviews open until a --fixes-only review checks it', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
+    {
+      message: 'Add the scanner',
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = "";\n' },
+    },
+    {
+      message: 'Reject an empty separator',
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = ":";\n' },
+    },
+    { message: 'Add a tab', files: { 'src/tab.ts': 'export const tab = "\\t";\n' } },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    title: 'Scan the header line',
+    body: 'Scans the header line.',
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[2] ?? '',
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[1] ?? '',
+    files: ['src/scan.ts'],
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[2] ?? '',
+    files: ['src/scan.ts'],
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[3] ?? '',
+    files: ['src/tab.ts'],
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/scan.ts',
+    lines: [2],
+  });
+
+  const thread = await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/scan.ts',
+    line: 2,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:finding {"id":"1111111111111111","title":"Reject an empty separator","path":"src/scan.ts","lens":"correctness","severity":"P2","riskClass":null,"writtenByChange":true,"head":"${repo.commits[1] ?? ''}"} -->`,
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":2,"reported":["1111111111111111"],"failedCalls":0} -->`,
+  });
+
+  const stub = buildStubAdapter({
+    'fix-1111111111111111': [{ fixed: true, reason: 'The separator is a colon now.' }],
+  });
+
+  const context = ctx.buildContext(repo.path, stub.adapter);
+
+  await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--fixes-only', '--report', 'github'],
+    context,
+  );
+
+  await githubCollections.pullRequests.update((query) => query.where({ number: 9 }), {
+    data(record) {
+      record.headSha = repo.commits[3] ?? '';
+    },
+  });
+
+  await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--fixes-only', '--report', 'github'],
+    context,
+  );
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    body: `fixed ${(repo.commits[2] ?? '').slice(0, 7)}`,
+    authorLogin: 'dev',
+    inReplyToID: thread.id,
+  });
+
+  await runCLI(['check', '--pr', '9', '--repo', 'example/app'], context);
+
+  const before = githubCollections.checkRuns.all().at(-1);
+
+  await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--fixes-only', '--report', 'github'],
+    context,
+  );
+
+  expect(before).toMatchObject({
+    conclusion: 'failure',
+    summary: expect.toInclude(
+      `\`1111111111111111\` Reject an empty separator: no re-review has read the commit ${(repo.commits[2] ?? '').slice(0, 7)} yet`,
+    ),
+  });
+
+  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['fix-1111111111111111']);
+
+  expect(githubCollections.checkRuns.all().at(-1)).toMatchObject({
+    headSha: repo.commits[3] ?? '',
+    conclusion: 'success',
   });
 });
 

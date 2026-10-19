@@ -106,6 +106,7 @@ export async function runReviewCommand(values: ReviewValues, ctx: CLIContext): P
         title: change.title,
         configHash: loaded.hash,
         fixes: change.fixes,
+        lensHead: change.lensHead,
         maxFileChars: loaded.config.thresholds.maxFileChars,
         adapter,
         tempDir,
@@ -198,6 +199,9 @@ interface ResolvedChange {
 
   // the findings whose latest answer is `fixed`, which a fixes-only run checks; read only for one
   fixes: AnsweredFix[];
+
+  // the head of the newest lens review of a pull request, which a fixes-only run reads past
+  lensHead: string | null;
 }
 
 async function resolveLocalChange(
@@ -239,6 +243,7 @@ async function resolveLocalChange(
     round: 1,
     earlierFindings: [],
     fixes: [],
+    lensHead: null,
   };
 }
 
@@ -305,9 +310,10 @@ async function resolvePullRequestChange(
 
   const isDelta = reviewed !== null && reviewed !== state.headSha && ancestry.exitCode === 0;
 
-  if (values.fixesOnly && !isDelta) {
+  // a fixes-only run may run again at the same head, for a `fixed` reply posted after the last run
+  if (values.fixesOnly && (reviewed === null || ancestry.exitCode !== 0)) {
     throw new Error(
-      '--fixes-only needs new commits after the head of an earlier review with no failed call',
+      '--fixes-only needs an earlier review with no failed call whose head the branch still holds',
     );
   }
 
@@ -317,8 +323,9 @@ async function resolvePullRequestChange(
 
   return {
     repo,
-    base: isDelta ? reviewed : start,
+    base: (values.fixesOnly || isDelta) && reviewed !== null ? reviewed : start,
     head: state.headSha,
+    lensHead: findLensHead(summary),
     configCommit: state.baseSha,
     title: state.title,
     body: state.body,
@@ -353,7 +360,27 @@ function findCompleteHead(summary: SummaryMarker | undefined): string | null {
   return summary.earlier?.find((range) => range.partial !== true)?.head ?? null;
 }
 
-// each finding whose latest disposition is `fixed`, as its comment keeps it, with the marker left out
+// the head of the newest review with no failed call that ran its lenses, which judged every `fixed`
+// reply before it; a fixes-only run's range keeps the list of fixes it checked, and a lens review's
+// keeps none
+function findLensHead(summary: SummaryMarker | undefined): string | null {
+  if (summary === undefined) {
+    return null;
+  }
+
+  if (summary.checked === undefined && summary.failedCalls === 0) {
+    return summary.head;
+  }
+
+  const range = summary.earlier?.find(
+    (item) => item.checked === undefined && item.partial !== true,
+  );
+
+  return range?.head ?? null;
+}
+
+// each finding whose latest disposition is `fixed` with a fix the summary does not hold confirmed, as
+// its comment keeps it, with the marker left out
 async function readAnsweredFixes(
   connection: GitHubConnection,
   pullRequest: PullRequestRef,
@@ -362,11 +389,16 @@ async function readAnsweredFixes(
   const dispositions = await readThreadDispositions(connection.client, pullRequest, state.threads);
 
   const latest = new Map(dispositions.map((item) => [item.findingID, item]));
+  const confirmed = new Set(state.summary?.marker.confirmed);
 
   return state.threads.flatMap((thread): AnsweredFix[] => {
     const disposition = latest.get(thread.marker.id);
 
     if (disposition?.kind !== 'fixed') {
+      return [];
+    }
+
+    if (confirmed.has(`${thread.marker.id}:${disposition.value}`)) {
       return [];
     }
 
@@ -379,6 +411,7 @@ async function readAnsweredFixes(
         line: thread.line,
         comment: thread.body.replace(/<!-- noslop:[\s\S]*?-->/u, '').trim(),
         commit: disposition.value,
+        postedHead: thread.marker.head ?? null,
       },
     ];
   });
