@@ -27,9 +27,6 @@ export interface CompareRequest {
   search: URLSearchParams;
 }
 
-// the most commits GitHub's compare lists without page parameters
-const UNPAGED_COMMITS = 250;
-
 // GitHub's compare of 2 commits of one line of history, oldest first, where the merge base is the base
 // when it comes first; a full sha with no commit is the pull request's own base, before every commit,
 // a shorter one with no commit gives null, and one that starts 2 commits is ambiguous
@@ -62,6 +59,9 @@ export function buildCompareData(
     files: collectRangeFiles(range),
   };
 }
+
+// the most commits GitHub's compare lists without page parameters
+const UNPAGED_COMMITS = 250;
 
 // a compare that asks for pages gets one page of the commits, and one that does not gets the first
 // ones alone, as GitHub lists them

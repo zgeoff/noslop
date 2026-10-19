@@ -188,12 +188,14 @@ the commit keeps the confirmation. A fix that a re-review still reports stays un
 later delta without the commit leaves it unconfirmed.
 
 A `fixed` reply posted after the re-review of its commit counts on the next check, with no further
-review. The summary marker keeps the range of the latest review and the files it left out, so the
-check applies the same rule to that review as the review applies to itself. The next review applies
-it to the review before it as well, and keeps each fix it confirms in its own summary marker. A
-review with a failed call keeps no range for this rule. A review that left out more paths than the
-marker can hold under GitHub's comment limit keeps no range either, so such a reply waits for the
-next review.
+review. The summary marker keeps the range of the latest review and the files it left out, and the
+ranges of a few reviews before it, so the check applies the same rule to each of those reviews as a
+review applies to itself. A reply that lands while a later review publishes, or after it, therefore
+still counts the review that read its commit. The next review applies the rule to the kept ranges as
+well, and keeps each fix it confirms in its own summary marker. A review with a failed call keeps no
+range for this rule. The marker keeps only the ranges that fit under GitHub's comment limit, newest
+first, and a review whose own range does not fit keeps none, so such a reply waits for the next
+review.
 
 The re-check is the second review of a pull request. From the third review on, the reporter sends
 each new finding in code the change did not write to a follow-up issue. A security finding, and any

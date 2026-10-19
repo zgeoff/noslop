@@ -9,7 +9,7 @@ import { readFixConfirmations } from './read-fix-confirmations';
 import type { PullRequestState } from './read-pull-request-state';
 import { readPullRequestState } from './read-pull-request-state';
 import { readThreadDispositions } from './read-thread-dispositions';
-import { toReviewedRange } from './to-reviewed-range';
+import { toReviewedRanges } from './to-reviewed-ranges';
 
 export const CHECK_NAME = 'noslop';
 
@@ -101,27 +101,38 @@ async function readCheckFixes(
     return { confirmed: [], failures: new Map() };
   }
 
-  const range = toReviewedRange(marker);
-
-  if (range === null || marker.head !== input.state.headSha) {
+  if (marker.head !== input.state.headSha) {
     return { confirmed: marker.confirmed, failures: new Map() };
   }
 
-  const confirmations = await readFixConfirmations(client, pr, {
-    threads: input.state.threads,
-    dispositions: input.dispositions,
-    fixCommits: input.fixCommits,
-    review: range,
-    held: new Set(marker.confirmed),
-  });
+  const ranges = toReviewedRanges(marker);
+
+  const read = await Promise.all(
+    ranges.map((review) =>
+      readFixConfirmations(client, pr, {
+        threads: input.state.threads,
+        dispositions: input.dispositions,
+        fixCommits: input.fixCommits,
+        review,
+        held: new Set(marker.confirmed),
+      }),
+    ),
+  );
+
+  const confirmations = read.flat();
 
   const confirmed = new Set([
     ...marker.confirmed,
     ...confirmations.filter((item) => item.fixed).map((item) => `${item.id}:${item.commit}`),
   ]);
 
+  // a failure names why a fix stays open, so a fix that any kept range confirms shows none
   const failures = new Map(
-    confirmations.flatMap((item) => (item.failure === undefined ? [] : [[item.id, item.failure]])),
+    confirmations.flatMap((item) =>
+      item.failure === undefined || confirmed.has(`${item.id}:${item.commit}`)
+        ? []
+        : [[item.id, item.failure]],
+    ),
   );
 
   return { confirmed: [...confirmed], failures };

@@ -762,6 +762,90 @@ test('it passes the check on a late fix past the first 250 commits of the re-rev
   expect(outcome.conclusion).toBe('success');
 });
 
+test('it passes the check on a fix answered while the next review publishes, from the review that read it', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'd'.repeat(40),
+  });
+
+  for (const sha of ['b', 'c', 'd']) {
+    await githubCollections.pullCommits.create({
+      owner: 'example',
+      repo: 'app',
+      number: 5,
+      sha: sha.repeat(40),
+      files: ['src/a.ts'],
+    });
+  }
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/a.ts',
+    lines: [1],
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'b'.repeat(40),
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      base: 'b'.repeat(40),
+      head: 'c'.repeat(40),
+      findings: [],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const [thread] = githubCollections.reviewComments.all();
+
+  // the reply lands once the review of d has read the pull request and before it writes its summary
+  githubServer.use(
+    http.patch(
+      `${GITHUB_API_URL}/repos/:owner/:repo/issues/comments/:commentID`,
+      async () => {
+        await githubCollections.reviewComments.create({
+          owner: 'example',
+          repo: 'app',
+          number: 5,
+          body: `fixed ${'c'.repeat(7)}`,
+          authorLogin: 'dev',
+          inReplyToID: thread?.id ?? null,
+        });
+      },
+      { once: true },
+    ),
+  );
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      base: 'c'.repeat(40),
+      head: 'd'.repeat(40),
+      findings: [],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  expect(githubCollections.checkRuns.all().map((run) => run.conclusion)).toStrictEqual([
+    'failure',
+    'failure',
+    'success',
+  ]);
+});
+
 test('it confirms no fix answered after a re-review whose calls failed', async () => {
   const ctx = setupTest();
 

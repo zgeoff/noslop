@@ -21,7 +21,8 @@ import type { FindingThread, PullRequestState } from './read-pull-request-state'
 import { readPullRequestState } from './read-pull-request-state';
 import { readThreadDispositions } from './read-thread-dispositions';
 import { runGitHubCheck } from './run-github-check';
-import { toReviewedRange } from './to-reviewed-range';
+import type { SummaryMarker } from './summary-marker';
+import { toReviewedRanges } from './to-reviewed-ranges';
 
 export interface GitHubReporterOptions {
   loadConnection: () => Promise<GitHubConnection>;
@@ -146,7 +147,7 @@ async function runReviewPost(
 
   const marker = {
     head: result.head,
-    ...buildRangeFields(result),
+    ...buildRangeFields(result, before.summary?.marker ?? null),
     reviews: plan.reviews,
     reviewIDs: plan.reviewIDs,
     reported: result.findings.map((finding) => finding.id),
@@ -328,17 +329,43 @@ async function createFollowUpIssue(
   });
 }
 
-// the most characters of left-out paths the summary marker keeps, far under GitHub's comment limit
+// the most characters of review ranges the summary marker keeps, far under GitHub's comment limit
 const MARKER_PATH_CHARS = 16_000;
 
-// the range the summary marker keeps for a `fixed` answer after the review; a review that left out
-// more paths than the marker holds keeps no range, so such an answer waits for the next review; the
-// budget counts the paths as the marker writes them, escapes included
-function buildRangeFields(result: ReviewResult): { base?: string; notReviewed?: string[] } {
-  const notReviewed = result.notReviewed.map((file) => file.path);
-  const chars = formatMarker('summary', notReviewed).length;
+// the most ranges of earlier reviews the summary marker keeps beside the latest one
+const EARLIER_RANGES = 4;
 
-  return chars > MARKER_PATH_CHARS ? {} : { base: result.base, notReviewed };
+interface RangeFields {
+  base?: string;
+  notReviewed?: string[];
+  earlier?: SummaryMarker['earlier'];
+}
+
+// the ranges the summary marker keeps for a `fixed` answer after the review: its own, then the newest
+// earlier ones that fit the budget, which counts them as the marker writes them, escapes included; a
+// review whose own range does not fit keeps none, so such an answer waits for the next review
+function buildRangeFields(result: ReviewResult, previous: SummaryMarker | null): RangeFields {
+  const notReviewed = result.notReviewed.map((file) => file.path);
+
+  const earlier = (previous === null ? [] : toReviewedRanges(previous))
+    .slice(0, EARLIER_RANGES)
+    .map((range) => ({
+      base: range.base,
+      head: range.head,
+      reported: [...range.reported],
+      notReviewed: [...range.notReviewed],
+    }));
+
+  for (let count = earlier.length; count >= 0; count -= 1) {
+    const kept = earlier.slice(0, count);
+    const fields = { base: result.base, notReviewed, ...(count === 0 ? {} : { earlier: kept }) };
+
+    if (formatMarker('summary', fields).length <= MARKER_PATH_CHARS) {
+      return fields;
+    }
+  }
+
+  return {};
 }
 
 // the fixes this review confirms; a fix answered after the review before it ran, inside that review's
@@ -358,22 +385,29 @@ async function readConfirmations(
   });
 
   const previous = before.summary?.marker ?? null;
-  const previousRange = previous === null ? null : toReviewedRange(previous);
 
-  const earlier =
-    previous === null || previousRange === null
-      ? []
-      : await readFixConfirmations(client, pr, {
-          threads: before.threads,
-          dispositions,
-          fixCommits,
-          review: previousRange,
-          held: new Set(previous.confirmed),
-        });
+  const confirmed = new Set(previous?.confirmed);
+
+  const ranges = previous === null ? [] : toReviewedRanges(previous);
+
+  const earlier = await Promise.all(
+    ranges.map((review) =>
+      readFixConfirmations(client, pr, {
+        threads: before.threads,
+        dispositions,
+        fixCommits,
+        review,
+        held: confirmed,
+      }),
+    ),
+  );
 
   const held = new Set([
-    ...(previous?.confirmed ?? []),
-    ...earlier.filter((item) => item.fixed).map((item) => `${item.id}:${item.commit}`),
+    ...confirmed,
+    ...earlier
+      .flat()
+      .filter((item) => item.fixed)
+      .map((item) => `${item.id}:${item.commit}`),
   ]);
 
   return readFixConfirmations(client, pr, {
