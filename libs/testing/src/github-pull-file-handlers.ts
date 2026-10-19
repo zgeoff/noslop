@@ -1,7 +1,13 @@
+import type { Endpoints } from '@octokit/types';
 import { HttpResponse, http } from 'msw';
 import { githubCollections } from './github-collections';
 import { GITHUB_API_URL } from './github-handlers';
 import { toPage } from './to-page';
+
+type PullFileData = Pick<
+  Endpoints['GET /repos/{owner}/{repo}/pulls/{pull_number}/files']['response']['data'][number],
+  'filename' | 'status'
+>;
 
 // the files of a pull request's diff, in pages, as GitHub lists them
 export const githubPullFileHandlers = [
@@ -17,9 +23,9 @@ export const githubPullFileHandlers = [
       );
 
       return HttpResponse.json(
-        toPage(info.request, files).map((file) => ({
+        toPage(info.request, files).map((file): PullFileData => ({
           filename: file.path,
-          status: 'modified' as const,
+          status: 'modified',
         })),
       );
     },
