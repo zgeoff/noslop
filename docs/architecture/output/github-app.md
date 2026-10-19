@@ -166,7 +166,9 @@ A re-review keeps to the files the pull request changes since its merge base. A 
 branch brings the base branch's own changes into the new commits, and those changes are not the pull
 request's work. The re-review therefore drops every file of the new commits that the diff from the
 merge base to the head leaves out, before the static stage and the calls read the change. A file
-that both the pull request and the base branch change stays whole.
+that both the pull request and the base branch change stays whole. A data file that only the base
+branch changes stays among the files the review left out, so a fix commit that reaches it confirms
+nothing, as it would if the change held the file.
 
 A re-review leaves the pull request's description unjudged. Its title and body describe the whole
 pull request, while its diff holds only the new commits, so a file the body names can look missing

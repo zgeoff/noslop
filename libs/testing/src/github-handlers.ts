@@ -133,7 +133,9 @@ export const githubHandlers = [
         q.where({ owner: info.params.owner, repo: info.params.repo }),
       );
 
-      const compare = buildCompareData(records, base, head);
+      const search = new URL(info.request.url).searchParams;
+
+      const compare = buildCompareData(records, { base, head, search });
 
       return compare === null ? buildNotFound() : HttpResponse.json(compare);
     },

@@ -303,7 +303,13 @@ function collectNotReviewed(ctx: PassContext, batches: readonly CallBatch[]): No
     .filter((file) => !paths.has(file.path) && globs.some((glob) => glob.match(file.path)))
     .map((file): NotReviewedFile => ({ path: file.path, reason: 'data' }));
 
-  return [...listed, ...data];
+  // a data file that only a merge from the base branch changes stays listed, so a fix commit that
+  // reaches it confirms nothing, as when the change held it
+  const baseData = (ctx.change.baseOnly ?? [])
+    .filter((path) => globs.some((glob) => glob.match(path)))
+    .map((path): NotReviewedFile => ({ path, reason: 'data' }));
+
+  return [...listed, ...data, ...baseData];
 }
 
 // the fired lenses that a call ran, in the route's order; a call whose files each overflow a call

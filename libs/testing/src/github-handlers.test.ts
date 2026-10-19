@@ -201,6 +201,40 @@ test('it compares a commit with itself as identical', async () => {
   });
 });
 
+test('it lists the first 250 commits of a compare that asks for no page', async () => {
+  const shas = Array.from({ length: 260 }, (_, index) => index.toString(16).padStart(40, '0'));
+
+  for (const sha of shas) {
+    await githubCollections.pullCommits.create({ owner: 'example', repo: 'app', sha });
+  }
+
+  const response = await fetch(
+    `${GITHUB_API_URL}/repos/example/app/compare/${shas[0] ?? ''}...${shas[259] ?? ''}`,
+  );
+
+  const compare: unknown = await response.json();
+
+  expect(compare).toMatchObject({ commits: expect.toBeArrayOfSize(250) });
+});
+
+test('it pages the commits of a compare that asks for a page', async () => {
+  for (const sha of ['a', 'b', 'c', 'd']) {
+    await githubCollections.pullCommits.create({
+      owner: 'example',
+      repo: 'app',
+      sha: sha.repeat(40),
+    });
+  }
+
+  const response = await fetch(
+    `${GITHUB_API_URL}/repos/example/app/compare/${'a'.repeat(40)}...${'d'.repeat(40)}?page=2&per_page=2`,
+  );
+
+  const compare: unknown = await response.json();
+
+  expect(compare).toMatchObject({ status: 'ahead', commits: [{ sha: 'd'.repeat(40) }] });
+});
+
 test('it answers a compare from a short sha that names no commit with not found', async () => {
   await githubCollections.pullCommits.create({
     owner: 'example',

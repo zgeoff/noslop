@@ -41,11 +41,13 @@ export async function readChange(options: ReadChangeOptions): Promise<Change> {
 
   const files: ChangedFile[] = [];
   const excluded: string[] = [];
+  const baseOnly: string[] = [];
 
   for (const parsed of parseDiff(diff)) {
     // a rename keeps either side the pull request changes, so a deletion of its own survives a rename
     // whose new path only the base branch changed
     if (owned !== null && !owned.has(parsed.path) && !owned.has(parsed.oldPath ?? parsed.path)) {
+      baseOnly.push(parsed.path);
       continue;
     }
 
@@ -70,7 +72,7 @@ export async function readChange(options: ReadChangeOptions): Promise<Change> {
     });
   }
 
-  return { base, head, files, excluded };
+  return { base, head, files, excluded, ...(owned === null ? {} : { baseOnly }) };
 }
 
 async function resolveCommit(options: ReadChangeOptions, ref: string): Promise<string> {

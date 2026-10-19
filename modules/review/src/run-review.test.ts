@@ -1076,6 +1076,58 @@ test('it lists the data file of a change that runs no call', async () => {
   expect(run.result.notReviewed).toStrictEqual([{ path: 'samples/corpus.jsonl', reason: 'data' }]);
 });
 
+test('it lists a data file that only a merge from the base branch changes as not reviewed', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    {
+      message: 'base',
+      files: { 'samples/corpus.jsonl': '{"text":"one"}\n', 'docs/guide.md': '# Guide\n' },
+    },
+    { message: 'Name the guide', files: { 'docs/guide.md': '# The guide\n' } },
+    {
+      message: 'Refresh the corpus',
+      files: { 'samples/corpus.jsonl': '{"text":"one"}\n{"text":"two"}\n' },
+      parent: 0,
+    },
+    {
+      message: 'Merge main and retitle the guide',
+      files: { 'docs/guide.md': '# A guide\n' },
+      parent: 1,
+      merged: 2,
+    },
+  ]);
+
+  const stub = buildStubAdapter({});
+
+  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+
+  const run = await runReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/corpus',
+    base: repo.commits[1] ?? '',
+    head: repo.commits[3] ?? '',
+    mergeBase: repo.commits[2] ?? '',
+    isIncremental: true,
+    config: { ...BUILT_IN_DEFAULTS, data: ['samples/**'] },
+    configHash: 'hash',
+    rules: null,
+    adapter: stub.adapter,
+    logger: ctx.logger,
+    tempDir: join(ctx.dir, 'temp'),
+    cacheDir: null,
+    title: 'Retitle the guide',
+    body: '',
+    linkedIssue: null,
+    pullRequest: null,
+    isPush: false,
+    pastEscapes: [],
+  });
+
+  expect(run.result.notReviewed).toStrictEqual([{ path: 'samples/corpus.jsonl', reason: 'data' }]);
+});
+
 test('it splits a change over the prompt limit into calls that each fit and lists the data file it leaves out', async () => {
   const ctx = await setupTest();
 

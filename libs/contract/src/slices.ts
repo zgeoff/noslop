@@ -34,6 +34,10 @@ export interface Change {
   head: string;
   files: ChangedFile[];
   excluded: string[];
+
+  // the files of an incremental review's new commits that only a merge from the base branch changes,
+  // which the change leaves out
+  baseOnly?: string[];
 }
 
 // a place in a file at the reviewed head
