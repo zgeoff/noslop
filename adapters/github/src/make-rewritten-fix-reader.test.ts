@@ -45,36 +45,105 @@ test('it finds the branch commit that holds the change of a rewritten commit at 
   expect(fix).toStrictEqual({ commit: 'd'.repeat(40), failure: null });
 });
 
-test('it finds no branch commit for a rewritten commit that changed another file than the branch commits', async () => {
-  const ctx = await setupTest();
+test.each([
+  [
+    'the same file changed at other lines',
+    { files: ['src/a.ts'], renames: {}, patches: { 'src/a.ts': '@@ -3,1 +3,1 @@\n-sum\n+total' } },
+    { files: ['src/a.ts'], renames: {}, patches: { 'src/a.ts': '@@ -9,1 +9,1 @@\n-sum\n+total' } },
+    { commit: 'c'.repeat(40), failure: null },
+  ],
+  [
+    'the same change in another file',
+    { files: ['src/a.ts'], renames: {}, patches: { 'src/a.ts': '@@ -1,1 +1,1 @@\n-sum\n+total' } },
+    { files: ['src/b.ts'], renames: {}, patches: { 'src/b.ts': '@@ -1,1 +1,1 @@\n-sum\n+total' } },
+    { commit: null, failure: '0 commits on the branch hold the change of the commit bbbbbbb' },
+  ],
+  [
+    'a rename from the same origin',
+    {
+      files: ['src/a.ts'],
+      renames: { 'src/a.ts': 'src/old.ts' },
+      patches: { 'src/a.ts': '@@ -1,1 +1,1 @@\n-sum\n+total' },
+    },
+    {
+      files: ['src/a.ts'],
+      renames: { 'src/a.ts': 'src/old.ts' },
+      patches: { 'src/a.ts': '@@ -4,1 +4,1 @@\n-sum\n+total' },
+    },
+    { commit: 'c'.repeat(40), failure: null },
+  ],
+  [
+    'a rename from another origin',
+    {
+      files: ['src/a.ts'],
+      renames: { 'src/a.ts': 'src/old.ts' },
+      patches: { 'src/a.ts': '@@ -1,1 +1,1 @@\n-sum\n+total' },
+    },
+    {
+      files: ['src/a.ts'],
+      renames: { 'src/a.ts': 'src/other.ts' },
+      patches: { 'src/a.ts': '@@ -1,1 +1,1 @@\n-sum\n+total' },
+    },
+    { commit: null, failure: '0 commits on the branch hold the change of the commit bbbbbbb' },
+  ],
+  [
+    'a deleted file',
+    { files: ['src/a.ts'], renames: {}, patches: { 'src/a.ts': '@@ -1,2 +0,0 @@\n-sum\n-total' } },
+    { files: ['src/a.ts'], renames: {}, patches: { 'src/a.ts': '@@ -1,2 +0,0 @@\n-sum\n-total' } },
+    { commit: 'c'.repeat(40), failure: null },
+  ],
+  [
+    'an added file',
+    { files: ['src/a.ts'], renames: {}, patches: { 'src/a.ts': '@@ -0,0 +1,2 @@\n+sum\n+total' } },
+    { files: ['src/a.ts'], renames: {}, patches: { 'src/a.ts': '@@ -0,0 +1,2 @@\n+sum\n+total' } },
+    { commit: 'c'.repeat(40), failure: null },
+  ],
+  [
+    'a merge commit, which GitHub lists by the files it changes against its first parent',
+    {
+      files: ['src/a.ts', 'src/b.ts'],
+      renames: {},
+      patches: { 'src/a.ts': '@@ -1,1 +1,1 @@\n-a\n+b', 'src/b.ts': '@@ -1,1 +1,1 @@\n-c\n+d' },
+    },
+    {
+      files: ['src/a.ts', 'src/b.ts'],
+      renames: {},
+      patches: { 'src/a.ts': '@@ -2,1 +2,1 @@\n-a\n+b', 'src/b.ts': '@@ -5,1 +5,1 @@\n-c\n+d' },
+    },
+    { commit: 'c'.repeat(40), failure: null },
+  ],
+  [
+    'an empty commit',
+    { files: [], renames: {}, patches: {} },
+    { files: [], renames: {}, patches: {} },
+    { commit: null, failure: 'GitHub gives no whole patch of the commit bbbbbbb' },
+  ],
+])(
+  'it matches a rewritten commit of %s as GitHub lists it',
+  async (_label, named, copy, expected) => {
+    const ctx = await setupTest();
 
-  for (const commit of [
-    { sha: 'a'.repeat(40), isOnBranch: false, path: 'src/a.ts' },
-    { sha: 'b'.repeat(40), isOnBranch: false, path: 'README.md' },
-    { sha: 'c'.repeat(40), isOnBranch: true, path: 'src/a.ts' },
-  ]) {
-    await githubCollections.pullCommits.create({
-      owner: 'example',
-      repo: 'app',
-      number: 5,
-      sha: commit.sha,
-      files: [commit.path],
-      patches: { [commit.path]: '@@ -1,1 +1,1 @@\n-old\n+new' },
-      isOnBranch: commit.isOnBranch,
+    for (const commit of [
+      { sha: 'b'.repeat(40), isOnBranch: false, ...named },
+      { sha: 'c'.repeat(40), isOnBranch: true, ...copy },
+    ]) {
+      await githubCollections.pullCommits.create({
+        owner: 'example',
+        repo: 'app',
+        number: 5,
+        ...commit,
+      });
+    }
+
+    const fix = await ctx.readRewrittenFix({
+      sha: 'bbbbbbb',
+      posted: undefined,
+      candidates: ['c'.repeat(40)],
     });
-  }
 
-  const fix = await ctx.readRewrittenFix({
-    sha: 'bbbbbbb',
-    posted: 'a'.repeat(40),
-    candidates: ['c'.repeat(40)],
-  });
-
-  expect(fix).toStrictEqual({
-    commit: null,
-    failure: '0 commits on the branch hold the change of the commit bbbbbbb',
-  });
-});
+    expect(fix).toStrictEqual(expected);
+  },
+);
 
 test('it finds no branch commit for a rewritten commit that matches in its first file but differs in its second', async () => {
   const ctx = await setupTest();
