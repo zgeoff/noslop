@@ -1725,7 +1725,7 @@ test('it gives the design pass the findings the merge pass keeps', async () => {
   expect(design.prompt).not.toInclude('Keep the items flush is meant to write');
 });
 
-test('it lists a file the design call leaves out as not reviewed only when an earlier design finding sits on it', async () => {
+test('it gives the design call every file of a pull request whose hunks pass the call limit, as a diff to read', async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.dir, 'repo'), [
@@ -1792,6 +1792,66 @@ test('it lists a file the design call leaves out as not reviewed only when an ea
     pastEscapes: [],
   });
 
+  const design = stub.requests.find((request) => request.callID === 'design');
+
+  if (design === undefined) {
+    throw new Error('the review made no design call');
+  }
+
   expect(stub.requests.map((request) => request.callID)).toStrictEqual(['L', 'design']);
-  expect(run.result.notReviewed).toStrictEqual([{ path: 'src/c.ts', reason: 'too-large' }]);
+
+  expect(design.prompt).toInclude(
+    `\`git diff ${repo.commits[0] ?? ''} ${repo.commits[2] ?? ''} -- <path>\``,
+  );
+
+  expect(design.prompt).toInclude(['- `src/c.ts`', '- `src/e.ts`', '- `src/parse.ts`'].join('\n'));
+  expect(design.prompt).not.toInclude(`'${'c'.repeat(1000)}`);
+  expect(design.prompt.length).toBeLessThanOrEqual(40_000);
+  expect(run.result.notReviewed).toStrictEqual([]);
+});
+
+test('it runs the design pass in the head worktree on a later review that routes no lens call', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    {
+      message: 'base',
+      files: { 'package.json': '{\n  "name": "a",\n  "version": "1.0.0"\n}\n' },
+    },
+    {
+      message: 'head',
+      files: { 'package.json': '{\n  "name": "a",\n  "version": "1.1.0"\n}\n' },
+    },
+  ]);
+
+  const stub = buildStubAdapter({ design: [{ findings: { design: [] } }] });
+
+  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+
+  const run = await runReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/a',
+    base: repo.commits[0] ?? '',
+    head: repo.commits[1] ?? '',
+    round: 2,
+    earlierFindings: [],
+    config: BUILT_IN_DEFAULTS,
+    configHash: 'hash',
+    rules: null,
+    adapter: stub.adapter,
+    logger: ctx.logger,
+    tempDir: join(ctx.dir, 'temp'),
+    cacheDir: null,
+    title: 'Release 1.1.0',
+    body: '',
+    linkedIssue: null,
+    pullRequest: null,
+    isPush: false,
+    pastEscapes: [],
+  });
+
+  expect(run.result.special).toBe('release');
+  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['design']);
+  expect(stub.seenFiles).toStrictEqual([['package.json']]);
 });

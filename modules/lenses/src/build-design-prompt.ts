@@ -1,4 +1,5 @@
 import type { EarlierFinding, Finding } from '@noslop/contract';
+import { formatPathCode } from '@noslop/contract';
 import type { ChangedFile } from '@noslop/static-stage';
 import { getLensPrompt } from './get-lens-prompt';
 import { renderCriteria } from './render-criteria';
@@ -24,6 +25,10 @@ export interface DesignPromptInput {
   leftOut: readonly LeftOutFile[];
   base: string;
   head: string;
+
+  // the hunks pass the call limit, so the prompt lists the files and the model reads their diff in
+  // its working directory, which leaves no part of the pull request out
+  isDiffListed: boolean;
 }
 
 // the prompt of the design pass: the shared header, the design lens, and its input, with the
@@ -55,7 +60,11 @@ export function buildDesignPrompt(input: DesignPromptInput): string {
   ];
 
   if (input.files.length > 0) {
-    sections.push(`## Hunks\n\n${renderHunks(input.files)}`);
+    const diff = input.isDiffListed
+      ? renderListedDiff(input)
+      : `## Hunks\n\n${renderHunks(input.files)}`;
+
+    sections.push(diff);
   }
 
   if (input.leftOut.length > 0) {
@@ -63,6 +72,14 @@ export function buildDesignPrompt(input: DesignPromptInput): string {
   }
 
   return `${sections.join('\n\n')}\n`;
+}
+
+function renderListedDiff(input: DesignPromptInput): string {
+  return [
+    '## Changed files',
+    `The hunks of this pull request are too large for this input. Read the diff of each file below in your working directory with \`git diff ${input.base} ${input.head} -- <path>\`, and read every file before you judge the approach.`,
+    input.files.map((file) => `- ${formatPathCode(file.path)}`).join('\n'),
+  ].join('\n\n');
 }
 
 function renderFindings(heading: string, empty: string, findings: readonly unknown[]): string {

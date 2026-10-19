@@ -135,7 +135,53 @@ test('it reports the finding of a retry when the first design attempt fails', as
   expect(pass.failed).toBeNull();
 });
 
-test('it leaves out a data file, a file over the file limit and a file past the call limit, and reads the rest', async () => {
+test('it gives the hunks of every file but a data file when they fit the call limit', async () => {
+  const ctx = await setupTest();
+
+  const stub = buildStubAdapter({ design: [{ findings: { design: [] } }] });
+
+  await runDesignPass({
+    title: 'Parse the header line',
+    body: 'Parses the header line.',
+    latest: [],
+    earlier: [],
+    files: [
+      buildMockChangedFile({ path: 'src/a.ts' }),
+      buildMockChangedFile({
+        path: 'samples/headers.jsonl',
+        oldPath: 'samples/headers.jsonl',
+        hunks: [
+          {
+            oldStart: 1,
+            oldLines: 0,
+            newStart: 1,
+            newLines: 1,
+            lines: [{ kind: 'added', text: '{"header":"one"}', oldLine: null, newLine: 1 }],
+          },
+        ],
+      }),
+    ],
+    base: 'a'.repeat(40),
+    head: 'b'.repeat(40),
+    riskClasses: [],
+    config: { ...BUILT_IN_DEFAULTS, data: ['samples/**'] },
+    adapter: stub.adapter,
+    callID: 'design',
+    depth: 'standard',
+    worktree: ctx.dir,
+    tempDir: ctx.dir,
+    logger: ctx.logger,
+  });
+
+  const prompt = stub.requests[0]?.prompt ?? '';
+
+  expect(prompt).toInclude('### src/a.ts (modified)');
+  expect(prompt).toInclude('- `samples/headers.jsonl`: a data file the config names');
+  expect(prompt).not.toInclude('{"header":"one"}');
+  expect(prompt).not.toInclude('## Changed files');
+});
+
+test('it lists every file but a data file for the model to read when the hunks pass the call limit', async () => {
   const ctx = await setupTest();
 
   const stub = buildStubAdapter({ design: [{ findings: { design: [] } }] });
@@ -220,7 +266,7 @@ test('it leaves out a data file, a file over the file limit and a file past the 
     config: {
       ...BUILT_IN_DEFAULTS,
       data: ['samples/**'],
-      thresholds: { ...BUILT_IN_DEFAULTS.thresholds, maxCallChars: 40_000, maxFileChars: 35_000 },
+      thresholds: { ...BUILT_IN_DEFAULTS.thresholds, maxCallChars: 40_000 },
     },
     adapter: stub.adapter,
     callID: 'design',
@@ -232,17 +278,15 @@ test('it leaves out a data file, a file over the file limit and a file past the 
 
   const prompt = stub.requests[0]?.prompt ?? '';
 
-  expect(prompt).toInclude('### src/a.ts (modified)');
-  expect(prompt).toInclude('### src/d.ts (modified)');
-  expect(prompt).not.toInclude('{"header":"one"}');
-  expect(prompt).not.toInclude(`'${'b'.repeat(1000)}`);
-  expect(prompt).not.toInclude(`'${'c'.repeat(1000)}`);
+  expect(prompt).toInclude(`\`git diff ${'a'.repeat(40)} ${'b'.repeat(40)} -- <path>\``);
 
   expect(prompt).toInclude(
-    [
-      '- `samples/headers.jsonl`: a data file the config names',
-      '- `src/big.ts`: too large for one call',
-      '- `src/c.ts`: too large for one call',
-    ].join('\n'),
+    ['- `src/a.ts`', '- `src/big.ts`', '- `src/c.ts`', '- `src/d.ts`'].join('\n'),
   );
+
+  expect(prompt).toInclude('- `samples/headers.jsonl`: a data file the config names');
+  expect(prompt).not.toInclude('### src/');
+  expect(prompt).not.toInclude(`'${'b'.repeat(1000)}`);
+  expect(prompt).not.toInclude(`'${'c'.repeat(1000)}`);
+  expect(prompt.length).toBeLessThanOrEqual(40_000);
 });

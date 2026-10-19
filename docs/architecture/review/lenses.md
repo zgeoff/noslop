@@ -60,10 +60,10 @@ of this review, the findings that the earlier reviews posted with the first line
 answer to each, and the hunks of the whole pull request since its merge base. It holds no linked
 issue, so the lens judges the approach against what the pull request promises and never against an
 issue. A re-review's own diff holds only its new commits, while an approach spans every round, so
-the call reads the whole pull request. When those hunks pass the call limit, the call leaves out the
-files that do not fit and lists them. The review lists a left-out file that holds an earlier design
-finding among the files it did not review, so a fix of that finding waits for a design call that
-reads the file.
+the call reads the whole pull request. When those hunks pass the call limit, the prompt lists the
+changed files in their place, and the model reads each diff in the worktree of the head. The design
+call therefore leaves out no file of the pull request but its data files, which no call reads, so
+the review never confirms a design fix that the call could not see.
 
 The lens reports at most one finding. It names the simpler approach and the findings that approach
 would remove, and it reports nothing when the findings show no repeated patching and the change is

@@ -14,8 +14,7 @@ import type {
 import { buildCallOutputSchema } from '@noslop/contract';
 import type { AssembledFindings } from '@noslop/findings';
 import { buildFindings } from '@noslop/findings';
-import type { LeftOutFile } from '@noslop/lenses';
-import { buildDesignPrompt, renderHunks } from '@noslop/lenses';
+import { buildDesignPrompt } from '@noslop/lenses';
 
 export interface DesignPassInput {
   title: string;
@@ -33,7 +32,8 @@ export interface DesignPassInput {
   callID: string;
   depth: Depth;
 
-  // the worktree of the head, which the model reads to check the approach it proposes
+  // the worktree of the head, which the model reads to check the approach it proposes, and to read
+  // the diff itself when the hunks pass the call limit
   worktree: string;
   tempDir: string;
   logger: Logger;
@@ -44,10 +44,6 @@ export interface DesignPass {
   dropped: AssembledFindings['dropped'];
   record: CallRecord;
   failed: FailedCall | null;
-
-  // the files of the pull request whose hunks the design call left out, so the review lists each one
-  // that holds an earlier design finding as not reviewed, and confirms no design fix there
-  leftOut: LeftOutFile[];
 }
 
 // the most findings the design pass reports, since it judges one approach: the pull request's
@@ -61,12 +57,11 @@ const ATTEMPTS = 2;
 // failed call of the review, as a lens call is, so the review confirms no fix, a design fix included
 export async function runDesignPass(input: DesignPassInput): Promise<DesignPass> {
   const started = performance.now();
-  const planned = planDesignFiles(input);
 
   const request: CallRequest = {
     callID: input.callID,
     lenses: ['design'],
-    prompt: buildDesignPrompt({ ...input, ...planned }),
+    prompt: planDesignPrompt(input),
     outputSchema: buildCallOutputSchema(['design']),
     effort: input.config.designPass.effort,
     model: null,
@@ -126,7 +121,6 @@ export async function runDesignPass(input: DesignPassInput): Promise<DesignPass>
         durationMs: Math.round(performance.now() - started),
       },
       failed: null,
-      leftOut: planned.leftOut,
     };
   }
 
@@ -140,8 +134,29 @@ export async function runDesignPass(input: DesignPassInput): Promise<DesignPass>
       durationMs: Math.round(performance.now() - started),
     },
     failed: { id: input.callID, lenses: ['design'], reason },
-    leftOut: planned.leftOut,
   };
+}
+
+// the prompt with the hunks of every file but the data files, which no call reads; when that whole
+// prompt passes the call limit, the prompt lists the files instead and the model reads their diff in
+// the worktree, so the design call leaves out no part of the pull request it judges
+function planDesignPrompt(input: DesignPassInput): string {
+  const globs = input.config.data.map((glob) => new Bun.Glob(glob));
+  const isData = (file: ChangedFile) => globs.some((glob) => glob.match(file.path));
+
+  const shared = {
+    ...input,
+    files: input.files.filter((file) => !isData(file)),
+    leftOut: input.files
+      .filter((file) => isData(file))
+      .map((file) => ({ path: file.path, reason: 'data' as const })),
+  };
+
+  const inline = buildDesignPrompt({ ...shared, isDiffListed: false });
+
+  return inline.length <= input.config.thresholds.maxCallChars
+    ? inline
+    : buildDesignPrompt({ ...shared, isDiffListed: true });
 }
 
 async function tryRunCall(
@@ -153,38 +168,4 @@ async function tryRunCall(
   } catch (error) {
     return error instanceof Error ? error : new Error(String(error));
   }
-}
-
-// the files whose hunks the prompt holds, in the change's order, until the next one would pass the
-// call limit; a data file and a file over the file limit stay out, and the prompt lists each file it
-// leaves out
-function planDesignFiles(input: DesignPassInput): {
-  files: ChangedFile[];
-  leftOut: LeftOutFile[];
-} {
-  const thresholds = input.config.thresholds;
-  const globs = input.config.data.map((glob) => new Bun.Glob(glob));
-  const files: ChangedFile[] = [];
-  const leftOut: LeftOutFile[] = [];
-  let size = buildDesignPrompt({ ...input, files: [], leftOut: [] }).length;
-
-  for (const file of input.files) {
-    if (globs.some((glob) => glob.match(file.path))) {
-      leftOut.push({ path: file.path, reason: 'data' });
-      continue;
-    }
-
-    const hunks = renderHunks([file]).length;
-
-    if (hunks > thresholds.maxFileChars || size + hunks > thresholds.maxCallChars) {
-      leftOut.push({ path: file.path, reason: 'too-large' });
-      continue;
-    }
-
-    files.push(file);
-
-    size += hunks;
-  }
-
-  return { files, leftOut };
 }
