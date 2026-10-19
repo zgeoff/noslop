@@ -21,6 +21,9 @@ export interface CheckOutcomeInput {
   // among them
   commits: readonly string[];
 
+  // the `fixed` shas that GitHub finds name more than one commit of the repo
+  ambiguous: readonly string[];
+
   // the values of the `deferred` dispositions whose issue exists
   existingIssues: ReadonlySet<string>;
   failedReporters: readonly string[];
@@ -125,7 +128,7 @@ function findFixedReason(
     return `the commit ${commit} is not on the branch`;
   }
 
-  if (matches.length > 1) {
+  if (matches.length > 1 || input.ambiguous.includes(commit)) {
     return `the sha ${commit} matches more than one commit on the branch, so give more of it`;
   }
 

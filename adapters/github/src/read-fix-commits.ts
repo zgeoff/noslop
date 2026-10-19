@@ -8,26 +8,44 @@ export interface FixCommitsInput {
   head: string;
 }
 
-// the commits a `fixed` answer can name: the pull request's own, and each named commit the head holds
-// through a merge from the base branch, which GitHub's commit list of the pull request leaves out
-// since the base branch holds it too
+export interface FixCommits {
+  commits: string[];
+
+  // the `fixed` shas that name more than one commit of the repo, so they name no fix
+  ambiguous: string[];
+}
+
+const FULL_SHA_LENGTH = 40;
+
+// the commits a `fixed` answer can name: the pull request's own, and each one the head holds through a
+// merge from the base branch, which the pull request's commit list leaves out; a short sha that a
+// pull request commit starts but GitHub cannot resolve names another commit too
 export async function readFixCommits(
   client: GitHubClient,
   pr: PullRequestRef,
   input: FixCommitsInput,
-): Promise<string[]> {
-  const named = new Set(
-    input.dispositions
-      .filter((item) => item.kind === 'fixed')
-      .map((item) => item.value)
-      .filter((sha) => !input.commits.some((commit) => commit.startsWith(sha))),
+): Promise<FixCommits> {
+  const named = [
+    ...new Set(
+      input.dispositions
+        .filter((item) => item.kind === 'fixed')
+        .map((item) => item.value)
+        .filter(
+          (sha) => sha.length < FULL_SHA_LENGTH || !input.commits.some((commit) => commit === sha),
+        ),
+    ),
+  ];
+
+  const found = await Promise.all(named.map((sha) => readHeadCommit(client, pr, sha, input.head)));
+
+  const ambiguous = named.filter(
+    (sha, index) => found[index] === null && input.commits.some((commit) => commit.startsWith(sha)),
   );
 
-  const found = await Promise.all(
-    [...named].map((sha) => readHeadCommit(client, pr, sha, input.head)),
-  );
-
-  return [...new Set([...input.commits, ...found.filter((sha) => sha !== null)])];
+  return {
+    commits: [...new Set([...input.commits, ...found.filter((sha) => sha !== null)])],
+    ambiguous,
+  };
 }
 
 // the full sha of the commit a sha names when the head holds it: GitHub's compare of the commit with

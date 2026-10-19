@@ -517,6 +517,105 @@ test('it fails the check without throwing on a fixed sha that names no commit', 
   ]);
 });
 
+test('it leaves a finding open whose fixed sha starts both a commit of the pull request and a merged-in commit', async () => {
+  const ctx = setupTest();
+  const own = 'abc1234'.padEnd(40, 'a');
+  const merged = 'abc1234'.padEnd(40, 'b');
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'c'.repeat(40),
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    sha: 'f'.repeat(40),
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    sha: own,
+    files: ['src/a.ts'],
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    sha: merged,
+    files: ['src/a.ts'],
+    isFromBase: true,
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    sha: 'c'.repeat(40),
+    files: ['src/a.ts'],
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/a.ts',
+    lines: [1],
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'f'.repeat(40),
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      base: 'f'.repeat(40),
+      head: 'c'.repeat(40),
+      findings: [],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const [thread] = githubCollections.reviewComments.all();
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    body: 'fixed abc1234',
+    authorLogin: 'dev',
+    inReplyToID: thread?.id ?? null,
+  });
+
+  const connection = await createGitHubConnection({
+    appID: 1,
+    privateKey: buildStubAppKey(),
+    installationID: 7,
+  });
+
+  const outcome = await runGitHubCheck(
+    connection,
+    { owner: 'example', repo: 'app', number: 5 },
+    { failedReporters: [] },
+  );
+
+  expect(outcome.open.map((item) => item.reason)).toStrictEqual([
+    'the sha abc1234 matches more than one commit on the branch, so give more of it',
+  ]);
+});
+
 test('it fails the check without throwing on a fixed sha that GitHub finds ambiguous', async () => {
   const ctx = setupTest();
 

@@ -3,6 +3,7 @@ import type { CheckOutcome } from './build-check-outcome';
 import { buildCheckOutcome } from './build-check-outcome';
 import { createFormsReplies } from './create-forms-replies';
 import type { GitHubClient, GitHubConnection } from './create-github-connection';
+import type { FixCommits } from './read-fix-commits';
 import { readFixCommits } from './read-fix-commits';
 import { readFixConfirmations } from './read-fix-confirmations';
 import type { PullRequestState } from './read-pull-request-state';
@@ -37,7 +38,7 @@ export async function runGitHubCheck(
   const dispositions = await readThreadDispositions(client, pr, state.threads);
   const existingIssues = await readExistingIssues(client, pr, dispositions);
 
-  const commits = await readFixCommits(client, pr, {
+  const fixCommits = await readFixCommits(client, pr, {
     commits: state.commits,
     dispositions,
     head: state.headSha,
@@ -45,7 +46,7 @@ export async function runGitHubCheck(
 
   const summary = state.summary?.marker ?? null;
 
-  const fixes = await readCheckFixes(client, pr, { state, dispositions, commits });
+  const fixes = await readCheckFixes(client, pr, { state, dispositions, fixCommits });
 
   const outcome = buildCheckOutcome({
     findings: state.threads.map((thread) => thread.marker),
@@ -54,7 +55,8 @@ export async function runGitHubCheck(
     confirmed: fixes.confirmed,
     fixFailures: fixes.failures,
     currentHead: state.headSha,
-    commits,
+    commits: fixCommits.commits,
+    ambiguous: fixCommits.ambiguous,
     existingIssues,
     failedReporters: options.failedReporters,
     unreadable: state.unreadable,
@@ -76,7 +78,7 @@ export async function runGitHubCheck(
 interface CheckFixesInput {
   state: PullRequestState;
   dispositions: readonly Disposition[];
-  commits: readonly string[];
+  fixCommits: FixCommits;
 }
 
 interface CheckFixes {
@@ -108,7 +110,7 @@ async function readCheckFixes(
   const confirmations = await readFixConfirmations(client, pr, {
     threads: input.state.threads,
     dispositions: input.dispositions,
-    commits: input.commits,
+    fixCommits: input.fixCommits,
     review: range,
     held: new Set(marker.confirmed),
   });

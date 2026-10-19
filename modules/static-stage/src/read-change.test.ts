@@ -238,6 +238,31 @@ test('it keeps a rename whose old path the pull request deletes when only its ne
   ]);
 });
 
+test('it keeps the deletion of a path the pull request renames across 2 commits', async () => {
+  const ctx = await setupTest();
+
+  const content = 'export const count = 1;\nexport const size = 2;\nexport const total = 3;\n';
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'src/old.ts': content } },
+    { message: 'Copy the counts', files: { 'src/new.ts': content } },
+    { message: 'Drop the old counts', files: { 'src/old.ts': null } },
+  ]);
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: repo.commits[1] ?? '',
+    head: repo.commits[2] ?? '',
+    mergeBase: repo.commits[0] ?? '',
+    config: BUILT_IN_DEFAULTS,
+  });
+
+  expect(change.files.map((file) => [file.path, file.status])).toStrictEqual([
+    ['src/old.ts', 'deleted'],
+  ]);
+});
+
 test('it lists the files only the base branch changes apart after a merge from the base', async () => {
   const ctx = await setupTest();
 

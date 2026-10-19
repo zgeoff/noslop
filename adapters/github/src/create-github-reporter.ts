@@ -27,9 +27,6 @@ export interface GitHubReporterOptions {
   loadConnection: () => Promise<GitHubConnection>;
 }
 
-// the most characters of left-out paths the summary marker keeps, far under GitHub's comment limit
-const MARKER_PATH_CHARS = 16_000;
-
 // posts one pull request review with an inline comment per new finding, the summary, then the check
 // run; a finding outside the diff goes to an issue comment, and after the one re-check a non-security
 // finding in code the change did not write goes to a follow-up issue
@@ -331,6 +328,9 @@ async function createFollowUpIssue(
   });
 }
 
+// the most characters of left-out paths the summary marker keeps, far under GitHub's comment limit
+const MARKER_PATH_CHARS = 16_000;
+
 // the range the summary marker keeps for a `fixed` answer after the review; a review that left out
 // more paths than the marker holds keeps no range, so such an answer waits for the next review; the
 // budget counts the paths as the marker writes them, escapes included
@@ -351,7 +351,7 @@ async function readConfirmations(
 ): Promise<FixConfirmation[]> {
   const dispositions = await readThreadDispositions(client, pr, before.threads);
 
-  const commits = await readFixCommits(client, pr, {
+  const fixCommits = await readFixCommits(client, pr, {
     commits: before.commits,
     dispositions,
     head: result.head,
@@ -366,7 +366,7 @@ async function readConfirmations(
       : await readFixConfirmations(client, pr, {
           threads: before.threads,
           dispositions,
-          commits,
+          fixCommits,
           review: previousRange,
           held: new Set(previous.confirmed),
         });
@@ -379,7 +379,7 @@ async function readConfirmations(
   return readFixConfirmations(client, pr, {
     threads: before.threads,
     dispositions,
-    commits,
+    fixCommits,
     review: {
       base: result.base,
       head: result.head,

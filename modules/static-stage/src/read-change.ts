@@ -86,8 +86,8 @@ async function resolveCommit(options: ReadChangeOptions, ref: string): Promise<s
   return sha.trim();
 }
 
-// the paths the pull request changes since its merge base, or null when the change has no merge base
-// to keep to; the filter runs on the parsed diff, since a pathspec on the diff itself would stop git
+// the paths the pull request changes since its merge base, both paths of a rename among them, or null
+// with no merge base; the filter runs on the parsed diff, since a pathspec on the diff would stop git
 // pairing a rename whose old path the list leaves out
 async function readOwnedPaths(
   options: ReadChangeOptions,
@@ -104,7 +104,7 @@ async function readOwnedPaths(
     '--name-only',
     '-z',
     '--no-ext-diff',
-    '--find-renames',
+    '--no-renames',
     options.mergeBase,
     head,
   ]);

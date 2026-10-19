@@ -235,6 +235,26 @@ test('it pages the commits of a compare that asks for a page', async () => {
   expect(compare).toMatchObject({ status: 'ahead', commits: [{ sha: 'd'.repeat(40) }] });
 });
 
+test('it answers a compare from a short sha that starts 2 commits as unprocessable', async () => {
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    sha: 'abc1234'.padEnd(40, 'a'),
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    sha: 'abc1234'.padEnd(40, 'b'),
+  });
+
+  const response = await fetch(
+    `${GITHUB_API_URL}/repos/example/app/compare/abc1234...${'abc1234'.padEnd(40, 'b')}`,
+  );
+
+  expect(response.status).toBe(422);
+});
+
 test('it answers a compare from a short sha that names no commit with not found', async () => {
   await githubCollections.pullCommits.create({
     owner: 'example',

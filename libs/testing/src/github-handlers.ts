@@ -137,6 +137,10 @@ export const githubHandlers = [
 
       const compare = buildCompareData(records, { base, head, search });
 
+      if (compare === 'ambiguous') {
+        return HttpResponse.json({ message: 'No common ancestor', status: '422' }, { status: 422 });
+      }
+
       return compare === null ? buildNotFound() : HttpResponse.json(compare);
     },
   ),

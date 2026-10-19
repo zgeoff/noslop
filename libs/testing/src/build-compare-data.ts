@@ -30,13 +30,13 @@ export interface CompareRequest {
 // the most commits GitHub's compare lists without page parameters
 const UNPAGED_COMMITS = 250;
 
-// GitHub's compare of 2 commits of one line of history, oldest first: the base is an ancestor of the
-// head when it comes first, and the merge base is then the base itself; a full sha with no commit is
-// the pull request's own base, before every commit, and a shorter one names no commit, so gives null
+// GitHub's compare of 2 commits of one line of history, oldest first, where the merge base is the base
+// when it comes first; a full sha with no commit is the pull request's own base, before every commit,
+// a shorter one with no commit gives null, and one that starts 2 commits is ambiguous
 export function buildCompareData(
   records: readonly CompareCommit[],
   request: CompareRequest,
-): CompareData | null {
+): CompareData | 'ambiguous' | null {
   const base = request.base;
   const head = request.head;
   const commits = records.map((commit) => commit.sha);
@@ -44,6 +44,10 @@ export function buildCompareData(
 
   if (at === -1 && base.length < 40) {
     return null;
+  }
+
+  if (base.length < 40 && commits.filter((sha) => sha.startsWith(base)).length > 1) {
+    return 'ambiguous';
   }
 
   const found = commits.indexOf(head);
