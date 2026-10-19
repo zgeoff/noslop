@@ -52,7 +52,7 @@ export function makeRewrittenFixReader(
     // a full review after a rebase sees every rewritten commit as new, so the named commit itself must
     // come after the head that posted the finding
     if (input.posted !== undefined) {
-      const isAfter = await isDescendant(client, pr, input.posted, named.sha);
+      const isAfter = await readDescendsFrom(client, pr, input.posted, named.sha);
 
       if (!isAfter) {
         return {
@@ -150,9 +150,9 @@ function buildFingerprint(files: readonly PatchedFile[]): string | null {
     .join('\n');
 }
 
-// whether the commit descends from the ancestor: GitHub's compare lists a commit of a diverged fork
-// too, so only its `ahead` status shows the ancestry; an ancestor GitHub no longer holds shows none
-async function isDescendant(
+// reads from GitHub whether the commit descends from the ancestor: the compare lists a commit of a
+// diverged fork too, so only its `ahead` status shows the ancestry; a lost ancestor shows none
+async function readDescendsFrom(
   client: GitHubClient,
   pr: PullRequestRef,
   ancestor: string,
