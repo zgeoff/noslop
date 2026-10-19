@@ -20,6 +20,12 @@ test('it tells the naming lens to skip as const, satisfies and a disable comment
   ]);
 });
 
+test('it tells the naming lens to cite a comment finding to the code-style Comments section', () => {
+  expect(getLensPrompt('naming-shape-and-comments')).toInclude(
+    'Cite a comment finding to the `Comments` section of\n   the `code-style` skill.',
+  );
+});
+
 test('it leaves the criteria placeholder in the shared header', () => {
   expect(getLensPrompt('shared-header')).toInclude('{{criteria}}');
 });
