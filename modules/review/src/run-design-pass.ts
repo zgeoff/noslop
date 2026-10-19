@@ -44,6 +44,10 @@ export interface DesignPass {
   dropped: AssembledFindings['dropped'];
   record: CallRecord;
   failed: FailedCall | null;
+
+  // the files of the pull request whose hunks the design call left out, so the review lists each one
+  // that holds an earlier design finding as not reviewed, and confirms no design fix there
+  leftOut: LeftOutFile[];
 }
 
 // the most findings the design pass reports, since it judges one approach: the pull request's
@@ -57,11 +61,12 @@ const ATTEMPTS = 2;
 // failed call of the review, as a lens call is, so the review confirms no fix, a design fix included
 export async function runDesignPass(input: DesignPassInput): Promise<DesignPass> {
   const started = performance.now();
+  const planned = planDesignFiles(input);
 
   const request: CallRequest = {
     callID: input.callID,
     lenses: ['design'],
-    prompt: buildDesignPrompt({ ...input, ...planDesignFiles(input) }),
+    prompt: buildDesignPrompt({ ...input, ...planned }),
     outputSchema: buildCallOutputSchema(['design']),
     effort: input.config.designPass.effort,
     model: null,
@@ -121,6 +126,7 @@ export async function runDesignPass(input: DesignPassInput): Promise<DesignPass>
         durationMs: Math.round(performance.now() - started),
       },
       failed: null,
+      leftOut: planned.leftOut,
     };
   }
 
@@ -134,6 +140,7 @@ export async function runDesignPass(input: DesignPassInput): Promise<DesignPass>
       durationMs: Math.round(performance.now() - started),
     },
     failed: { id: input.callID, lenses: ['design'], reason },
+    leftOut: planned.leftOut,
   };
 }
 

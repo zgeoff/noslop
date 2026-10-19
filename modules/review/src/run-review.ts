@@ -144,7 +144,7 @@ export async function runReview(options: RunReviewOptions): Promise<ReviewRun> {
       ],
 
       // a reporter reads no fix as confirmed on a file that no call read
-      notReviewed: collectNotReviewed(ctx, batches),
+      notReviewed: collectNotReviewed(ctx, batches, design),
 
       // a reporter reads no silence of a lens as a fix on a file that the lens's call left out
       notReviewedByLens: batches.flatMap((batch) => batch.notReviewedByLens),
@@ -379,7 +379,11 @@ function pickPassID(ctx: PassContext, name: string): string {
 
 // the files the call batch left out, as too large or as data, and each data file of the change, which
 // no call reads either, so a route that runs no call still lists them
-function collectNotReviewed(ctx: PassContext, batches: readonly CallBatch[]): NotReviewedFile[] {
+function collectNotReviewed(
+  ctx: PassContext,
+  batches: readonly CallBatch[],
+  design: DesignPass | null,
+): NotReviewedFile[] {
   const listed = batches.flatMap((batch) => batch.notReviewed);
 
   const paths = new Set(listed.map((file) => file.path));
@@ -404,7 +408,24 @@ function collectNotReviewed(ctx: PassContext, batches: readonly CallBatch[]): No
       : [];
   });
 
-  return [...listed, ...data, ...baseOnly];
+  // a file the design call left out read no design fix, so one that holds an earlier design finding
+  // stays listed, and its fix waits for a review whose design call reads it; a lens call may have read
+  // the file, so a file with no design finding stays off the list
+  const designPaths = new Set(
+    (ctx.options.earlierFindings ?? [])
+      .filter((finding) => finding.lens === 'design')
+      .map((finding) => finding.path),
+  );
+
+  const known = new Set([...listed, ...data, ...baseOnly].map((file) => file.path));
+
+  const designOnly = (design?.leftOut ?? []).flatMap((file): NotReviewedFile[] =>
+    designPaths.has(file.path) && !known.has(file.path) && file.reason !== 'other-part'
+      ? [{ path: file.path, reason: file.reason }]
+      : [],
+  );
+
+  return [...listed, ...data, ...baseOnly, ...designOnly];
 }
 
 // the fired lenses that a call ran, in the route's order; a call whose files each overflow a call

@@ -61,7 +61,9 @@ answer to each, and the hunks of the whole pull request since its merge base. It
 issue, so the lens judges the approach against what the pull request promises and never against an
 issue. A re-review's own diff holds only its new commits, while an approach spans every round, so
 the call reads the whole pull request. When those hunks pass the call limit, the call leaves out the
-files that do not fit and lists them.
+files that do not fit and lists them. The review lists a left-out file that holds an earlier design
+finding among the files it did not review, so a fix of that finding waits for a design call that
+reads the file.
 
 The lens reports at most one finding. It names the simpler approach and the findings that approach
 would remove, and it reports nothing when the findings show no repeated patching and the change is
