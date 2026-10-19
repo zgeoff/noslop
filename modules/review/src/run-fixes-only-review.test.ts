@@ -181,6 +181,105 @@ test("it judges a fix whose commit only adds a test in another file from that te
   ]);
 });
 
+test('it gives the call the diff of a fix in a file whose name git quotes', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const separator = ":";\n' } },
+    {
+      message: 'Test the separator in the café locale',
+      files: { 'src/café.test.ts': 'test("it splits on a colon", () => {});\n' },
+    },
+  ]);
+
+  const stub = buildStubAdapter({
+    'fix-1111111111111111': [{ fixed: true, reason: 'A test now covers the separator.' }],
+  });
+
+  await runFixesOnlyReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/app',
+    pullRequest: { owner: 'example', repo: 'app', number: 9 },
+    base: repo.commits[0] ?? '',
+    head: repo.commits[1] ?? '',
+    mergeBase: repo.commits[0] ?? '',
+    lensHead: null,
+    title: 'Scan the header line',
+    configHash: 'hash',
+    fixes: [
+      {
+        id: '1111111111111111',
+        title: 'Test the separator in the café locale',
+        lens: 'tests',
+        path: 'src/scan.ts',
+        line: 1,
+        comment: 'No test covers the separator in the café locale.',
+        commit: (repo.commits[1] ?? '').slice(0, 7),
+        postedHead: null,
+      },
+    ],
+    maxFileChars: 10_000,
+    adapter: stub.adapter,
+    tempDir: ctx.directory,
+    logger: ctx.logger,
+  });
+
+  expect(stub.requests[0]?.prompt).toInclude('+test("it splits on a colon", () => {});');
+});
+
+test('it reads a fix file whose name is a glob as that one file', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const separator = ":";\n' } },
+    {
+      message: 'Test the separator',
+      files: { 'src/[a].test.ts': 'test("it splits on a colon", () => {});\n' },
+    },
+    {
+      message: 'Add the reader test',
+      files: { 'src/a.test.ts': 'test("it reads a line", () => {});\n' },
+    },
+  ]);
+
+  const stub = buildStubAdapter({
+    'fix-1111111111111111': [{ fixed: true, reason: 'A test now covers the separator.' }],
+  });
+
+  await runFixesOnlyReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/app',
+    pullRequest: { owner: 'example', repo: 'app', number: 9 },
+    base: repo.commits[0] ?? '',
+    head: repo.commits[2] ?? '',
+    mergeBase: repo.commits[0] ?? '',
+    lensHead: null,
+    title: 'Scan the header line',
+    configHash: 'hash',
+    fixes: [
+      {
+        id: '1111111111111111',
+        title: 'Test the separator',
+        lens: 'tests',
+        path: 'src/scan.ts',
+        line: 1,
+        comment: 'No test covers the separator.',
+        commit: (repo.commits[1] ?? '').slice(0, 7),
+        postedHead: null,
+      },
+    ],
+    maxFileChars: 10_000,
+    adapter: stub.adapter,
+    tempDir: ctx.directory,
+    logger: ctx.logger,
+  });
+
+  expect(stub.requests[0]?.prompt).toInclude('+test("it splits on a colon", () => {});');
+  expect(stub.requests[0]?.prompt).not.toInclude('it reads a line');
+});
+
 test('it judges a fix whose commit changes no file of the pull request not fixed with no call', async () => {
   const ctx = await setupTest();
 

@@ -73,8 +73,9 @@ export async function runFixesOnlyReview(input: FixesOnlyReviewInput): Promise<R
   const range = await readGitLines(input, ['rev-list', `${input.base}..${input.head}`]);
   const bases = await Promise.all(input.fixes.map((fix) => readFixBase(input, fix, range)));
 
-  const pullRequestFiles = await readGitLines(input, [
+  const pullRequestFiles = await readGitPaths(input, [
     'diff',
+    '-z',
     '--name-only',
     '--no-renames',
     input.mergeBase,
@@ -138,6 +139,21 @@ async function readGitText(input: FixesOnlyReviewInput, args: readonly string[])
   }
 
   return result.stdout.trim();
+}
+
+// the paths a git command run with `-z` lists, each as the file's own name: `-z` ends each with a NUL
+// and turns off git's quoting of an unusual name, which would name no file as a pathspec
+async function readGitPaths(
+  input: FixesOnlyReviewInput,
+  args: readonly string[],
+): Promise<string[]> {
+  const result = await input.runner.run(['git', ...args], { cwd: input.repoDir });
+
+  if (result.exitCode !== 0) {
+    throw new Error(`git ${args.join(' ')} failed: ${result.stderr.trim()}`);
+  }
+
+  return result.stdout.split('\0').filter((path) => path !== '');
 }
 
 // the commit a fix's diff starts from, and the full sha of the fix commit
@@ -240,8 +256,9 @@ async function runFixCheck(
   const base = target.base.base;
 
   // a merge's files are its change against its first parent, as GitHub lists them
-  const commitFiles = await readGitLines(input, [
+  const commitFiles = await readGitPaths(input, [
     'diff-tree',
+    '-z',
     '-r',
     '--root',
     '--no-commit-id',
@@ -266,7 +283,16 @@ async function runFixCheck(
   const paths = [...new Set([fix.path, ...commitFiles])];
 
   const code = await readAnchoredCode(input, fix, base);
-  const diff = await readGitText(input, ['diff', base, input.head, '--', ...paths]);
+
+  // a path is a file's own name, never a glob
+  const diff = await readGitText(input, [
+    '--literal-pathspecs',
+    'diff',
+    base,
+    input.head,
+    '--',
+    ...paths,
+  ]);
 
   if (code.length > input.maxFileChars || diff.length > input.maxFileChars) {
     input.logger.warn('the fix of {id} passes the file limit, so it stays unconfirmed', {
