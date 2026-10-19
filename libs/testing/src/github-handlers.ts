@@ -4,6 +4,7 @@ import { P, match } from 'ts-pattern';
 import { buildCommitFileData } from './build-commit-file-data';
 import { buildCompareData } from './build-compare-data';
 import { githubCollections } from './github-collections';
+import { toPage } from './to-page';
 
 export const GITHUB_API_URL = 'https://api.github.com';
 
@@ -532,16 +533,6 @@ function buildUnresolvedLine(comment: Pick<ReviewCommentInput, 'path' | 'line'>)
     },
     { status: 422 },
   );
-}
-
-// one page of a list, by the request's `page` and `per_page`, as GitHub pages it
-function toPage<Item>(request: Request, items: readonly Item[]): Item[] {
-  const search = new URL(request.url).searchParams;
-
-  const page = Number(search.get('page') ?? '1');
-  const perPage = Number(search.get('per_page') ?? '30');
-
-  return items.slice((page - 1) * perPage, page * perPage);
 }
 
 // GitHub takes a review comment only on a line of the pull request's diff

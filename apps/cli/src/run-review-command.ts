@@ -95,7 +95,7 @@ export async function runReviewCommand(values: ReviewValues, ctx: CLIContext): P
   let result: ReviewResult;
 
   try {
-    if (values.fixesOnly && change.pullRequest !== null) {
+    if (values.fixesOnly && change.pullRequest !== null && change.pullRequestBase !== null) {
       const run = await runFixesOnlyReview({
         runner: ctx.runner,
         repoDir,
@@ -103,6 +103,7 @@ export async function runReviewCommand(values: ReviewValues, ctx: CLIContext): P
         pullRequest: change.pullRequest,
         base: change.base,
         head: change.head,
+        mergeBase: change.pullRequestBase,
         title: change.title,
         configHash: loaded.hash,
         fixes: change.fixes,
@@ -192,6 +193,10 @@ interface ResolvedChange {
   // request changes, so a merge from the base branch adds none of its own
   mergeBase: string | null;
 
+  // the merge base of a pull request with its base branch, where its whole diff starts, which a fix
+  // commit must reach; null for a local change
+  pullRequestBase: string | null;
+
   // which review of the pull request this is, from 1, and the findings the earlier reviews posted,
   // which the design pass reads; a local change is always a first review
   round: number;
@@ -240,6 +245,7 @@ async function resolveLocalChange(
     pullRequest: null,
     isIncremental: false,
     mergeBase: null,
+    pullRequestBase: null,
     round: 1,
     earlierFindings: [],
     fixes: [],
@@ -333,6 +339,7 @@ async function resolvePullRequestChange(
     pullRequest,
     isIncremental: isDelta,
     mergeBase: isDelta ? start : null,
+    pullRequestBase: start,
     round: (state.summary?.marker.reviews ?? 0) + 1,
     earlierFindings: state.threads.map((thread): EarlierFinding => ({
       id: thread.marker.id,

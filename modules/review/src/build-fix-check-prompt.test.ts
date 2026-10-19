@@ -15,8 +15,8 @@ test('it asks whether the diff fixes the finding from the finding, its code and 
     "A reviewer posted the finding below on a pull request, and the author answered that a later commit fixes it.
     Judge from the finding, the code it anchored to and the diff alone whether the diff fixes the finding. Read no files.
 
-    1. Answer \`fixed: true\` only when the diff removes the defect the finding describes.
-    2. Answer \`fixed: false\` when the diff leaves the defect in place, moves it elsewhere, or changes other code.
+    1. Answer \`fixed: true\` only when the diff removes the defect the finding describes. The fix may be in another file, such as a new test that the finding asks for.
+    2. Answer \`fixed: false\` when the diff leaves the defect in place, moves it elsewhere, or changes only code the finding does not describe.
     3. Give the reason in one line.
     4. Report no other defect, however the diff looks.
 
@@ -32,7 +32,7 @@ test('it asks whether the diff fixes the finding from the finding, its code and 
     1: export const separator = "";
     \`\`\`
 
-    ## The diff of \`src/scan.ts\` since then
+    ## The diff since then of \`src/scan.ts\` and of each file the fix commit changes
 
     \`\`\`diff
     -export const separator = "";
@@ -52,5 +52,5 @@ test('it names an empty diff and absent code, so the call reads no blank block',
   });
 
   expect(prompt).toInclude('(the file is empty or absent at the reviewed head)');
-  expect(prompt).toInclude('(no change to this file)');
+  expect(prompt).toInclude('(no change to these files)');
 });

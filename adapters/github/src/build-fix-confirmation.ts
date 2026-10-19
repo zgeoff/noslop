@@ -1,3 +1,4 @@
+import type { FixFileEvidence } from '@noslop/contract';
 import type { FixConfirmation } from './format-summary-comment';
 import type { FixState, FixVerdict } from './pick-next-fix-state';
 import { HELD_FIX_STATES, pickNextFixState } from './pick-next-fix-state';
@@ -27,11 +28,15 @@ export interface FixEvidence {
 
   // the review reported the finding again
   isReported: boolean;
+
+  // what the matched commit's files show, or null when GitHub listed no whole file list of the commit
+  // or of the pull request, or the sha names no single commit
+  files: FixFileEvidence | null;
 }
 
 // the review moves the answer through the fix lifecycle: it rejects a finding it reports again, and
-// confirms a fix whose commit its range holds once it read the finding's file and every file the
-// commit reaches; a sha that names no single commit holds no fix
+// confirms a fix in its range once it read every file the fix reaches; no fix holds for a sha that
+// names no single commit, or for a commit that changes no file of the pull request
 export function buildFixConfirmation(evidence: FixEvidence): FixConfirmation {
   const isRead =
     evidence.isInRange &&
@@ -40,15 +45,29 @@ export function buildFixConfirmation(evidence: FixEvidence): FixConfirmation {
     !evidence.coverage.changesSkipped;
 
   const state = pickNextFixState(evidence.held, pickReviewVerdict(evidence.isReported, isRead));
-  const fixed = evidence.match !== null && HELD_FIX_STATES.has(state);
-  const failure = evidence.coverage.failure;
+  const files = evidence.files;
+  const isHeld = evidence.match !== null && HELD_FIX_STATES.has(state);
+
+  if (isHeld && files?.changesPullRequest === true) {
+    return {
+      id: evidence.id,
+      title: evidence.title,
+      commit: evidence.commit,
+      fixed: true,
+      changesFindingFile: files.changesFindingFile,
+    };
+  }
+
+  const failure =
+    evidence.coverage.failure ??
+    (files?.changesPullRequest === false ? 'the commit changes no file of the pull request' : null);
 
   return {
     id: evidence.id,
     title: evidence.title,
     commit: evidence.commit,
-    fixed,
-    ...(fixed || failure === null ? {} : { failure }),
+    fixed: false,
+    ...(failure === null ? {} : { failure }),
   };
 }
 

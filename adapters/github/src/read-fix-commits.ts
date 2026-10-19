@@ -2,6 +2,7 @@ import type { Disposition, PullRequestRef } from '@noslop/contract';
 import type { GitHubClient } from './create-github-connection';
 import type { RewrittenFix } from './make-rewritten-fix-reader';
 import { makeRewrittenFixReader } from './make-rewritten-fix-reader';
+import { readAllPages } from './read-all-pages';
 import type { FindingThread } from './read-pull-request-state';
 
 export interface FixCommitsInput {
@@ -23,6 +24,10 @@ export interface FixCommits {
   // the pull request commit that holds the change of each `<finding id>:<sha>` answer whose commit a
   // rebase rewrote, or why none does
   rewritten: ReadonlyMap<string, RewrittenFix>;
+
+  // each path the pull request's diff changes, with each rename's earlier path, which a fix commit
+  // must reach; null when GitHub lists only part of the diff
+  pullRequestFiles: string[] | null;
 }
 
 const FULL_SHA_LENGTH = 40;
@@ -58,6 +63,9 @@ export async function readFixCommits(
     commits,
     ambiguous,
     rewritten: await readRewrittenFixes(client, pr, { ...input, commits, ambiguous }),
+    pullRequestFiles: input.dispositions.some((item) => item.kind === 'fixed')
+      ? await readPullRequestFiles(client, pr)
+      : [],
   };
 }
 
@@ -143,4 +151,36 @@ async function readRewrittenFixes(
   );
 
   return new Map(fixes);
+}
+
+// GitHub lists at most 3,000 files of a pull request
+const PULL_REQUEST_FILES = 3000;
+
+// the paths the pull request's diff changes, as GitHub lists them, with each rename's earlier path;
+// a list at GitHub's cap may leave files out, so it gives null
+async function readPullRequestFiles(
+  client: GitHubClient,
+  pr: PullRequestRef,
+): Promise<string[] | null> {
+  const files = await readAllPages(async (page, perPage) => {
+    const response = await client.request('GET /repos/{owner}/{repo}/pulls/{pull_number}/files', {
+      owner: pr.owner,
+      repo: pr.repo,
+      pull_number: pr.number,
+      page,
+      per_page: perPage,
+    });
+
+    return response.data;
+  });
+
+  if (files.length >= PULL_REQUEST_FILES) {
+    return null;
+  }
+
+  return files.flatMap((file) =>
+    file.previous_filename === undefined
+      ? [file.filename]
+      : [file.filename, file.previous_filename],
+  );
 }

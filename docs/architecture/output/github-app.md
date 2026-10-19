@@ -144,7 +144,8 @@ kind is valid under its own rule:
 - `fixed <commit>` is valid when the sha names exactly one commit on the branch, or a commit that a
   rebase rewrote into one, and a re-review that read the commit no longer reports the finding. A
   commit that a merge from the base branch brought in is on the branch, although GitHub's commit
-  list of the pull request leaves it out.
+  list of the pull request leaves it out. Such a commit, or the merge itself, holds a fix only when
+  it changes a file of the pull request's diff.
 - `not-a-defect <reason>` is valid with any reason.
 - `deferred <issue>` is valid when the change did not write the code, the finding is no P1, security
   or risk-class finding, and the issue exists. The issue is `#<number>` in the same repo,
@@ -178,20 +179,23 @@ from that diff. The prompt of each re-review call therefore asks the lenses to r
 between the description and the diff, and a full review judges the description.
 
 A `fixed <commit>` disposition counts once a re-review whose range holds that commit no longer
-reports the finding. The commit may change any file, because a fix such as a missing test lands
-beside the finding's file. The commit must also come after the head of the review that posted the
-finding, which the finding's marker keeps, so a full review over the whole branch never confirms a
-fix through an older commit. A re-review read nothing of a fix when it left the finding's file, or a
-file the fix commit changes or renames, out of every call, so it confirms no such fix. Only the
-finding's own lens can show a fix by no longer reporting the finding. A file that the call of that
-lens left out therefore counts as left out for the finding, even when a call of another lens read
-it. A later commit that renames the fixed file into a left-out path counts the same way. A re-review
-with a failed call confirms no fix, because the call that failed may be the one that reports the
-finding, such as the design call for a design finding. When GitHub cannot list the files of the fix
-commit whole, the fix stays unconfirmed and the summary names the failure. The summary marker keeps
-each confirmed fix as the finding id and the commit, so a later delta without the commit keeps the
-confirmation. A fix that a re-review still reports stays unconfirmed, and a later delta without the
-commit leaves it unconfirmed.
+reports the finding. The commit may change any file of the pull request's diff, because a fix such
+as a missing test lands beside the finding's file. A commit that changes no file of that diff holds
+no fix, and the summary names that as the reason. For each confirmed fix, the summary shows whether
+its commit changes the finding's own file or only other files of the pull request. The commit must
+also come after the head of the review that posted the finding, which the finding's marker keeps, so
+a full review over the whole branch never confirms a fix through an older commit. A re-review read
+nothing of a fix when it left the finding's file, or a file the fix commit changes or renames, out
+of every call, so it confirms no such fix. Only the finding's own lens can show a fix by no longer
+reporting the finding. A file that the call of that lens left out therefore counts as left out for
+the finding, even when a call of another lens read it. A later commit that renames the fixed file
+into a left-out path counts the same way. A re-review with a failed call confirms no fix, because
+the call that failed may be the one that reports the finding, such as the design call for a design
+finding. When GitHub cannot list the files of the fix commit or of the pull request whole, the fix
+stays unconfirmed and the summary names the failure. The summary marker keeps each confirmed fix as
+the finding id and the commit, so a later delta without the commit keeps the confirmation. A fix
+that a re-review still reports stays unconfirmed, and a later delta without the commit leaves it
+unconfirmed.
 
 A `fixed` reply posted after the re-review of its commit counts on the next check, with no further
 review. The summary marker keeps the range of the latest review and the files it left out, and the

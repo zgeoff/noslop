@@ -827,7 +827,12 @@ test('it confirms no fix through a merge from the base branch that brings in a s
       files: { 'src/table.ts': `export const table = ['${'x'.repeat(300_000)}'];\n` },
       parent: 0,
     },
-    { message: 'Merge main', files: {}, parent: 1, merged: 2 },
+    {
+      message: 'Merge main and add one',
+      files: { 'src/total.ts': 'export const zero = 0;\nexport const one = zero + 1;\n' },
+      parent: 1,
+      merged: 2,
+    },
   ]);
 
   const findingID = '1111111111111111';
@@ -864,7 +869,7 @@ test('it confirms no fix through a merge from the base branch that brings in a s
     repo: 'app',
     number: 9,
     sha: repo.commits[3] ?? '',
-    files: ['src/table.ts'],
+    files: ['src/table.ts', 'src/total.ts'],
   });
 
   await githubCollections.pullFiles.create({
@@ -935,7 +940,12 @@ test('it confirms a fix through a merge from the base branch that brings in a lo
       files: { 'bun.lock': `{"packages":"${'x'.repeat(300_000)}"}\n` },
       parent: 0,
     },
-    { message: 'Merge main', files: {}, parent: 1, merged: 2 },
+    {
+      message: 'Merge main and add one',
+      files: { 'src/total.ts': 'export const zero = 0;\nexport const one = zero + 1;\n' },
+      parent: 1,
+      merged: 2,
+    },
   ]);
 
   const findingID = '1111111111111111';
@@ -972,7 +982,7 @@ test('it confirms a fix through a merge from the base branch that brings in a lo
     repo: 'app',
     number: 9,
     sha: repo.commits[3] ?? '',
-    files: ['bun.lock'],
+    files: ['bun.lock', 'src/total.ts'],
   });
 
   await githubCollections.pullFiles.create({
