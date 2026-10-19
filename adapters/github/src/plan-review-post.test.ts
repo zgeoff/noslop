@@ -46,6 +46,37 @@ test('it counts a repost of the latest review as no new review', () => {
   });
 });
 
+test('it counts no new review for a fixes-only run', () => {
+  const plan = planReviewPost(
+    {
+      summary: {
+        head: 'b'.repeat(40),
+        reviews: 2,
+        reported: [],
+        failedCalls: 0,
+        followUps: [],
+        confirmed: [],
+        reviewIDs: ['review-a', 'review-b'],
+        startedAt: '2026-10-17T10:05:00.000Z',
+      },
+      posted: new Set(),
+    },
+    buildMockReviewResult({
+      reviewID: 'review-c',
+      startedAt: '2026-10-17T10:10:00.000Z',
+      fixChecks: [{ findingID: '1111111111111111', fixed: true, reason: 'The guard is in place.' }],
+    }),
+  );
+
+  expect(plan).toStrictEqual({
+    writesSummary: true,
+    reviews: 2,
+    reviewIDs: ['review-a', 'review-b', 'review-c'],
+    inline: [],
+    followUps: [],
+  });
+});
+
 test('it leaves the summary to a later review when a counted earlier review is retried', () => {
   const plan = planReviewPost(
     {

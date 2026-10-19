@@ -2,8 +2,10 @@ import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { basename, join, resolve } from 'node:path';
 import type { EarlierFinding, PullRequestRef, ReviewResult } from '@noslop/contract';
 import { reviewResultSchema } from '@noslop/contract';
-import { readLinkedIssue, readPullRequestState } from '@noslop/github';
-import { runReview } from '@noslop/review';
+import type { GitHubConnection, PullRequestState, SummaryMarker } from '@noslop/github';
+import { readLinkedIssue, readPullRequestState, readThreadDispositions } from '@noslop/github';
+import type { AnsweredFix } from '@noslop/review';
+import { runFixesOnlyReview, runReview } from '@noslop/review';
 import { loadStore, readEscapePaths } from '@noslop/sqlite';
 import { buildConfiguredAdapter } from './build-configured-adapter';
 import type { CLIContext } from './cli-context';
@@ -17,6 +19,10 @@ export interface ReviewValues {
   head: string | undefined;
   pr: string | undefined;
   full: boolean;
+
+  // a run after the last review round that runs no lens: it asks of each `fixed` answer whether the
+  // commits since the last reviewed head fix the finding, and raises no finding
+  fixesOnly: boolean;
   repo: string | undefined;
   report: string | undefined;
   json: boolean;
@@ -38,13 +44,28 @@ export async function runReviewCommand(values: ReviewValues, ctx: CLIContext): P
     throw new Error('--full takes --pr; a review without --pr covers the whole change');
   }
 
+  if (values.fixesOnly && values.pr === undefined) {
+    throw new Error('--fixes-only takes --pr; it confirms the fixes of an earlier review');
+  }
+
+  if (values.fixesOnly && values.full) {
+    throw new Error(
+      '--fixes-only reviews only the commits since the last review; leave out --full',
+    );
+  }
+
   const issueText =
     values.issueFile === undefined ? null : await readIssueFile(ctx, values.issueFile);
 
   const change =
     values.pr === undefined
       ? await resolveLocalChange(ctx, repoDir, values)
-      : await resolvePullRequestChange(ctx, repoDir, values, issueText === null);
+      : await resolvePullRequestChange(
+          ctx,
+          repoDir,
+          values,
+          issueText === null && !values.fixesOnly,
+        );
 
   // the config comes from the commit the change starts from, so a change that edits the config is
   // reviewed under the config it would replace
@@ -74,38 +95,64 @@ export async function runReviewCommand(values: ReviewValues, ctx: CLIContext): P
   let result: ReviewResult;
 
   try {
-    const run = await runReview({
-      runner: ctx.runner,
-      mergeModel: loaded.config.adapters[adapterID]?.mergeModel ?? null,
-      repoDir,
-      repo: change.repo,
-      base: change.base,
-      head: change.head,
-      config: loaded.config,
-      configHash: loaded.hash,
-      rules: loaded.rules,
-      adapter,
-      logger: ctx.logger,
-      tempDir,
-      cacheDir: join(ctx.cacheDir, 'index'),
-      title: change.title,
-      body: change.body,
-      linkedIssue: issueText ?? change.linkedIssue,
-      pullRequest: change.pullRequest,
-      isIncremental: change.isIncremental,
-      ...(change.mergeBase === null ? {} : { mergeBase: change.mergeBase }),
-      round: change.round,
-      earlierFindings: change.earlierFindings,
-      isPush: values.push,
-      pastEscapes,
-      ...(ctx.now === undefined ? {} : { now: ctx.now }),
-    });
+    if (values.fixesOnly && change.pullRequest !== null) {
+      const run = await runFixesOnlyReview({
+        runner: ctx.runner,
+        repoDir,
+        repo: change.repo,
+        pullRequest: change.pullRequest,
+        base: change.base,
+        head: change.head,
+        title: change.title,
+        configHash: loaded.hash,
+        fixes: change.fixes,
+        lensHead: change.lensHead,
+        maxFileChars: loaded.config.thresholds.maxFileChars,
+        adapter,
+        tempDir,
+        logger: ctx.logger,
+        ...(ctx.now === undefined ? {} : { now: ctx.now }),
+      });
 
-    for (const item of run.result.dropped) {
-      ctx.logger.info('dropped a {lens} finding, {reason}: {title}', item);
+      for (const check of run.fixChecks ?? []) {
+        ctx.logger.info('the fix of {findingID} holds: {fixed}, {reason}', { ...check });
+      }
+
+      result = reviewResultSchema.parse(run);
+    } else {
+      const run = await runReview({
+        runner: ctx.runner,
+        mergeModel: loaded.config.adapters[adapterID]?.mergeModel ?? null,
+        repoDir,
+        repo: change.repo,
+        base: change.base,
+        head: change.head,
+        config: loaded.config,
+        configHash: loaded.hash,
+        rules: loaded.rules,
+        adapter,
+        logger: ctx.logger,
+        tempDir,
+        cacheDir: join(ctx.cacheDir, 'index'),
+        title: change.title,
+        body: change.body,
+        linkedIssue: issueText ?? change.linkedIssue,
+        pullRequest: change.pullRequest,
+        isIncremental: change.isIncremental,
+        ...(change.mergeBase === null ? {} : { mergeBase: change.mergeBase }),
+        round: change.round,
+        earlierFindings: change.earlierFindings,
+        isPush: values.push,
+        pastEscapes,
+        ...(ctx.now === undefined ? {} : { now: ctx.now }),
+      });
+
+      for (const item of run.result.dropped) {
+        ctx.logger.info('dropped a {lens} finding, {reason}: {title}', item);
+      }
+
+      result = reviewResultSchema.parse(run.result);
     }
-
-    result = reviewResultSchema.parse(run.result);
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }
@@ -149,6 +196,12 @@ interface ResolvedChange {
   // which the design pass reads; a local change is always a first review
   round: number;
   earlierFindings: EarlierFinding[];
+
+  // the findings whose latest answer is `fixed`, which a fixes-only run checks; read only for one
+  fixes: AnsweredFix[];
+
+  // the head of the newest lens review of a pull request, which a fixes-only run reads past
+  lensHead: string | null;
 }
 
 async function resolveLocalChange(
@@ -189,6 +242,8 @@ async function resolveLocalChange(
     mergeBase: null,
     round: 1,
     earlierFindings: [],
+    fixes: [],
+    lensHead: null,
   };
 }
 
@@ -229,9 +284,9 @@ async function resolvePullRequestChange(
 
   // only a review with no failed call covered its head, so only such a head bases a delta
   const summary = state.summary?.marker;
-
-  const reviewed =
-    summary !== undefined && summary.failedCalls === 0 && !values.full ? summary.head : null;
+  const full = summary !== undefined && summary.failedCalls === 0 ? summary.head : null;
+  const latest = values.fixesOnly ? findCompleteHead(summary) : full;
+  const reviewed = values.full ? null : latest;
 
   await ctx.runner.run(
     [
@@ -255,14 +310,22 @@ async function resolvePullRequestChange(
 
   const isDelta = reviewed !== null && reviewed !== state.headSha && ancestry.exitCode === 0;
 
+  // a fixes-only run may run again at the same head, for a `fixed` reply posted after the last run
+  if (values.fixesOnly && (reviewed === null || ancestry.exitCode !== 0)) {
+    throw new Error(
+      '--fixes-only needs an earlier review with no failed call whose head the branch still holds',
+    );
+  }
+
   const linkedIssue = shouldReadLinkedIssue
     ? await readLinkedIssue(connection, pullRequest, state.body)
     : null;
 
   return {
     repo,
-    base: isDelta ? reviewed : start,
+    base: (values.fixesOnly || isDelta) && reviewed !== null ? reviewed : start,
     head: state.headSha,
+    lensHead: findLensHead(summary),
     configCommit: state.baseSha,
     title: state.title,
     body: state.body,
@@ -279,7 +342,80 @@ async function resolvePullRequestChange(
       path: thread.marker.path,
       answer: thread.replies.at(-1)?.body.trim().split('\n')[0] ?? null,
     })),
+    fixes: values.fixesOnly ? await readAnsweredFixes(connection, pullRequest, state) : [],
   };
+}
+
+// the head of the newest run with no failed call that the summary marker keeps, so a fixes-only run
+// whose call failed leaves the next one its own base
+function findCompleteHead(summary: SummaryMarker | undefined): string | null {
+  if (summary === undefined) {
+    return null;
+  }
+
+  if (summary.failedCalls === 0) {
+    return summary.head;
+  }
+
+  return summary.earlier?.find((range) => range.partial !== true)?.head ?? null;
+}
+
+// the head of the newest review with no failed call that ran its lenses, which judged every `fixed`
+// reply before it; a fixes-only run's range keeps the list of fixes it checked, and a lens review's
+// keeps none
+function findLensHead(summary: SummaryMarker | undefined): string | null {
+  if (summary === undefined) {
+    return null;
+  }
+
+  if (summary.checked === undefined && summary.failedCalls === 0) {
+    return summary.head;
+  }
+
+  const range = summary.earlier?.find(
+    (item) => item.checked === undefined && item.partial !== true,
+  );
+
+  return range?.head ?? null;
+}
+
+// each finding whose latest disposition is `fixed` with a fix the summary does not hold confirmed, as
+// its comment keeps it, with the marker left out
+async function readAnsweredFixes(
+  connection: GitHubConnection,
+  pullRequest: PullRequestRef,
+  state: PullRequestState,
+): Promise<AnsweredFix[]> {
+  const dispositions = await readThreadDispositions(connection.client, pullRequest, state.threads);
+
+  const latest = new Map(dispositions.map((item) => [item.findingID, item]));
+  const confirmed = new Set(state.summary?.marker.confirmed);
+
+  return state.threads.flatMap((thread): AnsweredFix[] => {
+    const disposition = latest.get(thread.marker.id);
+
+    if (disposition?.kind !== 'fixed') {
+      return [];
+    }
+
+    // a review already judged this fix, and asking again could only revoke it
+    if (confirmed.has(`${thread.marker.id}:${disposition.value}`)) {
+      return [];
+    }
+
+    return [
+      {
+        id: thread.marker.id,
+        title: thread.marker.title,
+        lens: thread.marker.lens,
+        path: thread.marker.path,
+        line: thread.line,
+        comment: thread.body.replace(/<!-- noslop:[\s\S]*?-->/u, '').trim(),
+        commit: disposition.value,
+        postedHead: thread.marker.head ?? null,
+      },
+    ];
+  });
 }
 
 // a relative path resolves against the working directory, as the shell that passed it does

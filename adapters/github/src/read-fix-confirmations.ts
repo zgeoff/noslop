@@ -26,6 +26,10 @@ export interface ReviewedRange {
   // a review with a failed call, which read no fix in full: a design fix waits on the design call, a
   // lens fix on its lens call, so the review confirms none, as a partial range a marker keeps does not
   isPartial?: boolean;
+
+  // a fixes-only run's range, which read only these findings and found them fixed; it reads no other
+  // finding, so it confirms no other fix
+  checked?: readonly string[];
 }
 
 export interface FixConfirmationsInput {
@@ -86,7 +90,8 @@ export async function readFixConfirmations(
     const after = isAfterChecked ? range : await readSincePosted(posted);
     const isInRange = match !== null && range.includes(match) && after.includes(match);
     const skipped = collectLensSkipped(notReviewed, review.notReviewedByLens, thread.marker.lens);
-    const isFileSkipped = skipped.has(thread.marker.path);
+    const isUnchecked = review.checked !== undefined && !review.checked.includes(thread.marker.id);
+    const isFileSkipped = isUnchecked || skipped.has(thread.marker.path);
 
     const read =
       isInRange && match !== null && !isFileSkipped && skipped.size > 0

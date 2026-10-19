@@ -11,28 +11,40 @@ export interface KeptRange extends ReviewedRange {
 // count it as read: the latest review's, then the earlier ones; a partial range stays in order, so
 // its rejections outlive every older confirmation
 export function toReviewedRanges(marker: SummaryMarker): KeptRange[] {
-  const earlier = (marker.earlier ?? []).map((range) => ({
-    base: range.base,
-    head: range.head,
-    reported: range.reported,
-    notReviewed: range.notReviewed,
-    notReviewedByLens: range.notReviewedByLens ?? [],
-    isPartial: range.partial === true,
-  }));
+  const earlier = (marker.earlier ?? []).map((range) =>
+    toKeptRange({
+      base: range.base,
+      head: range.head,
+      reported: range.reported,
+      notReviewed: range.notReviewed,
+      notReviewedByLens: range.notReviewedByLens ?? [],
+      isPartial: range.partial === true,
+      checked: range.checked,
+    }),
+  );
 
   if (marker.base === undefined) {
     return earlier;
   }
 
-  return [
-    {
-      base: marker.base,
-      head: marker.head,
-      reported: marker.reported,
-      notReviewed: marker.notReviewed ?? [],
-      notReviewedByLens: marker.notReviewedByLens ?? [],
-      isPartial: marker.failedCalls > 0,
-    },
-    ...earlier,
-  ];
+  const own = toKeptRange({
+    base: marker.base,
+    head: marker.head,
+    reported: marker.reported,
+    notReviewed: marker.notReviewed ?? [],
+    notReviewedByLens: marker.notReviewedByLens ?? [],
+    isPartial: marker.failedCalls > 0,
+    checked: marker.checked,
+  });
+
+  return [own, ...earlier];
+}
+
+// a range with no checked list reads every finding, so the list is left out rather than kept empty
+function toKeptRange(
+  range: Omit<KeptRange, 'checked'> & { checked: readonly string[] | undefined },
+): KeptRange {
+  const { checked, ...rest } = range;
+
+  return checked === undefined ? rest : { ...rest, checked };
 }

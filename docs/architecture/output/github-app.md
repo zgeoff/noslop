@@ -225,6 +225,11 @@ The re-check is the second review of a pull request. From the third review on, t
 each new finding in code the change did not write to a follow-up issue. A security finding, and any
 finding in code the change wrote, goes on the pull request at every review.
 
+### The fixes-only run
+
+A fixes-only run checks only the `fixed` answers after the last review round and raises no finding,
+under [the fixes-only run](./fixes-only-run.md).
+
 ## The check run
 
 The check passes when all of these hold, and fails otherwise:

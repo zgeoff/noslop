@@ -3,8 +3,13 @@ import { join, relative, sep } from 'node:path';
 import type { CallOutput, CallRequest, ReviewAdapter } from '@noslop/contract';
 
 // one answer to one attempt of a call: the call's output, which the call's own schema parses, such as
-// the findings of a lens call or the groups of the merge pass, or the message of the error it throws
-export type StubCallAnswer = CallOutput | { groups: string[][] } | { error: string };
+// the findings of a lens call, the groups of the merge pass or the verdict of a fix check, or the
+// message of the error it throws
+export type StubCallAnswer =
+  | CallOutput
+  | { groups: string[][] }
+  | { fixed: boolean; reason: string }
+  | { error: string };
 
 export interface StubAdapter {
   adapter: ReviewAdapter;

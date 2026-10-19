@@ -40,8 +40,10 @@ export function planReviewPost(prior: PostPrior, result: ReviewResult): PostPlan
   }
 
   // a post of a result the summary already counted, such as a retry after a failed request, is the
-  // same review, so it never moves a pull request toward the re-check limit
-  const reviews = (prior.summary?.reviews ?? 0) + (isRepost ? 0 : 1);
+  // same review, so it never moves a pull request toward the re-check limit; a fixes-only run is no
+  // review round either
+  const isFixesOnly = result.fixChecks !== undefined;
+  const reviews = (prior.summary?.reviews ?? 0) + (isRepost || isFixesOnly ? 0 : 1);
   const fresh = result.findings.filter((finding) => !prior.posted.has(finding.id));
 
   const followUps =

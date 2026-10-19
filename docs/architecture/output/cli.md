@@ -31,6 +31,7 @@ they reach, so the published types import nothing but zod.
 | ------------------------------------------------------------ | ---------------------------------------------------------------------- |
 | `noslop review [--base <ref>] [--head <ref>]`                | Reviews the change between 2 commits of the current repo               |
 | `noslop review --pr <number> [--full] [--repo <owner/name>]` | Reviews a pull request, from its base and head                         |
+| `noslop review --pr <number> --fixes-only`                   | Checks each `fixed` answer against the commits since the last review   |
 | `noslop verify <file>`                                       | Checks a review result against its pull request's head and base config |
 | `noslop post <file> [--no-verify]`                           | Posts a verified review result to its pull request as the App          |
 | `noslop check --pr <number> --repo <owner/name>`             | Sets a pull request's check run from its dispositions, with no review  |
@@ -68,7 +69,8 @@ remote's URL. The base is the merge-base of the pull request's base and head. On
 re-review starts from the reviewed head of the last fully completed review, under the rule in
 [re-review and fix confirmation](./github-app.md#re-review-and-fix-confirmation). `--full` keeps the
 merge-base as the base, so the review covers the whole pull request again, such as to confirm a fix
-whose commit an earlier delta left out.
+whose commit an earlier delta left out. `--fixes-only` runs no lens, under
+[the fixes-only run](./fixes-only-run.md).
 
 ## Output and reporters
 

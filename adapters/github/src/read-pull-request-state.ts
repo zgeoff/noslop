@@ -24,6 +24,9 @@ export interface FindingThread {
   // the comment as posted, so a confirmed fix rewrites it around the same marker
   body: string;
   marker: FindingMarker;
+
+  // the line the comment anchors to at the head that posted it, or null for a finding outside the diff
+  line: number | null;
   replies: Reply[];
 
   // the replies noslop already answered with the accepted forms
@@ -111,7 +114,15 @@ export async function readPullRequestState(
     }
 
     if (marker !== null && comment.in_reply_to_id === undefined) {
-      const thread = buildThread('review', Number(comment.id), comment.body, marker);
+      const line = comment.original_line ?? comment.line ?? null;
+
+      const thread = buildThread({
+        source: 'review',
+        commentID: Number(comment.id),
+        body: comment.body,
+        marker,
+        line,
+      });
 
       threads.set(Number(comment.id), thread);
       byFindingID.set(marker.id, thread);
@@ -156,7 +167,15 @@ export async function readPullRequestState(
       }
 
       if (marker !== null) {
-        byFindingID.set(marker.id, buildThread('issue', Number(comment.id), body, marker));
+        const thread = buildThread({
+          source: 'issue',
+          commentID: Number(comment.id),
+          body,
+          marker,
+          line: null,
+        });
+
+        byFindingID.set(marker.id, thread);
       }
 
       if (summaryMarker !== null) {
@@ -212,13 +231,10 @@ interface GitHubComment {
   created_at?: string;
 }
 
-function buildThread(
-  source: FindingThread['source'],
-  commentID: number,
-  body: string,
-  marker: FindingMarker,
-): FindingThread {
-  return { source, commentID, body, marker, replies: [], answered: new Set() };
+type PostedFinding = Pick<FindingThread, 'source' | 'commentID' | 'body' | 'marker' | 'line'>;
+
+function buildThread(posted: PostedFinding): FindingThread {
+  return { ...posted, replies: [], answered: new Set() };
 }
 
 function toReply(comment: GitHubComment, body: string): Reply {

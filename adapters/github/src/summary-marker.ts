@@ -21,6 +21,9 @@ export const summaryMarkerSchema = z.strictObject({
 
   // the files the review read while some lenses' calls left them out, with those lenses
   notReviewedByLens: buildLensNotReviewedSchema().optional(),
+
+  // on a fixes-only run, the findings whose fix its calls judged fixed, the only fixes its range reads
+  checked: z.array(z.string()).optional(),
   reviewIDs: z.array(z.string()).optional(),
 
   // when the review that wrote the summary started, so a retry of an earlier review leaves it alone
@@ -39,6 +42,7 @@ function buildReviewedRangeSchema() {
 
     // a review with a failed call, whose range rejects the findings it reported and confirms no fix
     partial: z.boolean().optional(),
+    checked: z.array(z.string()).optional(),
   });
 }
 
