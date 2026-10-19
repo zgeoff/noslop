@@ -65,6 +65,16 @@ export const pullRequestRefSchema = z.strictObject({
 
 export type PullRequestRef = z.infer<typeof pullRequestRefSchema>;
 
+// a fixes-only run's word on one `fixed` answer: whether the change since the last reviewed head fixes
+// the finding, and the one-line reason
+export const fixCheckSchema = z.strictObject({
+  findingID: z.string().regex(/^[0-9a-f]{16}$/u),
+  fixed: z.boolean(),
+  reason: z.string().min(1),
+});
+
+export type FixCheck = z.infer<typeof fixCheckSchema>;
+
 export const reviewResultSchema = z.strictObject({
   version: z.literal(REVIEW_OUTPUT_VERSION),
   reviewID: z.string().min(1),
@@ -84,6 +94,10 @@ export const reviewResultSchema = z.strictObject({
   notReviewed: z.array(notReviewedFileSchema),
   notReviewedByLens: z.array(lensNotReviewedFileSchema),
   configHash: z.string().min(1),
+
+  // set only on a fixes-only run, which runs no lens and judges only the fixes it lists, so a reporter
+  // posts no finding and confirms no other fix through the run's silence
+  fixChecks: z.array(fixCheckSchema).optional(),
   startedAt: z.iso.datetime(),
   endedAt: z.iso.datetime(),
 });

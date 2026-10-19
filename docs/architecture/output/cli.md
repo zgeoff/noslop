@@ -70,7 +70,7 @@ re-review starts from the reviewed head of the last fully completed review, unde
 [re-review and fix confirmation](./github-app.md#re-review-and-fix-confirmation). `--full` keeps the
 merge-base as the base, so the review covers the whole pull request again, such as to confirm a fix
 whose commit an earlier delta left out. `--fixes-only` runs no lens, under
-[the fixes-only run](./github-app.md#the-fixes-only-run).
+[the fixes-only run](./fixes-only-run.md).
 
 ## Output and reporters
 

@@ -23,12 +23,8 @@ const RECHECKED_REVIEWS = 2;
 
 // the post a result makes from what the pull request holds; a retry of a review that started before
 // the one the summary shows, counted or not, only sets the check again, and a marker without a start
-// time orders only the reviews it counted; a fixes-only run posts no finding and counts as no round
-export function planReviewPost(
-  prior: PostPrior,
-  result: ReviewResult,
-  fixesOnly = false,
-): PostPlan {
+// time orders only the reviews it counted
+export function planReviewPost(prior: PostPrior, result: ReviewResult): PostPlan {
   const counted = prior.summary?.reviewIDs ?? [];
   const isRepost = counted.includes(result.reviewID);
   const isLatest = counted.at(-1) === result.reviewID;
@@ -44,9 +40,11 @@ export function planReviewPost(
   }
 
   // a post of a result the summary already counted, such as a retry after a failed request, is the
-  // same review, so it never moves a pull request toward the re-check limit
-  const reviews = (prior.summary?.reviews ?? 0) + (isRepost || fixesOnly ? 0 : 1);
-  const fresh = fixesOnly ? [] : result.findings.filter((finding) => !prior.posted.has(finding.id));
+  // same review, so it never moves a pull request toward the re-check limit; a fixes-only run is no
+  // review round either
+  const isFixesOnly = result.fixChecks !== undefined;
+  const reviews = (prior.summary?.reviews ?? 0) + (isRepost || isFixesOnly ? 0 : 1);
+  const fresh = result.findings.filter((finding) => !prior.posted.has(finding.id));
 
   const followUps =
     reviews > RECHECKED_REVIEWS

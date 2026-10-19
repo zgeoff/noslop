@@ -46,9 +46,7 @@ test('it counts a repost of the latest review as no new review', () => {
   });
 });
 
-test('it posts no finding and counts no new review for a fixes-only run', () => {
-  const finding = buildMockFinding({ id: '1111111111111111' });
-
+test('it counts no new review for a fixes-only run', () => {
   const plan = planReviewPost(
     {
       summary: {
@@ -66,9 +64,8 @@ test('it posts no finding and counts no new review for a fixes-only run', () => 
     buildMockReviewResult({
       reviewID: 'review-c',
       startedAt: '2026-10-17T10:10:00.000Z',
-      findings: [finding],
+      fixChecks: [{ findingID: '1111111111111111', fixed: true, reason: 'The guard is in place.' }],
     }),
-    true,
   );
 
   expect(plan).toStrictEqual({

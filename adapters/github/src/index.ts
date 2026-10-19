@@ -8,3 +8,4 @@ export * from './read-pull-request-state';
 export * from './read-thread-dispositions';
 export * from './run-github-check';
 export type { CheckOutcome } from './build-check-outcome';
+export type { SummaryMarker } from './summary-marker';

@@ -15,7 +15,7 @@ async function setupTest() {
   return { directory, runner: createRunner(), logger: getLogger(['test']) };
 }
 
-test('it confirms a fix that the call judges fixed and marks no file unread', async () => {
+test('it lists the verdict of each fix check and raises no finding', async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
@@ -30,7 +30,7 @@ test('it confirms a fix that the call judges fixed and marks no file unread', as
     'fix-1111111111111111': [{ fixed: true, reason: 'The separator is a colon now.' }],
   });
 
-  const run = await runFixesOnlyReview({
+  const result = await runFixesOnlyReview({
     runner: ctx.runner,
     repoDir: repo.path,
     repo: 'example/app',
@@ -50,18 +50,19 @@ test('it confirms a fix that the call judges fixed and marks no file unread', as
         commit: (repo.commits[1] ?? '').slice(0, 7),
       },
     ],
+    maxFileChars: 10_000,
     adapter: stub.adapter,
-    model: null,
     tempDir: ctx.directory,
     logger: ctx.logger,
   });
 
-  expect(run.checks).toStrictEqual([
+  expect(result.fixChecks).toStrictEqual([
     { findingID: '1111111111111111', fixed: true, reason: 'The separator is a colon now.' },
   ]);
 
-  expect(run.result.notReviewedByLens).toStrictEqual([]);
-  expect(run.result.failedCalls).toStrictEqual([]);
+  expect(result.findings).toStrictEqual([]);
+  expect(result.lenses).toStrictEqual([]);
+  expect(result.failedCalls).toStrictEqual([]);
 });
 
 test('it gives the call the numbered code around the anchored line at the reviewed head and the diff of the file', async () => {
@@ -108,8 +109,8 @@ test('it gives the call the numbered code around the anchored line at the review
         commit: (repo.commits[1] ?? '').slice(0, 7),
       },
     ],
+    maxFileChars: 10_000,
     adapter: stub.adapter,
-    model: null,
     tempDir: ctx.directory,
     logger: ctx.logger,
   });
@@ -125,7 +126,7 @@ test('it gives the call the numbered code around the anchored line at the review
   expect(stub.requests[0]?.prompt).not.toInclude('src/other.ts');
 });
 
-test('it leaves a fix unconfirmed and records the failed call when the call fails', async () => {
+test('it lists no verdict and records the failed call when the call fails', async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
@@ -138,7 +139,7 @@ test('it leaves a fix unconfirmed and records the failed call when the call fail
 
   const stub = buildStubAdapter({ 'fix-1111111111111111': [{ error: 'the model timed out' }] });
 
-  const run = await runFixesOnlyReview({
+  const result = await runFixesOnlyReview({
     runner: ctx.runner,
     repoDir: repo.path,
     repo: 'example/app',
@@ -158,24 +159,20 @@ test('it leaves a fix unconfirmed and records the failed call when the call fail
         commit: (repo.commits[1] ?? '').slice(0, 7),
       },
     ],
+    maxFileChars: 10_000,
     adapter: stub.adapter,
-    model: null,
     tempDir: ctx.directory,
     logger: ctx.logger,
   });
 
-  expect(run.checks).toStrictEqual([]);
+  expect(result.fixChecks).toStrictEqual([]);
 
-  expect(run.result.failedCalls).toStrictEqual([
+  expect(result.failedCalls).toStrictEqual([
     { id: 'fix-1111111111111111', lenses: ['correctness'], reason: 'the model timed out' },
-  ]);
-
-  expect(run.result.notReviewedByLens).toStrictEqual([
-    { path: 'src/scan.ts', lenses: ['correctness'] },
   ]);
 });
 
-test('it asks nothing about a fix whose commit came before the reviewed head and leaves it unconfirmed', async () => {
+test('it asks nothing about a fix whose commit came before the reviewed head', async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
@@ -189,7 +186,7 @@ test('it asks nothing about a fix whose commit came before the reviewed head and
 
   const stub = buildStubAdapter({});
 
-  const run = await runFixesOnlyReview({
+  const result = await runFixesOnlyReview({
     runner: ctx.runner,
     repoDir: repo.path,
     repo: 'example/app',
@@ -209,18 +206,58 @@ test('it asks nothing about a fix whose commit came before the reviewed head and
         commit: (repo.commits[1] ?? '').slice(0, 7),
       },
     ],
+    maxFileChars: 10_000,
     adapter: stub.adapter,
-    model: null,
     tempDir: ctx.directory,
     logger: ctx.logger,
   });
 
   expect(stub.requests).toStrictEqual([]);
-  expect(run.checks).toStrictEqual([]);
+  expect(result.fixChecks).toStrictEqual([]);
+});
 
-  expect(run.result.notReviewedByLens).toStrictEqual([
-    { path: 'src/scan.ts', lenses: ['correctness'] },
+test('it asks nothing about a fix whose diff passes the file limit and names the file as too large', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const separator = "";\n' } },
+    {
+      message: 'Reject an empty separator',
+      files: { 'src/scan.ts': 'export const separator = ":";\n' },
+    },
   ]);
+
+  const stub = buildStubAdapter({});
+
+  const result = await runFixesOnlyReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/app',
+    pullRequest: { owner: 'example', repo: 'app', number: 9 },
+    base: repo.commits[0] ?? '',
+    head: repo.commits[1] ?? '',
+    title: 'Scan the header line',
+    configHash: 'hash',
+    fixes: [
+      {
+        id: '1111111111111111',
+        title: 'Reject an empty separator',
+        lens: 'correctness',
+        path: 'src/scan.ts',
+        line: 1,
+        comment: 'An empty separator splits the line into single characters.',
+        commit: (repo.commits[1] ?? '').slice(0, 7),
+      },
+    ],
+    maxFileChars: 40,
+    adapter: stub.adapter,
+    tempDir: ctx.directory,
+    logger: ctx.logger,
+  });
+
+  expect(stub.requests).toStrictEqual([]);
+  expect(result.fixChecks).toStrictEqual([]);
+  expect(result.notReviewed).toStrictEqual([{ path: 'src/scan.ts', reason: 'too-large' }]);
 });
 
 test('it judges the fix of a static finding not fixed with no call', async () => {
@@ -236,7 +273,7 @@ test('it judges the fix of a static finding not fixed with no call', async () =>
 
   const stub = buildStubAdapter({});
 
-  const run = await runFixesOnlyReview({
+  const result = await runFixesOnlyReview({
     runner: ctx.runner,
     repoDir: repo.path,
     repo: 'example/app',
@@ -256,15 +293,15 @@ test('it judges the fix of a static finding not fixed with no call', async () =>
         commit: (repo.commits[1] ?? '').slice(0, 7),
       },
     ],
+    maxFileChars: 10_000,
     adapter: stub.adapter,
-    model: null,
     tempDir: ctx.directory,
     logger: ctx.logger,
   });
 
   expect(stub.requests).toStrictEqual([]);
 
-  expect(run.checks).toStrictEqual([
+  expect(result.fixChecks).toStrictEqual([
     {
       findingID: '1111111111111111',
       fixed: false,

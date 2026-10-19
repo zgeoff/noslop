@@ -103,20 +103,8 @@ async function runReviewPost(
 
   const posted = new Set([...before.threads.map((thread) => thread.marker.id), ...filed]);
 
-  const plan = planReviewPost(
-    { summary: before.summary?.marker ?? null, posted },
-    result,
-    ctx.fixesOnly !== undefined,
-  );
-
-  // a fixes-only run raises no finding, and a finding whose fix it judged not fixed counts as reported
-  // again, so the fix stays open
-  const rejected = (ctx.fixesOnly?.checks ?? []).filter((check) => !check.fixed);
-
-  const reported = [
-    ...result.findings.map((finding) => finding.id),
-    ...rejected.map((check) => check.findingID),
-  ];
+  const plan = planReviewPost({ summary: before.summary?.marker ?? null, posted }, result);
+  const own = toOwnRange(result);
 
   // a retry of an earlier review leaves the later summary in place and only sets the check again
   // from the current answers
@@ -141,23 +129,14 @@ async function runReviewPost(
     await createFollowUpIssue(client, pr, finding);
   }
 
-  const reasons = new Map(rejected.map((check) => [check.findingID, check.reason]));
-
-  const confirmations = await readConfirmations(client, pr, before, {
-    base: result.base,
-    head: result.head,
-    reported,
-    notReviewed: result.notReviewed.map((file) => file.path),
-    notReviewedByLens: toLensNotReviewedPaths(result),
-    isPartial: result.failedCalls.length > 0,
-  });
+  const confirmations = await readConfirmations(client, pr, before, own);
 
   // the summary gives the fixes-only run's reason for each fix it judged not fixed
   for (const item of confirmations) {
-    const reason = reasons.get(item.id);
+    const check = result.fixChecks?.find((entry) => entry.findingID === item.id);
 
-    if (!item.fixed && reason !== undefined) {
-      item.failure = reason;
+    if (!item.fixed && check?.fixed === false) {
+      item.failure = check.reason;
     }
   }
 
@@ -181,10 +160,10 @@ async function runReviewPost(
 
   const marker = {
     head: result.head,
-    ...buildRangeFields(result, reported, before.summary?.marker ?? null),
+    ...buildRangeFields(own, before.summary?.marker ?? null),
     reviews: plan.reviews,
     reviewIDs: plan.reviewIDs,
-    reported,
+    reported: [...own.reported],
     failedCalls: result.failedCalls.length,
     followUps: [...filed, ...followUps.map((finding) => finding.id)],
     confirmed: confirmations
@@ -201,6 +180,28 @@ async function runReviewPost(
   );
 
   await runCheck(connection, pr, result.head, ctx);
+}
+
+// the range this review read; a fixes-only run reported no finding, so a fix it judged not fixed
+// counts as reported again, and its range reads only the fixes it judged fixed
+function toOwnRange(result: ReviewResult): KeptRange {
+  const checks = result.fixChecks;
+  const rejected = (checks ?? []).filter((check) => !check.fixed);
+
+  return {
+    base: result.base,
+    head: result.head,
+    reported: [
+      ...result.findings.map((finding) => finding.id),
+      ...rejected.map((check) => check.findingID),
+    ],
+    notReviewed: result.notReviewed.map((file) => file.path),
+    notReviewedByLens: toLensNotReviewedPaths(result),
+    isPartial: result.failedCalls.length > 0,
+    ...(checks === undefined
+      ? {}
+      : { checked: checks.filter((check) => check.fixed).map((check) => check.findingID) }),
+  };
 }
 
 async function runCheck(
@@ -373,28 +374,20 @@ interface RangeFields {
   base?: string;
   notReviewed?: string[];
   notReviewedByLens?: SummaryMarker['notReviewedByLens'];
+  checked?: string[];
   earlier?: SummaryMarker['earlier'];
 }
 
 // the ranges the summary marker keeps for a `fixed` answer after the review: its own, then the newest
 // earlier ones that fit the budget, which counts them as the marker writes them, escapes included; a
 // review whose own range does not fit keeps none, so such an answer waits for the next review
-function buildRangeFields(
-  result: ReviewResult,
-  reported: readonly string[],
-  previous: SummaryMarker | null,
-): RangeFields {
-  const notReviewed = result.notReviewed.map((file) => file.path);
-  const notReviewedByLens = toLensNotReviewedPaths(result);
+function buildRangeFields(own: KeptRange, previous: SummaryMarker | null): RangeFields {
+  const notReviewed = [...own.notReviewed];
 
-  const own: KeptRange = {
-    base: result.base,
-    head: result.head,
-    reported: [...reported],
-    notReviewed,
-    notReviewedByLens,
-    isPartial: result.failedCalls.length > 0,
-  };
+  const notReviewedByLens = own.notReviewedByLens.map((file) => ({
+    path: file.path,
+    lenses: [...file.lenses],
+  }));
 
   // a repost of a review keeps its own range once, so it evicts no earlier one; another review of the
   // same range keeps its verdicts, so a rejection it holds outlives every older confirmation
@@ -420,6 +413,10 @@ function buildRangeFields(
         kept.partial = true;
       }
 
+      if (range.checked !== undefined) {
+        kept.checked = [...range.checked];
+      }
+
       return kept;
     });
 
@@ -427,9 +424,10 @@ function buildRangeFields(
     const kept = earlier.slice(0, count);
 
     const fields = {
-      base: result.base,
+      base: own.base,
       notReviewed,
       ...(notReviewedByLens.length === 0 ? {} : { notReviewedByLens }),
+      ...(own.checked === undefined ? {} : { checked: [...own.checked] }),
       ...(count === 0 ? {} : { earlier: kept }),
     };
 
@@ -446,6 +444,8 @@ function isSameRange(range: KeptRange, other: KeptRange): boolean {
     range.base === other.base &&
     range.head === other.head &&
     range.isPartial === other.isPartial &&
+    isSameList(range.checked ?? [], other.checked ?? []) &&
+    (range.checked === undefined) === (other.checked === undefined) &&
     isSameList(range.reported, other.reported) &&
     isSameList(range.notReviewed, other.notReviewed) &&
     isSameList(

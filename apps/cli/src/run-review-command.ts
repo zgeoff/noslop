@@ -1,8 +1,8 @@
 import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { basename, join, resolve } from 'node:path';
-import type { EarlierFinding, FixCheck, PullRequestRef, ReviewResult } from '@noslop/contract';
+import type { EarlierFinding, PullRequestRef, ReviewResult } from '@noslop/contract';
 import { reviewResultSchema } from '@noslop/contract';
-import type { GitHubConnection, PullRequestState } from '@noslop/github';
+import type { GitHubConnection, PullRequestState, SummaryMarker } from '@noslop/github';
 import { readLinkedIssue, readPullRequestState, readThreadDispositions } from '@noslop/github';
 import type { AnsweredFix } from '@noslop/review';
 import { runFixesOnlyReview, runReview } from '@noslop/review';
@@ -93,7 +93,6 @@ export async function runReviewCommand(values: ReviewValues, ctx: CLIContext): P
   const tempDir = await mkdtemp(join(reviewsDir, 'review-'));
 
   let result: ReviewResult;
-  let checks: FixCheck[] | null = null;
 
   try {
     if (values.fixesOnly && change.pullRequest !== null) {
@@ -107,19 +106,18 @@ export async function runReviewCommand(values: ReviewValues, ctx: CLIContext): P
         title: change.title,
         configHash: loaded.hash,
         fixes: change.fixes,
+        maxFileChars: loaded.config.thresholds.maxFileChars,
         adapter,
-        model: null,
         tempDir,
         logger: ctx.logger,
         ...(ctx.now === undefined ? {} : { now: ctx.now }),
       });
 
-      for (const check of run.checks) {
+      for (const check of run.fixChecks ?? []) {
         ctx.logger.info('the fix of {findingID} holds: {fixed}, {reason}', { ...check });
       }
 
-      result = reviewResultSchema.parse(run.result);
-      checks = run.checks;
+      result = reviewResultSchema.parse(run);
     } else {
       const run = await runReview({
         runner: ctx.runner,
@@ -166,10 +164,7 @@ export async function runReviewCommand(values: ReviewValues, ctx: CLIContext): P
 
   const reporters = values.report?.split(',').map((id) => id.trim()) ?? loaded.config.report;
 
-  const failed = await runReporters(result, loaded.config, ctx, {
-    ids: reporters,
-    ...(checks === null ? {} : { fixesOnly: { checks } }),
-  });
+  const failed = await runReporters(result, loaded.config, ctx, reporters);
 
   return failed.length > 0 ? 1 : 0;
 }
@@ -284,9 +279,9 @@ async function resolvePullRequestChange(
 
   // only a review with no failed call covered its head, so only such a head bases a delta
   const summary = state.summary?.marker;
-
-  const reviewed =
-    summary !== undefined && summary.failedCalls === 0 && !values.full ? summary.head : null;
+  const full = summary !== undefined && summary.failedCalls === 0 ? summary.head : null;
+  const latest = values.fixesOnly ? findCompleteHead(summary) : full;
+  const reviewed = values.full ? null : latest;
 
   await ctx.runner.run(
     [
@@ -342,6 +337,20 @@ async function resolvePullRequestChange(
     })),
     fixes: values.fixesOnly ? await readAnsweredFixes(connection, pullRequest, state) : [],
   };
+}
+
+// the head of the newest run with no failed call that the summary marker keeps, so a fixes-only run
+// whose call failed leaves the next one its own base
+function findCompleteHead(summary: SummaryMarker | undefined): string | null {
+  if (summary === undefined) {
+    return null;
+  }
+
+  if (summary.failedCalls === 0) {
+    return summary.head;
+  }
+
+  return summary.earlier?.find((range) => range.partial !== true)?.head ?? null;
 }
 
 // each finding whose latest disposition is `fixed`, as its comment keeps it, with the marker left out
