@@ -10,6 +10,14 @@ export interface TestCommit {
 
   // each symlink's target after the commit, as the link stores it
   links?: Readonly<Record<string, string>>;
+
+  // the index of the earlier commit this one follows, in place of the one before it, so a test can
+  // build a second line of history, such as commits on a base branch
+  parent?: number;
+
+  // the index of an earlier commit this one merges in as its second parent; the files apply on top of
+  // the merged tree
+  merged?: number;
 }
 
 export interface TestRepo {
@@ -34,6 +42,14 @@ export async function createTestRepo(
   const shas: string[] = [];
 
   for (const commit of commits) {
+    if (commit.parent !== undefined) {
+      await $`git -C ${path} checkout -q --detach ${getCommit(shas, commit.parent)}`.quiet();
+    }
+
+    if (commit.merged !== undefined) {
+      await $`git -C ${path} -c user.email=test@example.com -c user.name=test merge -q --no-ff --no-commit ${getCommit(shas, commit.merged)}`.quiet();
+    }
+
     for (const [file, content] of Object.entries(commit.files)) {
       const target = join(path, file);
 
@@ -65,4 +81,14 @@ export async function createTestRepo(
   }
 
   return { path, commits: shas };
+}
+
+function getCommit(shas: readonly string[], index: number): string {
+  const sha = shas[index];
+
+  if (sha === undefined) {
+    throw new Error(`the test repo holds no commit ${index} before this one`);
+  }
+
+  return sha;
 }

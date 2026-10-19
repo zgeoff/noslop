@@ -56,10 +56,6 @@ export async function runReviewCommand(values: ReviewValues, ctx: CLIContext): P
     });
   }
 
-  for (const warning of loaded.warnings) {
-    ctx.logger.warn('{warning}', { warning });
-  }
-
   const adapterID = values.adapter ?? loaded.config.adapter ?? 'codex';
 
   const adapter = buildConfiguredAdapter(
@@ -97,6 +93,7 @@ export async function runReviewCommand(values: ReviewValues, ctx: CLIContext): P
       linkedIssue: issueText ?? change.linkedIssue,
       pullRequest: change.pullRequest,
       isIncremental: change.isIncremental,
+      ...(change.mergeBase === null ? {} : { mergeBase: change.mergeBase }),
       isPush: values.push,
       pastEscapes,
       ...(ctx.now === undefined ? {} : { now: ctx.now }),
@@ -141,6 +138,10 @@ interface ResolvedChange {
 
   // the base is the last reviewed head of a pull request, so the change is only its new commits
   isIncremental: boolean;
+
+  // the merge base of an incremental review, which keeps the new commits to the files the pull
+  // request changes, so a merge from the base branch adds none of its own
+  mergeBase: string | null;
 }
 
 async function resolveLocalChange(
@@ -178,6 +179,7 @@ async function resolveLocalChange(
     linkedIssue: null,
     pullRequest: null,
     isIncremental: false,
+    mergeBase: null,
   };
 }
 
@@ -258,6 +260,7 @@ async function resolvePullRequestChange(
     linkedIssue,
     pullRequest,
     isIncremental: isDelta,
+    mergeBase: isDelta ? start : null,
   };
 }
 

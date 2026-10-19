@@ -58,6 +58,41 @@ test('it commits each link as a symlink to its target', async () => {
   expect(target).toBe('docs/rules.md');
 });
 
+test('it follows the commit an entry names as its parent', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'src/a.ts': 'export const a = 1;\n' } },
+    { message: 'branch', files: { 'src/a.ts': 'export const a = 2;\n' } },
+    { message: 'side', files: { 'docs/a.md': '# A\n' }, parent: 0 },
+  ]);
+
+  const parents =
+    await ctx.$`git -C ${repo.path} log -1 --format=%P ${repo.commits[2] ?? ''}`.text();
+
+  expect(parents.trim()).toBe(repo.commits[0] ?? '');
+});
+
+test('it merges the commit an entry names into its parent, with both trees', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'src/a.ts': 'export const a = 1;\n' } },
+    { message: 'branch', files: { 'src/a.ts': 'export const a = 2;\n' } },
+    { message: 'side', files: { 'docs/a.md': '# A\n' }, parent: 0 },
+    { message: 'merge side', files: { 'src/b.ts': 'export const b = 1;\n' }, parent: 1, merged: 2 },
+  ]);
+
+  const parents =
+    await ctx.$`git -C ${repo.path} log -1 --format=%P ${repo.commits[3] ?? ''}`.text();
+
+  const files =
+    await ctx.$`git -C ${repo.path} ls-tree -r --name-only ${repo.commits[3] ?? ''}`.text();
+
+  expect(parents.trim()).toBe(`${repo.commits[1] ?? ''} ${repo.commits[2] ?? ''}`);
+  expect(files.trim().split('\n')).toStrictEqual(['docs/a.md', 'src/a.ts', 'src/b.ts']);
+});
+
 test('it commits into its own repo when GIT_DIR names another, as inside a git hook', async () => {
   const ctx = await setupTest();
 

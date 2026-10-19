@@ -21,6 +21,13 @@ test('it runs the built-in defaults when the repo has no review.json', async () 
   expect(loaded.sources['thresholds.lightMaxLines']).toBe('built-in');
 });
 
+test('it returns only the config, sources, chain, rules, missing rules and hash', async () => {
+  const ctx = await setupTest();
+  const loaded = await loadConfig({ repoDir: ctx.dir });
+
+  expect(loaded).toContainAllKeys(['config', 'sources', 'chain', 'rules', 'missingRules', 'hash']);
+});
+
 test('it merges the repo file over its local parent over the defaults', async () => {
   const ctx = await setupTest();
 
@@ -139,54 +146,21 @@ test('it labels the rules of an absolute rules path with the file name alone', a
   ]);
 });
 
-test('it loads a rules file with a skip list whole', async () => {
+test('it fails the load when a rules file entry lists skip', async () => {
   const ctx = await setupTest();
 
   await Bun.write(
     join(ctx.dir, 'review.json'),
-    JSON.stringify({ rules: [{ path: 'SKILL.md', skip: ['Loading the skill'] }] }),
-  );
-
-  await Bun.write(
-    join(ctx.dir, 'SKILL.md'),
-    '## Loading the skill\n\nLoad it first.\n\n## Naming\n\n1. Start with a verb.',
-  );
-
-  const loaded = await loadConfig({ repoDir: ctx.dir });
-
-  expect(loaded.rules).toStrictEqual([
-    {
-      name: 'SKILL.md',
-      body: '## Loading the skill\n\nLoad it first.\n\n## Naming\n\n1. Start with a verb.',
-      paths: null,
-    },
-  ]);
-});
-
-test('it warns once for each rules file entry that lists skip', async () => {
-  const ctx = await setupTest();
-
-  await Bun.write(
-    join(ctx.dir, 'review.json'),
-    JSON.stringify({
-      rules: [
-        { path: 'a.md', skip: ['Loading the skill', 'References'] },
-        'b.md',
-        { path: 'c.md', skip: ['Loading the skill'] },
-      ],
-    }),
+    JSON.stringify({ rules: ['a.md', { path: 'b.md', skip: ['Loading the skill'] }] }),
   );
 
   await Bun.write(join(ctx.dir, 'a.md'), '## Naming\n\n1. Start with a verb.');
   await Bun.write(join(ctx.dir, 'b.md'), '## Naming\n\n1. Start with a verb.');
-  await Bun.write(join(ctx.dir, 'c.md'), '## Naming\n\n1. Start with a verb.');
 
-  const loaded = await loadConfig({ repoDir: ctx.dir });
-
-  expect(loaded.warnings).toStrictEqual([
-    'the rules file a.md lists skip, which noslop ignores, since it reads each rules file whole',
-    'the rules file c.md lists skip, which noslop ignores, since it reads each rules file whole',
-  ]);
+  expect(loadConfig({ repoDir: ctx.dir })).rejects.toThrowWithMessage(
+    Error,
+    /rules\.1: Unrecognized key: "skip"/u,
+  );
 });
 
 test('it replaces an inherited repo: entry that the child writes with a leading ./', async () => {

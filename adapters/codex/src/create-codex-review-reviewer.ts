@@ -2,6 +2,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { CaseReviewer } from '@noslop/eval';
+import { getReplayBase } from '@noslop/eval';
 import type { Runner } from '@noslop/runner';
 import { z } from 'zod';
 import { loadReviewSession } from './load-review-session';
@@ -39,7 +40,7 @@ export function createCodexReviewReviewer(options: CodexReviewReviewerOptions): 
           'exec',
           'review',
           '--base',
-          corpusCase.base,
+          getReplayBase(corpusCase),
           '--json',
           '-c',
           'sandbox_mode="read-only"',

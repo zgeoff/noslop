@@ -40,7 +40,13 @@ export const githubCollections = {
 
       // the patch GitHub gives of each changed file, by its path; a file without one gets no patch
       patches: patchesSchema.default(buildNoPatches),
+
+      // a commit off the branch keeps a line of history of its own, which diverges from the branch
       isOnBranch: z.boolean().default(true),
+
+      // a commit of the base branch that a merge brought into the pull request: it is on the branch,
+      // but GitHub's commit list of the pull request leaves it out
+      isFromBase: z.boolean().default(false),
     }),
   }),
 

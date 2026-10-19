@@ -3,6 +3,9 @@ import type { CheckOutcome } from './build-check-outcome';
 import { buildCheckOutcome } from './build-check-outcome';
 import { createFormsReplies } from './create-forms-replies';
 import type { GitHubClient, GitHubConnection } from './create-github-connection';
+import type { FixCommits } from './read-fix-commits';
+import { readFixCommits } from './read-fix-commits';
+import { readHeldFixes } from './read-held-fixes';
 import type { PullRequestState } from './read-pull-request-state';
 import { readPullRequestState } from './read-pull-request-state';
 import { readThreadDispositions } from './read-thread-dispositions';
@@ -34,12 +37,25 @@ export async function runGitHubCheck(
   const dispositions = await readThreadDispositions(client, pr, state.threads);
   const existingIssues = await readExistingIssues(client, pr, dispositions);
 
+  const fixCommits = await readFixCommits(client, pr, {
+    commits: state.commits,
+    dispositions,
+    head: state.headSha,
+  });
+
+  const summary = state.summary?.marker ?? null;
+
+  const fixes = await readCheckFixes(client, pr, { state, dispositions, fixCommits });
+
   const outcome = buildCheckOutcome({
     findings: state.threads.map((thread) => thread.marker),
     dispositions,
-    summary: state.summary?.marker ?? null,
+    summary,
+    confirmed: fixes.confirmed,
+    fixFailures: fixes.failures,
     currentHead: state.headSha,
-    commits: state.commits,
+    commits: fixCommits.commits,
+    ambiguous: fixCommits.ambiguous,
     existingIssues,
     failedReporters: options.failedReporters,
     unreadable: state.unreadable,
@@ -56,6 +72,44 @@ export async function runGitHubCheck(
   });
 
   return outcome;
+}
+
+interface CheckFixesInput {
+  state: PullRequestState;
+  dispositions: readonly Disposition[];
+  fixCommits: FixCommits;
+}
+
+interface CheckFixes {
+  confirmed: string[];
+
+  // why GitHub could not show the fix whole, by finding id, for each fix the check leaves unconfirmed
+  failures: Map<string, string>;
+}
+
+// the fixes the check counts: the ones the reviews of the head's summary hold, answers after a review
+// among them, so such an answer needs no further review
+function readCheckFixes(
+  client: GitHubClient,
+  pr: PullRequestRef,
+  input: CheckFixesInput,
+): Promise<CheckFixes> {
+  const marker = input.state.summary?.marker;
+
+  if (marker === undefined) {
+    return Promise.resolve({ confirmed: [], failures: new Map() });
+  }
+
+  if (marker.head !== input.state.headSha) {
+    return Promise.resolve({ confirmed: marker.confirmed, failures: new Map() });
+  }
+
+  return readHeldFixes(client, pr, {
+    threads: input.state.threads,
+    dispositions: input.dispositions,
+    fixCommits: input.fixCommits,
+    marker,
+  });
 }
 
 async function readExistingIssues(

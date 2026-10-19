@@ -4,6 +4,7 @@ import type { LoadedConfig } from '@noslop/config';
 import type { Depth, ReviewAdapter } from '@noslop/contract';
 import { mergeTokens } from '@noslop/contract';
 import type { CaseReviewer } from '@noslop/eval';
+import { getReplayBase } from '@noslop/eval';
 import { runReview } from '@noslop/review';
 import type { CLIContext } from './cli-context';
 
@@ -24,7 +25,8 @@ export interface NoslopReviewerOptions {
 }
 
 // noslop as a reviewer under test: each case runs the whole pipeline on the case's repo at its base and
-// head, with the config under test; a case fails when the pipeline throws or every call fails
+// head, with the config under test, and a case with a last reviewed head runs as a re-review of the
+// push since it; a case fails when the pipeline throws or every call fails
 export function createNoslopReviewer(options: NoslopReviewerOptions): CaseReviewer {
   return {
     id: `noslop-${options.adapter.id}`,
@@ -43,8 +45,9 @@ export function createNoslopReviewer(options: NoslopReviewerOptions): CaseReview
           runner: options.ctx.runner,
           repoDir: corpusCase.repo,
           repo: corpusCase.id,
-          base: corpusCase.base,
+          base: getReplayBase(corpusCase),
           head: corpusCase.head,
+          ...(corpusCase.reviewedHead === undefined ? {} : { mergeBase: corpusCase.base }),
           config: options.loaded.config,
           mergeModel: options.loaded.config.adapters[options.adapter.id]?.mergeModel ?? null,
           depth: options.depth,
@@ -56,8 +59,9 @@ export function createNoslopReviewer(options: NoslopReviewerOptions): CaseReview
           cacheDir: join(options.ctx.cacheDir, 'index'),
           title: corpusCase.title,
           body: corpusCase.body,
-          linkedIssue: null,
+          linkedIssue: corpusCase.linkedIssue ?? null,
           pullRequest: null,
+          isIncremental: corpusCase.reviewedHead !== undefined,
           isPush: false,
           pastEscapes: [],
         });

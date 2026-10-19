@@ -11,6 +11,11 @@ export interface ReadChangeOptions {
   base: string;
   head: string;
   config: ReviewConfig;
+
+  // the merge base of a pull request whose base is an earlier head of it; the change keeps only the
+  // files the pull request changes since its merge base, so a merge from the base branch brings in no
+  // file the pull request never touched
+  mergeBase?: string;
 }
 
 // reads the change between 2 commits through git, resolving each ref to its full commit so every line
@@ -19,6 +24,7 @@ export interface ReadChangeOptions {
 export async function readChange(options: ReadChangeOptions): Promise<Change> {
   const base = await resolveCommit(options, options.base);
   const head = await resolveCommit(options, options.head);
+  const owned = await readOwnedPaths(options, head);
 
   const diff = await runGit(options, [
     '-c',
@@ -35,8 +41,10 @@ export async function readChange(options: ReadChangeOptions): Promise<Change> {
 
   const files: ChangedFile[] = [];
   const excluded: string[] = [];
+  const baseOnly: ChangedFile[] = [];
 
   for (const parsed of parseDiff(diff)) {
+    // a generated file is never read, whichever side changes it, so it stays out of the left-out files
     if (isGlobMatch(parsed.path, options.config.generated)) {
       excluded.push(parsed.path);
       continue;
@@ -44,6 +52,19 @@ export async function readChange(options: ReadChangeOptions): Promise<Change> {
 
     const lines = parsed.hunks.flatMap((hunk) => hunk.lines);
     const kind = pickFileKind(parsed.path, options.config);
+
+    // a rename keeps either side the pull request changes, so a deletion of its own survives a rename
+    // whose new path only the base branch changed
+    if (owned !== null && !owned.has(parsed.path) && !owned.has(parsed.oldPath ?? parsed.path)) {
+      baseOnly.push({
+        ...parsed,
+        kind,
+        addedLines: lines.filter((line) => line.kind === 'added').length,
+        deletedLines: lines.filter((line) => line.kind === 'deleted').length,
+      });
+
+      continue;
+    }
 
     // a script with no extension, such as an executable in a bin folder, names its language in its
     // first line, which a hunk can leave out, so the stage reads it from the committed file
@@ -58,7 +79,7 @@ export async function readChange(options: ReadChangeOptions): Promise<Change> {
     });
   }
 
-  return { base, head, files, excluded };
+  return { base, head, files, excluded, ...(owned === null ? {} : { baseOnly }) };
 }
 
 async function resolveCommit(options: ReadChangeOptions, ref: string): Promise<string> {
@@ -70,6 +91,32 @@ async function resolveCommit(options: ReadChangeOptions, ref: string): Promise<s
   ]);
 
   return sha.trim();
+}
+
+// the paths the pull request changes since its merge base, both paths of a rename among them, or null
+// with no merge base; the filter runs on the parsed diff, since a pathspec on the diff would stop git
+// pairing a rename whose old path the list leaves out
+async function readOwnedPaths(
+  options: ReadChangeOptions,
+  head: string,
+): Promise<Set<string> | null> {
+  if (options.mergeBase === undefined) {
+    return null;
+  }
+
+  const listed = await runGit(options, [
+    '-c',
+    'core.quotePath=false',
+    'diff',
+    '--name-only',
+    '-z',
+    '--no-ext-diff',
+    '--no-renames',
+    options.mergeBase,
+    head,
+  ]);
+
+  return new Set(listed.split('\0').filter((path) => path !== ''));
 }
 
 async function hasShebang(

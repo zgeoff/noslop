@@ -1,7 +1,8 @@
 import type { Endpoints } from '@octokit/types';
 import { HttpResponse, http } from 'msw';
+import { P, match } from 'ts-pattern';
 import { buildCommitFileData } from './build-commit-file-data';
-import { collectRangeFiles } from './collect-range-files';
+import { buildCompareData } from './build-compare-data';
 import { githubCollections } from './github-collections';
 
 export const GITHUB_API_URL = 'https://api.github.com';
@@ -120,7 +121,7 @@ export const githubHandlers = [
   ),
 
   // the pull request commits after the base up to the head, oldest first, as GitHub's compare lists
-  // the commits a merge brings onto the base; the commits sit in one line, so a later head is ahead
+  // the commits a merge of the head would bring onto the base
   http.get<RepoParams & { basehead: string }>(
     `${GITHUB_API_URL}/repos/:owner/:repo/compare/:basehead`,
     (info) => {
@@ -130,18 +131,17 @@ export const githubHandlers = [
         q.where({ owner: info.params.owner, repo: info.params.repo }),
       );
 
-      const commits = records.map((commit) => commit.sha);
-      const start = commits.indexOf(base) + 1;
-      const found = commits.indexOf(head);
-      const end = found === -1 ? commits.length : found + 1;
-      const range = records.slice(start, end);
-      const order = range.length > 0 ? 'ahead' : 'behind';
+      const search = new URL(info.request.url).searchParams;
 
-      return HttpResponse.json({
-        status: base === head ? 'identical' : order,
-        commits: range.map((commit) => ({ sha: commit.sha })),
-        files: collectRangeFiles(range),
-      });
+      return match(buildCompareData(records, { base, head, search }))
+        .with('ambiguous', () =>
+          HttpResponse.json({ message: 'No common ancestor', status: '422' }, { status: 422 }),
+        )
+        .with(null, () => buildNotFound())
+        .with({ status: P.union('ahead', 'behind', 'identical') }, (compare) =>
+          HttpResponse.json(compare),
+        )
+        .exhaustive();
     },
   ),
 
@@ -175,6 +175,7 @@ export const githubHandlers = [
         repo: info.params.repo,
         number: Number(info.params.number),
         isOnBranch: true,
+        isFromBase: false,
       }),
     );
 

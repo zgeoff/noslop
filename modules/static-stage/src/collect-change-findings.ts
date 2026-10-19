@@ -3,6 +3,7 @@ import type { ModelFinding, ReviewConfig } from '@noslop/contract';
 import type { AnalyzedFile, PackageManifest } from './analyzed-file';
 import { buildStaticFinding } from './build-static-finding';
 import { isGlobMatch } from './is-glob-match';
+import { isWorkflowFile } from './is-workflow-file';
 import type { SourceLocation } from './types';
 
 export interface ConsumerManifest {
@@ -15,6 +16,9 @@ export interface ChangeFindingInputs {
   files: readonly AnalyzedFile[];
   manifests: readonly PackageManifest[];
   baseManifests: ReadonlyMap<string, PackageManifest>;
+
+  // the base text of each changed path the checks compare with its base, keyed by its base path
+  baseTexts: ReadonlyMap<string, string>;
   consumerManifests: readonly ConsumerManifest[];
   config: ReviewConfig;
   linkedIssue: string | null;
@@ -117,7 +121,12 @@ function collectSyncedEdits(inputs: ChangeFindingInputs): ModelFinding[] {
   }
 
   return inputs.files
-    .filter((entry) => !entry.isContext && isGlobMatch(entry.file.path, inputs.config.synced))
+    .filter(
+      (entry) =>
+        !entry.isContext &&
+        isGlobMatch(entry.file.path, inputs.config.synced) &&
+        !isWorkflowPinOnly(entry, inputs.baseTexts.get(entry.file.path) ?? null),
+    )
     .map((entry) =>
       buildStaticFinding({
         title: `Edit to the synced copy ${basename(entry.file.path)}`,
@@ -127,6 +136,106 @@ function collectSyncedEdits(inputs: ChangeFindingInputs): ModelFinding[] {
         fix: 'Make the change in the source repo, and let the sync bring it here.',
       }),
     );
+}
+
+// the sync that delivers a workflow caller pins its call to the sync's own ref, so a change that only
+// moves that ref in a workflow file left at its path keeps the copy in step with the next sync
+function isWorkflowPinOnly(entry: AnalyzedFile, baseText: string | null): boolean {
+  return (
+    entry.file.status === 'modified' &&
+    isWorkflowFile(entry.file.path) &&
+    baseText !== null &&
+    entry.text !== null &&
+    hasOnlyCallRefChanges(baseText, entry.text) &&
+    hasOnlyCallLineChanges(entry)
+  );
+}
+
+function hasOnlyCallRefChanges(before: string, after: string): boolean {
+  const left = tryParseYAML(before);
+  const right = tryParseYAML(after);
+
+  return (
+    left.ok &&
+    right.ok &&
+    Bun.deepEquals(normalizeCallRefs(left.value), normalizeCallRefs(right.value), true)
+  );
+}
+
+function tryParseYAML(text: string): { ok: true; value: unknown } | { ok: false } {
+  try {
+    return { ok: true, value: Bun.YAML.parse(text) };
+  } catch {
+    return { ok: false };
+  }
+}
+
+const WORKFLOW_CALL = /^[^\s@/]+\/[^\s@/]+\/\.github\/workflows\/[^\s@]+\.ya?ml@\S+$/u;
+
+// drops the ref from each `jobs.<id>.uses` that calls a workflow in another repo; a step's `uses`
+// names an action, whose pin the sync leaves alone, so it keeps its ref
+function normalizeCallRefs(document: unknown): unknown {
+  if (!isRecord(document) || !isRecord(document['jobs'])) {
+    return document;
+  }
+
+  const jobs = Object.fromEntries(
+    Object.entries(document['jobs']).map(([id, job]) => {
+      const uses = isRecord(job) ? job['uses'] : undefined;
+
+      return typeof uses === 'string' && isRecord(job) && WORKFLOW_CALL.test(uses)
+        ? [id, { ...job, uses: uses.slice(0, uses.indexOf('@')) }]
+        : [id, job];
+    }),
+  );
+
+  return { ...document, jobs };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+// a parse drops comments and layout, so each changed line must also be a `uses:` line whose text
+// outside the ref stays the same
+function hasOnlyCallLineChanges(entry: AnalyzedFile): boolean {
+  return (
+    entry.file.hunks.length > 0 &&
+    entry.file.hunks.every((hunk) => {
+      const deleted = hunk.lines.filter((line) => line.kind === 'deleted');
+      const added = hunk.lines.filter((line) => line.kind === 'added');
+
+      return (
+        deleted.length === added.length &&
+        deleted.every((line, index) => {
+          const before = findWorkflowCall(line.text);
+          const after = findWorkflowCall(added[index]?.text ?? '');
+
+          return before !== null && before === after;
+        })
+      );
+    })
+  );
+}
+
+// a `uses:` line that calls a reusable workflow in another repo, as the line with its ref dropped
+function findWorkflowCall(text: string): string | null {
+  // a quoted call ends at its closing quote, and YAML starts a comment only at a # after whitespace,
+  // so a # inside the quotes or inside a bare ref belongs to the ref
+  const match =
+    /^(?<head>\s*(?:-\s+)?uses:\s*)(?:"(?<double>[^\s"'@/]+\/[^\s"'@/]+\/\.github\/workflows\/[^\s"'@]+\.ya?ml)@[^"]+"|'(?<single>[^\s"'@/]+\/[^\s"'@/]+\/\.github\/workflows\/[^\s"'@]+\.ya?ml)@[^']+'|(?<bare>[^\s"'@/]+\/[^\s"'@/]+\/\.github\/workflows\/[^\s"'@]+\.ya?ml)@[^\s"']+)(?<tail>(?:\s+#.*)?\s*)$/u.exec(
+      text,
+    );
+
+  if (match?.groups === undefined) {
+    return null;
+  }
+
+  const head = match.groups['head'] ?? '';
+  const path = match.groups['double'] ?? match.groups['single'] ?? match.groups['bare'];
+  const quote = text.charAt(head.length).replace(/[^"']/u, '');
+
+  return `${head}${quote}${path}@${quote}${match.groups['tail'] ?? ''}`;
 }
 
 function collectStrayFormatHunks(inputs: ChangeFindingInputs): ModelFinding[] {

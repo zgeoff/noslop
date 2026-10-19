@@ -2,7 +2,7 @@
 
 - Date: 2026-10-17
 - Status: decided
-- Updated: 2026-10-18
+- Updated: 2026-10-19
 
 A repo's noslop config is `review.json`. With no `review.json`, noslop runs built-in defaults: every
 generic lens, the shared risk classes, no rules file, and the Codex adapter.
@@ -72,3 +72,5 @@ The config holds:
   which model CLIs are installed, so the same config runs the same adapter on every machine.
 - 2026-10-18: a review reads its config from the base commit, so a pull request cannot weaken its
   own review, and `noslop config` reads the working tree for local trials.
+- 2026-10-19: a rules file entry that lists `skip` fails the load, since every config has dropped
+  the list, so the schema holds no key that the load ignores.

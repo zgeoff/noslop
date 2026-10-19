@@ -15,6 +15,7 @@ import { collectSourceFacts } from './collect-source-facts';
 import { collectTestFindings } from './collect-test-findings';
 import { isGlobMatch } from './is-glob-match';
 import { isReleaseChange } from './is-release-change';
+import { isWorkflowFile } from './is-workflow-file';
 import { loadBaseIndex } from './load-base-index';
 import { parsePackageManifest } from './parse-package-manifest';
 import { parseSource } from './parse-source';
@@ -71,12 +72,14 @@ export async function runStaticStage(options: RunStaticStageOptions): Promise<St
     ...new Set([...readable, ...contextPaths, ...manifestPaths]),
   ]);
 
-  // the base side of each changed manifest, and of each deleted code file, whose exports leave with it
-  const baseManifestPaths = change.files
+  // the base side of each changed manifest, of each deleted code file, whose exports leave with it,
+  // and of each modified workflow file, which the synced-copy check compares as YAML
+  const basePaths = change.files
     .filter(
       (file) =>
         (basename(file.path) === 'package.json' && file.status !== 'added') ||
-        (file.status === 'deleted' && file.kind === 'code'),
+        (file.status === 'deleted' && file.kind === 'code') ||
+        (file.status === 'modified' && isWorkflowFile(file.path)),
     )
     .map((file) => file.oldPath ?? file.path);
 
@@ -84,7 +87,7 @@ export async function runStaticStage(options: RunStaticStageOptions): Promise<St
     options.runner,
     options.repoDir,
     change.base,
-    baseManifestPaths,
+    basePaths,
   );
 
   const changed = change.files.map((file) =>
@@ -173,12 +176,18 @@ export async function runStaticStage(options: RunStaticStageOptions): Promise<St
   const consumerManifests = await readConsumerManifests(options);
 
   const findings = [
-    ...collectTestFindings(all, slices.security, options.body),
+    ...collectTestFindings(
+      all,
+      slices.security,
+      options.body,
+      (change.baseOnly ?? []).filter((file) => file.status !== 'deleted').map((file) => file.path),
+    ),
     ...collectInstructionFindings(all, slices.instructions),
     ...collectChangeFindings({
       files: all,
       manifests,
       baseManifests,
+      baseTexts,
       consumerManifests,
       config: options.config,
       linkedIssue: options.linkedIssue,

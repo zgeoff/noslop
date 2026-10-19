@@ -12,22 +12,23 @@ import { formatFixedFindingComment } from './format-fixed-finding-comment';
 import { formatMarker } from './format-marker';
 import type { FixConfirmation } from './format-summary-comment';
 import { formatSummaryComment } from './format-summary-comment';
-import { makeRewrittenFixReader } from './make-rewritten-fix-reader';
 import { parseMarker } from './parse-marker';
+import { planReviewPost } from './plan-review-post';
 import { readAllPages } from './read-all-pages';
-import { readFixCoverage } from './read-fix-coverage';
+import { readFixCommits } from './read-fix-commits';
+import { readFixConfirmations } from './read-fix-confirmations';
+import { readHeldFixes } from './read-held-fixes';
 import type { FindingThread, PullRequestState } from './read-pull-request-state';
 import { readPullRequestState } from './read-pull-request-state';
-import { readRangeCommits } from './read-range-commits';
 import { readThreadDispositions } from './read-thread-dispositions';
 import { runGitHubCheck } from './run-github-check';
+import type { SummaryMarker } from './summary-marker';
+import type { KeptRange } from './to-reviewed-ranges';
+import { toReviewedRanges } from './to-reviewed-ranges';
 
 export interface GitHubReporterOptions {
   loadConnection: () => Promise<GitHubConnection>;
 }
-
-// a re-review after this many reviews of one pull request is past the one re-check
-const RECHECKED_REVIEWS = 2;
 
 // posts one pull request review with an inline comment per new finding, the summary, then the check
 // run; a finding outside the diff goes to an issue comment, and after the one re-check a non-security
@@ -101,30 +102,19 @@ async function runReviewPost(
 
   const posted = new Set([...before.threads.map((thread) => thread.marker.id), ...filed]);
 
-  // a post of a result the summary already counted, such as a retry after a failed request, is the
-  // same review, so it never moves a pull request toward the re-check limit
-  const counted = before.summary?.marker.reviewIDs ?? [];
-  const isRepost = counted.includes(result.reviewID);
-  const reviews = (before.summary?.marker.reviews ?? 0) + (isRepost ? 0 : 1);
+  const plan = planReviewPost({ summary: before.summary?.marker ?? null, posted }, result);
 
-  // a retry of a review that a later one followed posted everything before the later one did, so it
-  // leaves the later summary in place and only sets the check again from the current answers
-  if (isRepost && counted.at(-1) !== result.reviewID) {
+  // a retry of an earlier review leaves the later summary in place and only sets the check again
+  // from the current answers
+  if (!plan.writesSummary) {
     await runCheck(connection, pr, result.head, ctx);
 
     return;
   }
 
-  const fresh = result.findings.filter((finding) => !posted.has(finding.id));
+  const followUps = plan.followUps;
 
-  const followUps =
-    reviews > RECHECKED_REVIEWS
-      ? fresh.filter((finding) => finding.lens !== 'security' && !finding.writtenByChange)
-      : [];
-
-  const inline = fresh.filter((finding) => !followUps.includes(finding));
-
-  const unanchored = await createReviewComments(client, pr, result.head, inline);
+  const unanchored = await createReviewComments(client, pr, result.head, plan.inline);
 
   for (const finding of unanchored) {
     await createIssueComment(client, pr, formatUnanchoredComment(finding, result.head));
@@ -137,7 +127,7 @@ async function runReviewPost(
     await createFollowUpIssue(client, pr, finding);
   }
 
-  const confirmations = await buildConfirmations(client, pr, before, result);
+  const confirmations = await readConfirmations(client, pr, before, result);
 
   for (const item of confirmations) {
     if (item.failure !== undefined) {
@@ -157,23 +147,18 @@ async function runReviewPost(
     after.threads.map((thread) => [thread.marker.id, toCommentURL(pr, thread)]),
   );
 
-  const rewritten = confirmations.flatMap((item) =>
-    item.rewrittenTo === undefined
-      ? []
-      : [{ id: item.id, named: item.commit, branch: item.rewrittenTo }],
-  );
-
   const marker = {
     head: result.head,
-    reviews,
-    reviewIDs: isRepost ? counted : [...counted, result.reviewID],
+    ...buildRangeFields(result, before.summary?.marker ?? null),
+    reviews: plan.reviews,
+    reviewIDs: plan.reviewIDs,
     reported: result.findings.map((finding) => finding.id),
     failedCalls: result.failedCalls.length,
     followUps: [...filed, ...followUps.map((finding) => finding.id)],
     confirmed: confirmations
       .filter((item) => item.fixed)
       .map((item) => `${item.id}:${item.commit}`),
-    ...(rewritten.length === 0 ? {} : { rewritten }),
+    startedAt: result.startedAt,
   };
 
   await writeSummaryComment(
@@ -346,116 +331,121 @@ async function createFollowUpIssue(
   });
 }
 
-// a `fixed` finding is confirmed while no review reports it again, once a review whose range holds the
-// fix commit has read the fix; the commit may change any file, since a fix such as a missing test
-// lives beside the finding's file, and a fix outside the range keeps the earlier review's word
-async function buildConfirmations(
+// the most characters of review ranges the summary marker keeps, far under GitHub's comment limit
+const MARKER_PATH_CHARS = 16_000;
+
+// the most ranges of earlier reviews the summary marker keeps beside the latest one
+const EARLIER_RANGES = 4;
+
+interface RangeFields {
+  base?: string;
+  notReviewed?: string[];
+  earlier?: SummaryMarker['earlier'];
+}
+
+// the ranges the summary marker keeps for a `fixed` answer after the review: its own, then the newest
+// earlier ones that fit the budget, which counts them as the marker writes them, escapes included; a
+// review whose own range does not fit keeps none, so such an answer waits for the next review
+function buildRangeFields(result: ReviewResult, previous: SummaryMarker | null): RangeFields {
+  const notReviewed = result.notReviewed.map((file) => file.path);
+
+  const own: KeptRange = {
+    base: result.base,
+    head: result.head,
+    reported: result.findings.map((finding) => finding.id),
+    notReviewed,
+    isPartial: result.failedCalls.length > 0,
+  };
+
+  // a repost of a review keeps its own range once, so it evicts no earlier one; another review of the
+  // same range keeps its verdicts, so a rejection it holds outlives every older confirmation
+  const earlier = (previous === null ? [] : toReviewedRanges(previous))
+    .filter((range) => !isSameRange(range, own))
+    .slice(0, EARLIER_RANGES)
+    .map((range) => {
+      const kept: NonNullable<SummaryMarker['earlier']>[number] = {
+        base: range.base,
+        head: range.head,
+        reported: [...range.reported],
+        notReviewed: [...range.notReviewed],
+      };
+
+      if (range.isPartial) {
+        kept.partial = true;
+      }
+
+      return kept;
+    });
+
+  for (let count = earlier.length; count >= 0; count -= 1) {
+    const kept = earlier.slice(0, count);
+    const fields = { base: result.base, notReviewed, ...(count === 0 ? {} : { earlier: kept }) };
+
+    if (formatMarker('summary', fields).length <= MARKER_PATH_CHARS) {
+      return fields;
+    }
+  }
+
+  return {};
+}
+
+function isSameRange(range: KeptRange, other: KeptRange): boolean {
+  return (
+    range.base === other.base &&
+    range.head === other.head &&
+    range.isPartial === other.isPartial &&
+    isSameList(range.reported, other.reported) &&
+    isSameList(range.notReviewed, other.notReviewed)
+  );
+}
+
+function isSameList(list: readonly string[], other: readonly string[]): boolean {
+  return list.length === other.length && list.every((item, index) => item === other[index]);
+}
+
+// the fixes this review confirms; a fix answered after the review before it ran, inside that review's
+// range, counts as that review read it, as the check counted it, so the answer needs no extra review
+async function readConfirmations(
   client: GitHubClient,
   pr: PullRequestRef,
   before: PullRequestState,
   result: ReviewResult,
 ): Promise<FixConfirmation[]> {
   const dispositions = await readThreadDispositions(client, pr, before.threads);
-  const range = await readRangeCommits(client, pr, result.base, result.head);
 
-  const latest = new Map(dispositions.map((item) => [item.findingID, item]));
-  const reported = new Set(result.findings.map((finding) => finding.id));
-
-  // a review that left the finding's file out read nothing of it, so its silence confirms no fix; a
-  // not-reviewed file never fails the check alone, but a pending fix that reaches one stays
-  // unconfirmed, and its open finding fails the check
-  const skipped = new Set(result.notReviewed.map((file) => file.path));
-  const confirmed = new Set(before.summary?.marker.confirmed);
-
-  const rewrites = before.summary?.marker.rewritten ?? [];
-  const readRewrittenFix = makeRewrittenFixReader(client, pr);
-
-  const sincePosted = new Map<string, Promise<string[]>>();
-
-  const readSincePosted = (posted: string): Promise<string[]> => {
-    const commits = sincePosted.get(posted) ?? readRangeCommits(client, pr, posted, result.head);
-
-    sincePosted.set(posted, commits);
-
-    return commits;
-  };
-
-  const confirmations = before.threads.map(async (thread) => {
-    const disposition = latest.get(thread.marker.id);
-
-    if (disposition?.kind !== 'fixed') {
-      return [];
-    }
-
-    const commit = disposition.value;
-    const posted = thread.marker.head;
-    const isOnBranch = before.commits.some((sha) => sha.startsWith(commit));
-
-    const held = rewrites.find(
-      (entry) => entry.id === thread.marker.id && entry.named === commit,
-    )?.branch;
-
-    // a sha no branch commit starts with may name a commit that a rebase rewrote: an earlier review's
-    // match for this finding holds while its commit stays on the branch, and the reader looks otherwise
-    const rewrite =
-      isOnBranch || (held !== undefined && before.commits.includes(held))
-        ? { commit: isOnBranch ? null : (held ?? null), failure: null }
-        : await readRewrittenFix({
-            sha: commit,
-            posted,
-            candidates: before.commits.filter((sha) => range.includes(sha)),
-          });
-
-    const match = isOnBranch ? findOneCommit(before.commits, commit) : rewrite.commit;
-
-    // a full review covers the whole branch, so only a commit after the head that posted the finding
-    // is a fix of it; a marker without that head leaves the review's range alone to decide, and the
-    // reader checks a rewritten commit's place before the rebase
-    const after =
-      posted === undefined || rewrite.commit !== null ? range : await readSincePosted(posted);
-
-    const isInRange =
-      range.includes(match ?? '') &&
-      after.includes(match ?? '') &&
-      !skipped.has(thread.marker.path);
-
-    const coverage =
-      isInRange && match !== null && skipped.size > 0
-        ? await readFixCoverage(client, pr, {
-            commit: match,
-            head: result.head,
-            skipped,
-            findingPath: thread.marker.path,
-          })
-        : { changesSkipped: false, failure: null };
-
-    const isRead = isInRange && !coverage.changesSkipped;
-    const isHeld = confirmed.has(`${thread.marker.id}:${commit}`);
-    const fixed = !reported.has(thread.marker.id) && match !== null && (isRead || isHeld);
-    const failure = coverage.failure ?? rewrite.failure;
-
-    return [
-      {
-        id: thread.marker.id,
-        title: thread.marker.title,
-        commit,
-        fixed,
-        ...(fixed || failure === null ? {} : { failure }),
-        ...(rewrite.commit === null ? {} : { rewrittenTo: rewrite.commit }),
-      },
-    ];
+  const fixCommits = await readFixCommits(client, pr, {
+    commits: before.commits,
+    dispositions,
+    head: result.head,
   });
 
-  const all = await Promise.all(confirmations);
+  const previous = before.summary?.marker ?? null;
 
-  return all.flat();
-}
+  // this review's verdict is the newest, so the earlier reviews' word counts only where it is silent
+  const earlier =
+    previous === null
+      ? null
+      : await readHeldFixes(client, pr, {
+          threads: before.threads,
+          dispositions,
+          fixCommits,
+          marker: previous,
+        });
 
-// the one branch commit a `fixed` sha names; a prefix that 2 commits share names neither
-function findOneCommit(commits: readonly string[], sha: string): string | null {
-  const matches = commits.filter((commit) => commit.startsWith(sha));
+  const held = earlier?.states ?? new Map();
 
-  return matches.length === 1 ? (matches[0] ?? null) : null;
+  return readFixConfirmations(client, pr, {
+    threads: before.threads,
+    dispositions,
+    fixCommits,
+    review: {
+      base: result.base,
+      head: result.head,
+      reported: result.findings.map((finding) => finding.id),
+      notReviewed: result.notReviewed.map((file) => file.path),
+    },
+    held,
+  });
 }
 
 // strikes the heading of each finding comment whose fix the review confirms, and restores a struck

@@ -1,0 +1,88 @@
+import type { Disposition, PullRequestRef } from '@noslop/contract';
+import type { GitHubClient } from './create-github-connection';
+
+export interface FixCommitsInput {
+  // the pull request's own commits, as GitHub lists them
+  commits: readonly string[];
+  dispositions: readonly Disposition[];
+  head: string;
+}
+
+export interface FixCommits {
+  commits: string[];
+
+  // the `fixed` shas that name more than one commit of the repo, so they name no fix
+  ambiguous: string[];
+}
+
+const FULL_SHA_LENGTH = 40;
+
+// the commits a `fixed` answer can name: the pull request's own, and each one the head holds through a
+// merge from the base branch, which the pull request's commit list leaves out; a short sha that a
+// pull request commit starts but GitHub cannot resolve names another commit too
+export async function readFixCommits(
+  client: GitHubClient,
+  pr: PullRequestRef,
+  input: FixCommitsInput,
+): Promise<FixCommits> {
+  const named = [
+    ...new Set(
+      input.dispositions
+        .filter((item) => item.kind === 'fixed')
+        .map((item) => item.value)
+        .filter(
+          (sha) => sha.length < FULL_SHA_LENGTH || !input.commits.some((commit) => commit === sha),
+        ),
+    ),
+  ];
+
+  const found = await Promise.all(named.map((sha) => readHeadCommit(client, pr, sha, input.head)));
+
+  const ambiguous = named.filter(
+    (sha, index) => found[index] === null && input.commits.some((commit) => commit.startsWith(sha)),
+  );
+
+  return {
+    commits: [...new Set([...input.commits, ...found.filter((sha) => sha !== null)])],
+    ambiguous,
+  };
+}
+
+// the full sha of the commit a sha names when the head holds it: GitHub's compare of the commit with
+// the head is ahead or identical, and its merge base is the commit itself; a sha that names no
+// commit, or more than one, gives null
+async function readHeadCommit(
+  client: GitHubClient,
+  pr: PullRequestRef,
+  sha: string,
+  head: string,
+): Promise<string | null> {
+  try {
+    const response = await client.request('GET /repos/{owner}/{repo}/compare/{basehead}', {
+      owner: pr.owner,
+      repo: pr.repo,
+      basehead: `${sha}...${head}`,
+    });
+
+    const isHeld = response.data.status === 'ahead' || response.data.status === 'identical';
+
+    return isHeld ? response.data.merge_base_commit.sha : null;
+  } catch (error) {
+    if (isMissingCommit(error)) {
+      return null;
+    }
+
+    throw error;
+  }
+}
+
+// GitHub answers a compare from a sha that names no commit with 404, and one that names several
+// with 422
+function isMissingCommit(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'status' in error &&
+    (error.status === 404 || error.status === 422)
+  );
+}
