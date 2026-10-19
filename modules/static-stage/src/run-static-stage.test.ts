@@ -661,6 +661,65 @@ test('it reports a synced edit when a synced caller changes the comment on its w
   );
 });
 
+test('it reports a synced edit when a synced caller that fails to parse only moves the ref of its workflow call', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        '.github/workflows/checks.yml': [
+          'jobs:',
+          '  checks:',
+          '    uses: example/shared-ci/.github/workflows/checks.yml@release-v2',
+          '    with: [unclosed',
+          '',
+        ].join('\n'),
+        'src/a.ts': 'export const a = 1;\n',
+      },
+    },
+    {
+      message: 'head',
+      files: {
+        '.github/workflows/checks.yml': [
+          'jobs:',
+          '  checks:',
+          '    uses: example/shared-ci/.github/workflows/checks.yml@release-v3',
+          '    with: [unclosed',
+          '',
+        ].join('\n'),
+        'src/a.ts': 'export const a = 2;\n',
+      },
+    },
+  ]);
+
+  const config = { ...BUILT_IN_DEFAULTS, synced: ['.github/workflows/**'] };
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config,
+    title: 'ci: pin the shared checks',
+    body: '',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(result.findings.map((finding) => [finding.title, finding.anchor.startLine])).toStrictEqual(
+    [['Edit to the synced copy checks.yml', 3]],
+  );
+});
+
 test('it reports a synced edit when a synced caller moves a ref written inside a block scalar', async () => {
   const ctx = await setupTest();
 

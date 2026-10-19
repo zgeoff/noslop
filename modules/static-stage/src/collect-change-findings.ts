@@ -151,7 +151,6 @@ function isWorkflowPinOnly(entry: AnalyzedFile, baseText: string | null): boolea
   );
 }
 
-// the parsed documents decide which values changed: only the ref of a job's workflow call may differ
 function hasOnlyCallRefChanges(before: string, after: string): boolean {
   const left = tryParseYAML(before);
   const right = tryParseYAML(after);
