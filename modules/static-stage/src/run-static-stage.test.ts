@@ -1735,6 +1735,55 @@ test('it lists each JSON.parse call the change adds', async () => {
   ]);
 });
 
+test('it lists one any value for 2 JSON.parse calls on one added line', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/a.ts': 'export const a = 1;\n' } },
+    {
+      message: 'head',
+      files: {
+        'src/pair.ts': [
+          'export function readPair(left: string, right: string): [number, number] {',
+          '  return [JSON.parse(left), JSON.parse(right)];',
+          '}',
+          '',
+        ].join('\n'),
+      },
+    },
+  ]);
+
+  const config = BUILT_IN_DEFAULTS;
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config,
+    title: 'feat: read a pair',
+    body: '',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(result.slices.typeClaims).toStrictEqual([
+    {
+      location: { path: 'src/pair.ts', startLine: 2, endLine: 2 },
+      kind: 'any-value',
+      detail: 'calls JSON.parse, which returns `any`',
+    },
+  ]);
+});
+
 test('it lists no any value for a JSON.parse call the change kept or a typed json reader', async () => {
   const ctx = await setupTest();
 

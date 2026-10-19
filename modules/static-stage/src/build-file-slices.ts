@@ -199,6 +199,8 @@ function collectTypeClaims(
     }
   }
 
+  // an entry anchors to a line, and the lens reads the whole line, so a line with 2 `any` claims of
+  // one kind holds one entry of that kind
   for (const line of new Set(analysis.anyTypes)) {
     if (entry.lines.added.has(line)) {
       slices.typeClaims.push({
