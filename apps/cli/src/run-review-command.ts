@@ -1,6 +1,6 @@
 import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { basename, join, resolve } from 'node:path';
-import type { PullRequestRef, ReviewResult } from '@noslop/contract';
+import type { EarlierFinding, PullRequestRef, ReviewResult } from '@noslop/contract';
 import { reviewResultSchema } from '@noslop/contract';
 import { readLinkedIssue, readPullRequestState } from '@noslop/github';
 import { runReview } from '@noslop/review';
@@ -94,6 +94,8 @@ export async function runReviewCommand(values: ReviewValues, ctx: CLIContext): P
       pullRequest: change.pullRequest,
       isIncremental: change.isIncremental,
       ...(change.mergeBase === null ? {} : { mergeBase: change.mergeBase }),
+      round: change.round,
+      earlierFindings: change.earlierFindings,
       isPush: values.push,
       pastEscapes,
       ...(ctx.now === undefined ? {} : { now: ctx.now }),
@@ -142,6 +144,11 @@ interface ResolvedChange {
   // the merge base of an incremental review, which keeps the new commits to the files the pull
   // request changes, so a merge from the base branch adds none of its own
   mergeBase: string | null;
+
+  // which review of the pull request this is, from 1, and the findings the earlier reviews posted,
+  // which the design pass reads; a local change is always a first review
+  round: number;
+  earlierFindings: EarlierFinding[];
 }
 
 async function resolveLocalChange(
@@ -180,6 +187,8 @@ async function resolveLocalChange(
     pullRequest: null,
     isIncremental: false,
     mergeBase: null,
+    round: 1,
+    earlierFindings: [],
   };
 }
 
@@ -261,6 +270,15 @@ async function resolvePullRequestChange(
     pullRequest,
     isIncremental: isDelta,
     mergeBase: isDelta ? start : null,
+    round: (state.summary?.marker.reviews ?? 0) + 1,
+    earlierFindings: state.threads.map((thread): EarlierFinding => ({
+      id: thread.marker.id,
+      lens: thread.marker.lens,
+      severity: thread.marker.severity,
+      title: thread.marker.title,
+      path: thread.marker.path,
+      answer: thread.replies.at(-1)?.body.trim().split('\n')[0] ?? null,
+    })),
   };
 }
 

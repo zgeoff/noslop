@@ -5,7 +5,9 @@ import type { Logger } from '@logtape/logtape';
 import type {
   CallRecord,
   Change,
+  ChangedFile,
   Depth,
+  EarlierFinding,
   LensID,
   NotReviewedFile,
   PullRequestRef,
@@ -21,7 +23,11 @@ import { renderHunks } from '@noslop/lenses';
 import type { PlannedCall, Route } from '@noslop/routing';
 import type { Runner } from '@noslop/runner';
 import type { StaticStageResult } from '@noslop/static-stage';
+import { readChange } from '@noslop/static-stage';
 import { planReview } from './plan-review';
+import type { DesignPass } from './run-design-pass';
+import { runDesignPass } from './run-design-pass';
+import type { MergePass } from './run-merge-pass';
 import { runMergePass } from './run-merge-pass';
 import type { CallBatch } from './run-planned-calls';
 import { runPlannedCalls } from './run-planned-calls';
@@ -63,6 +69,11 @@ export interface RunReviewOptions {
 
   // a depth that replaces the one the risk score picks, which the eval sets to compare depths
   depth?: Depth | null;
+
+  // which review of the pull request this is, from 1; from the second on, the design pass runs after
+  // the merge pass over the findings of this review and of the earlier ones
+  round?: number;
+  earlierFindings?: readonly EarlierFinding[];
 }
 
 export interface ReviewRun {
@@ -90,23 +101,14 @@ export async function runReview(options: RunReviewOptions): Promise<ReviewRun> {
     rules: collectChangeRules(options.rules, change),
   };
 
-  const batches = await runCalls(ctx);
+  const passes = await runPasses(ctx);
 
-  const assembled = buildAssembled(ctx, batches);
-
-  const merged = await runMergePass({
-    findings: assembled.findings,
-    config: options.config,
-    adapter: options.adapter,
-    model: options.mergeModel ?? null,
-    callID: pickPassID(ctx, MERGE_CALL),
-    depth: ctx.route.depth,
-    lenses: ctx.route.lenses,
-    tempDir: options.tempDir,
-    logger: options.logger,
-  });
-
+  const batches = passes.batches;
+  const assembled = passes.assembled;
+  const merged = passes.merged;
+  const design = passes.design;
   const records = batches.flatMap((batch) => batch.records);
+  const passRecords = [merged.record, design?.record ?? null].filter((record) => record !== null);
 
   return {
     result: {
@@ -121,12 +123,12 @@ export async function runReview(options: RunReviewOptions): Promise<ReviewRun> {
       special: ctx.route.special,
       riskClasses: stage.signals.riskClasses,
       lenses: collectRunLenses(ctx.route.lenses, records),
-      calls: merged.record === null ? records : [...records, merged.record],
-      findings: merged.findings,
+      calls: [...records, ...passRecords],
+      findings: [...merged.findings, ...(design?.findings ?? [])],
 
       // the rule and the quote each dropped taste finding cited, so the store shows whether the
       // quote check drops real findings
-      dropped: assembled.dropped.map((item) => ({
+      dropped: [...assembled.dropped, ...(design?.dropped ?? [])].map((item) => ({
         lens: item.raw.lens,
         callID: item.raw.callID,
         title: item.raw.finding.title,
@@ -179,20 +181,97 @@ function collectChangeRules(rules: readonly Rule[] | null, change: Change): Rule
   );
 }
 
-// one call per fired lens group, at the effort of the route's depth; a route with no calls runs none,
-// and needs no worktree
-async function runCalls(ctx: PassContext): Promise<CallBatch[]> {
-  if (ctx.route.calls.length === 0) {
-    return [];
+interface Passes {
+  batches: CallBatch[];
+  assembled: AssembledFindings;
+  merged: MergePass;
+  design: DesignPass | null;
+}
+
+// one call per fired lens group, at the effort of the route's depth, then Assemble, the merge pass
+// and, from the second review of a pull request on, the design pass; the worktree lives until the
+// design pass ends, and a review that runs neither a lens call nor the design pass needs none
+async function runPasses(ctx: PassContext): Promise<Passes> {
+  const isDesignDue = ctx.options.config.designPass.enabled && (ctx.options.round ?? 1) >= 2;
+
+  if (ctx.route.calls.length === 0 && !isDesignDue) {
+    return runFindingPasses(ctx, [], false);
   }
 
   await createWorktree(ctx);
 
   try {
-    return [await runBatch(ctx, ctx.route.calls)];
+    const batches = ctx.route.calls.length === 0 ? [] : [await runBatch(ctx, ctx.route.calls)];
+
+    return await runFindingPasses(ctx, batches, isDesignDue);
   } finally {
     await removeWorktree(ctx);
   }
+}
+
+async function runFindingPasses(
+  ctx: PassContext,
+  batches: CallBatch[],
+  isDesignDue: boolean,
+): Promise<Passes> {
+  const options = ctx.options;
+  const assembled = buildAssembled(ctx, batches);
+
+  const merged = await runMergePass({
+    findings: assembled.findings,
+    config: options.config,
+    adapter: options.adapter,
+    model: options.mergeModel ?? null,
+    callID: pickPassID(ctx, MERGE_CALL),
+    depth: ctx.route.depth,
+    lenses: ctx.route.lenses,
+    tempDir: options.tempDir,
+    logger: options.logger,
+  });
+
+  if (!isDesignDue) {
+    return { batches, assembled, merged, design: null };
+  }
+
+  const design = await runDesignPass({
+    title: options.title,
+    body: options.body,
+    latest: merged.findings,
+    earlier: options.earlierFindings ?? [],
+    files: await readPullRequestFiles(ctx),
+    base: options.mergeBase ?? ctx.change.base,
+    head: ctx.change.head,
+    riskClasses: ctx.stage.signals.riskClasses,
+    config: options.config,
+    adapter: options.adapter,
+    callID: pickPassID(ctx, DESIGN_CALL),
+    depth: ctx.route.depth,
+    worktree: ctx.worktree,
+    tempDir: options.tempDir,
+    logger: options.logger,
+  });
+
+  return { batches, assembled, merged, design };
+}
+
+// an approach spans every review of the pull request, so the design pass reads the change since the
+// merge base even when this review covers only the commits since the last reviewed head
+async function readPullRequestFiles(ctx: PassContext): Promise<readonly ChangedFile[]> {
+  const mergeBase = ctx.options.mergeBase;
+
+  if (ctx.options.isIncremental !== true || mergeBase === undefined) {
+    return ctx.change.files;
+  }
+
+  const whole = await readChange({
+    runner: ctx.options.runner,
+    repoDir: ctx.options.repoDir,
+    base: mergeBase,
+    head: ctx.change.head,
+    config: ctx.options.config,
+  });
+
+  return whole.files;
 }
 
 // a worktree that git cannot remove leaves an entry in the repo's worktree list, so the review
@@ -281,9 +360,10 @@ function buildAssembled(ctx: PassContext, batches: readonly CallBatch[]): Assemb
 }
 
 const MERGE_CALL = 'merge';
+const DESIGN_CALL = 'design';
 
 // the first of name, name-2 and so on that no planned call holds, since a config can name a group
-// `merge`
+// `merge` or `design`
 function pickPassID(ctx: PassContext, name: string): string {
   const taken = new Set(ctx.route.calls.map((call) => call.callID));
 

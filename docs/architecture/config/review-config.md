@@ -80,13 +80,13 @@ of each key and the chain it came from.
 The built-in defaults are the config noslop starts every merge from, and the whole config of a repo
 with no `review.json`. They hold every generic lens, a default call grouping, the default
 thresholds, a generic set of risk classes and stack patterns, and the path globs for generated,
-instruction, prose and infra files. They turn the merge pass on, and give each adapter a cheap model
-for it. They name no rules file, no adapter and no consumers, so a repo with no config gets a review
-that knows nothing about its stack or its taste. The defaults hold no project names or
-stack-specific patterns, under [0001](../../decisions/0001-scope-and-your-own-rules.md). When
-neither the config nor the CLI flag names an adapter, the CLI runs the Codex adapter, which
-[adapters](../review/adapters.md) covers. It never looks for which model CLIs are installed, so one
-config runs one adapter on every machine.
+instruction, prose and infra files. They turn the merge pass and the design pass on, and give each
+adapter a cheap model for the merge pass. They name no rules file, no adapter and no consumers, so a
+repo with no config gets a review that knows nothing about its stack or its taste. The defaults hold
+no project names or stack-specific patterns, under
+[0001](../../decisions/0001-scope-and-your-own-rules.md). When neither the config nor the CLI flag
+names an adapter, the CLI runs the Codex adapter, which [adapters](../review/adapters.md) covers. It
+never looks for which model CLIs are installed, so one config runs one adapter on every machine.
 
 ## Per-lens overrides
 
@@ -98,5 +98,6 @@ override's model and effort shape the calls.
 
 The other groups of keys belong to the parts that read them: the thresholds to routing and depth,
 the call grouping, the data globs and the prompt and file limits to calls, the adapter options to
-adapters, the merge pass switch and effort to [the pipeline](../review/pipeline.md), and the
-reporter list and options to [reporters](../output/reporters.md).
+adapters, the switch and effort of the merge pass and of the design pass to
+[the pipeline](../review/pipeline.md), and the reporter list and options to
+[reporters](../output/reporters.md).

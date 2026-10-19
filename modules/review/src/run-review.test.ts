@@ -1350,3 +1350,214 @@ test('it splits a change over the prompt limit into calls that each fit and list
 
   expect(run.result.notReviewed).toStrictEqual([{ path: 'samples/corpus.jsonl', reason: 'data' }]);
 });
+
+test('it reports the finding of the design pass on a file that only an earlier review read', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'src/parse.ts': 'export const parse = 0;\n' } },
+    {
+      message: 'Add the scanner',
+      files: {
+        'src/parse.ts': 'export const parse = 0;\n',
+        'src/scan.ts': 'export const separator = ":";\n',
+      },
+    },
+    {
+      message: 'Fix the parser',
+      files: {
+        'src/parse.ts': 'export const parse = 1;\n',
+        'src/scan.ts': 'export const separator = ":";\n',
+      },
+    },
+  ]);
+
+  const stub = buildStubAdapter({
+    L: [{ findings: { correctness: [] } }],
+    design: [
+      {
+        findings: {
+          design: [
+            {
+              title: 'Split the header line with the library parser',
+              body: 'Each review patched the hand-written scanner for another separator case.',
+              anchor: { path: 'src/scan.ts', startLine: 1, endLine: 1 },
+              secondLocation: null,
+              severity: 'P2',
+              criterion: 'design-defect',
+              rule: null,
+              ruleQuote: null,
+              verdict: 'CONFIRMED',
+              unverifiedFact: null,
+              missingChange: false,
+              fix: 'Replace the scanner with the parser the library exports.',
+            },
+          ],
+        },
+      },
+    ],
+  });
+
+  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+
+  const run = await runReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/parse',
+    base: repo.commits[1] ?? '',
+    head: repo.commits[2] ?? '',
+    mergeBase: repo.commits[0] ?? '',
+    isIncremental: true,
+    round: 2,
+    earlierFindings: [],
+    config: BUILT_IN_DEFAULTS,
+    configHash: 'hash',
+    rules: null,
+    adapter: stub.adapter,
+    logger: ctx.logger,
+    tempDir: join(ctx.dir, 'temp'),
+    cacheDir: null,
+    title: 'Parse the header line',
+    body: 'Parses the header line.',
+    linkedIssue: null,
+    pullRequest: null,
+    isPush: false,
+    pastEscapes: [],
+  });
+
+  expect(
+    run.result.calls.map((call) => [call.id, call.lenses, call.status, call.effort]),
+  ).toStrictEqual([
+    ['L', ['correctness'], 'ok', 'low'],
+    ['design', ['design'], 'ok', 'medium'],
+  ]);
+
+  expect(
+    run.result.findings.map((finding) => [
+      finding.lens,
+      finding.callID,
+      finding.title,
+      finding.anchor.path,
+      finding.severity,
+      finding.writtenByChange,
+    ]),
+  ).toStrictEqual([
+    [
+      'design',
+      'design',
+      'Split the header line with the library parser',
+      'src/scan.ts',
+      'P2',
+      true,
+    ],
+  ]);
+});
+
+test('it keeps the lens findings and fails no review when the design pass fails', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'src/parse.ts': 'export const parse = 0;\n' } },
+    { message: 'Fix the parser', files: { 'src/parse.ts': 'export const parse = 1;\n' } },
+  ]);
+
+  const stub = buildStubAdapter({
+    L: [
+      {
+        findings: {
+          correctness: [
+            {
+              title: 'Start the parse at 0',
+              body: 'The parser starts at 1, so it skips the first header.',
+              anchor: { path: 'src/parse.ts', startLine: 1, endLine: 1 },
+              secondLocation: null,
+              severity: 'P2',
+              criterion: 'wrong-behaviour-edge-path',
+              rule: null,
+              ruleQuote: null,
+              verdict: 'CONFIRMED',
+              unverifiedFact: null,
+              missingChange: false,
+              fix: null,
+            },
+          ],
+        },
+      },
+    ],
+    design: [{ error: 'the model CLI timed out' }],
+  });
+
+  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+
+  const run = await runReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/parse',
+    base: repo.commits[0] ?? '',
+    head: repo.commits[1] ?? '',
+    round: 2,
+    earlierFindings: [],
+    config: BUILT_IN_DEFAULTS,
+    configHash: 'hash',
+    rules: null,
+    adapter: stub.adapter,
+    logger: ctx.logger,
+    tempDir: join(ctx.dir, 'temp'),
+    cacheDir: null,
+    title: 'Fix the parser',
+    body: '',
+    linkedIssue: null,
+    pullRequest: null,
+    isPush: false,
+    pastEscapes: [],
+  });
+
+  expect(run.result.findings.map((finding) => finding.title)).toStrictEqual([
+    'Start the parse at 0',
+  ]);
+
+  expect(run.result.calls.map((call) => [call.id, call.status])).toStrictEqual([
+    ['L', 'ok'],
+    ['design', 'failed'],
+  ]);
+
+  expect(run.result.failedCalls).toStrictEqual([]);
+});
+
+test('it runs no design pass on a later review when the config turns it off', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'src/parse.ts': 'export const parse = 0;\n' } },
+    { message: 'Fix the parser', files: { 'src/parse.ts': 'export const parse = 1;\n' } },
+  ]);
+
+  const stub = buildStubAdapter({ L: [{ findings: { correctness: [] } }] });
+
+  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+
+  await runReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/parse',
+    base: repo.commits[0] ?? '',
+    head: repo.commits[1] ?? '',
+    round: 2,
+    earlierFindings: [],
+    config: { ...BUILT_IN_DEFAULTS, designPass: { enabled: false, effort: 'medium' } },
+    configHash: 'hash',
+    rules: null,
+    adapter: stub.adapter,
+    logger: ctx.logger,
+    tempDir: join(ctx.dir, 'temp'),
+    cacheDir: null,
+    title: 'Fix the parser',
+    body: '',
+    linkedIssue: null,
+    pullRequest: null,
+    isPush: false,
+    pastEscapes: [],
+  });
+
+  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['L']);
+});

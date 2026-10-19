@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { criterionSchema } from './criterion';
-import type { LensID } from './lens-id';
+import type { CallLens } from './lens-id';
 import { severitySchema } from './severity';
 import { verdictSchema } from './verdict';
 
@@ -34,11 +34,11 @@ export const modelFindingSchema = z.strictObject({
 export type ModelFinding = z.infer<typeof modelFindingSchema>;
 
 export interface CallOutput {
-  findings: Partial<Record<LensID, ModelFinding[]>>;
+  findings: Partial<Record<CallLens, ModelFinding[]>>;
 }
 
 // one findings list per fired lens, keyed by lens ID, so every finding keeps its lens
-export function buildCallOutputSchema(lenses: readonly LensID[]): z.ZodType<CallOutput> {
+export function buildCallOutputSchema(lenses: readonly CallLens[]): z.ZodType<CallOutput> {
   const shape = Object.fromEntries(lenses.map((lens) => [lens, z.array(modelFindingSchema)]));
 
   return z.strictObject({ findings: z.strictObject(shape) });

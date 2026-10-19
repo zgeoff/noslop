@@ -198,6 +198,14 @@ export const reviewConfigSchema = z.strictObject({
       effort: effortSchema.describe('The model effort of the merge pass'),
     })
     .describe('The one call after Assemble that groups the findings which report one defect'),
+  designPass: z
+    .strictObject({
+      enabled: z.boolean().describe('Whether the design pass runs'),
+      effort: effortSchema.describe('The model effort of the design pass'),
+    })
+    .describe(
+      'The one call after the merge pass, on each review of a pull request after its first, that asks whether a better approach meets the task',
+    ),
   riskClasses: z
     .record(z.string(), riskClassSchema)
     .describe('Named kinds of risky change, each marked by path globs or detectors'),

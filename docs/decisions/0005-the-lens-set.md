@@ -1,9 +1,11 @@
 # 0005: The lens set
 
 - Date: 2026-10-17
+- Updated: 2026-10-19
 - Status: decided
 
-noslop has 13 lenses. Each one is a single review concern:
+noslop has 13 lenses that routing picks, and the design lens, which it never picks. Each one is a
+single review concern:
 
 | Lens                               | Concern                                                                                                              |
 | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
@@ -20,14 +22,25 @@ noslop has 13 lenses. Each one is a single review concern:
 | Intent                             | The issue's acceptance criteria, work it did not ask for, claims in the pull request body                            |
 | Instructions                       | Agent instruction files, read with every file that loads beside them                                                 |
 | Documentation                      | Prose files, on a large docs change                                                                                  |
+| Design                             | Whether a better approach meets the task that the pull request states, on every review after its first               |
 
 Code comments belong to naming, shape and comments, which reads the code beside them.
+
+The design lens runs after the other lenses and the merge pass, over the findings of every review so
+far, the whole diff and the pull request body. Its task is what the body states, and it reads no
+linked issue.
 
 ## Why
 
 - Each lens has its own trigger and slice, so a lens fires only when the change holds its concern.
 - Correctness catches the general defects that no narrow lens owns.
 - Agent-written code drifts most on taste, intent and tests, so those concerns get their own lenses.
+- An agent that answers each finding with a patch can patch the same logic review after review, or
+  grow a redesign toward an outside spec, and no lens that judges one line asks whether the approach
+  is wrong. The findings of 2 or more reviews show that pattern, so the design lens starts at the
+  second review.
+- A pull request body that promises more than its task needs is its own defect, so the design lens
+  judges the approach against the body and noslop stays unaware of any issue tracker.
 
 ## Alternatives
 
@@ -39,3 +52,10 @@ Code comments belong to naming, shape and comments, which reads the code beside 
 
 - Each lens is a separate unit with its own id, trigger, slice, prompt section and output schema,
   under [0008](0008-stacking-lenses-into-calls.md).
+- The design lens costs one more call on each review after the first, and a review of a local
+  change, which has no earlier review, never runs it.
+
+## Changes
+
+- 2026-10-19: add the design lens, which asks from the second review of a pull request on whether a
+  better approach meets the task that the pull request body states.

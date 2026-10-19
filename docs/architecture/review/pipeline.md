@@ -10,7 +10,7 @@ the [GitHub App](../output/github-app.md) only supply the change and hand the re
 
 ```mermaid
 flowchart LR
-  load[Load] --> static[Static stage] --> route[Route] --> call[Call] --> assemble[Assemble] --> mergepass[Merge pass] --> report[Report]
+  load[Load] --> static[Static stage] --> route[Route] --> call[Call] --> assemble[Assemble] --> mergepass[Merge pass] --> designpass[Design pass] --> report[Report]
 ```
 
 ## The stages
@@ -42,13 +42,20 @@ flowchart LR
    turns it on and the review holds at least two model findings. Each adapter's options name its
    model. When the call fails, the findings stay unmerged and the review is not counted as failed,
    because a repeat costs the reader less than a lost finding.
-7. **Report.** The CLI prints the result, as JSON or as a summary, and runs each reporter the config
+7. **Design pass.** On every review of a pull request after its first, one call runs
+   [the design lens](./lenses.md#the-design-lens), which asks whether a better approach meets the
+   task the pull request states. A first review runs no design pass, because a single round of
+   findings shows no repeated patching. Assemble checks the pass's finding against the whole pull
+   request, and the review keeps at most one. The pass runs when the config turns it on. When the
+   call fails, the review keeps the other findings and is not counted as failed, as with the merge
+   pass, because the lens calls still covered the head.
+8. **Report.** The CLI prints the result, as JSON or as a summary, and runs each reporter the config
    lists, or the ones its flag names.
 
 The calls read a detached git worktree of the head commit, so a model that opens a file sees the
 reviewed code and never the user's working tree. The review creates the worktree only when the route
-holds a call, and removes it whether the calls pass or fail. A worktree that git cannot remove is
-logged for the user to prune.
+holds a call or the design pass runs, and removes it after the design pass, whether the calls pass
+or fail. A worktree that git cannot remove is logged for the user to prune.
 
 Lint runs in the repo's own checks before a review, so noslop never runs lint and never repeats a
 rule that lint enforces. The lenses whose concerns overlap lint tell the model to report no rule the

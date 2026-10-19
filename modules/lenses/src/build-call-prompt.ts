@@ -1,17 +1,11 @@
-import type { LensID, NotReviewedFile } from '@noslop/contract';
-import { formatPathCode } from '@noslop/contract';
+import type { LensID } from '@noslop/contract';
 import type { ChangedFile, Slices } from '@noslop/static-stage';
 import { getLensPrompt } from './get-lens-prompt';
 import { LENS_INPUTS } from './lens-inputs';
 import { renderCriteria } from './render-criteria';
 import { renderHunks } from './render-hunks';
-
-// a changed file a call's input leaves out: a data file, a file too large for a call, or a file that
-// another part of a split call reads
-export interface LeftOutFile {
-  path: string;
-  reason: NotReviewedFile['reason'] | 'other-part';
-}
+import type { LeftOutFile } from './render-left-out';
+import { renderLeftOut } from './render-left-out';
 
 export interface CallPromptInput {
   lenses: readonly LensID[];
@@ -134,20 +128,4 @@ function findItemPath(item: unknown): string | null {
   }
 
   return 'function' in item ? findItemPath(item.function) : null;
-}
-
-const LEFT_OUT_REASONS: Readonly<Record<LeftOutFile['reason'], string>> = {
-  data: 'a data file the config names',
-  'too-large': 'too large for one call',
-  'other-part': 'read by another call of this review',
-};
-
-function renderLeftOut(files: readonly LeftOutFile[]): string {
-  return [
-    '## Files left out',
-    'The change holds these files, but this input leaves out their hunks and slices. Report no finding on what they hold, and no finding that their change is missing.',
-    files
-      .map((file) => `- ${formatPathCode(file.path)}: ${LEFT_OUT_REASONS[file.reason]}`)
-      .join('\n'),
-  ].join('\n\n');
 }

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { CRITERION_SEVERITY, criterionSchema } from './criterion';
-import { lensIDSchema } from './lens-id';
+import { callLensSchema } from './lens-id';
 import { severitySchema } from './severity';
 import { verdictSchema } from './verdict';
 
@@ -34,7 +34,7 @@ export const secondLocationSchema = z.strictObject({
 
 export type SecondLocation = z.infer<typeof secondLocationSchema>;
 
-export const findingLensSchema = z.union([lensIDSchema, z.literal('static')]);
+export const findingLensSchema = z.union([callLensSchema, z.literal('static')]);
 
 export type FindingLens = z.infer<typeof findingLensSchema>;
 

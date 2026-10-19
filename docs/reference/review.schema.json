@@ -184,6 +184,43 @@
         }
       ]
     },
+    "designPass": {
+      "description": "The one call after the merge pass, on each review of a pull request after its first, that asks whether a better approach meets the task",
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "description": "Whether the design pass runs",
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "effort": {
+              "description": "The model effort of the design pass",
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": ["low", "medium", "high"]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "riskClasses": {
       "description": "Named kinds of risky change, each marked by path globs or detectors",
       "anyOf": [
