@@ -4261,6 +4261,83 @@ test('it confirms no fix whose rewritten commit never changed the file the branc
   });
 });
 
+test('it confirms no fix whose rewritten commit makes its change in a file other than the finding file', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'd'.repeat(40),
+  });
+
+  for (const commit of [
+    { sha: 'a'.repeat(40), isOnBranch: false, path: 'src/a.ts', patch: '-a\n+b' },
+    { sha: 'b'.repeat(40), isOnBranch: false, path: 'src/a.ts', patch: '-sum\n+total' },
+    { sha: 'c'.repeat(40), isOnBranch: true, path: 'src/a.ts', patch: '-a\n+b' },
+    { sha: 'd'.repeat(40), isOnBranch: true, path: 'src/b.ts', patch: '-sum\n+total' },
+  ]) {
+    await githubCollections.pullCommits.create({
+      owner: 'example',
+      repo: 'app',
+      number: 5,
+      sha: commit.sha,
+      files: [commit.path],
+      patches: { [commit.path]: `@@ -1,1 +1,1 @@\n${commit.patch}` },
+      isOnBranch: commit.isOnBranch,
+    });
+  }
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/a.ts',
+    lines: [1],
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      reviewID: 'review-a',
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'a'.repeat(40),
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const [thread] = githubCollections.reviewComments.all();
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    body: `fixed ${'b'.repeat(7)}`,
+    authorLogin: 'dev',
+    inReplyToID: thread?.id ?? null,
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      reviewID: 'review-d',
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      base: '9'.repeat(40),
+      head: 'd'.repeat(40),
+      findings: [],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const summary = githubCollections.issueComments.all().map((comment) => comment.body);
+
+  expect(summary[0]).toInclude('❌ Return the total of every item: not fixed in');
+
+  expect(githubCollections.checkRuns.all().at(-1)).toMatchObject({
+    conclusion: 'failure',
+    summary: expect.toInclude('the commit bbbbbbb is not on the branch'),
+  });
+});
+
 test('it keeps a fix whose commit a rebase rewrote after a later delta without the fix commit', async () => {
   const ctx = setupTest();
 
