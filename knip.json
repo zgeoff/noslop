@@ -2,8 +2,9 @@
   "$schema": "./node_modules/knip/schema.json",
   // repo-sync delivers .claude/ verbatim
   "ignore": [".claude/**"],
-  // the shared oxlint config loads this plugin, which knip cannot see through
-  "ignoreDependencies": ["@stylistic/eslint-plugin"],
+  // the shared oxlint config loads the plugin, and the synced skill-gate hook in .claude/ imports
+  // the package, so knip sees neither
+  "ignoreDependencies": ["@stylistic/eslint-plugin", "@zgeoff/skill-gate"],
   "workspaces": {
     // the App server runs the noslop bin of @noslop/cli by its path, which knip cannot see
     "apps/github-app": { "ignoreDependencies": ["@noslop/cli"] }

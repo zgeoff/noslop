@@ -8,9 +8,9 @@ exact = true
 # supply-chain guard: only install versions published >= 7 days ago
 minimumReleaseAge = 604800
 
-# the shared lint config ships from the same owner as noslop, which tracks its releases closely;
-# each pinned version's provenance is checked before the pin
-minimumReleaseAgeExcludes = ["@zgeoff/oxlint-config"]
+# the shared lint config and the skill-gate hook ship from the same owner as noslop, which tracks
+# their releases closely; each pinned version's provenance is checked before the pin
+minimumReleaseAgeExcludes = ["@zgeoff/oxlint-config", "@zgeoff/skill-gate"]
 
 [test]
 # registers the jest-extended matchers, and starts the stand-in GitHub API with its resets
