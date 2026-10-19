@@ -352,12 +352,20 @@ function buildRangeFields(result: ReviewResult, previous: SummaryMarker | null):
   const earlier = (previous === null ? [] : toReviewedRanges(previous))
     .filter((range) => range.base !== result.base || range.head !== result.head)
     .slice(0, EARLIER_RANGES)
-    .map((range) => ({
-      base: range.base,
-      head: range.head,
-      reported: [...range.reported],
-      notReviewed: [...range.notReviewed],
-    }));
+    .map((range) => {
+      const kept: NonNullable<SummaryMarker['earlier']>[number] = {
+        base: range.base,
+        head: range.head,
+        reported: [...range.reported],
+        notReviewed: [...range.notReviewed],
+      };
+
+      if (range.isPartial) {
+        kept.partial = true;
+      }
+
+      return kept;
+    });
 
   for (let count = earlier.length; count >= 0; count -= 1) {
     const kept = earlier.slice(0, count);

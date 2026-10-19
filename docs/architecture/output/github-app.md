@@ -197,9 +197,10 @@ well, and keeps each fix it confirms in its own summary marker.
 A newer verdict on a finding replaces every older one. The reviews count newest first, and the first
 review that read the fix or reported the finding again decides, so a review that reports the finding
 after an older one confirmed its fix leaves it open, whatever older ranges the marker keeps. A
-repost of the latest review keeps its range once. A review with a failed call keeps no range for
-this rule. The marker keeps only the ranges that fit under GitHub's comment limit, newest first, and
-a review whose own range does not fit keeps none, so such a reply waits for the next review.
+repost of the latest review keeps its range once. A review with a failed call keeps its range in
+order, and that range rejects each finding the review reported but confirms no fix. The marker keeps
+only the ranges that fit under GitHub's comment limit, newest first, and a review whose own range
+does not fit keeps none, so such a reply waits for the next review.
 
 The re-check is the second review of a pull request. From the third review on, the reporter sends
 each new finding in code the change did not write to a follow-up issue. A security finding, and any

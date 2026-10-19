@@ -7,6 +7,9 @@ const reviewedRangeSchema = z.strictObject({
   head: shaSchema,
   reported: z.array(z.string()),
   notReviewed: z.array(z.string()),
+
+  // a review with a failed call, whose range rejects the findings it reported and confirms no fix
+  partial: z.boolean().optional(),
 });
 
 // the latest review as the summary marker keeps it; `followUps` stops a later review filing an issue

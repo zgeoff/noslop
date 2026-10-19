@@ -1329,6 +1329,342 @@ test('it confirms no fix answered after a re-review whose calls failed', async (
   );
 });
 
+test('it fails the check when a review whose calls failed reports a late confirmed fix again and the next review skips its file', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'e'.repeat(40),
+  });
+
+  for (const sha of ['b', 'c', 'd', 'e']) {
+    await githubCollections.pullCommits.create({
+      owner: 'example',
+      repo: 'app',
+      number: 5,
+      sha: sha.repeat(40),
+      files: ['src/a.ts'],
+    });
+  }
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/a.ts',
+    lines: [1],
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'b'.repeat(40),
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      base: 'b'.repeat(40),
+      head: 'c'.repeat(40),
+      findings: [],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const [thread] = githubCollections.reviewComments.all();
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    body: `fixed ${'c'.repeat(7)}`,
+    authorLogin: 'dev',
+    inReplyToID: thread?.id ?? null,
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      base: 'c'.repeat(40),
+      head: 'd'.repeat(40),
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+      failedCalls: [{ id: 'L', lenses: ['correctness'], reason: 'the call timed out' }],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      base: 'c'.repeat(40),
+      head: 'e'.repeat(40),
+      findings: [],
+      notReviewed: [{ path: 'src/a.ts', reason: 'too-large' }],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('failure');
+
+  expect(githubCollections.checkRuns.all().at(-1)?.summary).toInclude(
+    `no re-review has read the commit ${'c'.repeat(7)} yet`,
+  );
+});
+
+test('it fails the check when a review reports a late confirmed fix again and more reviews follow than the marker keeps', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: '2'.repeat(40),
+  });
+
+  for (const sha of ['b', 'c', 'd', 'e', 'f', '1', '2']) {
+    await githubCollections.pullCommits.create({
+      owner: 'example',
+      repo: 'app',
+      number: 5,
+      sha: sha.repeat(40),
+      files: ['src/a.ts'],
+    });
+  }
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/a.ts',
+    lines: [1],
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'b'.repeat(40),
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      base: 'b'.repeat(40),
+      head: 'c'.repeat(40),
+      findings: [],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const [thread] = githubCollections.reviewComments.all();
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    body: `fixed ${'c'.repeat(7)}`,
+    authorLogin: 'dev',
+    inReplyToID: thread?.id ?? null,
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      base: 'c'.repeat(40),
+      head: 'd'.repeat(40),
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  for (const [base, head] of [
+    ['d', 'e'],
+    ['e', 'f'],
+    ['f', '1'],
+    ['1', '2'],
+  ] as const) {
+    await ctx.reporter.report(
+      buildMockReviewResult({
+        pullRequest: { owner: 'example', repo: 'app', number: 5 },
+        base: base.repeat(40),
+        head: head.repeat(40),
+        findings: [],
+        notReviewed: [{ path: 'src/a.ts', reason: 'too-large' }],
+      }),
+      { logger: ctx.logger, options: {}, failedReporters: [] },
+    );
+  }
+
+  expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('failure');
+
+  expect(githubCollections.checkRuns.all().at(-1)?.summary).toInclude(
+    `no re-review has read the commit ${'c'.repeat(7)} yet`,
+  );
+});
+
+test('it fails the check when a review reports a confirmed fix again under the path its file was renamed to', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'd'.repeat(40),
+  });
+
+  for (const [sha, file] of [
+    ['b', 'src/a.ts'],
+    ['c', 'src/a.ts'],
+    ['d', 'src/b.ts'],
+  ] as const) {
+    await githubCollections.pullCommits.create({
+      owner: 'example',
+      repo: 'app',
+      number: 5,
+      sha: sha.repeat(40),
+      files: [file],
+    });
+  }
+
+  for (const path of ['src/a.ts', 'src/b.ts']) {
+    await githubCollections.pullFiles.create({
+      owner: 'example',
+      repo: 'app',
+      number: 5,
+      path,
+      lines: [1],
+    });
+  }
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'b'.repeat(40),
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const [thread] = githubCollections.reviewComments.all();
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    body: `fixed ${'c'.repeat(7)}`,
+    authorLogin: 'dev',
+    inReplyToID: thread?.id ?? null,
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      base: 'b'.repeat(40),
+      head: 'c'.repeat(40),
+      findings: [],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      base: 'c'.repeat(40),
+      head: 'd'.repeat(40),
+      findings: [
+        buildMockFinding({
+          id: '2222222222222222',
+          anchor: { path: 'src/b.ts', startLine: 1, endLine: 1 },
+        }),
+      ],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const connection = await createGitHubConnection({
+    appID: 1,
+    privateKey: buildStubAppKey(),
+    installationID: 7,
+  });
+
+  const outcome = await runGitHubCheck(
+    connection,
+    { owner: 'example', repo: 'app', number: 5 },
+    { failedReporters: [] },
+  );
+
+  expect(outcome.open).toStrictEqual([
+    { id: '2222222222222222', title: 'Return the total of every item', reason: 'no disposition' },
+  ]);
+});
+
+test('it keeps the latest review range and the 4 newest earlier ones after 6 reviews', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: '1'.repeat(40),
+  });
+
+  for (const sha of ['b', 'c', 'd', 'e', 'f', '1']) {
+    await githubCollections.pullCommits.create({
+      owner: 'example',
+      repo: 'app',
+      number: 5,
+      sha: sha.repeat(40),
+    });
+  }
+
+  for (const [base, head] of [
+    ['a', 'b'],
+    ['b', 'c'],
+    ['c', 'd'],
+    ['d', 'e'],
+    ['e', 'f'],
+    ['f', '1'],
+  ] as const) {
+    await ctx.reporter.report(
+      buildMockReviewResult({
+        pullRequest: { owner: 'example', repo: 'app', number: 5 },
+        base: base.repeat(40),
+        head: head.repeat(40),
+        findings: [],
+      }),
+      { logger: ctx.logger, options: {}, failedReporters: [] },
+    );
+  }
+
+  const connection = await createGitHubConnection({
+    appID: 1,
+    privateKey: buildStubAppKey(),
+    installationID: 7,
+  });
+
+  const state = await readPullRequestState(connection, {
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+  });
+
+  expect(state.summary?.marker).toMatchObject({ base: 'f'.repeat(40), head: '1'.repeat(40) });
+
+  expect(state.summary?.marker.earlier?.map((range) => range.head)).toStrictEqual([
+    'f'.repeat(40),
+    'e'.repeat(40),
+    'd'.repeat(40),
+    'c'.repeat(40),
+  ]);
+});
+
 test('it keeps no range in the summary marker of a review that left out more paths than the marker holds', async () => {
   const ctx = setupTest();
 
