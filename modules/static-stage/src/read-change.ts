@@ -44,6 +44,12 @@ export async function readChange(options: ReadChangeOptions): Promise<Change> {
   const baseOnly: ChangedFile[] = [];
 
   for (const parsed of parseDiff(diff)) {
+    // a generated file is never read, whichever side changes it, so it stays out of the left-out files
+    if (isGlobMatch(parsed.path, options.config.generated)) {
+      excluded.push(parsed.path);
+      continue;
+    }
+
     const lines = parsed.hunks.flatMap((hunk) => hunk.lines);
     const kind = pickFileKind(parsed.path, options.config);
 
@@ -57,11 +63,6 @@ export async function readChange(options: ReadChangeOptions): Promise<Change> {
         deletedLines: lines.filter((line) => line.kind === 'deleted').length,
       });
 
-      continue;
-    }
-
-    if (isGlobMatch(parsed.path, options.config.generated)) {
-      excluded.push(parsed.path);
       continue;
     }
 
