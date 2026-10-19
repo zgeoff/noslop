@@ -1,4 +1,5 @@
-import type { NotReviewedFile } from '@noslop/contract';
+import type { LensID, LensNotReviewedFile, NotReviewedFile } from '@noslop/contract';
+import { LENS_IDS } from '@noslop/contract';
 import { LENS_INPUTS } from '@noslop/lenses';
 import type { PlannedCall } from '@noslop/routing';
 import type { CallPart, CallPartsInput } from './plan-call-parts';
@@ -18,10 +19,14 @@ export interface CallBatchPlan {
 
   // each changed file that no part reads, once
   notReviewed: NotReviewedFile[];
+
+  // each changed file that a part reads while the calls of other lenses leave it out, once, with
+  // those lenses
+  notReviewedByLens: LensNotReviewedFile[];
 }
 
-// the parts every planned call of a review runs as, each with an ID no other call or part holds, and
-// the files that no part reads
+// the parts every planned call of a review runs as, each with an ID no other call or part holds, the
+// files that no part reads, and the files that only some lenses read
 export function planCallBatch(input: CallBatchPlanInput): CallBatchPlan {
   const taken = new Set(input.calls.map((call) => call.callID));
 
@@ -70,5 +75,40 @@ export function planCallBatch(input: CallBatchPlanInput): CallBatchPlan {
       .map((file) => [file.path, file] as const),
   );
 
-  return { parts, notReviewed: [...listed.values()] };
+  return {
+    parts,
+    notReviewed: [...listed.values()],
+    notReviewedByLens: collectLensNotReviewed(input.calls, planned, read),
+  };
+}
+
+// a lens runs in one call, so the files that call leaves out are the files the lens never reads; a
+// file no part reads is listed as not reviewed already, so it stays off this list
+function collectLensNotReviewed(
+  calls: readonly PlannedCall[],
+  planned: readonly { notReviewed: readonly NotReviewedFile[] }[],
+  read: ReadonlySet<string>,
+): LensNotReviewedFile[] {
+  const lenses = new Map<string, Set<LensID>>();
+
+  for (const [index, call] of calls.entries()) {
+    for (const file of planned[index]?.notReviewed ?? []) {
+      if (!read.has(file.path)) {
+        continue;
+      }
+
+      const skipped = lenses.get(file.path) ?? new Set<LensID>();
+
+      for (const lens of call.lenses) {
+        skipped.add(lens);
+      }
+
+      lenses.set(file.path, skipped);
+    }
+  }
+
+  return [...lenses].map(([path, skipped]) => ({
+    path,
+    lenses: LENS_IDS.filter((lens) => skipped.has(lens)),
+  }));
 }

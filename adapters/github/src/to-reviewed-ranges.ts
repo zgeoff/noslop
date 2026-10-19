@@ -16,6 +16,7 @@ export function toReviewedRanges(marker: SummaryMarker): KeptRange[] {
     head: range.head,
     reported: range.reported,
     notReviewed: range.notReviewed,
+    notReviewedByLens: range.notReviewedByLens ?? [],
     isPartial: range.partial === true,
   }));
 
@@ -29,6 +30,7 @@ export function toReviewedRanges(marker: SummaryMarker): KeptRange[] {
       head: marker.head,
       reported: marker.reported,
       notReviewed: marker.notReviewed ?? [],
+      notReviewedByLens: marker.notReviewedByLens ?? [],
       isPartial: marker.failedCalls > 0,
     },
     ...earlier,

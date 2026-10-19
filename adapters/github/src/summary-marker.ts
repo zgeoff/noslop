@@ -18,6 +18,9 @@ export const summaryMarkerSchema = z.strictObject({
   followUps: z.array(z.string()).default([]),
   confirmed: z.array(z.string()).default([]),
   notReviewed: z.array(z.string()).optional(),
+
+  // the files the review read while some lenses' calls left them out, with those lenses
+  notReviewedByLens: buildLensNotReviewedSchema().optional(),
   reviewIDs: z.array(z.string()).optional(),
 
   // when the review that wrote the summary started, so a retry of an earlier review leaves it alone
@@ -32,10 +35,18 @@ function buildReviewedRangeSchema() {
     head: buildShaSchema(),
     reported: z.array(z.string()),
     notReviewed: z.array(z.string()),
+    notReviewedByLens: buildLensNotReviewedSchema().optional(),
 
     // a review with a failed call, whose range rejects the findings it reported and confirms no fix
     partial: z.boolean().optional(),
   });
+}
+
+// a lens is a plain string here, so a marker that names a lens a later version renames still parses
+function buildLensNotReviewedSchema() {
+  const file = z.strictObject({ path: z.string(), lenses: z.array(z.string()) });
+
+  return z.array(file);
 }
 
 function buildShaSchema() {
