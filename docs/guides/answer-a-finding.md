@@ -74,8 +74,9 @@ the fix:
 4. Expect the finding's comment to show its heading struck through, with the fix commit named, and
    the check to stop listing the finding.
 
-The fix commit may change any file, such as a test beside the finding's file. It must come after the
-review that posted the finding.
+The fix commit may change any file of the pull request, such as a test beside the finding's file, so
+you never need to touch the finding's file only to name it. The commit must change at least one file
+of the pull request's diff, and it must come after the review that posted the finding.
 
 When the check run gives the reason `no re-review has read the commit <sha> yet`, the re-review ran
 before your reply. A later review of only newer commits leaves that commit out of its range, so ask

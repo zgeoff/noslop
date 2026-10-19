@@ -11,7 +11,7 @@ import type {
   ReviewAdapter,
   ReviewResult,
 } from '@noslop/contract';
-import { REVIEW_OUTPUT_VERSION } from '@noslop/contract';
+import { REVIEW_OUTPUT_VERSION, buildFixFileEvidence } from '@noslop/contract';
 import type { Runner } from '@noslop/runner';
 import { z } from 'zod';
 import { buildFixCheckPrompt } from './build-fix-check-prompt';
@@ -46,6 +46,9 @@ export interface FixesOnlyReviewInput {
   base: string;
   head: string;
 
+  // the merge base of the pull request, where the diff a fix commit must reach starts
+  mergeBase: string;
+
   // the head of the newest review that ran its lenses, which judged every fix before it
   lensHead: string | null;
   title: string;
@@ -61,8 +64,8 @@ export interface FixesOnlyReviewInput {
 }
 
 // a run after the last review round with no lens and no finding: one call per `fixed` answer that no
-// review has judged asks whether the diff of the finding's file fixes it, and the result's fix checks
-// list each verdict, so no other fix confirms through the run's silence
+// review has judged asks whether the diff of the finding's file and the fix commit's files fixes it,
+// and the result's fix checks list each verdict, so no other fix confirms through the run's silence
 export async function runFixesOnlyReview(input: FixesOnlyReviewInput): Promise<ReviewResult> {
   const now = input.now ?? (() => new Date());
   const startedAt = now().toISOString();
@@ -70,8 +73,18 @@ export async function runFixesOnlyReview(input: FixesOnlyReviewInput): Promise<R
   const range = await readGitLines(input, ['rev-list', `${input.base}..${input.head}`]);
   const bases = await Promise.all(input.fixes.map((fix) => readFixBase(input, fix, range)));
 
+  const pullRequestFiles = await readGitLines(input, [
+    'diff',
+    '--name-only',
+    '--no-renames',
+    input.mergeBase,
+    input.head,
+  ]);
+
   const outcomes = await Promise.all(
-    input.fixes.map((fix, index) => runFixCheck(input, fix, bases[index] ?? null)),
+    input.fixes.map((fix, index) =>
+      runFixCheck(input, { fix, base: bases[index] ?? null, pullRequestFiles }),
+    ),
   );
 
   const tooLarge = new Set(outcomes.flatMap((outcome) => outcome.tooLarge ?? []));
@@ -80,7 +93,7 @@ export async function runFixesOnlyReview(input: FixesOnlyReviewInput): Promise<R
   let base = input.base;
 
   for (const fixBase of bases) {
-    base = fixBase === null ? base : await readGitText(input, ['merge-base', base, fixBase]);
+    base = fixBase === null ? base : await readGitText(input, ['merge-base', base, fixBase.base]);
   }
 
   return {
@@ -127,6 +140,12 @@ async function readGitText(input: FixesOnlyReviewInput, args: readonly string[])
   return result.stdout.trim();
 }
 
+// the commit a fix's diff starts from, and the full sha of the fix commit
+interface FixBase {
+  base: string;
+  commit: string;
+}
+
 // the commit a fix's diff starts from: the run's base for a fix among the new commits, or, for a
 // `fixed` reply posted after an earlier run passed its commit, the newer of the head that posted the
 // finding and the last head the lenses read; null for a fix no such range holds
@@ -134,9 +153,11 @@ async function readFixBase(
   input: FixesOnlyReviewInput,
   fix: AnsweredFix,
   range: readonly string[],
-): Promise<string | null> {
-  if (hasOneCommit(range, fix.commit)) {
-    return input.base;
+): Promise<FixBase | null> {
+  const commit = findOneCommit(range, fix.commit);
+
+  if (commit !== null) {
+    return { base: input.base, commit };
   }
 
   const floors = [fix.postedHead, input.lensHead].filter((head) => head !== null);
@@ -153,13 +174,16 @@ async function readFixBase(
   });
 
   const commits = late.exitCode === 0 ? late.stdout.trim().split('\n') : [];
+  const lateCommit = findOneCommit(commits, fix.commit);
 
-  return hasOneCommit(commits, fix.commit) ? newer : null;
+  return lateCommit === null ? null : { base: newer, commit: lateCommit };
 }
 
-// a `fixed` sha names one commit of the range; a prefix that 2 commits share names neither
-function hasOneCommit(range: readonly string[], sha: string): boolean {
-  return range.filter((commit) => commit.startsWith(sha)).length === 1;
+// the one commit of the range a `fixed` sha names; a prefix that 2 commits share names neither
+function findOneCommit(range: readonly string[], sha: string): string | null {
+  const matches = range.filter((commit) => commit.startsWith(sha));
+
+  return matches.length === 1 ? (matches[0] ?? null) : null;
 }
 
 // the head of the two that descends from the other, or the first when neither does
@@ -186,14 +210,24 @@ interface FixCheckOutcome {
 
 const fixCheckOutputSchema = z.strictObject({ fixed: z.boolean(), reason: z.string().min(1) });
 
-// one fix's call, over the diff from its base; a fix with no base asks nothing, and a static finding,
-// which no model lens reported, takes a full review to confirm
+interface FixTarget {
+  fix: AnsweredFix;
+  base: FixBase | null;
+
+  // each path the pull request's diff changes, the earlier path of a renamed file included
+  pullRequestFiles: readonly string[];
+}
+
+// one fix's call, over the diff from its base of the finding's file and of each file the fix commit
+// changes; a fix with no base asks nothing, a commit that changes no file of the pull request fixes
+// nothing, and a static finding, which no model lens reported, takes a full review to confirm
 async function runFixCheck(
   input: FixesOnlyReviewInput,
-  fix: AnsweredFix,
-  base: string | null,
+  target: FixTarget,
 ): Promise<FixCheckOutcome> {
-  if (base === null) {
+  const fix = target.fix;
+
+  if (target.base === null) {
     return {};
   }
 
@@ -203,8 +237,34 @@ async function runFixCheck(
     return { check: { findingID: fix.id, fixed: false, reason } };
   }
 
+  const base = target.base.base;
+
+  const commitFiles = await readGitLines(input, [
+    'diff-tree',
+    '-r',
+    '--root',
+    '--no-commit-id',
+    '--name-only',
+    '--no-renames',
+    target.base.commit,
+  ]);
+
+  const files = buildFixFileEvidence({
+    commitFiles,
+    pullRequestFiles: target.pullRequestFiles,
+    findingPath: fix.path,
+  });
+
+  if (!files.changesPullRequest) {
+    const reason = 'the commit changes no file of the pull request';
+
+    return { check: { findingID: fix.id, fixed: false, reason } };
+  }
+
+  const paths = [...new Set([fix.path, ...commitFiles])];
+
   const code = await readAnchoredCode(input, fix, base);
-  const diff = await readGitText(input, ['diff', base, input.head, '--', fix.path]);
+  const diff = await readGitText(input, ['diff', base, input.head, '--', ...paths]);
 
   if (code.length > input.maxFileChars || diff.length > input.maxFileChars) {
     input.logger.warn('the fix of {id} passes the file limit, so it stays unconfirmed', {

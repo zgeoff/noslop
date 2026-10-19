@@ -63,7 +63,12 @@ test('it holds no fix that only a range of a review whose calls failed read', as
   const held = await readHeldFixes(ctx.connection.client, pr, {
     threads: state.threads,
     dispositions,
-    fixCommits: { commits: ['b'.repeat(40), 'c'.repeat(40)], ambiguous: [], rewritten: new Map() },
+    fixCommits: {
+      commits: ['b'.repeat(40), 'c'.repeat(40)],
+      ambiguous: [],
+      rewritten: new Map(),
+      pullRequestFiles: ['src/a.ts'],
+    },
     marker: {
       head: 'c'.repeat(40),
       base: 'b'.repeat(40),
@@ -131,6 +136,7 @@ test('it rejects a fix that a range of a review whose calls failed reports again
       commits: ['b'.repeat(40), 'c'.repeat(40), 'd'.repeat(40), 'e'.repeat(40)],
       ambiguous: [],
       rewritten: new Map(),
+      pullRequestFiles: ['src/a.ts'],
     },
     marker: {
       head: 'e'.repeat(40),

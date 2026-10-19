@@ -37,6 +37,7 @@ test('it lists the verdict of each fix check and raises no finding', async () =>
     pullRequest: { owner: 'example', repo: 'app', number: 9 },
     base: repo.commits[0] ?? '',
     head: repo.commits[1] ?? '',
+    mergeBase: repo.commits[0] ?? '',
     lensHead: null,
     title: 'Scan the header line',
     configHash: 'hash',
@@ -67,7 +68,7 @@ test('it lists the verdict of each fix check and raises no finding', async () =>
   expect(result.failedCalls).toStrictEqual([]);
 });
 
-test('it gives the call the numbered code around the anchored line at the reviewed head and the diff of the file', async () => {
+test("it gives the call the numbered code around the anchored line at the reviewed head and the diff of the fix commit's files", async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
@@ -80,11 +81,9 @@ test('it gives the call the numbered code around the anchored line at the review
     },
     {
       message: 'Reject an empty separator',
-      files: {
-        'src/scan.ts': 'export const zero = 0;\nexport const separator = ":";\n',
-        'src/other.ts': 'export const other = 2;\n',
-      },
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = ":";\n' },
     },
+    { message: 'Bump the other value', files: { 'src/other.ts': 'export const other = 2;\n' } },
   ]);
 
   const stub = buildStubAdapter({
@@ -97,7 +96,8 @@ test('it gives the call the numbered code around the anchored line at the review
     repo: 'example/app',
     pullRequest: { owner: 'example', repo: 'app', number: 9 },
     base: repo.commits[0] ?? '',
-    head: repo.commits[1] ?? '',
+    head: repo.commits[2] ?? '',
+    mergeBase: repo.commits[0] ?? '',
     lensHead: null,
     title: 'Scan the header line',
     configHash: 'hash',
@@ -130,6 +130,112 @@ test('it gives the call the numbered code around the anchored line at the review
   expect(stub.requests[0]?.prompt).not.toInclude('src/other.ts');
 });
 
+test("it judges a fix whose commit only adds a test in another file from that test's diff", async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const separator = ":";\n' } },
+    {
+      message: 'Test the separator through the entry point',
+      files: { 'src/scan.test.ts': 'test("it splits on a colon", () => {});\n' },
+    },
+  ]);
+
+  const stub = buildStubAdapter({
+    'fix-1111111111111111': [{ fixed: true, reason: 'A test now covers the separator.' }],
+  });
+
+  const result = await runFixesOnlyReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/app',
+    pullRequest: { owner: 'example', repo: 'app', number: 9 },
+    base: repo.commits[0] ?? '',
+    head: repo.commits[1] ?? '',
+    mergeBase: repo.commits[0] ?? '',
+    lensHead: null,
+    title: 'Scan the header line',
+    configHash: 'hash',
+    fixes: [
+      {
+        id: '1111111111111111',
+        title: 'Test the separator through the entry point',
+        lens: 'tests',
+        path: 'src/scan.ts',
+        line: 1,
+        comment: 'No test covers the separator through the entry point.',
+        commit: (repo.commits[1] ?? '').slice(0, 7),
+        postedHead: null,
+      },
+    ],
+    maxFileChars: 10_000,
+    adapter: stub.adapter,
+    tempDir: ctx.directory,
+    logger: ctx.logger,
+  });
+
+  expect(stub.requests[0]?.prompt).toInclude('+test("it splits on a colon", () => {});');
+
+  expect(result.fixChecks).toStrictEqual([
+    { findingID: '1111111111111111', fixed: true, reason: 'A test now covers the separator.' },
+  ]);
+});
+
+test('it judges a fix whose commit changes no file of the pull request not fixed with no call', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const separator = "";\n' } },
+    { message: 'Add notes', files: { 'notes.txt': 'split on a colon\n' } },
+    { message: 'Remove the notes', files: { 'notes.txt': null } },
+    {
+      message: 'Reject an empty separator',
+      files: { 'src/scan.ts': 'export const separator = ":";\n' },
+    },
+  ]);
+
+  const stub = buildStubAdapter({});
+
+  const result = await runFixesOnlyReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/app',
+    pullRequest: { owner: 'example', repo: 'app', number: 9 },
+    base: repo.commits[0] ?? '',
+    head: repo.commits[3] ?? '',
+    mergeBase: repo.commits[0] ?? '',
+    lensHead: null,
+    title: 'Scan the header line',
+    configHash: 'hash',
+    fixes: [
+      {
+        id: '1111111111111111',
+        title: 'Reject an empty separator',
+        lens: 'correctness',
+        path: 'src/scan.ts',
+        line: 1,
+        comment: 'An empty separator splits the line into single characters.',
+        commit: (repo.commits[1] ?? '').slice(0, 7),
+        postedHead: null,
+      },
+    ],
+    maxFileChars: 10_000,
+    adapter: stub.adapter,
+    tempDir: ctx.directory,
+    logger: ctx.logger,
+  });
+
+  expect(result.fixChecks).toStrictEqual([
+    {
+      findingID: '1111111111111111',
+      fixed: false,
+      reason: 'the commit changes no file of the pull request',
+    },
+  ]);
+
+  expect(stub.requests).toStrictEqual([]);
+});
+
 test('it lists no verdict and records the failed call when the call fails', async () => {
   const ctx = await setupTest();
 
@@ -150,6 +256,7 @@ test('it lists no verdict and records the failed call when the call fails', asyn
     pullRequest: { owner: 'example', repo: 'app', number: 9 },
     base: repo.commits[0] ?? '',
     head: repo.commits[1] ?? '',
+    mergeBase: repo.commits[0] ?? '',
     lensHead: null,
     title: 'Scan the header line',
     configHash: 'hash',
@@ -199,6 +306,7 @@ test('it asks nothing about a fix before the reviewed head when no posting or le
     pullRequest: { owner: 'example', repo: 'app', number: 9 },
     base: repo.commits[1] ?? '',
     head: repo.commits[2] ?? '',
+    mergeBase: repo.commits[0] ?? '',
     lensHead: null,
     title: 'Scan the header line',
     configHash: 'hash',
@@ -247,6 +355,7 @@ test('it asks about a fixed reply whose commit came before the run, from the hea
     pullRequest: { owner: 'example', repo: 'app', number: 9 },
     base: repo.commits[1] ?? '',
     head: repo.commits[2] ?? '',
+    mergeBase: repo.commits[0] ?? '',
     lensHead: repo.commits[0] ?? '',
     title: 'Scan the header line',
     configHash: 'hash',
@@ -307,6 +416,7 @@ test('it starts the diff of a late fixed reply at the lens head when the lens he
     pullRequest: { owner: 'example', repo: 'app', number: 9 },
     base: repo.commits[4] ?? '',
     head: repo.commits[4] ?? '',
+    mergeBase: repo.commits[0] ?? '',
     lensHead: repo.commits[2] ?? '',
     title: 'Scan the header line',
     configHash: 'hash',
@@ -353,6 +463,7 @@ test('it asks nothing about a fix whose diff passes the file limit and names the
     pullRequest: { owner: 'example', repo: 'app', number: 9 },
     base: repo.commits[0] ?? '',
     head: repo.commits[1] ?? '',
+    mergeBase: repo.commits[0] ?? '',
     lensHead: null,
     title: 'Scan the header line',
     configHash: 'hash',
@@ -399,6 +510,7 @@ test('it judges the fix of a static finding not fixed with no call', async () =>
     pullRequest: { owner: 'example', repo: 'app', number: 9 },
     base: repo.commits[0] ?? '',
     head: repo.commits[1] ?? '',
+    mergeBase: repo.commits[0] ?? '',
     lensHead: null,
     title: 'Scan the header line',
     configHash: 'hash',
