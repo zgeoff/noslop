@@ -7,6 +7,7 @@ export const BUILT_IN_DEFAULTS: ReviewConfig = {
   adapter: null,
   adapters: { codex: { mergeModel: 'gpt-6-luna' }, claude: { mergeModel: 'haiku' } },
   mergePass: { enabled: true, effort: 'low' },
+  designPass: { enabled: true, effort: 'medium' },
   riskClasses: {
     auth: {
       paths: ['**/auth/**', '**/*auth*.{ts,tsx,js,mjs}', '**/login/**', '**/permissions/**'],

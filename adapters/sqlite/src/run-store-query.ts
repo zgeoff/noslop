@@ -128,8 +128,9 @@ const QUERIES: Record<StoreQueryName, RawBuilder<Record<string, unknown>>> = {
       escapes.lens AS lens,
       COUNT(*) AS escapes,
       SUM(EXISTS (
-        SELECT 1 FROM reviews, json_each(reviews.lenses) AS ran
-        WHERE reviews.repo = escapes.repo AND reviews.head = escapes.head AND ran.value = escapes.lens
+        SELECT 1 FROM reviews
+        WHERE reviews.repo = escapes.repo AND reviews.head = escapes.head
+          AND ${buildLensRan(sql.ref('reviews.review_id'), sql.ref('reviews.lenses'), sql.ref('escapes.lens'))}
       )) AS "lensRan",
       SUM(EXISTS (
         SELECT 1 FROM findings JOIN reviews USING (review_id)
@@ -155,9 +156,7 @@ const QUERIES: Record<StoreQueryName, RawBuilder<Record<string, unknown>>> = {
     SELECT
       reviews.depth AS depth,
       COUNT(*) AS escapes,
-      SUM(EXISTS (
-        SELECT 1 FROM json_each(reviews.lenses) AS ran WHERE ran.value = reviewed.lens
-      )) AS "lensRan",
+      SUM(${buildLensRan(sql.ref('reviews.review_id'), sql.ref('reviews.lenses'), sql.ref('reviewed.lens'))}) AS "lensRan",
       SUM(EXISTS (
         SELECT 1 FROM findings
         WHERE findings.review_id = reviewed.review_id AND findings.lens = reviewed.lens
@@ -193,4 +192,20 @@ export async function runStoreQuery(
   const result = await QUERIES[name].execute(store);
 
   return result.rows;
+}
+
+// whether a lens ran in a review: the review lists the routed lenses its calls ran, and a lens that
+// routing never picks, such as the design lens, shows only in the lenses of the call that carried it
+function buildLensRan(
+  reviewID: RawBuilder<unknown>,
+  reviewLenses: RawBuilder<unknown>,
+  lens: RawBuilder<unknown>,
+): RawBuilder<unknown> {
+  return sql`(
+    EXISTS (SELECT 1 FROM json_each(${reviewLenses}) AS ran WHERE ran.value = ${lens})
+    OR EXISTS (
+      SELECT 1 FROM calls, json_each(calls.lenses) AS ran
+      WHERE calls.review_id = ${reviewID} AND ran.value = ${lens}
+    )
+  )`;
 }

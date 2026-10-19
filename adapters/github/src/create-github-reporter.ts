@@ -469,6 +469,7 @@ async function readConfirmations(
       reported: result.findings.map((finding) => finding.id),
       notReviewed: result.notReviewed.map((file) => file.path),
       notReviewedByLens: toLensNotReviewedPaths(result),
+      isPartial: result.failedCalls.length > 0,
     },
     held,
   });

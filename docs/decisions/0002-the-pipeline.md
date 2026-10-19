@@ -2,14 +2,15 @@
 
 - Date: 2026-10-17
 - Status: decided
-- Updated: 2026-10-18
+- Updated: 2026-10-19
 
 A review is one static stage followed by lenses, and a merge pass on their findings under
-[0007](0007-depth-and-models.md). Lint is a precondition: it runs in the repo's own checks before
-noslop, and noslop never runs it. The static stage parses the changed files once with oxc, runs
-every analysis in one batch, and cuts the result into the slices each lens needs. It reports direct
-findings with no model call. The stage runs on every change, because routing reads its output even
-when the change holds no code.
+[0007](0007-depth-and-models.md). From the second review of a pull request on, the design lens of
+[0005](0005-the-lens-set.md) runs after the merge pass. Lint is a precondition: it runs in the
+repo's own checks before noslop, and noslop never runs it. The static stage parses the changed files
+once with oxc, runs every analysis in one batch, and cuts the result into the slices each lens
+needs. It reports direct findings with no model call. The stage runs on every change, because
+routing reads its output even when the change holds no code.
 
 ## Why
 
@@ -36,3 +37,5 @@ when the change holds no code.
   routing reads its output to pick the special routes and the lenses.
 - 2026-10-18: a merge pass on the findings follows the lenses, under
   [0007](0007-depth-and-models.md).
+- 2026-10-19: the design lens follows the merge pass on every review of a pull request after its
+  first.

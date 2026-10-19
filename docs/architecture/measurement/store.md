@@ -72,7 +72,9 @@ fix the next review disproves never counts as yield.
   pull request is one change, and a local branch with no pull request is one change per base.
 - `cost-by-depth` gives, per depth, the calls, the failed calls, the tokens and the mean duration.
 - `recall-by-lens` gives, per lens, the escapes, how many of them came from a change the lens ran
-  on, and how many of those changes got a finding from the lens on the escape's file.
+  on, and how many of those changes got a finding from the lens on the escape's file. A lens ran on
+  a change when the review lists it or one of the review's calls carried it, because the review
+  lists only the lenses that routing picks, and the design lens shows only in its call.
 - `recall-by-depth` gives the same counts per depth, from the latest review of the change that
   caused each escape. An escape on a change that no review saw counts under no depth.
 - `dropped-findings` lists each dropped finding with its review's repo, pull request and head, the

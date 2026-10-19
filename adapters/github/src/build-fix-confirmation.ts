@@ -17,6 +17,9 @@ export interface FixEvidence {
 
   // the review left the finding's own file out of every call, or out of the call of the finding's lens
   isFileSkipped: boolean;
+
+  // a call of the review failed, so the review read no fix in full
+  isPartial: boolean;
   coverage: FixCoverage;
 
   // where the answer stands after the earlier reviews
@@ -30,7 +33,12 @@ export interface FixEvidence {
 // confirms a fix whose commit its range holds once it read the finding's file and every file the
 // commit reaches; a sha that names no single commit holds no fix
 export function buildFixConfirmation(evidence: FixEvidence): FixConfirmation {
-  const isRead = evidence.isInRange && !evidence.isFileSkipped && !evidence.coverage.changesSkipped;
+  const isRead =
+    evidence.isInRange &&
+    !evidence.isFileSkipped &&
+    !evidence.isPartial &&
+    !evidence.coverage.changesSkipped;
+
   const state = pickNextFixState(evidence.held, pickReviewVerdict(evidence.isReported, isRead));
   const fixed = evidence.match !== null && HELD_FIX_STATES.has(state);
   const failure = evidence.coverage.failure;

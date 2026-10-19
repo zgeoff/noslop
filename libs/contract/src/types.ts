@@ -3,17 +3,18 @@ import type { z } from 'zod';
 import type { CallOutput } from './build-call-output-schema';
 import type { Disposition } from './disposition';
 import type { Effort } from './effort';
-import type { Finding } from './finding';
-import type { LensID } from './lens-id';
+import type { Finding, FindingLens } from './finding';
+import type { CallLens } from './lens-id';
 import type { ReporterOptions } from './review-config';
 import type { PullRequestRef, ReviewResult } from './review-result';
+import type { Severity } from './severity';
 import type { Tokens } from './tokens';
 
 // a lens call returns findings keyed by lens; a pass with an output of its own, such as the merge
 // pass, names its schema, and carries no lens
 export interface CallRequest<Output = CallOutput> {
   callID: string;
-  lenses: readonly LensID[];
+  lenses: readonly CallLens[];
   prompt: string;
   outputSchema: z.ZodType<Output>;
   effort: Effort;
@@ -64,6 +65,18 @@ export interface ReviewRef {
   pullRequest: PullRequestRef;
   head: string;
   findings: readonly Finding[];
+}
+
+// a finding that an earlier review of the pull request posted, as its comment keeps it, with the first
+// line of the latest answer to it, so the design pass reads what each review raised and how the author
+// answered
+export interface EarlierFinding {
+  id: string;
+  lens: FindingLens;
+  severity: Severity;
+  title: string;
+  path: string;
+  answer: string | null;
 }
 
 export interface DispositionSource {

@@ -22,6 +22,10 @@ export interface ReviewedRange {
   reported: readonly string[];
   notReviewed: readonly string[];
   notReviewedByLens: readonly LensNotReviewedPath[];
+
+  // a review with a failed call, which read no fix in full: a design fix waits on the design call, a
+  // lens fix on its lens call, so the review confirms none, as a partial range a marker keeps does not
+  isPartial?: boolean;
 }
 
 export interface FixConfirmationsInput {
@@ -104,6 +108,7 @@ export async function readFixConfirmations(
         match,
         isInRange,
         isFileSkipped,
+        isPartial: review.isPartial === true,
         coverage,
         held: input.held.get(`${thread.marker.id}:${commit}`) ?? 'silent',
         isReported: review.reported.includes(thread.marker.id),

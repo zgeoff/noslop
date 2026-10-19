@@ -3,7 +3,7 @@ import { depthSchema } from './depth';
 import { droppedFindingSchema } from './dropped-finding';
 import { effortSchema } from './effort';
 import { findingSchema } from './finding';
-import { lensIDSchema } from './lens-id';
+import { callLensSchema, lensIDSchema } from './lens-id';
 import { tokensSchema } from './tokens';
 
 // changes only with a breaking change to the output, so a consumer that pins a CLI version reads one
@@ -13,7 +13,7 @@ const commitSchema = z.string().regex(/^[0-9a-f]{40}$/u);
 
 export const callRecordSchema = z.strictObject({
   id: z.string().min(1),
-  lenses: z.array(lensIDSchema).min(1),
+  lenses: z.array(callLensSchema).min(1),
   depth: depthSchema,
   adapter: z.string().min(1),
   model: z.string().min(1).nullable(),
@@ -28,7 +28,7 @@ export type CallRecord = z.infer<typeof callRecordSchema>;
 
 export const failedCallSchema = z.strictObject({
   id: z.string().min(1),
-  lenses: z.array(lensIDSchema).min(1),
+  lenses: z.array(callLensSchema).min(1),
   reason: z.string().min(1),
 });
 
@@ -43,11 +43,12 @@ export const notReviewedFileSchema = z.strictObject({
 
 export type NotReviewedFile = z.infer<typeof notReviewedFileSchema>;
 
-// a changed file that a call read while the calls of the listed lenses left it out, so a reporter
-// reads no silence of those lenses on it as a fix
+// a file that the calls of the listed lenses did not read, such as a changed file another call read,
+// or the file of an earlier design finding on a review that ran no design call, so a reporter reads no
+// silence of those lenses on it as a fix
 export const lensNotReviewedFileSchema = z.strictObject({
   path: z.string().min(1),
-  lenses: z.array(lensIDSchema).min(1),
+  lenses: z.array(callLensSchema).min(1),
 });
 
 export type LensNotReviewedFile = z.infer<typeof lensNotReviewedFileSchema>;

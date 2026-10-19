@@ -185,11 +185,13 @@ fix through an older commit. A re-review read nothing of a fix when it left the 
 file the fix commit changes or renames, out of every call, so it confirms no such fix. Only the
 finding's own lens can show a fix by no longer reporting the finding. A file that the call of that
 lens left out therefore counts as left out for the finding, even when a call of another lens read
-it. A later commit that renames the fixed file into a left-out path counts the same way. When GitHub
-cannot list the files of the fix commit whole, the fix stays unconfirmed and the summary names the
-failure. The summary marker keeps each confirmed fix as the finding id and the commit, so a later
-delta without the commit keeps the confirmation. A fix that a re-review still reports stays
-unconfirmed, and a later delta without the commit leaves it unconfirmed.
+it. A later commit that renames the fixed file into a left-out path counts the same way. A re-review
+with a failed call confirms no fix, because the call that failed may be the one that reports the
+finding, such as the design call for a design finding. When GitHub cannot list the files of the fix
+commit whole, the fix stays unconfirmed and the summary names the failure. The summary marker keeps
+each confirmed fix as the finding id and the commit, so a later delta without the commit keeps the
+confirmation. A fix that a re-review still reports stays unconfirmed, and a later delta without the
+commit leaves it unconfirmed.
 
 A `fixed` reply posted after the re-review of its commit counts on the next check, with no further
 review. The summary marker keeps the range of the latest review and the files it left out, and the
