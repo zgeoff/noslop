@@ -40,8 +40,6 @@ export async function runCheckCommand(values: CheckValues, ctx: CLIContext): Pro
 
   ctx.writeStdout(output);
 
-  // the missing review alone fails the command; a reviewed head whose check fails, such as on a failed
-  // call or an open finding, exits 0
   if (!outcome.reviewed) {
     ctx.writeStderr('noslop: no noslop review for this commit\n');
 
