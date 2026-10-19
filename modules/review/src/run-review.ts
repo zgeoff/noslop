@@ -17,6 +17,7 @@ import type {
 import { REVIEW_OUTPUT_VERSION } from '@noslop/contract';
 import type { AssembledFindings, RawFinding } from '@noslop/findings';
 import { buildFindings } from '@noslop/findings';
+import { renderHunks } from '@noslop/lenses';
 import type { PlannedCall, Route } from '@noslop/routing';
 import type { Runner } from '@noslop/runner';
 import type { StaticStageResult } from '@noslop/static-stage';
@@ -48,6 +49,10 @@ export interface RunReviewOptions {
   // the base is the last reviewed head of the pull request, not its merge base; a review without it
   // covers the whole change
   isIncremental?: boolean;
+
+  // the merge base of an incremental review's pull request, so the review keeps to the files the pull
+  // request changes and never reviews what a merge from the base branch brought in
+  mergeBase?: string;
   isPush: boolean;
   pastEscapes: readonly string[];
   readConsumerFile?: (repo: string, path: string) => Promise<string | null>;
@@ -299,7 +304,21 @@ function collectNotReviewed(ctx: PassContext, batches: readonly CallBatch[]): No
     .filter((file) => !paths.has(file.path) && globs.some((glob) => glob.match(file.path)))
     .map((file): NotReviewedFile => ({ path: file.path, reason: 'data' }));
 
-  return [...listed, ...data];
+  // a data file, or one whose hunks pass the file limit, that only a merge from the base branch
+  // changes stays listed, so a fix commit that reaches it confirms nothing, as when the change held it
+  const maxFileChars = ctx.options.config.thresholds.maxFileChars;
+
+  const baseOnly = (ctx.change.baseOnly ?? []).flatMap((file): NotReviewedFile[] => {
+    if (globs.some((glob) => glob.match(file.path))) {
+      return [{ path: file.path, reason: 'data' }];
+    }
+
+    return renderHunks([file]).length > maxFileChars
+      ? [{ path: file.path, reason: 'too-large' }]
+      : [];
+  });
+
+  return [...listed, ...data, ...baseOnly];
 }
 
 // the fired lenses that a call ran, in the route's order; a call whose files each overflow a call

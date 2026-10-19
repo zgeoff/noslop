@@ -1269,6 +1269,59 @@ test('it reports a synced edit when a synced file only moves the ref of an actio
   );
 });
 
+test('it reports no missing test that the pull request body names when a merge from the base branch brings it in', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'src/main.ts': 'export const main = 1;\n' } },
+    { message: 'Raise the value', files: { 'src/main.ts': 'export const main = 2;\n' } },
+    {
+      message: 'Test the value',
+      files: {
+        'src/main.test.ts': [
+          "import { expect, test } from 'bun:test';",
+          "import { main } from './main';",
+          '',
+          "test('it exports a value', () => {",
+          '  expect(main).toBeNumber();',
+          '});',
+          '',
+        ].join('\n'),
+      },
+      parent: 0,
+    },
+    {
+      message: 'Merge main and raise the value again',
+      files: { 'src/main.ts': 'export const main = 3;\n' },
+      parent: 1,
+      merged: 2,
+    },
+  ]);
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: repo.commits[1] ?? '',
+    head: repo.commits[3] ?? '',
+    mergeBase: repo.commits[2] ?? '',
+    config: BUILT_IN_DEFAULTS,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config: BUILT_IN_DEFAULTS,
+    title: 'Raise the value',
+    body: 'Raises the value that src/main.test.ts checks.',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(result.findings).toStrictEqual([]);
+});
+
 test('it reports a synced edit when a synced caller is renamed and only moves the ref of its workflow call', async () => {
   const ctx = await setupTest();
 

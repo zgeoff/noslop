@@ -1,6 +1,7 @@
 import type { Endpoints } from '@octokit/types';
 import { HttpResponse, http } from 'msw';
-import { collectRangeFiles } from './collect-range-files';
+import { P, match } from 'ts-pattern';
+import { buildCompareData } from './build-compare-data';
 import { githubCollections } from './github-collections';
 
 export const GITHUB_API_URL = 'https://api.github.com';
@@ -133,16 +134,17 @@ export const githubHandlers = [
         q.where({ owner: info.params.owner, repo: info.params.repo }),
       );
 
-      const commits = records.map((commit) => commit.sha);
-      const start = commits.indexOf(base) + 1;
-      const found = commits.indexOf(head);
-      const end = found === -1 ? commits.length : found + 1;
-      const range = records.slice(start, end);
+      const search = new URL(info.request.url).searchParams;
 
-      return HttpResponse.json({
-        commits: range.map((commit) => ({ sha: commit.sha })),
-        files: collectRangeFiles(range),
-      });
+      return match(buildCompareData(records, { base, head, search }))
+        .with('ambiguous', () =>
+          HttpResponse.json({ message: 'No common ancestor', status: '422' }, { status: 422 }),
+        )
+        .with(null, () => buildNotFound())
+        .with({ status: P.union('ahead', 'behind', 'identical') }, (compare) =>
+          HttpResponse.json(compare),
+        )
+        .exhaustive();
     },
   ),
 
@@ -175,6 +177,7 @@ export const githubHandlers = [
         owner: info.params.owner,
         repo: info.params.repo,
         number: Number(info.params.number),
+        isFromBase: false,
       }),
     );
 

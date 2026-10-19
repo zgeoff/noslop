@@ -8,18 +8,19 @@ const TEST_PATH_IN_TEXT = /[\w./-]+\.(?:test|spec)\.[cm]?[jt]sx?/gu;
 
 // the direct findings about tests: a new test with no assertion, 2 tests with one body, a type test
 // on a key its type lacks, a new allow-or-deny check whose tests hold no table of hostile inputs, and
-// a test file that the pull request body names and the change does not add
+// a test file that the pull request body names and neither the change nor a merge from the base adds
 export function collectTestFindings(
   files: readonly AnalyzedFile[],
   security: readonly SecurityEntry[],
   body: string,
+  merged: readonly string[],
 ): ModelFinding[] {
   return [
     ...collectUnassertedTests(files),
     ...collectDuplicateTests(files),
     ...collectMissingTypeKeys(files),
     ...collectUntabledChecks(files, security),
-    ...collectNamedMissingTests(files, body),
+    ...collectNamedMissingTests(files, body, merged),
   ];
 }
 
@@ -157,12 +158,17 @@ function collectUntabledChecks(
   });
 }
 
-function collectNamedMissingTests(files: readonly AnalyzedFile[], body: string): ModelFinding[] {
-  const changed = new Set(
-    files
+function collectNamedMissingTests(
+  files: readonly AnalyzedFile[],
+  body: string,
+  merged: readonly string[],
+): ModelFinding[] {
+  const changed = new Set([
+    ...files
       .filter((entry) => !entry.isContext && entry.file.status !== 'deleted')
       .map((entry) => entry.file.path),
-  );
+    ...merged,
+  ]);
 
   const named = [...new Set(body.match(TEST_PATH_IN_TEXT))];
   const anchorFile = files.find((entry) => !entry.isContext);

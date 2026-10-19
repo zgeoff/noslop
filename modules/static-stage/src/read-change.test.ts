@@ -165,6 +165,217 @@ test('it keeps the path of an empty new file, a path with a space and a quoted p
   ]);
 });
 
+test('it keeps to the files the pull request changes since its merge base after a merge from the base', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    {
+      message: 'base',
+      files: { 'src/total.ts': 'export const total = 0;\n', 'docs/guide.md': '# Guide\n' },
+    },
+    { message: 'Count one', files: { 'src/total.ts': 'export const total = 1;\n' } },
+    { message: 'Expand the guide', files: { 'docs/guide.md': '# Guide\n\nRead me.\n' }, parent: 0 },
+    {
+      message: 'Merge main and count two',
+      files: { 'src/total.ts': 'export const total = 2;\n' },
+      parent: 1,
+      merged: 2,
+    },
+  ]);
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: repo.commits[1] ?? '',
+    head: repo.commits[3] ?? '',
+    mergeBase: repo.commits[2] ?? '',
+    config: BUILT_IN_DEFAULTS,
+  });
+
+  expect(change.files.map((file) => [file.path, file.addedLines, file.deletedLines])).toStrictEqual(
+    [['src/total.ts', 1, 1]],
+  );
+});
+
+test('it keeps a rename whose old path the pull request deletes when only its new path is the base branch file', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/old.ts': 'export const total = 0;\n',
+        'src/new.ts': 'export const count = 1;\nexport const size = 2;\n',
+      },
+    },
+    {
+      message: 'Move the count',
+      files: {
+        'src/old.ts': 'export const count = 1;\nexport const size = 2;\n',
+        'src/new.ts': null,
+      },
+    },
+    {
+      message: 'Drop the old file',
+      files: {
+        'src/old.ts': null,
+        'src/new.ts': 'export const count = 1;\nexport const size = 2;\n',
+      },
+    },
+  ]);
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: repo.commits[1] ?? '',
+    head: repo.commits[2] ?? '',
+    mergeBase: repo.commits[0] ?? '',
+    config: BUILT_IN_DEFAULTS,
+  });
+
+  expect(change.files.map((file) => [file.oldPath, file.path, file.status])).toStrictEqual([
+    ['src/old.ts', 'src/new.ts', 'renamed'],
+  ]);
+});
+
+test('it keeps the deletion of a path the pull request renames across 2 commits', async () => {
+  const ctx = await setupTest();
+
+  const content = 'export const count = 1;\nexport const size = 2;\nexport const total = 3;\n';
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'src/old.ts': content } },
+    { message: 'Copy the counts', files: { 'src/new.ts': content } },
+    { message: 'Drop the old counts', files: { 'src/old.ts': null } },
+  ]);
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: repo.commits[1] ?? '',
+    head: repo.commits[2] ?? '',
+    mergeBase: repo.commits[0] ?? '',
+    config: BUILT_IN_DEFAULTS,
+  });
+
+  expect(change.files.map((file) => [file.path, file.status])).toStrictEqual([
+    ['src/old.ts', 'deleted'],
+  ]);
+});
+
+test('it lists the files only the base branch changes apart after a merge from the base', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    {
+      message: 'base',
+      files: { 'src/total.ts': 'export const total = 0;\n', 'docs/guide.md': '# Guide\n' },
+    },
+    { message: 'Count one', files: { 'src/total.ts': 'export const total = 1;\n' } },
+    { message: 'Expand the guide', files: { 'docs/guide.md': '# Guide\n\nRead me.\n' }, parent: 0 },
+    {
+      message: 'Merge main and count two',
+      files: { 'src/total.ts': 'export const total = 2;\n' },
+      parent: 1,
+      merged: 2,
+    },
+  ]);
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: repo.commits[1] ?? '',
+    head: repo.commits[3] ?? '',
+    mergeBase: repo.commits[2] ?? '',
+    config: BUILT_IN_DEFAULTS,
+  });
+
+  expect(change.baseOnly?.map((file) => [file.path, file.status, file.addedLines])).toStrictEqual([
+    ['docs/guide.md', 'modified', 2],
+  ]);
+});
+
+test('it keeps both hunks of a file that the pull request and the base branch each change', async () => {
+  const ctx = await setupTest();
+
+  const lines = Array.from({ length: 20 }, (_, index) => `export const n${index} = ${index};`);
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'src/numbers.ts': `${lines.join('\n')}\n` } },
+    {
+      message: 'Change the first number',
+      files: { 'src/numbers.ts': `${['export const n0 = 100;', ...lines.slice(1)].join('\n')}\n` },
+    },
+    {
+      message: 'Change the last number',
+      files: {
+        'src/numbers.ts': `${[...lines.slice(0, 19), 'export const n19 = 119;'].join('\n')}\n`,
+      },
+      parent: 0,
+    },
+    {
+      message: 'Merge main and change the second number',
+      files: {
+        'src/numbers.ts': `${[
+          'export const n0 = 100;',
+          'export const n1 = 101;',
+          ...lines.slice(2, 19),
+          'export const n19 = 119;',
+        ].join('\n')}\n`,
+      },
+      parent: 1,
+      merged: 2,
+    },
+  ]);
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: repo.commits[1] ?? '',
+    head: repo.commits[3] ?? '',
+    mergeBase: repo.commits[2] ?? '',
+    config: BUILT_IN_DEFAULTS,
+  });
+
+  expect(
+    change.files.map((file) => [
+      file.path,
+      file.hunks.flatMap((hunk) =>
+        hunk.lines.filter((line) => line.kind === 'added').map((line) => line.text),
+      ),
+    ]),
+  ).toStrictEqual([['src/numbers.ts', ['export const n1 = 101;', 'export const n19 = 119;']]]);
+});
+
+test('it reads every file between 2 commits when no merge base limits the change', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    {
+      message: 'base',
+      files: { 'src/total.ts': 'export const total = 0;\n', 'docs/guide.md': '# Guide\n' },
+    },
+    { message: 'Count one', files: { 'src/total.ts': 'export const total = 1;\n' } },
+    { message: 'Expand the guide', files: { 'docs/guide.md': '# Guide\n\nRead me.\n' }, parent: 0 },
+    {
+      message: 'Merge main and count two',
+      files: { 'src/total.ts': 'export const total = 2;\n' },
+      parent: 1,
+      merged: 2,
+    },
+  ]);
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: repo.commits[1] ?? '',
+    head: repo.commits[3] ?? '',
+    config: BUILT_IN_DEFAULTS,
+  });
+
+  expect(change.files.map((file) => file.path)).toStrictEqual(['docs/guide.md', 'src/total.ts']);
+});
+
 test('it rejects a ref that names no commit', async () => {
   const ctx = await setupTest();
 

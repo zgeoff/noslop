@@ -8,8 +8,21 @@ export interface CheckOutcomeInput {
   // every disposition of the pull request, oldest first; a finding's latest one counts
   dispositions: readonly Disposition[];
   summary: SummaryMarker | null;
+
+  // each `<finding id>:<commit>` fix a review read: the ones the summary holds, and the ones answered
+  // after the review of the head that its range held
+  confirmed: readonly string[];
+
+  // why GitHub could not show a fix whole, by finding id, so the check names it
+  fixFailures: ReadonlyMap<string, string>;
   currentHead: string;
+
+  // the commits a `fixed` answer can name, a commit that a merge from the base branch brought in
+  // among them
   commits: readonly string[];
+
+  // the `fixed` shas that GitHub finds name more than one commit of the repo
+  ambiguous: readonly string[];
 
   // the values of the `deferred` dispositions whose issue exists
   existingIssues: ReadonlySet<string>;
@@ -115,7 +128,7 @@ function findFixedReason(
     return `the commit ${commit} is not on the branch`;
   }
 
-  if (matches.length > 1) {
+  if (matches.length > 1 || input.ambiguous.includes(commit)) {
     return `the sha ${commit} matches more than one commit on the branch, so give more of it`;
   }
 
@@ -123,7 +136,13 @@ function findFixedReason(
     return 'the re-review still finds it';
   }
 
-  if (input.summary?.confirmed.includes(`${finding.id}:${commit}`) !== true) {
+  const failure = input.fixFailures.get(finding.id);
+
+  if (failure !== undefined) {
+    return `the review could not read the commit ${commit}: ${failure}`;
+  }
+
+  if (!input.confirmed.includes(`${finding.id}:${commit}`)) {
     return `no re-review has read the commit ${commit} yet`;
   }
 

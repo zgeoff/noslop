@@ -11,6 +11,7 @@ export type PlanReviewOptions = Pick<
   | 'repoDir'
   | 'base'
   | 'head'
+  | 'mergeBase'
   | 'config'
   | 'cacheDir'
   | 'title'
@@ -42,6 +43,7 @@ export async function planReview(options: PlanReviewOptions): Promise<ReviewPlan
     base: options.base,
     head: options.head,
     config: options.config,
+    ...(options.mergeBase === undefined ? {} : { mergeBase: options.mergeBase }),
   });
 
   const stage = await runStaticStage({

@@ -738,6 +738,290 @@ test('it reviews a pull request from the head of its last review', async () => {
   expect(result.base).toBe(repo.commits[1] ?? '');
 });
 
+test('it reviews only the files the pull request changes after it merges its base branch', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'AGENTS.md': '# Agents\n\nRun the tests before every push.\n',
+        'skills/notes/SKILL.md': '# Notes\n\nKeep each note short.\n',
+      },
+    },
+    {
+      message: 'Name the test command',
+      files: { 'AGENTS.md': '# Agents\n\nRun the tests before every push with bun test.\n' },
+    },
+    {
+      message: 'Widen the notes skill',
+      files: {
+        'skills/notes/SKILL.md':
+          '# Notes\n\nKeep each note short.\n\nPrefer one note for each open question.\n',
+      },
+      parent: 0,
+    },
+    {
+      message: 'Merge main and name the lint command',
+      files: {
+        'AGENTS.md':
+          '# Agents\n\nRun the tests before every push with bun test.\n\nConsider a lint run after each edit.\n',
+      },
+      parent: 1,
+      merged: 2,
+    },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    title: 'Name the commands',
+    body: 'Names the test and lint commands.',
+    baseSha: repo.commits[2] ?? '',
+    headSha: repo.commits[3] ?? '',
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","reviews":1,"reported":[],"failedCalls":0} -->`,
+  });
+
+  const stub = buildStubAdapter({});
+
+  await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'json', '--json'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  const result = reviewResultSchema.parse(JSON.parse(ctx.stdout.join('')));
+
+  expect(result.base).toBe(repo.commits[1] ?? '');
+
+  expect(result.findings.map((finding) => [finding.anchor.path, finding.title])).toStrictEqual([
+    ['AGENTS.md', 'Instruction rule leaves a choice open with "consider"'],
+  ]);
+});
+
+test('it confirms no fix through a merge from the base branch that brings in a source file over the file limit', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/total.ts': 'export const zero = 0;\n',
+        'src/table.ts': 'export const table = [];\n',
+      },
+    },
+    {
+      message: 'Add the total',
+      files: { 'src/total.ts': 'export const zero = 0;\nexport const one = zero - 1;\n' },
+    },
+    {
+      message: 'Fill the table',
+      files: { 'src/table.ts': `export const table = ['${'x'.repeat(300_000)}'];\n` },
+      parent: 0,
+    },
+    { message: 'Merge main', files: {}, parent: 1, merged: 2 },
+  ]);
+
+  const findingID = '1111111111111111';
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    title: 'Add the total',
+    body: 'Adds one.',
+    baseSha: repo.commits[2] ?? '',
+    headSha: repo.commits[3] ?? '',
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[1] ?? '',
+    files: ['src/total.ts'],
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[2] ?? '',
+    files: ['src/table.ts'],
+    isFromBase: true,
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[3] ?? '',
+    files: ['src/table.ts'],
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/total.ts',
+    lines: [2],
+  });
+
+  const thread = await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/total.ts',
+    line: 2,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:finding {"id":"${findingID}","title":"Add one, not subtract it","path":"src/total.ts","lens":"correctness","severity":"P2","riskClass":null,"writtenByChange":true,"head":"${repo.commits[1] ?? ''}"} -->`,
+  });
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    body: `fixed ${(repo.commits[3] ?? '').slice(0, 7)}`,
+    authorLogin: 'dev',
+    inReplyToID: thread.id,
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":1,"reported":["${findingID}"],"failedCalls":0} -->`,
+  });
+
+  const stub = buildStubAdapter({ L: [{ findings: { correctness: [] } }] });
+
+  await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'github'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('failure');
+
+  expect(githubCollections.checkRuns.all().at(-1)?.summary).toInclude(
+    `no re-review has read the commit ${(repo.commits[3] ?? '').slice(0, 7)} yet`,
+  );
+});
+
+test('it confirms a fix through a merge from the base branch that brings in a lockfile over the file limit', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    {
+      message: 'base',
+      files: { 'src/total.ts': 'export const zero = 0;\n', 'bun.lock': '{}\n' },
+    },
+    {
+      message: 'Add the total',
+      files: { 'src/total.ts': 'export const zero = 0;\nexport const one = zero - 1;\n' },
+    },
+    {
+      message: 'Refresh the lockfile',
+      files: { 'bun.lock': `{"packages":"${'x'.repeat(300_000)}"}\n` },
+      parent: 0,
+    },
+    { message: 'Merge main', files: {}, parent: 1, merged: 2 },
+  ]);
+
+  const findingID = '1111111111111111';
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    title: 'Add the total',
+    body: 'Adds one.',
+    baseSha: repo.commits[2] ?? '',
+    headSha: repo.commits[3] ?? '',
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[1] ?? '',
+    files: ['src/total.ts'],
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[2] ?? '',
+    files: ['bun.lock'],
+    isFromBase: true,
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[3] ?? '',
+    files: ['bun.lock'],
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/total.ts',
+    lines: [2],
+  });
+
+  const thread = await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/total.ts',
+    line: 2,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:finding {"id":"${findingID}","title":"Add one, not subtract it","path":"src/total.ts","lens":"correctness","severity":"P2","riskClass":null,"writtenByChange":true,"head":"${repo.commits[1] ?? ''}"} -->`,
+  });
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    body: `fixed ${(repo.commits[3] ?? '').slice(0, 7)}`,
+    authorLogin: 'dev',
+    inReplyToID: thread.id,
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":1,"reported":["${findingID}"],"failedCalls":0} -->`,
+  });
+
+  const stub = buildStubAdapter({ L: [{ findings: { correctness: [] } }] });
+
+  await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'github'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('success');
+});
+
 test('it reviews the whole pull request from its merge base under --full', async () => {
   const ctx = await setupTest();
 
@@ -2333,6 +2617,112 @@ test('it plans a re-review case under --static from its last reviewed head', asy
   expect(written).toMatchObject({
     runs: [{ caseID: 'case-a', plan: { depth: 'light', calls: ['L'] } }],
   });
+});
+
+test('it plans a re-review case under --static from the files the change makes after a merge from its base', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'src/parse.ts': 'export const parse = 0;\n' } },
+    { message: 'Count the tokens', files: { 'src/parse.ts': 'export const parse = 1;\n' } },
+    {
+      message: 'Add the session check',
+      files: {
+        'src/auth/session.ts':
+          'export function isSignedIn(token: string): boolean {\n  return token !== "";\n}\n',
+      },
+      parent: 0,
+    },
+    {
+      message: 'Merge main and fix the parser',
+      files: { 'src/parse.ts': 'export const parse = 2;\n' },
+      parent: 1,
+      merged: 2,
+    },
+  ]);
+
+  await Bun.write(
+    join(ctx.dir, 'corpus', 'case-a', 'case.json'),
+    JSON.stringify({
+      id: 'case-a',
+      repo: repo.path,
+      base: repo.commits[2],
+      head: repo.commits[3],
+      reviewedHead: repo.commits[1],
+      title: 'Fix the parser',
+      body: '',
+      findings: [],
+      escapes: [],
+    }),
+  );
+
+  const stub = buildStubAdapter({});
+
+  await runCLI(
+    ['eval', '--corpus', join(ctx.dir, 'corpus'), '--out', join(ctx.dir, 'out'), '--static'],
+    ctx.buildContext(ctx.dir, stub.adapter),
+  );
+
+  const written: unknown = await Bun.file(join(ctx.dir, 'out', 'static.json')).json();
+
+  expect(written).toMatchObject({
+    runs: [{ caseID: 'case-a', plan: { depth: 'light', calls: ['L'] } }],
+  });
+});
+
+test('it replays a re-review case over the files the change makes after a merge from its base', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'src/parse.ts': 'export const parse = 0;\n' } },
+    { message: 'Count the tokens', files: { 'src/parse.ts': 'export const parse = 1;\n' } },
+    {
+      message: 'Add the session check',
+      files: {
+        'src/auth/session.ts':
+          'export function isSignedIn(token: string): boolean {\n  return token !== "";\n}\n',
+      },
+      parent: 0,
+    },
+    {
+      message: 'Merge main and fix the parser',
+      files: { 'src/parse.ts': 'export const parse = 2;\n' },
+      parent: 1,
+      merged: 2,
+    },
+  ]);
+
+  await Bun.write(
+    join(ctx.dir, 'corpus', 'case-a', 'case.json'),
+    JSON.stringify({
+      id: 'case-a',
+      repo: repo.path,
+      base: repo.commits[2],
+      head: repo.commits[3],
+      reviewedHead: repo.commits[1],
+      title: 'Fix the parser',
+      body: '',
+      findings: [],
+      escapes: [],
+    }),
+  );
+
+  const stub = buildStubAdapter({ L: [{ findings: { correctness: [] } }] });
+
+  await runCLI(
+    ['eval', '--corpus', join(ctx.dir, 'corpus'), '--out', join(ctx.dir, 'out')],
+    ctx.buildContext(ctx.dir, stub.adapter),
+  );
+
+  const prompt = stub.requests[0]?.prompt;
+
+  if (prompt === undefined) {
+    throw new Error('the replay made no call');
+  }
+
+  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['L']);
+  expect(prompt).toInclude('### src/parse.ts (modified)');
+  expect(prompt).not.toInclude('src/auth/session.ts');
 });
 
 test('it plans the intent call under --static for a case with a linked issue', async () => {
