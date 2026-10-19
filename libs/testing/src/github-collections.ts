@@ -5,6 +5,7 @@ import { z } from 'zod';
 const lineNumbersSchema = z.array(z.int());
 const pathsSchema = z.array(z.string());
 const renamesSchema = z.record(z.string(), z.string());
+const patchesSchema = z.record(z.string(), z.string());
 
 // the state of the stand-in GitHub API: each collection holds one kind of record the API serves, and
 // a test seeds the records its case needs
@@ -23,8 +24,9 @@ export const githubCollections = {
     }),
   }),
 
-  // the commits of a pull request, oldest first, with the files each one changes and the renames among
-  // them
+  // the commits of a pull request, oldest first, with the files each one changes, the renames among
+  // them and each file's patch; a commit off the branch, such as one a rebase rewrote, GitHub still
+  // serves by its sha but lists among no pull request's commits
   pullCommits: new Collection({
     schema: z.object({
       owner: z.string().default('example'),
@@ -35,6 +37,12 @@ export const githubCollections = {
 
       // the path each renamed file had before the commit, by its path after it
       renames: renamesSchema.default(buildNoRenames),
+
+      // the patch GitHub gives of each changed file, by its path; a file without one gets no patch
+      patches: patchesSchema.default(buildNoPatches),
+
+      // a commit off the branch keeps a line of history of its own, which diverges from the branch
+      isOnBranch: z.boolean().default(true),
 
       // a commit of the base branch that a merge brought into the pull request: it is on the branch,
       // but GitHub's commit list of the pull request leaves it out
@@ -171,5 +179,9 @@ function buildNoPaths(): string[] {
 }
 
 function buildNoRenames(): Record<string, string> {
+  return {};
+}
+
+function buildNoPatches(): Record<string, string> {
   return {};
 }

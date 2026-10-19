@@ -41,6 +41,7 @@ export async function runGitHubCheck(
     commits: state.commits,
     dispositions,
     head: state.headSha,
+    threads: state.threads,
   });
 
   const summary = state.summary?.marker ?? null;
@@ -56,6 +57,7 @@ export async function runGitHubCheck(
     currentHead: state.headSha,
     commits: fixCommits.commits,
     ambiguous: fixCommits.ambiguous,
+    rewritten: toRewrittenCommits(fixCommits),
     existingIssues,
     failedReporters: options.failedReporters,
     unreadable: state.unreadable,
@@ -110,6 +112,16 @@ function readCheckFixes(
     fixCommits: input.fixCommits,
     marker,
   });
+}
+
+// the pull request commit each rewritten `<finding id>:<sha>` answer stands for, where one holds its
+// change
+function toRewrittenCommits(fixCommits: FixCommits): Map<string, string> {
+  const entries = [...fixCommits.rewritten].flatMap(([key, fix]) =>
+    fix.commit === null ? [] : [[key, fix.commit] as const],
+  );
+
+  return new Map(entries);
 }
 
 async function readExistingIssues(

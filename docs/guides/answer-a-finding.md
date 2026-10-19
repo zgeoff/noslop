@@ -44,8 +44,9 @@ form is no disposition. noslop answers it once with the accepted forms, and the 
 | `accepted-risk` | a reason     | real, and you accept it                | the author has admin permission on the repo             |
 
 The sha of a `fixed` reply is 7 to 40 hex characters, and it must name exactly one commit on the
-branch. The issue of a `deferred` reply is `#<number>` in the same repo, `<owner>/<repo>#<number>`,
-or an issue URL.
+branch. After a rebase, the sha can name the commit before the rebase: the App counts the branch
+commit that makes the same change, so you need not reply again. The issue of a `deferred` reply is
+`#<number>` in the same repo, `<owner>/<repo>#<number>`, or an issue URL.
 
 ## Which kinds a finding can take
 

@@ -141,9 +141,10 @@ A reply in any other form is no disposition. Each time noslop sets the check, it
 reply once with the accepted forms, and the forms marker stops a later run answering it again. Each
 kind is valid under its own rule:
 
-- `fixed <commit>` is valid when the sha names exactly one commit on the branch and a re-review that
-  read the commit no longer reports the finding. A commit that a merge from the base branch brought
-  in is on the branch, although GitHub's commit list of the pull request leaves it out.
+- `fixed <commit>` is valid when the sha names exactly one commit on the branch, or a commit that a
+  rebase rewrote into one, and a re-review that read the commit no longer reports the finding. A
+  commit that a merge from the base branch brought in is on the branch, although GitHub's commit
+  list of the pull request leaves it out.
 - `not-a-defect <reason>` is valid with any reason.
 - `deferred <issue>` is valid when the change did not write the code, the finding is no P1, security
   or risk-class finding, and the issue exists. The issue is `#<number>` in the same repo,
@@ -205,6 +206,16 @@ other verdicts keeps its own entry. A review with a failed call keeps its range 
 range rejects each finding the review reported but confirms no fix. The marker keeps only the ranges
 that fit under GitHub's comment limit, newest first, and a review whose own range does not fit keeps
 none, so such a reply waits for the next review.
+
+A rebase rewrites every commit of the branch, so a `fixed` sha can name a commit the branch no
+longer holds. GitHub still serves such a commit by its sha. The review and the check each take the
+one pull request commit whose patch to the same files matches the named commit's patch, with the
+line numbers of each hunk left out, because a rebase shifts them. The named commit must descend from
+the head that posted the finding, which GitHub's compare of the two commits from before the rebase
+shows. Each finding gets its own match, because each finding checks the named commit against its own
+posting head. A commit that GitHub no longer serves, a file GitHub gives no patch of, or a match
+with none or several commits leaves the fix unconfirmed. The matched commit then stands in for the
+named sha under every rule of this section.
 
 The re-check is the second review of a pull request. From the third review on, the reporter sends
 each new finding in code the change did not write to a follow-up issue. A security finding, and any

@@ -1,6 +1,7 @@
 import type { Endpoints } from '@octokit/types';
 import { HttpResponse, http } from 'msw';
 import { P, match } from 'ts-pattern';
+import { buildCommitFileData } from './build-commit-file-data';
 import { buildCompareData } from './build-compare-data';
 import { githubCollections } from './github-collections';
 
@@ -112,13 +113,9 @@ export const githubHandlers = [
       // GitHub pages the files of a commit, so a large commit lists them over several requests
       return HttpResponse.json({
         sha: commit.sha,
-        files: toPage(info.request, commit.files).map((filename) => {
-          const previous = commit.renames[filename];
-
-          return previous === undefined
-            ? { filename }
-            : { filename, status: 'renamed', previous_filename: previous };
-        }),
+        files: toPage(info.request, commit.files).map((filename) =>
+          buildCommitFileData(commit, filename),
+        ),
       });
     },
   ),
@@ -141,7 +138,7 @@ export const githubHandlers = [
           HttpResponse.json({ message: 'No common ancestor', status: '422' }, { status: 422 }),
         )
         .with(null, () => buildNotFound())
-        .with({ status: P.union('ahead', 'behind', 'identical') }, (compare) =>
+        .with({ status: P.union('ahead', 'behind', 'identical', 'diverged') }, (compare) =>
           HttpResponse.json(compare),
         )
         .exhaustive();
@@ -177,6 +174,7 @@ export const githubHandlers = [
         owner: info.params.owner,
         repo: info.params.repo,
         number: Number(info.params.number),
+        isOnBranch: true,
         isFromBase: false,
       }),
     );
