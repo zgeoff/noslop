@@ -107,6 +107,34 @@ test('it fires each lens whose slice holds an entry and groups them by the defau
   ]);
 });
 
+test('it fires the naming lens on a type claim the change adds', () => {
+  const route = buildRoute({
+    change: {
+      base: 'a'.repeat(40),
+      head: 'b'.repeat(40),
+      files: [buildMockChangedFile()],
+      excluded: [],
+    },
+    slices: buildMockSlices({
+      typeClaims: [
+        {
+          location: { path: 'src/a.ts', startLine: 3, endLine: 3 },
+          kind: 'cast-disable',
+          detail: 'disables typescript/consistent-type-assertions',
+        },
+      ],
+    }),
+    signals: buildMockRiskSignals(),
+    config: BUILT_IN_DEFAULTS,
+    linkedIssue: null,
+    isSync: false,
+    isRelease: false,
+    isPush: false,
+  });
+
+  expect(route.lenses).toStrictEqual(['correctness', 'naming-shape-and-comments']);
+});
+
 test('it runs a marked risk class at Deep with the lenses it forces, one call per group', () => {
   const route = buildRoute({
     change: {

@@ -162,6 +162,7 @@ export async function runStaticStage(options: RunStaticStageOptions): Promise<St
     instructions: fileSlices.instructions,
     prose: fileSlices.prose,
     comments: fileSlices.comments,
+    typeClaims: fileSlices.typeClaims,
     interfaces: fileSlices.interfaces,
     migrations: fileSlices.migrations,
     events: functionSlices.events,

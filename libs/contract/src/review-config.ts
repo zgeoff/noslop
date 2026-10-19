@@ -220,6 +220,11 @@ export const reviewConfigSchema = z.strictObject({
       events: stackPatternSchema.describe('The calls that emit an event'),
     })
     .describe("The stack's patterns, which tell the static stage what each call does"),
+  castRules: z
+    .array(z.string().min(1))
+    .describe(
+      'The lint rules that ban a type assertion; the naming-shape-and-comments lens reports each disable comment a change adds for one',
+    ),
   lenses: z
     .partialRecord(lensIDSchema, lensOverrideSchema)
     .describe('Overrides for each lens, by lens id'),

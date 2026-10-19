@@ -14,6 +14,7 @@ test('it builds default slices', () => {
     tests: [],
     instructions: [],
     prose: [],
+    typeClaims: [],
     interfaces: [],
     migrations: [],
     events: [],

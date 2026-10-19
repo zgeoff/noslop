@@ -1,6 +1,7 @@
 import { match } from 'ts-pattern';
 import type { AnalyzeContext } from './analyze-context';
 import type { ASTNode } from './ast-node';
+import { getCalleeName } from './get-callee-name';
 import { getField } from './get-field';
 import { getFields } from './get-fields';
 import { getNodeText } from './get-node-text';
@@ -26,9 +27,9 @@ const INSTRUCTION_KEYS = new Set([
   'developerInstructions',
 ]);
 
-// records the imports, the exports, the declared types with their keys, the config reads, and the
-// security facts a declaration shows: an allow-or-deny function, a row mapper, a credential path and
-// text placed into a model's instructions
+// records the imports, the exports, the declared types with their keys, the `any` types and the calls
+// that return `any`, the config reads, and the security facts a declaration shows: an allow-or-deny
+// function, a row mapper, a credential path and text placed into a model's instructions
 export function collectDeclarationFacts(
   node: ASTNode,
   ancestors: readonly ASTNode[],
@@ -47,6 +48,12 @@ export function collectDeclarationFacts(
     .with('TSInterfaceDeclaration', 'TSTypeAliasDeclaration', () => {
       collectType(node, exported, ctx);
     })
+    .with('TSAnyKeyword', () => {
+      ctx.analysis.anyTypes.push(line);
+    })
+    .with('CallExpression', () => {
+      collectAnyCall(node, line, ctx);
+    })
     .with('MemberExpression', () => {
       collectConfigRead(node, line, ctx);
     })
@@ -61,6 +68,14 @@ export function collectDeclarationFacts(
         collectSecurityFunction(node, ancestors, ctx);
       }
     });
+}
+
+// `JSON.parse` is the one call whose result is typed `any` by its name alone; any other call, such as
+// a `.json()` reader, needs its receiver's type, which the syntax tree does not hold
+function collectAnyCall(node: ASTNode, line: number, ctx: AnalyzeContext): void {
+  if (getCalleeName(node) === 'JSON.parse') {
+    ctx.analysis.jsonParses.push(line);
+  }
 }
 
 function collectCredentialPath(node: ASTNode, line: number, ctx: AnalyzeContext): void {

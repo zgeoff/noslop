@@ -77,6 +77,16 @@ The built-in defaults hold generic patterns for the standard library and the run
 its own stack's calls, such as its query builder's writes, by listing them; an array replaces the
 inherited one, so the repo's list holds the defaults it keeps.
 
+## Cast rules
+
+The cast rules are the lint rules that ban a type assertion. A cast that a repo keeps on purpose
+carries a disable comment for one of them, and the type checker trusts that cast without proof. The
+static stage lists each disable comment that a change adds for a cast rule, and the
+naming-shape-and-comments lens reports each one as its own finding, so the owner sees every new cast
+that keeps one. The lens never judges the comment's reason. The built-in defaults name the
+type-assertion rule under its oxlint and typescript-eslint names. A repo with a cast rule of its own
+lists it beside them, because the repo's list replaces the inherited one.
+
 ## Risk classes
 
 A risk class is a named kind of risky change, such as auth or migrations. It holds path globs,

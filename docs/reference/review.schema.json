@@ -629,6 +629,21 @@
         }
       ]
     },
+    "castRules": {
+      "description": "The lint rules that ban a type assertion; the naming-shape-and-comments lens reports each disable comment a change adds for one",
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "lenses": {
       "description": "Overrides for each lens, by lens id",
       "anyOf": [

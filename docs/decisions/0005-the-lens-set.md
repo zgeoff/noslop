@@ -1,7 +1,7 @@
 # 0005: The lens set
 
 - Date: 2026-10-17
-- Updated: 2026-10-19
+- Updated: 2026-10-20
 - Status: decided
 
 noslop has 13 lenses that routing picks, and the design lens, which it never picks. Each one is a
@@ -17,14 +17,16 @@ single review concern:
 | Cross-repo and platform limits     | Consumers of a changed export, pins, versions, published limits                                                      |
 | Deploy and config                  | Infra, workflows, config reads, deploy facts                                                                         |
 | Reuse                              | A new function that does the job of an existing one                                                                  |
-| Naming, shape and comments         | Names that hide behaviour, comment density and content                                                               |
+| Naming, shape and comments         | Names that hide behaviour, comment density and content, each new cast disable comment, `any` values in typed places  |
 | Tests                              | Tests that cannot fail, changed behaviour with no test                                                               |
 | Intent                             | The issue's acceptance criteria, work it did not ask for, claims in the pull request body                            |
 | Instructions                       | Agent instruction files, read with every file that loads beside them                                                 |
 | Documentation                      | Prose files, on a large docs change                                                                                  |
 | Design                             | Whether a better approach meets the task that the pull request states, on every review after its first               |
 
-Code comments belong to naming, shape and comments, which reads the code beside them.
+Code comments belong to naming, shape and comments, which reads the code beside them. A disable
+comment for a lint rule that bans casts is one of them, so the same lens reports each one a change
+adds, and the `any` values whose type no checker confirms.
 
 The design lens runs after the other lenses and the merge pass, over the findings of every review so
 far, the whole diff and the pull request body. Its task is what the body states, and it reads no
@@ -62,3 +64,5 @@ linked issue.
 
 - 2026-10-19: add the design lens, which asks from the second review of a pull request on whether a
   better approach meets the task that the pull request body states.
+- 2026-10-20: report each new disable comment for a cast rule, and each `any` value that reaches a
+  typed place, under naming, shape and comments.

@@ -11,6 +11,7 @@ import type {
   SecurityEntry,
   SourceLocation,
   TestsEntry,
+  TypeClaimEntry,
 } from './types';
 
 export interface FileSlices {
@@ -20,6 +21,7 @@ export interface FileSlices {
   instructions: InstructionsEntry[];
   prose: ProseEntry[];
   comments: CommentDensity;
+  typeClaims: TypeClaimEntry[];
   interfaces: SourceLocation[];
   migrations: string[];
 }
@@ -47,6 +49,7 @@ export function buildFileSlices(
       perThousand: 0,
       target: config.thresholds.commentDensityMax,
     },
+    typeClaims: [],
     interfaces: [],
     migrations: [],
   };
@@ -96,6 +99,7 @@ export function buildFileSlices(
     }
 
     collectLineFacts(entry, slices);
+    collectTypeClaims(entry, config.castRules, slices);
   }
 
   slices.comments.perThousand =
@@ -156,6 +160,65 @@ function collectLineFacts(entry: AnalyzedFile, slices: FileSlices): void {
   for (const line of entry.lines.added) {
     slices.comments.codeLines += 1;
     slices.comments.commentLines += Number(commentLines.has(line));
+  }
+}
+
+// the directive of an oxlint or eslint disable comment, whose rule names follow it and end at the
+// `--` before the reason
+const DISABLE_DIRECTIVE =
+  /^\s*(?:oxlint|eslint)-disable(?:-next-line|-line)?\s+(?<rules>[^]*?)(?:\s--|$)/u;
+
+// a type claim in a test file escapes the type checker as one in code does, so both kinds count
+function collectTypeClaims(
+  entry: AnalyzedFile,
+  castRules: readonly string[],
+  slices: FileSlices,
+): void {
+  const analysis = entry.analysis;
+  const parsed = entry.parsed;
+  const path = entry.file.path;
+
+  if (
+    analysis === null ||
+    parsed === null ||
+    (entry.file.kind !== 'code' && entry.file.kind !== 'test')
+  ) {
+    return;
+  }
+
+  for (const comment of parsed.comments) {
+    const rules = DISABLE_DIRECTIVE.exec(comment.text)?.groups?.['rules']?.split(/[\s,]+/u) ?? [];
+    const named = rules.filter((rule) => castRules.includes(rule));
+
+    if (named.length > 0 && entry.lines.added.has(comment.startLine)) {
+      slices.typeClaims.push({
+        location: { path, startLine: comment.startLine, endLine: comment.endLine },
+        kind: 'cast-disable',
+        detail: `disables ${named.join(', ')}`,
+      });
+    }
+  }
+
+  // an entry anchors to a line, and the lens reads the whole line, so a line with 2 `any` claims of
+  // one kind holds one entry of that kind
+  for (const line of new Set(analysis.anyTypes)) {
+    if (entry.lines.added.has(line)) {
+      slices.typeClaims.push({
+        location: { path, startLine: line, endLine: line },
+        kind: 'any-type',
+        detail: 'writes an `any` type',
+      });
+    }
+  }
+
+  for (const line of new Set(analysis.jsonParses)) {
+    if (entry.lines.added.has(line)) {
+      slices.typeClaims.push({
+        location: { path, startLine: line, endLine: line },
+        kind: 'any-value',
+        detail: 'calls JSON.parse, which returns `any`',
+      });
+    }
   }
 }
 

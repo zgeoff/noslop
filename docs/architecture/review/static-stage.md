@@ -61,6 +61,14 @@ The edge slice lists each changed export, schema bound and manifest whose packag
 uses: a workspace package that depends on it, or a consumer in the config that pins it. A change
 that nothing consumes holds no edge, so the cross-repo lens stays off.
 
+The type-claim slice lists each line that the change adds to code or a test with a type the checker
+cannot confirm: a disable comment for one of the config's
+[cast rules](../config/your-own-rules.md#cast-rules), an `any` type, and a `JSON.parse` call. The
+stage reads no types, so `JSON.parse` is the one call it knows returns `any`. A disable comment
+counts only on a line the change adds, so a cast that keeps an older comment stays out of the slice.
+An `as const` assertion and a `satisfies` expression keep the check on, so the slice skips them. Any
+entry fires the naming-shape-and-comments lens.
+
 ### The reuse slice and the base index
 
 The reuse slice gives each new function the base functions closest to it. Half of a candidate's
