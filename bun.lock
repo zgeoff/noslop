@@ -155,6 +155,7 @@
         "@noslop/runner": "workspace:*",
         "@octokit/types": "catalog:",
         "msw": "catalog:",
+        "ts-pattern": "catalog:",
         "zod": "catalog:",
       },
     },

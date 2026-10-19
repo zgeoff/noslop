@@ -1,5 +1,6 @@
 import type { Endpoints } from '@octokit/types';
 import { HttpResponse, http } from 'msw';
+import { P, match } from 'ts-pattern';
 import { buildCompareData } from './build-compare-data';
 import { githubCollections } from './github-collections';
 
@@ -135,13 +136,15 @@ export const githubHandlers = [
 
       const search = new URL(info.request.url).searchParams;
 
-      const compare = buildCompareData(records, { base, head, search });
-
-      if (compare === 'ambiguous') {
-        return HttpResponse.json({ message: 'No common ancestor', status: '422' }, { status: 422 });
-      }
-
-      return compare === null ? buildNotFound() : HttpResponse.json(compare);
+      return match(buildCompareData(records, { base, head, search }))
+        .with('ambiguous', () =>
+          HttpResponse.json({ message: 'No common ancestor', status: '422' }, { status: 422 }),
+        )
+        .with(null, () => buildNotFound())
+        .with({ status: P.union('ahead', 'behind', 'identical') }, (compare) =>
+          HttpResponse.json(compare),
+        )
+        .exhaustive();
     },
   ),
 
