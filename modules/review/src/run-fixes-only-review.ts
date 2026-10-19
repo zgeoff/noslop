@@ -146,7 +146,7 @@ async function readFixBase(
     return null;
   }
 
-  const newer = second === undefined ? first : await pickNewerHead(input, first, second);
+  const newer = second === undefined ? first : await readNewerHead(input, first, second);
 
   const late = await input.runner.run(['git', 'rev-list', `${newer}..${input.head}`], {
     cwd: input.repoDir,
@@ -163,7 +163,7 @@ function hasOneCommit(range: readonly string[], sha: string): boolean {
 }
 
 // the head of the two that descends from the other, or the first when neither does
-async function pickNewerHead(
+async function readNewerHead(
   input: FixesOnlyReviewInput,
   first: string,
   second: string,

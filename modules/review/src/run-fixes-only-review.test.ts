@@ -279,6 +279,60 @@ test('it asks about a fixed reply whose commit came before the run, from the hea
   ]);
 });
 
+test('it starts the diff of a late fixed reply at the lens head when the lens head is newer than the head that posted the finding', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const separator = "";\n' } },
+    {
+      message: 'Add the zero constant',
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = "";\n' },
+    },
+    { message: 'Add a tab', files: { 'src/tab.ts': 'export const tab = "\\t";\n' } },
+    {
+      message: 'Reject an empty separator',
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = ":";\n' },
+    },
+    { message: 'Add a newline', files: { 'src/newline.ts': 'export const newline = "\\n";\n' } },
+  ]);
+
+  const stub = buildStubAdapter({
+    'fix-1111111111111111': [{ fixed: true, reason: 'The separator is a colon now.' }],
+  });
+
+  const result = await runFixesOnlyReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/app',
+    pullRequest: { owner: 'example', repo: 'app', number: 9 },
+    base: repo.commits[4] ?? '',
+    head: repo.commits[4] ?? '',
+    lensHead: repo.commits[2] ?? '',
+    title: 'Scan the header line',
+    configHash: 'hash',
+    fixes: [
+      {
+        id: '1111111111111111',
+        title: 'Reject an empty separator',
+        lens: 'correctness',
+        path: 'src/scan.ts',
+        line: 1,
+        comment: 'An empty separator splits the line into single characters.',
+        commit: (repo.commits[3] ?? '').slice(0, 7),
+        postedHead: repo.commits[0] ?? '',
+      },
+    ],
+    maxFileChars: 10_000,
+    adapter: stub.adapter,
+    tempDir: ctx.directory,
+    logger: ctx.logger,
+  });
+
+  expect(stub.requests[0]?.prompt).toInclude('+export const separator = ":";');
+  expect(stub.requests[0]?.prompt).not.toInclude('+export const zero = 0;');
+  expect(result.base).toBe(repo.commits[2] ?? '');
+});
+
 test('it asks nothing about a fix whose diff passes the file limit and names the file as too large', async () => {
   const ctx = await setupTest();
 

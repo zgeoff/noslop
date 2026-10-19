@@ -398,6 +398,7 @@ async function readAnsweredFixes(
       return [];
     }
 
+    // a review already judged this fix, and asking again could only revoke it
     if (confirmed.has(`${thread.marker.id}:${disposition.value}`)) {
       return [];
     }
