@@ -110,11 +110,11 @@ JSON, with every `>` escaped, so no title or reason can end the marker early. A 
 what the check needs to judge a disposition without the review result: the id, title, file, lens,
 severity, risk class, and whether the change wrote the code. The summary marker holds the reviewed
 head and the base of its range, the number of reviews so far, the ids that review reported, its
-count of failed calls, the files it left out, the filed follow-ups, the confirmed fixes, the ids of
-the reviews it counted, and when the review it shows started. A retried post of a review that
-started before that review, such as one that failed at the summary write, leaves the summary in
-place and only sets the check again. A forms marker, on the App's answer to a free-text reply, holds
-the id of the reply it answered.
+count of failed calls, the files it left out of every call or of some lenses' calls, the filed
+follow-ups, the confirmed fixes, the ids of the reviews it counted, and when the review it shows
+started. A retried post of a review that started before that review, such as one that failed at the
+summary write, leaves the summary in place and only sets the check again. A forms marker, on the
+App's answer to a free-text reply, holds the id of the reply it answered.
 
 Only a comment by the App's own login holds state. The adapter reads that login from GitHub's
 endpoint for the authenticated App when it connects, and treats a comment by anyone else, other bots
@@ -182,12 +182,14 @@ reports the finding. The commit may change any file, because a fix such as a mis
 beside the finding's file. The commit must also come after the head of the review that posted the
 finding, which the finding's marker keeps, so a full review over the whole branch never confirms a
 fix through an older commit. A re-review read nothing of a fix when it left the finding's file, or a
-file the fix commit changes or renames, out of every call, so it confirms no such fix. A later
-commit that renames the fixed file into a left-out path counts the same way. When GitHub cannot list
-the files of the fix commit whole, the fix stays unconfirmed and the summary names the failure. The
-summary marker keeps each confirmed fix as the finding id and the commit, so a later delta without
-the commit keeps the confirmation. A fix that a re-review still reports stays unconfirmed, and a
-later delta without the commit leaves it unconfirmed.
+file the fix commit changes or renames, out of every call, so it confirms no such fix. Only the
+finding's own lens can show a fix by no longer reporting the finding. A file that the call of that
+lens left out therefore counts as left out for the finding, even when a call of another lens read
+it. A later commit that renames the fixed file into a left-out path counts the same way. When GitHub
+cannot list the files of the fix commit whole, the fix stays unconfirmed and the summary names the
+failure. The summary marker keeps each confirmed fix as the finding id and the commit, so a later
+delta without the commit keeps the confirmation. A fix that a re-review still reports stays
+unconfirmed, and a later delta without the commit leaves it unconfirmed.
 
 A `fixed` reply posted after the re-review of its commit counts on the next check, with no further
 review. The summary marker keeps the range of the latest review and the files it left out, and the

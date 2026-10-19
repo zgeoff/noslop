@@ -1036,6 +1036,64 @@ test('it lists a file over the file limit as too large in the review result', as
   expect(run.result.notReviewed).toStrictEqual([{ path: 'src/big.ts', reason: 'too-large' }]);
 });
 
+test('it lists a file under each lens whose call its function slice pushes over the file limit while the intent call reads it', async () => {
+  const ctx = await setupTest();
+
+  const name = `parse${'x'.repeat(1500)}`;
+
+  const repo = await createTestRepo(join(ctx.dir, 'repo'), [
+    { message: 'base', files: { 'src/zero.ts': 'export const zero = 0;\n' } },
+    {
+      message: 'head',
+      files: {
+        'src/zero.ts': 'export const zero = 0;\n',
+        'src/parse.ts': `export function ${name}(text: string): number {\n  return text.length;\n}\n`,
+      },
+    },
+  ]);
+
+  const stub = buildStubAdapter({
+    A: [{ findings: { correctness: [] } }],
+    C: [{ findings: { 'naming-shape-and-comments': [] } }],
+    E: [{ findings: { intent: [], tests: [] } }],
+  });
+
+  await Bun.write(join(ctx.dir, 'temp', '.keep'), '');
+
+  const run = await runReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/parser',
+    base: repo.commits[0] ?? '',
+    head: repo.commits[1] ?? '',
+    config: {
+      ...BUILT_IN_DEFAULTS,
+      mergePass: { enabled: false, effort: 'low' },
+      thresholds: { ...BUILT_IN_DEFAULTS.thresholds, maxFileChars: 2500 },
+    },
+    configHash: 'hash',
+    rules: null,
+    adapter: stub.adapter,
+    logger: ctx.logger,
+    tempDir: join(ctx.dir, 'temp'),
+    cacheDir: null,
+    title: 'Add the parser',
+    body: '',
+    linkedIssue: 'Count the characters of a text.',
+    pullRequest: null,
+    isPush: false,
+    pastEscapes: [],
+    depth: 'standard',
+  });
+
+  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['E']);
+  expect(run.result.notReviewed).toStrictEqual([]);
+
+  expect(run.result.notReviewedByLens).toStrictEqual([
+    { path: 'src/parse.ts', lenses: ['correctness', 'naming-shape-and-comments'] },
+  ]);
+});
+
 test('it lists the data file of a change that runs no call', async () => {
   const ctx = await setupTest();
 

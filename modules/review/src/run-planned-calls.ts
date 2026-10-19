@@ -4,6 +4,7 @@ import type {
   CallResult,
   Depth,
   FailedCall,
+  LensNotReviewedFile,
   NotReviewedFile,
   ReviewAdapter,
   Slices,
@@ -49,6 +50,9 @@ export interface CallBatch {
 
   // each changed file that no call read, once
   notReviewed: NotReviewedFile[];
+
+  // each changed file that a call read while the calls of other lenses left it out, once
+  notReviewedByLens: LensNotReviewedFile[];
 }
 
 const ATTEMPTS = 2;
@@ -59,7 +63,14 @@ const ATTEMPTS = 2;
 export async function runPlannedCalls(input: CallBatchInput): Promise<CallBatch> {
   const plan = planCallBatch(input);
   const parts = plan.parts;
-  const batch: CallBatch = { records: [], failed: [], raw: [], notReviewed: plan.notReviewed };
+
+  const batch: CallBatch = {
+    records: [],
+    failed: [],
+    raw: [],
+    notReviewed: plan.notReviewed,
+    notReviewedByLens: plan.notReviewedByLens,
+  };
 
   const outcomes = await runConcurrently(parts, input.parallel, async (part) => {
     const outcome = await runWithRetry(part.call, part.prompt, input);

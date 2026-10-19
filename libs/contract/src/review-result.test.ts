@@ -4,7 +4,7 @@ import { reviewResultSchema } from './review-result';
 
 test('it accepts a review result with one call and one dropped finding', () => {
   const payload: ReviewResult = {
-    version: 6,
+    version: 7,
     reviewID: 'r_1',
     repo: 'example/app',
     pullRequest: { owner: 'example', repo: 'app', number: 7 },
@@ -44,6 +44,7 @@ test('it accepts a review result with one call and one dropped finding', () => {
     ],
     failedCalls: [],
     notReviewed: [{ path: 'samples/corpus.jsonl', reason: 'data' }],
+    notReviewedByLens: [{ path: 'src/table.ts', lenses: ['correctness'] }],
     configHash: 'c0ffee',
     startedAt: '2026-10-17T10:00:00.000Z',
     endedAt: '2026-10-17T10:01:00.000Z',
@@ -54,7 +55,7 @@ test('it accepts a review result with one call and one dropped finding', () => {
 
 test('it rejects a not-reviewed file with a reason it does not know', () => {
   const result = reviewResultSchema.safeParse({
-    version: 6,
+    version: 7,
     reviewID: 'r_1',
     repo: 'example/app',
     pullRequest: null,
@@ -70,6 +71,7 @@ test('it rejects a not-reviewed file with a reason it does not know', () => {
     dropped: [],
     failedCalls: [],
     notReviewed: [{ path: 'samples/corpus.jsonl', reason: 'skipped' }],
+    notReviewedByLens: [],
     configHash: 'c0ffee',
     startedAt: '2026-10-17T10:00:00.000Z',
     endedAt: '2026-10-17T10:01:00.000Z',
@@ -78,9 +80,36 @@ test('it rejects a not-reviewed file with a reason it does not know', () => {
   expect(result.error?.issues).toPartiallyContain({ path: ['notReviewed', 0, 'reason'] });
 });
 
+test('it rejects a file not reviewed by a lens it does not know', () => {
+  const result = reviewResultSchema.safeParse({
+    version: 7,
+    reviewID: 'r_1',
+    repo: 'example/app',
+    pullRequest: null,
+    base: 'a'.repeat(40),
+    head: 'b'.repeat(40),
+    title: null,
+    depth: 'standard',
+    special: null,
+    riskClasses: [],
+    lenses: ['correctness'],
+    calls: [],
+    findings: [],
+    dropped: [],
+    failedCalls: [],
+    notReviewed: [],
+    notReviewedByLens: [{ path: 'src/table.ts', lenses: ['style'] }],
+    configHash: 'c0ffee',
+    startedAt: '2026-10-17T10:00:00.000Z',
+    endedAt: '2026-10-17T10:01:00.000Z',
+  });
+
+  expect(result.error?.issues).toPartiallyContain({ path: ['notReviewedByLens', 0, 'lenses', 0] });
+});
+
 test('it rejects a head that is not a full commit', () => {
   const result = reviewResultSchema.safeParse({
-    version: 6,
+    version: 7,
     reviewID: 'r_1',
     repo: 'example/app',
     pullRequest: null,
@@ -96,6 +125,7 @@ test('it rejects a head that is not a full commit', () => {
     dropped: [],
     failedCalls: [],
     notReviewed: [],
+    notReviewedByLens: [],
     configHash: 'c0ffee',
     startedAt: '2026-10-17T10:00:00.000Z',
     endedAt: '2026-10-17T10:01:00.000Z',
@@ -122,6 +152,7 @@ test('it rejects an output version it does not know', () => {
     dropped: [],
     failedCalls: [],
     notReviewed: [],
+    notReviewedByLens: [],
     configHash: 'c0ffee',
     startedAt: '2026-10-17T10:00:00.000Z',
     endedAt: '2026-10-17T10:01:00.000Z',

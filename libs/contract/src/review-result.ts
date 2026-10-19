@@ -8,7 +8,7 @@ import { tokensSchema } from './tokens';
 
 // changes only with a breaking change to the output, so a consumer that pins a CLI version reads one
 // shape
-export const REVIEW_OUTPUT_VERSION = 6;
+export const REVIEW_OUTPUT_VERSION = 7;
 const commitSchema = z.string().regex(/^[0-9a-f]{40}$/u);
 
 export const callRecordSchema = z.strictObject({
@@ -43,6 +43,15 @@ export const notReviewedFileSchema = z.strictObject({
 
 export type NotReviewedFile = z.infer<typeof notReviewedFileSchema>;
 
+// a changed file that a call read while the calls of the listed lenses left it out, so a reporter
+// reads no silence of those lenses on it as a fix
+export const lensNotReviewedFileSchema = z.strictObject({
+  path: z.string().min(1),
+  lenses: z.array(lensIDSchema).min(1),
+});
+
+export type LensNotReviewedFile = z.infer<typeof lensNotReviewedFileSchema>;
+
 export const specialChangeSchema = z.enum(['sync', 'release', 'docs-only', 'direct-push']);
 
 export type SpecialChange = z.infer<typeof specialChangeSchema>;
@@ -72,6 +81,7 @@ export const reviewResultSchema = z.strictObject({
   dropped: z.array(droppedFindingSchema),
   failedCalls: z.array(failedCallSchema),
   notReviewed: z.array(notReviewedFileSchema),
+  notReviewedByLens: z.array(lensNotReviewedFileSchema),
   configHash: z.string().min(1),
   startedAt: z.iso.datetime(),
   endedAt: z.iso.datetime(),

@@ -15,7 +15,7 @@ export interface FixEvidence {
   // the review's range holds the commit, and the commit comes after the head that posted the finding
   isInRange: boolean;
 
-  // the review left the finding's own file out of every call
+  // the review left the finding's own file out of every call, or out of the call of the finding's lens
   isFileSkipped: boolean;
   coverage: FixCoverage;
 

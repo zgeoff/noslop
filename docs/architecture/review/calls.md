@@ -70,4 +70,6 @@ call runs whole and its failure shows in the review.
 A file that a call leaves out can still be in another call, because each call reads the hunks and
 slices of its own lenses. The result's not-reviewed list holds each file that no call reads, with
 its reason. [The CLI](../output/cli.md) and [the GitHub App](../output/github-app.md) show the list,
-so a reader sees what the review did not cover.
+so a reader sees what the review did not cover. The result also lists each file that one call reads
+while the calls of other lenses leave it out, with those lenses. The GitHub App reads that list so
+that a lens which never read a file confirms no fix on it.

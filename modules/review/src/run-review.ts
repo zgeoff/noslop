@@ -140,6 +140,9 @@ export async function runReview(options: RunReviewOptions): Promise<ReviewRun> {
 
       // a reporter reads no fix as confirmed on a file that no call read
       notReviewed: collectNotReviewed(ctx, batches),
+
+      // a reporter reads no silence of a lens as a fix on a file that the lens's call left out
+      notReviewedByLens: batches.flatMap((batch) => batch.notReviewedByLens),
       configHash: options.configHash,
       startedAt,
       endedAt: now().toISOString(),

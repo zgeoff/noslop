@@ -340,6 +340,7 @@ const EARLIER_RANGES = 4;
 interface RangeFields {
   base?: string;
   notReviewed?: string[];
+  notReviewedByLens?: SummaryMarker['notReviewedByLens'];
   earlier?: SummaryMarker['earlier'];
 }
 
@@ -348,12 +349,14 @@ interface RangeFields {
 // review whose own range does not fit keeps none, so such an answer waits for the next review
 function buildRangeFields(result: ReviewResult, previous: SummaryMarker | null): RangeFields {
   const notReviewed = result.notReviewed.map((file) => file.path);
+  const notReviewedByLens = toLensNotReviewedPaths(result);
 
   const own: KeptRange = {
     base: result.base,
     head: result.head,
     reported: result.findings.map((finding) => finding.id),
     notReviewed,
+    notReviewedByLens,
     isPartial: result.failedCalls.length > 0,
   };
 
@@ -370,6 +373,13 @@ function buildRangeFields(result: ReviewResult, previous: SummaryMarker | null):
         notReviewed: [...range.notReviewed],
       };
 
+      if (range.notReviewedByLens.length > 0) {
+        kept.notReviewedByLens = range.notReviewedByLens.map((file) => ({
+          path: file.path,
+          lenses: [...file.lenses],
+        }));
+      }
+
       if (range.isPartial) {
         kept.partial = true;
       }
@@ -379,7 +389,13 @@ function buildRangeFields(result: ReviewResult, previous: SummaryMarker | null):
 
   for (let count = earlier.length; count >= 0; count -= 1) {
     const kept = earlier.slice(0, count);
-    const fields = { base: result.base, notReviewed, ...(count === 0 ? {} : { earlier: kept }) };
+
+    const fields = {
+      base: result.base,
+      notReviewed,
+      ...(notReviewedByLens.length === 0 ? {} : { notReviewedByLens }),
+      ...(count === 0 ? {} : { earlier: kept }),
+    };
 
     if (formatMarker('summary', fields).length <= MARKER_PATH_CHARS) {
       return fields;
@@ -395,8 +411,16 @@ function isSameRange(range: KeptRange, other: KeptRange): boolean {
     range.head === other.head &&
     range.isPartial === other.isPartial &&
     isSameList(range.reported, other.reported) &&
-    isSameList(range.notReviewed, other.notReviewed)
+    isSameList(range.notReviewed, other.notReviewed) &&
+    isSameList(
+      range.notReviewedByLens.map((file) => `${file.path}:${file.lenses.join(',')}`),
+      other.notReviewedByLens.map((file) => `${file.path}:${file.lenses.join(',')}`),
+    )
   );
+}
+
+function toLensNotReviewedPaths(result: ReviewResult): { path: string; lenses: string[] }[] {
+  return result.notReviewedByLens.map((file) => ({ path: file.path, lenses: [...file.lenses] }));
 }
 
 function isSameList(list: readonly string[], other: readonly string[]): boolean {
@@ -444,6 +468,7 @@ async function readConfirmations(
       head: result.head,
       reported: result.findings.map((finding) => finding.id),
       notReviewed: result.notReviewed.map((file) => file.path),
+      notReviewedByLens: toLensNotReviewedPaths(result),
     },
     held,
   });

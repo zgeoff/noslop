@@ -8,13 +8,20 @@ import { readFixCoverage } from './read-fix-coverage';
 import type { FindingThread } from './read-pull-request-state';
 import { readRangeCommits } from './read-range-commits';
 
-// one review as the confirmation reads it: the range it covered, the findings it reported, and the
-// files it left out
+// a file the review read while the calls of the listed lenses left it out
+interface LensNotReviewedPath {
+  path: string;
+  lenses: readonly string[];
+}
+
+// one review as the confirmation reads it: the range it covered, the findings it reported, the files
+// it left out, and the files that only some lenses read
 export interface ReviewedRange {
   base: string;
   head: string;
   reported: readonly string[];
   notReviewed: readonly string[];
+  notReviewedByLens: readonly LensNotReviewedPath[];
 }
 
 export interface FixConfirmationsInput {
@@ -43,8 +50,9 @@ export async function readFixConfirmations(
   const latest = new Map(input.dispositions.map((item) => [item.findingID, item]));
 
   // a not-reviewed file never fails the check alone, but a pending fix that reaches one stays
-  // unconfirmed, and its open finding fails the check
-  const skipped = new Set(review.notReviewed);
+  // unconfirmed, and its open finding fails the check; a file that the call of the finding's own lens
+  // left out counts as not reviewed for that finding, since only that lens's silence shows a fix
+  const notReviewed = new Set(review.notReviewed);
   const sincePosted = new Map<string, Promise<string[]>>();
 
   const readSincePosted = (posted: string): Promise<string[]> => {
@@ -73,6 +81,7 @@ export async function readFixConfirmations(
     const isAfterChecked = posted === undefined || rewrite !== undefined;
     const after = isAfterChecked ? range : await readSincePosted(posted);
     const isInRange = match !== null && range.includes(match) && after.includes(match);
+    const skipped = collectLensSkipped(notReviewed, review.notReviewedByLens, thread.marker.lens);
     const isFileSkipped = skipped.has(thread.marker.path);
 
     const read =
@@ -117,4 +126,17 @@ function findOneCommit(fixCommits: FixCommits, sha: string): string | null {
   const matches = fixCommits.commits.filter((commit) => commit.startsWith(sha));
 
   return matches.length === 1 ? (matches[0] ?? null) : null;
+}
+
+// the files a review left out for one lens: every file no call read, and each file the call of that
+// lens left out while another call read it
+function collectLensSkipped(
+  notReviewed: ReadonlySet<string>,
+  byLens: readonly LensNotReviewedPath[],
+  lens: string,
+): Set<string> {
+  return new Set([
+    ...notReviewed,
+    ...byLens.filter((file) => file.lenses.includes(lens)).map((file) => file.path),
+  ]);
 }
