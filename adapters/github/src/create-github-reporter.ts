@@ -16,6 +16,7 @@ import { parseMarker } from './parse-marker';
 import { planReviewPost } from './plan-review-post';
 import { readAllPages } from './read-all-pages';
 import { readFixCommits } from './read-fix-commits';
+import type { ReviewedRange } from './read-fix-confirmations';
 import { readFixConfirmations } from './read-fix-confirmations';
 import { readHeldFixes } from './read-held-fixes';
 import type { FindingThread, PullRequestState } from './read-pull-request-state';
@@ -102,7 +103,20 @@ async function runReviewPost(
 
   const posted = new Set([...before.threads.map((thread) => thread.marker.id), ...filed]);
 
-  const plan = planReviewPost({ summary: before.summary?.marker ?? null, posted }, result);
+  const plan = planReviewPost(
+    { summary: before.summary?.marker ?? null, posted },
+    result,
+    ctx.fixesOnly !== undefined,
+  );
+
+  // a fixes-only run raises no finding, and a finding whose fix it judged not fixed counts as reported
+  // again, so the fix stays open
+  const rejected = (ctx.fixesOnly?.checks ?? []).filter((check) => !check.fixed);
+
+  const reported = [
+    ...result.findings.map((finding) => finding.id),
+    ...rejected.map((check) => check.findingID),
+  ];
 
   // a retry of an earlier review leaves the later summary in place and only sets the check again
   // from the current answers
@@ -127,7 +141,25 @@ async function runReviewPost(
     await createFollowUpIssue(client, pr, finding);
   }
 
-  const confirmations = await readConfirmations(client, pr, before, result);
+  const reasons = new Map(rejected.map((check) => [check.findingID, check.reason]));
+
+  const confirmations = await readConfirmations(client, pr, before, {
+    base: result.base,
+    head: result.head,
+    reported,
+    notReviewed: result.notReviewed.map((file) => file.path),
+    notReviewedByLens: toLensNotReviewedPaths(result),
+    isPartial: result.failedCalls.length > 0,
+  });
+
+  // the summary gives the fixes-only run's reason for each fix it judged not fixed
+  for (const item of confirmations) {
+    const reason = reasons.get(item.id);
+
+    if (!item.fixed && reason !== undefined) {
+      item.failure = reason;
+    }
+  }
 
   for (const item of confirmations) {
     if (item.failure !== undefined) {
@@ -149,10 +181,10 @@ async function runReviewPost(
 
   const marker = {
     head: result.head,
-    ...buildRangeFields(result, before.summary?.marker ?? null),
+    ...buildRangeFields(result, reported, before.summary?.marker ?? null),
     reviews: plan.reviews,
     reviewIDs: plan.reviewIDs,
-    reported: result.findings.map((finding) => finding.id),
+    reported,
     failedCalls: result.failedCalls.length,
     followUps: [...filed, ...followUps.map((finding) => finding.id)],
     confirmed: confirmations
@@ -347,14 +379,18 @@ interface RangeFields {
 // the ranges the summary marker keeps for a `fixed` answer after the review: its own, then the newest
 // earlier ones that fit the budget, which counts them as the marker writes them, escapes included; a
 // review whose own range does not fit keeps none, so such an answer waits for the next review
-function buildRangeFields(result: ReviewResult, previous: SummaryMarker | null): RangeFields {
+function buildRangeFields(
+  result: ReviewResult,
+  reported: readonly string[],
+  previous: SummaryMarker | null,
+): RangeFields {
   const notReviewed = result.notReviewed.map((file) => file.path);
   const notReviewedByLens = toLensNotReviewedPaths(result);
 
   const own: KeptRange = {
     base: result.base,
     head: result.head,
-    reported: result.findings.map((finding) => finding.id),
+    reported: [...reported],
     notReviewed,
     notReviewedByLens,
     isPartial: result.failedCalls.length > 0,
@@ -433,14 +469,14 @@ async function readConfirmations(
   client: GitHubClient,
   pr: PullRequestRef,
   before: PullRequestState,
-  result: ReviewResult,
+  review: ReviewedRange,
 ): Promise<FixConfirmation[]> {
   const dispositions = await readThreadDispositions(client, pr, before.threads);
 
   const fixCommits = await readFixCommits(client, pr, {
     commits: before.commits,
     dispositions,
-    head: result.head,
+    head: review.head,
     threads: before.threads,
   });
 
@@ -463,14 +499,7 @@ async function readConfirmations(
     threads: before.threads,
     dispositions,
     fixCommits,
-    review: {
-      base: result.base,
-      head: result.head,
-      reported: result.findings.map((finding) => finding.id),
-      notReviewed: result.notReviewed.map((file) => file.path),
-      notReviewedByLens: toLensNotReviewedPaths(result),
-      isPartial: result.failedCalls.length > 0,
-    },
+    review,
     held,
   });
 }

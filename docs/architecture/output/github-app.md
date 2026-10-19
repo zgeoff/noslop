@@ -225,6 +225,21 @@ The re-check is the second review of a pull request. From the third review on, t
 each new finding in code the change did not write to a follow-up issue. A security finding, and any
 finding in code the change wrote, goes on the pull request at every review.
 
+### The fixes-only run
+
+A fixes-only run lets a fix that lands after the last review round pass the check without a new
+review round. It needs a summary marker whose review had no failed call, and new commits after that
+review's head. It runs no lens over the diff and raises no finding. For each finding whose latest
+disposition is `fixed` with a commit among the new commits, it makes one small call. That call reads
+the finding, the code around the line it anchored to at the last reviewed head, and the diff of the
+finding's file since that head, and answers whether the diff fixes the finding, with a one-line
+reason. A yes confirms the fix under the rules above. A no counts as the run reporting the finding
+again, so the check names it as still found, and the summary gives the reason. A fix the run did not
+ask about, or whose call failed, stays unconfirmed, because the run marks the finding's file unread
+for its lens. A static finding takes a full review, so the run judges its fix not fixed. The run
+writes the summary at the new head, keeps the count of reviews, and posts no finding comment, so the
+check reads the current head.
+
 ## The check run
 
 The check passes when all of these hold, and fails otherwise:

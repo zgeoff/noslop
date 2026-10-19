@@ -51,6 +51,19 @@ export interface ReporterContext {
 
   // the reporters that ran before this one and failed; a reporter that runs last reads it
   failedReporters: readonly string[];
+
+  // the verdicts of a fixes-only run, which ran no lens after the last review round: a reporter that
+  // posts on the pull request posts no new finding, and counts a finding judged not fixed as reported
+  // again
+  fixesOnly?: { checks: readonly FixCheck[] };
+}
+
+// a fixes-only run's word on one `fixed` answer: whether the change since the last reviewed head fixes
+// the finding, and the one-line reason
+export interface FixCheck {
+  findingID: string;
+  fixed: boolean;
+  reason: string;
 }
 
 export interface Reporter {

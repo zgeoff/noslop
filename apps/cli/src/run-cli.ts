@@ -42,6 +42,11 @@ export async function runCLI(argv: readonly string[], ctx: CLIContext): Promise<
         type: 'boolean',
         description: 'Review the whole pull request, not only the commits since the last review',
       },
+      'fixes-only': {
+        type: 'boolean',
+        description:
+          'Check each fixed answer against the commits since the last review, with no lens and no new finding',
+      },
       repo: {
         type: 'string',
         description: 'The pull request repo as owner/name, origin unless given',
@@ -67,6 +72,7 @@ export async function runCLI(argv: readonly string[], ctx: CLIContext): Promise<
             head: command.values.head,
             pr: command.values.pr,
             full: command.values.full === true,
+            fixesOnly: command.values['fixes-only'] === true,
             repo: command.values.repo,
             report: command.values.report,
             json: command.values.json === true,
