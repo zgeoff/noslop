@@ -236,6 +236,63 @@ test('it judges a fix whose commit changes no file of the pull request not fixed
   expect(stub.requests).toStrictEqual([]);
 });
 
+test('it judges a fix in a merge from the base branch by the files the merge changes against the branch', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const separator = "";\n' } },
+    { message: 'Describe the app', files: { 'README.md': '# App\n' } },
+    { message: 'Add the reader', files: { 'src/read.ts': 'export const read = 1;\n' }, parent: 0 },
+    {
+      message: 'Merge main and reject an empty separator',
+      files: { 'src/scan.ts': 'export const separator = ":";\n' },
+      parent: 2,
+      merged: 1,
+    },
+  ]);
+
+  const stub = buildStubAdapter({
+    'fix-1111111111111111': [{ fixed: true, reason: 'The separator is a colon now.' }],
+  });
+
+  const result = await runFixesOnlyReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/app',
+    pullRequest: { owner: 'example', repo: 'app', number: 9 },
+    base: repo.commits[2] ?? '',
+    head: repo.commits[3] ?? '',
+    mergeBase: repo.commits[1] ?? '',
+    lensHead: null,
+    title: 'Scan the header line',
+    configHash: 'hash',
+    fixes: [
+      {
+        id: '1111111111111111',
+        title: 'Reject an empty separator',
+        lens: 'correctness',
+        path: 'src/scan.ts',
+        line: 1,
+        comment: 'An empty separator splits the line into single characters.',
+        commit: (repo.commits[3] ?? '').slice(0, 7),
+        postedHead: null,
+      },
+    ],
+    maxFileChars: 10_000,
+    adapter: stub.adapter,
+    tempDir: ctx.directory,
+    logger: ctx.logger,
+  });
+
+  expect(stub.requests[0]?.prompt).toInclude(
+    '-export const separator = "";\n+export const separator = ":";',
+  );
+
+  expect(result.fixChecks).toStrictEqual([
+    { findingID: '1111111111111111', fixed: true, reason: 'The separator is a colon now.' },
+  ]);
+});
+
 test('it lists no verdict and records the failed call when the call fails', async () => {
   const ctx = await setupTest();
 

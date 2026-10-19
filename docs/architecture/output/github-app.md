@@ -144,7 +144,8 @@ kind is valid under its own rule:
 - `fixed <commit>` is valid when the sha names exactly one commit on the branch, or a commit that a
   rebase rewrote into one, and a re-review that read the commit no longer reports the finding. A
   commit that a merge from the base branch brought in is on the branch, although GitHub's commit
-  list of the pull request leaves it out.
+  list of the pull request leaves it out. Such a commit, or the merge itself, holds a fix only when
+  it changes a file of the pull request's diff.
 - `not-a-defect <reason>` is valid with any reason.
 - `deferred <issue>` is valid when the change did not write the code, the finding is no P1, security
   or risk-class finding, and the issue exists. The issue is `#<number>` in the same repo,

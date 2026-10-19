@@ -239,6 +239,7 @@ async function runFixCheck(
 
   const base = target.base.base;
 
+  // a merge's files are its change against its first parent, as GitHub lists them
   const commitFiles = await readGitLines(input, [
     'diff-tree',
     '-r',
@@ -246,6 +247,7 @@ async function runFixCheck(
     '--no-commit-id',
     '--name-only',
     '--no-renames',
+    '--diff-merges=first-parent',
     target.base.commit,
   ]);
 
