@@ -17,6 +17,7 @@ import { planReviewPost } from './plan-review-post';
 import { readAllPages } from './read-all-pages';
 import { readFixCommits } from './read-fix-commits';
 import { readFixConfirmations } from './read-fix-confirmations';
+import { readHeldFixes } from './read-held-fixes';
 import type { FindingThread, PullRequestState } from './read-pull-request-state';
 import { readPullRequestState } from './read-pull-request-state';
 import { readThreadDispositions } from './read-thread-dispositions';
@@ -347,7 +348,9 @@ interface RangeFields {
 function buildRangeFields(result: ReviewResult, previous: SummaryMarker | null): RangeFields {
   const notReviewed = result.notReviewed.map((file) => file.path);
 
+  // a repost of a review keeps its own range once, so it evicts no earlier one
   const earlier = (previous === null ? [] : toReviewedRanges(previous))
+    .filter((range) => range.base !== result.base || range.head !== result.head)
     .slice(0, EARLIER_RANGES)
     .map((range) => ({
       base: range.base,
@@ -386,29 +389,18 @@ async function readConfirmations(
 
   const previous = before.summary?.marker ?? null;
 
-  const confirmed = new Set(previous?.confirmed);
+  // this review's verdict is the newest, so the earlier reviews' word counts only where it is silent
+  const earlier =
+    previous === null
+      ? { confirmed: [] }
+      : await readHeldFixes(client, pr, {
+          threads: before.threads,
+          dispositions,
+          fixCommits,
+          marker: previous,
+        });
 
-  const ranges = previous === null ? [] : toReviewedRanges(previous);
-
-  const earlier = await Promise.all(
-    ranges.map((review) =>
-      readFixConfirmations(client, pr, {
-        threads: before.threads,
-        dispositions,
-        fixCommits,
-        review,
-        held: confirmed,
-      }),
-    ),
-  );
-
-  const held = new Set([
-    ...confirmed,
-    ...earlier
-      .flat()
-      .filter((item) => item.fixed)
-      .map((item) => `${item.id}:${item.commit}`),
-  ]);
+  const held = new Set(earlier.confirmed);
 
   return readFixConfirmations(client, pr, {
     threads: before.threads,

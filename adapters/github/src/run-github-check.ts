@@ -5,11 +5,10 @@ import { createFormsReplies } from './create-forms-replies';
 import type { GitHubClient, GitHubConnection } from './create-github-connection';
 import type { FixCommits } from './read-fix-commits';
 import { readFixCommits } from './read-fix-commits';
-import { readFixConfirmations } from './read-fix-confirmations';
+import { readHeldFixes } from './read-held-fixes';
 import type { PullRequestState } from './read-pull-request-state';
 import { readPullRequestState } from './read-pull-request-state';
 import { readThreadDispositions } from './read-thread-dispositions';
-import { toReviewedRanges } from './to-reviewed-ranges';
 
 export const CHECK_NAME = 'noslop';
 
@@ -88,9 +87,9 @@ interface CheckFixes {
   failures: Map<string, string>;
 }
 
-// the fixes the check counts: each one a review confirmed, and each one answered after the review of
-// the head, which that review's range held and read, so the answer needs no further review
-async function readCheckFixes(
+// the fixes the check counts: the ones the reviews of the head's summary hold, answers after a review
+// among them, so such an answer needs no further review
+function readCheckFixes(
   client: GitHubClient,
   pr: PullRequestRef,
   input: CheckFixesInput,
@@ -98,44 +97,19 @@ async function readCheckFixes(
   const marker = input.state.summary?.marker;
 
   if (marker === undefined) {
-    return { confirmed: [], failures: new Map() };
+    return Promise.resolve({ confirmed: [], failures: new Map() });
   }
 
   if (marker.head !== input.state.headSha) {
-    return { confirmed: marker.confirmed, failures: new Map() };
+    return Promise.resolve({ confirmed: marker.confirmed, failures: new Map() });
   }
 
-  const ranges = toReviewedRanges(marker);
-
-  const read = await Promise.all(
-    ranges.map((review) =>
-      readFixConfirmations(client, pr, {
-        threads: input.state.threads,
-        dispositions: input.dispositions,
-        fixCommits: input.fixCommits,
-        review,
-        held: new Set(marker.confirmed),
-      }),
-    ),
-  );
-
-  const confirmations = read.flat();
-
-  const confirmed = new Set([
-    ...marker.confirmed,
-    ...confirmations.filter((item) => item.fixed).map((item) => `${item.id}:${item.commit}`),
-  ]);
-
-  // a failure names why a fix stays open, so a fix that any kept range confirms shows none
-  const failures = new Map(
-    confirmations.flatMap((item) =>
-      item.failure === undefined || confirmed.has(`${item.id}:${item.commit}`)
-        ? []
-        : [[item.id, item.failure]],
-    ),
-  );
-
-  return { confirmed: [...confirmed], failures };
+  return readHeldFixes(client, pr, {
+    threads: input.state.threads,
+    dispositions: input.dispositions,
+    fixCommits: input.fixCommits,
+    marker,
+  });
 }
 
 async function readExistingIssues(
