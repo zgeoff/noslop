@@ -21,6 +21,14 @@ export interface RewrittenFix {
   failure: string | null;
 }
 
+interface CommitChange {
+  sha: string;
+
+  // the commit's patches with no line numbers, which a rebase shifts; null when GitHub leaves a patch
+  // out, such as for a binary or a large file, or lists only part of the commit's files
+  fingerprint: string | null;
+}
+
 // a reader that finds the commit a rebase made of a `fixed` commit: GitHub still serves the named
 // commit by its sha, and the one branch commit with the same patch to the same files is its rewrite;
 // it reads each commit's patches once, since one review asks for the same candidates per finding
@@ -77,14 +85,6 @@ export function makeRewrittenFixReader(
 
     return { commit: matches[0] ?? null, failure: null };
   };
-}
-
-interface CommitChange {
-  sha: string;
-
-  // the commit's patches with no line numbers, which a rebase shifts; null when GitHub leaves a patch
-  // out, such as for a binary or a large file, or lists only part of the commit's files
-  fingerprint: string | null;
 }
 
 interface PatchedFile {
