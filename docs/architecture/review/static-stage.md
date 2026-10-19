@@ -91,9 +91,9 @@ needs it. The stage reports:
   hunk in a file the linked issue does not name, and a public package that changes paths the config
   ties to a version bump without bumping its version.
 
-The synced-copy check skips a synced file whose only change moves the ref of a `uses:` line that
-calls a workflow in another repo, because the sync that delivers such a caller pins the call to its
-own ref.
+The synced-copy check skips a synced workflow file, edited in place, whose only change moves the ref
+of a `uses:` line that calls a workflow in another repo, because the sync that delivers such a
+caller pins the call to its own ref.
 
 The review takes the linked issue and a reader for consumer manifests from its caller. The CLI takes
 the linked issue from `--issue-file` when it is given, so an issue that lives outside GitHub reaches
