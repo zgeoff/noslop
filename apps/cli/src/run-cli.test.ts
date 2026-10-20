@@ -799,10 +799,14 @@ test('it creates no store when a review posts to GitHub with no sqlite reporter'
 
   const code = await runCLI(
     ['review', '--pr', '9', '--repo', 'example/app', '--report', 'github', '--json'],
-    { ...ctx.buildContext(repo.path, stub.adapter), createReporter: installed.createReporter },
+    {
+      ...ctx.buildContext(repo.path, stub.adapter),
+      dataDir: installed.dataDir,
+      createReporter: installed.createReporter,
+    },
   );
 
-  const hasStore = await Bun.file(join(ctx.directory, 'data', 'store.sqlite')).exists();
+  const hasStore = await Bun.file(join(installed.dataDir, 'store.sqlite')).exists();
 
   expect(code).toBe(0);
   expect(githubCollections.reviewComments.all()).toHaveLength(1);
