@@ -243,3 +243,93 @@ test('it never matches 2 anchors on blank code alone', () => {
     }),
   ).toStrictEqual({ kept: [finding], dismissed: [] });
 });
+
+test('it keeps a P1 finding near an answered one under the same file, criterion and rule', () => {
+  const finding = buildMockFinding({
+    id: '2222222222222222',
+    severity: 'P1',
+    criterion: 'data-loss',
+    anchor: { path: 'src/a.ts', startLine: 12, endLine: 12 },
+  });
+
+  expect(
+    splitDismissedFindings({
+      findings: [{ finding, code: 'let total = 0;' }],
+      dismissed: [
+        {
+          finding: {
+            id: '1111111111111111',
+            path: 'src/a.ts',
+            criterion: 'data-loss',
+            rule: null,
+            head: 'a'.repeat(40),
+            startLine: 10,
+            endLine: 10,
+          },
+          code: 'let total = 0;',
+        },
+      ],
+      maxLines: 5,
+    }),
+  ).toStrictEqual({ kept: [finding], dismissed: [] });
+});
+
+test('it keeps a P2 security finding near an answered one under the same file, criterion and rule', () => {
+  const finding = buildMockFinding({
+    id: '2222222222222222',
+    severity: 'P2',
+    criterion: 'security-defect',
+    anchor: { path: 'src/a.ts', startLine: 12, endLine: 12 },
+  });
+
+  expect(
+    splitDismissedFindings({
+      findings: [{ finding, code: "const query = 'select * from notes where id = ' + id;" }],
+      dismissed: [
+        {
+          finding: {
+            id: '1111111111111111',
+            path: 'src/a.ts',
+            criterion: 'security-defect',
+            rule: null,
+            head: 'a'.repeat(40),
+            startLine: 10,
+            endLine: 10,
+          },
+          code: "const query = 'select * from notes where id = ' + id;",
+        },
+      ],
+      maxLines: 5,
+    }),
+  ).toStrictEqual({ kept: [finding], dismissed: [] });
+});
+
+test('it drops a P1 finding whose own ID was answered', () => {
+  const finding = buildMockFinding({
+    id: '1111111111111111',
+    severity: 'P1',
+    criterion: 'data-loss',
+    anchor: { path: 'src/a.ts', startLine: 30, endLine: 30 },
+  });
+
+  expect(
+    splitDismissedFindings({
+      findings: [{ finding, code: 'return total;' }],
+      dismissed: [
+        {
+          finding: {
+            id: '1111111111111111',
+            path: 'src/a.ts',
+            criterion: 'data-loss',
+            rule: null,
+            head: 'a'.repeat(40),
+            startLine: 10,
+            endLine: 10,
+          },
+          code: 'let total = 0;',
+        },
+      ],
+      maxLines: 5,
+    }),
+  ).toStrictEqual({ kept: [], dismissed: [{ finding, answeredID: '1111111111111111' }] });
+});
