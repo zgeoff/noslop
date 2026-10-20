@@ -3,13 +3,14 @@
 A fixes-only run lets a fix that lands after the last review round pass the check without a new
 review round. It starts from the head of the newest run with no failed call that the summary marker
 keeps, and the branch must hold that head or a commit that a rebase made of it. It runs no lens over
-the diff and raises no finding. For each finding whose latest disposition is `fixed` with a commit
-among the new commits, it makes one small call. That call reads the finding, the code around the
-line it anchored to at that head, and the diff since that head of the finding's file and of each
-file the fix commit changes, and answers whether the diff fixes the finding, with a one-line reason.
-A fix such as a new test in another file therefore gets judged on that test. A fix whose code or
-diff passes the config's file limit gets no call. A fix commit that changes no file of the pull
-request's diff gets no call either, and the run judges it not fixed, by the same rule the
+the diff, and it raises a finding only on what a merge commit wrote, under
+[the resolution check](#the-resolution-check). For each finding whose latest disposition is `fixed`
+with a commit among the new commits, it makes one small call. That call reads the finding, the code
+around the line it anchored to at that head, and the diff since that head of the finding's file and
+of each file the fix commit changes, and answers whether the diff fixes the finding, with a one-line
+reason. A fix such as a new test in another file therefore gets judged on that test. A fix whose
+code or diff passes the config's file limit gets no call. A fix commit that changes no file of the
+pull request's diff gets no call either, and the run judges it not fixed, by the same rule the
 [check](./github-app.md#re-review-and-fix-confirmation) applies.
 
 A `fixed` reply posted after an earlier fixes-only run passed its commit gets a call too, so the
@@ -24,8 +25,8 @@ run reporting the finding again, so the check names it as still found, and the s
 reason. The summary marker keeps the findings the run judged fixed with its range, and that range
 confirms no other fix, so a fix the run did not ask about stays unconfirmed, a `fixed` reply posted
 after the run included. A static finding takes a full review, so the run judges its fix not fixed.
-The run writes the summary at the new head, keeps the count of reviews, and posts no finding
-comment, so the check reads the current head.
+The run writes the summary at the new head and keeps the count of reviews, so the check reads the
+current head. It posts a finding comment only for a finding of a resolution check.
 
 ## After a rebase
 
@@ -48,3 +49,27 @@ A `fixed` answer that names a fix commit the rebase rewrote counts the branch co
 change, as the check counts it, and the run judges that commit. A `fixed` reply posted after an
 earlier fixes-only run gets no call when the head its diff would start from is off the branch, since
 the run cannot tell whether the fix came after that head.
+
+## The resolution check
+
+A merge commit among the new commits gets a resolution check in place of a review round. The run
+rebuilds the merge with `git merge-tree --write-tree` from its 2 parents. A merge whose tree equals
+the rebuilt tree is a clean merge and gets no check. Any other merge holds conflict resolutions or
+hand edits, and gets one call over the diff from the rebuilt tree to the merge's tree. That diff
+holds only what the merge itself wrote: in a file git could not merge, the deleted lines hold the
+conflict markers with each side's lines between them, and the added lines hold the resolution. The
+code either side brought in stays out of the call, which reads a worktree of the merge for context.
+
+The call carries the correctness and security lenses. It answers whether the resolution keeps the
+change each side made and adds no defect, gives a one-line reason, and reports each defect it finds
+as a finding on the resolution's lines. Assemble applies the finding rules to those findings, and a
+finding that matches one answered `not-a-defect` drops, as in a review. A resolution with a finding
+is not sound, whatever the call answers. A merge of more than 2 parents is not sound with no call,
+because `git merge-tree` rebuilds a merge of 2 parents only.
+
+The result lists each verdict in its resolution checks, and the summary shows each one with its
+reason. The summary marker keeps each merge whose resolution a run judged sound, with the ones the
+summary before it kept, so a reader that counts the commits since the last lens review can count
+such a merge as checked. A later verdict on the same merge replaces the earlier one. A merge whose
+call failed, or whose diff passes the config's call limit, stays unchecked, and the run lists its
+files as not reviewed.

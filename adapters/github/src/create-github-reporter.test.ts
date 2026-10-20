@@ -5320,3 +5320,91 @@ test('it refuses a result that names no pull request', () => {
     'the github reporter needs a pull request: run noslop review --pr <number>',
   );
 });
+
+test('it marks each merge whose resolution a fixes-only run judged sound as checked in the summary marker', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'c'.repeat(40),
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${'b'.repeat(40)}","base":"${'a'.repeat(40)}","reviews":2,"reported":[],"failedCalls":0,"checkedMerges":["${'d'.repeat(40)}"],"reviewIDs":["review-a","review-b"]} -->`,
+  });
+
+  const result = buildMockReviewResult({
+    reviewID: 'review-c',
+    pullRequest: { owner: 'example', repo: 'app', number: 5 },
+    base: 'b'.repeat(40),
+    head: 'c'.repeat(40),
+    lenses: [],
+    fixChecks: [],
+    resolutionChecks: [
+      { merge: 'e'.repeat(40), sound: true, reason: 'The merge keeps both timeouts.' },
+      { merge: 'f'.repeat(40), sound: false, reason: 'The merge drops the retry limit.' },
+    ],
+  });
+
+  await ctx.reporter.report(result, { logger: ctx.logger, options: {}, failedReporters: [] });
+
+  const summary = githubCollections.issueComments
+    .all()
+    .findLast((comment) => comment.body.includes('<!-- noslop:summary'));
+
+  expect(summary?.body).toInclude(`"checkedMerges":["${'d'.repeat(40)}","${'e'.repeat(40)}"]`);
+
+  expect(summary?.body).toInclude(
+    '✅ The resolution of merge `eeeeeee` holds: The merge keeps both timeouts.\n❌ The resolution of merge `fffffff` does not hold: The merge drops the retry limit.',
+  );
+
+  expect(summary?.body).toInclude('"reviews":2,');
+});
+
+test('it drops a merge from the checked merges when a later run judges its resolution not sound', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'c'.repeat(40),
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${'b'.repeat(40)}","base":"${'a'.repeat(40)}","reviews":2,"reported":[],"failedCalls":0,"checkedMerges":["${'e'.repeat(40)}"],"reviewIDs":["review-a","review-b"]} -->`,
+  });
+
+  const result = buildMockReviewResult({
+    reviewID: 'review-c',
+    pullRequest: { owner: 'example', repo: 'app', number: 5 },
+    base: 'a'.repeat(40),
+    head: 'c'.repeat(40),
+    lenses: [],
+    fixChecks: [],
+    resolutionChecks: [
+      { merge: 'e'.repeat(40), sound: false, reason: 'The merge drops the retry limit.' },
+    ],
+  });
+
+  await ctx.reporter.report(result, { logger: ctx.logger, options: {}, failedReporters: [] });
+
+  const summary = githubCollections.issueComments
+    .all()
+    .findLast((comment) => comment.body.includes('<!-- noslop:summary'));
+
+  expect(summary?.body).toInclude('<!-- noslop:summary');
+  expect(summary?.body).not.toInclude('checkedMerges');
+});

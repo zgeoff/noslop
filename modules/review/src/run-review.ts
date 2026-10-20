@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { Logger } from '@logtape/logtape';
 import type {
@@ -9,7 +8,6 @@ import type {
   Depth,
   DismissedFinding,
   EarlierFinding,
-  Finding,
   LensID,
   LensNotReviewedFile,
   NotReviewedFile,
@@ -20,14 +18,17 @@ import type {
   Rule,
 } from '@noslop/contract';
 import { REVIEW_OUTPUT_VERSION } from '@noslop/contract';
-import type { AssembledFindings, DismissedFindingsSplit, RawFinding } from '@noslop/findings';
-import { buildFindings, splitDismissedFindings } from '@noslop/findings';
+import type { AssembledFindings, RawFinding } from '@noslop/findings';
+import { buildFindings } from '@noslop/findings';
 import { renderHunks } from '@noslop/lenses';
 import type { PlannedCall, Route } from '@noslop/routing';
 import type { Runner } from '@noslop/runner';
 import type { StaticStageResult } from '@noslop/static-stage';
 import { readChange } from '@noslop/static-stage';
+import { createReviewWorktree } from './create-review-worktree';
 import { planReview } from './plan-review';
+import { readDismissedFindings } from './read-dismissed-findings';
+import { removeReviewWorktree } from './remove-review-worktree';
 import type { DesignPass } from './run-design-pass';
 import { runDesignPass } from './run-design-pass';
 import type { MergePass } from './run-merge-pass';
@@ -117,10 +118,14 @@ export async function runReview(options: RunReviewOptions): Promise<ReviewRun> {
   const records = batches.flatMap((batch) => batch.records);
   const passRecords = [merged.record, design?.record ?? null].filter((record) => record !== null);
 
-  const answered = await readDismissedFindings(ctx, [
-    ...merged.findings,
-    ...(design?.findings ?? []),
-  ]);
+  const answered = await readDismissedFindings({
+    runner: options.runner,
+    repoDir: options.repoDir,
+    head: change.head,
+    findings: [...merged.findings, ...(design?.findings ?? [])],
+    dismissed: options.dismissedFindings ?? [],
+    maxLines: options.config.thresholds.dismissedMaxLines,
+  });
 
   return {
     result: {
@@ -183,76 +188,6 @@ export async function runReview(options: RunReviewOptions): Promise<ReviewRun> {
   };
 }
 
-// splits off each finding that matches one answered `not-a-defect`, comparing the code each anchor
-// holds at its own head; a review with no such answer reads no code
-async function readDismissedFindings(
-  ctx: PassContext,
-  findings: readonly Finding[],
-): Promise<DismissedFindingsSplit> {
-  const answered = ctx.options.dismissedFindings ?? [];
-
-  if (answered.length === 0) {
-    return { kept: [...findings], dismissed: [] };
-  }
-
-  const files = new Map<string, Promise<string[] | null>>();
-
-  const readLines = (commit: string, path: string): Promise<string[] | null> => {
-    const key = `${commit}:${path}`;
-    const read = files.get(key) ?? readFileLines(ctx, commit, path);
-
-    files.set(key, read);
-
-    return read;
-  };
-
-  const quoted = await Promise.all(
-    findings.map(async (finding) => {
-      const lines = await readLines(ctx.change.head, finding.anchor.path);
-
-      return {
-        finding,
-        code: toAnchorCode(lines, finding.anchor.startLine, finding.anchor.endLine),
-      };
-    }),
-  );
-
-  const dismissed = await Promise.all(
-    answered.map(async (finding) => {
-      if (finding.head === null || finding.startLine === null || finding.endLine === null) {
-        return { finding, code: null };
-      }
-
-      const lines = await readLines(finding.head, finding.path);
-
-      return { finding, code: toAnchorCode(lines, finding.startLine, finding.endLine) };
-    }),
-  );
-
-  return splitDismissedFindings({
-    findings: quoted,
-    dismissed,
-    maxLines: ctx.options.config.thresholds.dismissedMaxLines,
-  });
-}
-
-// the lines of a file at a commit; null when git cannot show it, such as a commit a force push dropped
-async function readFileLines(
-  ctx: PassContext,
-  commit: string,
-  path: string,
-): Promise<string[] | null> {
-  const result = await ctx.options.runner.run(['git', 'show', `${commit}:${path}`], {
-    cwd: ctx.options.repoDir,
-  });
-
-  return result.exitCode === 0 ? result.stdout.split('\n') : null;
-}
-
-function toAnchorCode(lines: string[] | null, startLine: number, endLine: number): string | null {
-  return lines === null ? null : lines.slice(startLine - 1, endLine).join('\n');
-}
-
 interface PassContext {
   options: RunReviewOptions;
   change: Change;
@@ -299,14 +234,23 @@ async function runPasses(ctx: PassContext): Promise<Passes> {
     return runFindingPasses(ctx, [], false);
   }
 
-  await createWorktree(ctx);
+  const worktree = {
+    runner: ctx.options.runner,
+    repoDir: ctx.options.repoDir,
+    worktree: ctx.worktree,
+    head: ctx.change.head,
+    config: ctx.options.config,
+    logger: ctx.options.logger,
+  };
+
+  await createReviewWorktree(worktree);
 
   try {
     const batches = ctx.route.calls.length === 0 ? [] : [await runBatch(ctx, ctx.route.calls)];
 
     return await runFindingPasses(ctx, batches, isDesignDue);
   } finally {
-    await removeWorktree(ctx);
+    await removeReviewWorktree(worktree);
   }
 }
 
@@ -373,58 +317,6 @@ async function readPullRequestFiles(ctx: PassContext): Promise<readonly ChangedF
   });
 
   return whole.files;
-}
-
-// a worktree that git cannot remove leaves an entry in the repo's worktree list, so the review
-// logs it for the user to prune
-async function removeWorktree(ctx: PassContext): Promise<void> {
-  const result = await ctx.options.runner.run(
-    ['git', 'worktree', 'remove', '--force', ctx.worktree],
-    { cwd: ctx.options.repoDir },
-  );
-
-  if (result.exitCode !== 0) {
-    ctx.options.logger.warn('git could not remove the worktree {worktree}: {stderr}', {
-      worktree: ctx.worktree,
-      stderr: result.stderr.trim(),
-    });
-  }
-}
-
-async function createWorktree(ctx: PassContext): Promise<void> {
-  const result = await ctx.options.runner.run(
-    ['git', 'worktree', 'add', '--detach', ctx.worktree, ctx.change.head],
-    { cwd: ctx.options.repoDir },
-  );
-
-  if (result.exitCode !== 0) {
-    throw new Error(`git worktree add failed: ${result.stderr.trim()}`);
-  }
-
-  await removeSecretFiles(ctx);
-}
-
-// the files the `secrets` risk class names leave the worktree before any model reads it, so a
-// reviewer never sees a committed secret; the diff still shows the change's own lines
-async function removeSecretFiles(ctx: PassContext): Promise<void> {
-  const globs = (ctx.options.config.riskClasses['secrets']?.paths ?? []).map(
-    (glob) => new Bun.Glob(glob),
-  );
-
-  if (globs.length === 0) {
-    return;
-  }
-
-  const listed = await ctx.options.runner.run(['git', 'ls-files', '-z'], { cwd: ctx.worktree });
-
-  const secrets = listed.stdout
-    .split('\0')
-    .filter((path) => path !== '' && globs.some((glob) => glob.match(path)));
-
-  // a submodule lists as one path and checks out as a folder, so the removal is recursive
-  await Promise.all(
-    secrets.map((path) => rm(join(ctx.worktree, path), { recursive: true, force: true })),
-  );
 }
 
 function runBatch(ctx: PassContext, calls: readonly PlannedCall[]): Promise<CallBatch> {

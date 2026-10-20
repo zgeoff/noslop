@@ -16,7 +16,7 @@ export interface TestCommit {
   parent?: number;
 
   // the index of an earlier commit this one merges in as its second parent; the files apply on top of
-  // the merged tree
+  // the merged tree, and they resolve a conflict the merge left
   merged?: number;
 }
 
@@ -46,8 +46,19 @@ export async function createTestRepo(
       await $`git -C ${path} checkout -q --detach ${getCommit(shas, commit.parent)}`.quiet();
     }
 
+    // a merge with a conflict stops with the conflict markers in place, and the entry's files resolve
+    // it; a merge that git could not start leaves no MERGE_HEAD
     if (commit.merged !== undefined) {
-      await $`git -C ${path} -c user.email=test@example.com -c user.name=test merge -q --no-ff --no-commit ${getCommit(shas, commit.merged)}`.quiet();
+      const merge =
+        await $`git -C ${path} -c user.email=test@example.com -c user.name=test merge -q --no-ff --no-commit ${getCommit(shas, commit.merged)}`
+          .nothrow()
+          .quiet();
+
+      const pending = await $`git -C ${path} rev-parse -q --verify MERGE_HEAD`.nothrow().quiet();
+
+      if (pending.exitCode !== 0) {
+        throw new Error(`git merge failed: ${merge.stderr.toString().trim()}`);
+      }
     }
 
     for (const [file, content] of Object.entries(commit.files)) {

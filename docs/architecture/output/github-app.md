@@ -235,8 +235,8 @@ finding in code the change wrote, goes on the pull request at every review.
 
 ### The fixes-only run
 
-A fixes-only run checks only the `fixed` answers after the last review round and raises no finding,
-under [the fixes-only run](./fixes-only-run.md).
+A fixes-only run checks the `fixed` answers and the merge resolutions after the last review round,
+and raises a finding only on a merge resolution, under [the fixes-only run](./fixes-only-run.md).
 
 ## The check run
 

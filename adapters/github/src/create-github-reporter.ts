@@ -158,9 +158,12 @@ async function runReviewPost(
     after.threads.map((thread) => [thread.marker.id, toCommentURL(pr, thread)]),
   );
 
+  const checkedMerges = buildCheckedMerges(before.summary?.marker ?? null, result);
+
   const marker = {
     head: result.head,
     ...buildRangeFields(own, before.summary?.marker ?? null),
+    ...(checkedMerges.length === 0 ? {} : { checkedMerges }),
     reviews: plan.reviews,
     reviewIDs: plan.reviewIDs,
     reported: [...own.reported],
@@ -180,6 +183,19 @@ async function runReviewPost(
   );
 
   await runCheck(connection, pr, result.head, ctx);
+}
+
+// the merges the summary counts as checked: the ones the summary before held, then each merge whose
+// resolution this run judged sound, each once; this run's verdict on a merge replaces an earlier one
+function buildCheckedMerges(previous: SummaryMarker | null, result: ReviewResult): string[] {
+  const checks = result.resolutionChecks ?? [];
+
+  const judged = new Set(checks.map((check) => check.merge));
+
+  const sound = checks.filter((check) => check.sound).map((check) => check.merge);
+  const kept = (previous?.checkedMerges ?? []).filter((merge) => !judged.has(merge));
+
+  return [...new Set([...kept, ...sound])];
 }
 
 // the range this review read; a fixes-only run reported no finding, so a fix it judged not fixed
