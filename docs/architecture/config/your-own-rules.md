@@ -28,8 +28,11 @@ rule for Nix files costs a TypeScript change nothing.
 A path that starts with `repo:` resolves against the root of the reviewed repo, not the config file
 that names it. A shared config in its own repo names the synced skills this way. Each repo syncs
 only the skills and references it needs, so a `repo:` file or a reference that the repo lacks holds
-no rule, and the load goes on. Any other rules file that does not exist fails the load. A `repo:`
-path and a reference both stay inside the folder they resolve against.
+no rule, and the load goes on. The load names each such file once, so a review warns about it once.
+A sync that leaves a reference out of a repo drops the line of its rules file that links it, so the
+load leaves out a missing reference whose path the text of its rules file does not hold. Any other
+rules file that does not exist fails the load. A `repo:` path and a reference both stay inside the
+folder they resolve against.
 
 ```json
 {
