@@ -75,6 +75,21 @@ export const fixCheckSchema = z.strictObject({
 
 export type FixCheck = z.infer<typeof fixCheckSchema>;
 
+// a fixes-only run's word on one merge commit whose tree differs from the tree `git merge-tree` builds
+// from its parents: whether what the merge itself wrote, its conflict resolutions and hand edits,
+// keeps the change of each side and adds no defect, and the one-line reason
+export const resolutionCheckSchema = z.strictObject({
+  merge: commitSchema,
+  sound: z.boolean(),
+  reason: z.string().min(1),
+
+  // the findings the check raised on the resolution, so a reader tells a verdict its findings carry
+  // from one that only the verdict reports
+  findingIDs: z.array(z.string().regex(/^[0-9a-f]{16}$/u)),
+});
+
+export type ResolutionCheck = z.infer<typeof resolutionCheckSchema>;
+
 export const reviewResultSchema = z.strictObject({
   version: z.literal(REVIEW_OUTPUT_VERSION),
   reviewID: z.string().min(1),
@@ -98,6 +113,9 @@ export const reviewResultSchema = z.strictObject({
   // set only on a fixes-only run, which runs no lens and judges only the fixes it lists, so a reporter
   // posts no finding and confirms no other fix through the run's silence
   fixChecks: z.array(fixCheckSchema).optional(),
+
+  // set only on a fixes-only run that judged a merge in its range; a clean merge gets no check
+  resolutionChecks: z.array(resolutionCheckSchema).optional(),
   startedAt: z.iso.datetime(),
   endedAt: z.iso.datetime(),
 });
