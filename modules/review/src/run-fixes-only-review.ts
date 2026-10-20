@@ -131,7 +131,7 @@ export async function runFixesOnlyReview(input: FixesOnlyReviewInput): Promise<R
     ),
   );
 
-  const tooLarge = new Set(outcomes.flatMap((outcome) => outcome.tooLarge ?? []));
+  const tooLarge = new Set(outcomes.flatMap((outcome) => outcome.tooLargePath ?? []));
 
   const merges =
     input.resolution === undefined
@@ -351,9 +351,7 @@ interface FixCheckOutcome {
   check?: FixCheck;
   record?: CallRecord;
   failedCall?: FailedCall;
-
-  // the finding's file, when its code, patch or diff passes the file limit
-  tooLarge?: string;
+  tooLargePath?: string;
 }
 
 const fixCheckOutputSchema = z.strictObject({ fixed: z.boolean(), reason: z.string().min(1) });
@@ -467,7 +465,7 @@ async function runFixCheck(
       },
     );
 
-    return { tooLarge: fix.path };
+    return { tooLargePath: fix.path };
   }
 
   const lens: CallLens = fix.lens;
