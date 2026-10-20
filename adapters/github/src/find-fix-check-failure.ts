@@ -1,9 +1,6 @@
 import type { ReviewResult } from '@noslop/contract';
 import type { FixConfirmation } from './format-summary-comment';
 
-// the fixes-only run's reason for a fix it left unconfirmed: the reason of its not-fixed verdict, or,
-// for a fix it gave no verdict because its file passes the file limit, that no call read it whole;
-// null for a confirmed fix, a run that is no fixes-only run, and a fix with neither
 export function findFixCheckFailure(
   result: ReviewResult,
   item: FixConfirmation,
