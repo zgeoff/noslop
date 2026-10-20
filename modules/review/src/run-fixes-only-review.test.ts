@@ -991,6 +991,132 @@ test('it judges 2 static findings with one title by their places when a fix remo
   ]);
 });
 
+test('it rejects the fix of a static finding whose fix rewrites the anchored line and leaves the test unasserted', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const split = (line: string) => line;\n' } },
+    {
+      message: 'Test the scanner',
+      files: {
+        'src/scan.test.ts':
+          "import { test } from 'bun:test';\nimport { split } from './scan';\n\ntest('it splits on the separator', () => {\n  split('a:b');\n});\n\ntest('it splits on the separator', async () => {\n  split('c:d');\n});\n",
+      },
+    },
+    {
+      message: 'Make the first split test async',
+      files: {
+        'src/scan.test.ts':
+          "import { test } from 'bun:test';\nimport { split } from './scan';\n\ntest('it splits on the separator', async () => {\n  split('a:b');\n});\n\ntest('it splits on the separator', async () => {\n  split('c:d');\n});\n",
+      },
+    },
+  ]);
+
+  const stub = buildStubAdapter({});
+
+  const result = await runFixesOnlyReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/app',
+    pullRequest: { owner: 'example', repo: 'app', number: 9 },
+    base: repo.commits[1] ?? '',
+    head: repo.commits[2] ?? '',
+    mergeBase: repo.commits[0] ?? '',
+    lensHead: null,
+    title: 'Test the scanner',
+    configHash: 'hash',
+    fixes: [
+      {
+        // the ID the static stage gives the first unasserted test
+        id: 'f3a135d185244d40',
+        title: 'Test "it splits on the separator" asserts nothing',
+        lens: 'static',
+        path: 'src/scan.test.ts',
+        line: 4,
+        comment: 'The test body holds no assertion.',
+        commit: (repo.commits[2] ?? '').slice(0, 7),
+        postedHead: repo.commits[1] ?? '',
+      },
+    ],
+    maxFileChars: 10_000,
+    adapter: stub.adapter,
+    tempDir: ctx.directory,
+    logger: ctx.logger,
+    staticCheck: { config: BUILT_IN_DEFAULTS, body: '', linkedIssue: null, cacheDir: null },
+  });
+
+  expect(result.fixChecks).toStrictEqual([
+    {
+      findingID: 'f3a135d185244d40',
+      fixed: false,
+      reason: 'the static check still reports it at the head',
+    },
+  ]);
+});
+
+test('it confirms the fix of a static finding whose fix deletes the test while another finding with its title remains', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const split = (line: string) => line;\n' } },
+    {
+      message: 'Test the scanner',
+      files: {
+        'src/scan.test.ts':
+          "import { test } from 'bun:test';\nimport { split } from './scan';\n\ntest('it splits on the separator', () => {\n  split('a:b');\n});\n\ntest('it splits on the separator', async () => {\n  split('c:d');\n});\n",
+      },
+    },
+    {
+      message: 'Drop the first split test',
+      files: {
+        'src/scan.test.ts':
+          "import { test } from 'bun:test';\nimport { split } from './scan';\n\ntest('it splits on the separator', async () => {\n  split('c:d');\n});\n",
+      },
+    },
+  ]);
+
+  const stub = buildStubAdapter({});
+
+  const result = await runFixesOnlyReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/app',
+    pullRequest: { owner: 'example', repo: 'app', number: 9 },
+    base: repo.commits[1] ?? '',
+    head: repo.commits[2] ?? '',
+    mergeBase: repo.commits[0] ?? '',
+    lensHead: null,
+    title: 'Test the scanner',
+    configHash: 'hash',
+    fixes: [
+      {
+        // the ID the static stage gives the first unasserted test, which the remaining test takes
+        id: 'f3a135d185244d40',
+        title: 'Test "it splits on the separator" asserts nothing',
+        lens: 'static',
+        path: 'src/scan.test.ts',
+        line: 4,
+        comment: 'The test body holds no assertion.',
+        commit: (repo.commits[2] ?? '').slice(0, 7),
+        postedHead: repo.commits[1] ?? '',
+      },
+    ],
+    maxFileChars: 10_000,
+    adapter: stub.adapter,
+    tempDir: ctx.directory,
+    logger: ctx.logger,
+    staticCheck: { config: BUILT_IN_DEFAULTS, body: '', linkedIssue: null, cacheDir: null },
+  });
+
+  expect(result.fixChecks).toStrictEqual([
+    {
+      findingID: 'f3a135d185244d40',
+      fixed: true,
+      reason: 'the static check no longer reports it at the head',
+    },
+  ]);
+});
+
 test('it refuses a run with no fixed answer to check over a commit that no lens read', async () => {
   const ctx = await setupTest();
 
