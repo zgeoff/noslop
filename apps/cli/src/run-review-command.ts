@@ -13,8 +13,6 @@ import {
   collectDismissedFindings,
   readFixCommits,
   readLinkedIssue,
-  readPullRequestBase,
-  readPullRequestState,
   readThreadDispositions,
 } from '@noslop/github';
 import type { AnsweredFix } from '@noslop/review';
@@ -26,6 +24,7 @@ import { formatReviewSummary } from './format-review-summary';
 import { getStorePath } from './get-store-path';
 import { loadRepoConfig } from './load-repo-config';
 import { readRebasedHead } from './read-rebased-head';
+import { readTrustedPullRequest } from './read-trusted-pull-request';
 import { runReporters } from './run-reporters';
 
 export interface ReviewValues {
@@ -369,19 +368,11 @@ async function resolvePullRequestChange(
 
   const pullRequest = { owner, repo: name, number };
 
-  // the base branch's config names the App whose comments hold state, so it loads before the comments
-  // are read; a config the pull request edits cannot name its own App
-  const untrusted = await ctx.loadGitHubConnection();
-  const configCommit = await readPullRequestBase(untrusted, pullRequest);
+  const trusted = await readTrustedPullRequest(ctx, repoDir, pullRequest);
 
-  await ctx.runner.run(['git', 'fetch', '--quiet', 'origin', configCommit], { cwd: repoDir });
-
-  const config = await loadRepoConfig(ctx, repoDir, { commit: configCommit });
-
-  ctx.setGitHubAppSlug(config.config.github.app);
-
-  const connection = await ctx.loadGitHubConnection();
-  const state = await readPullRequestState(connection, pullRequest);
+  const config = trusted.config;
+  const connection = trusted.connection;
+  const state = trusted.state;
 
   // only a review with no failed call covered its head, so only such a head bases a delta
   const summary = state.summary?.marker;
