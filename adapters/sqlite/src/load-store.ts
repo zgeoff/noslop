@@ -238,12 +238,25 @@ const STORE_MIGRATIONS: Record<string, Migration> = {
   },
 };
 
+export interface LoadStoreOptions {
+  // the noslop version that opens the store, which a schema error names
+  version?: string;
+}
+
 // opens the store at the path, creating the file and its folder when they do not exist, and applies
-// each migration it lacks; the caller destroys the store when it is done
-export async function loadStore(path: string): Promise<Store> {
+// each migration it lacks; it throws before it changes a store whose schema is newer than this
+// noslop, which can neither read nor write it; the caller destroys the store when it is done
+export async function loadStore(path: string, options: LoadStoreOptions = {}): Promise<Store> {
   await mkdir(dirname(path), { recursive: true });
 
   const database = new Database(path, { create: true, strict: true });
+
+  try {
+    requireKnownSchema(database, options.version);
+  } catch (error) {
+    database.close();
+    throw error;
+  }
 
   database.run('PRAGMA journal_mode = WAL');
   database.run('PRAGMA foreign_keys = ON');
@@ -268,6 +281,36 @@ export async function loadStore(path: string): Promise<Store> {
   }
 
   return store;
+}
+
+// migration names sort in the order they apply, so the greatest name is the newest migration
+const NEWEST_MIGRATION = Object.keys(STORE_MIGRATIONS).toSorted().at(-1) ?? '';
+
+// a store that no noslop has opened holds no migration table, so any noslop may open it
+function requireKnownSchema(database: Database, version: string | undefined): void {
+  const table = database
+    .query<{ name: string }, []>(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'kysely_migration'",
+    )
+    .get();
+
+  if (table === null) {
+    return;
+  }
+
+  const newest = database
+    .query<{ name: string }, []>('SELECT name FROM kysely_migration ORDER BY name DESC LIMIT 1')
+    .get();
+
+  if (newest === null || newest.name <= NEWEST_MIGRATION) {
+    return;
+  }
+
+  const noslop = version === undefined ? 'this noslop' : `this noslop (${version})`;
+
+  throw new Error(
+    `the store schema ${newest.name} is newer than ${noslop}, whose newest migration is ${NEWEST_MIGRATION}; update the pin`,
+  );
 }
 
 // Kysely's SQLite dialect drives a database through the better-sqlite3 interface, which bun:sqlite
