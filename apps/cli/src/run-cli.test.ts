@@ -2770,14 +2770,13 @@ test('it posts the finding of a resolution that drops a change under --fixes-onl
     .all()
     .findLast((comment) => comment.body.includes('<!-- noslop:summary'));
 
-  expect(githubCollections.reviewComments.all()).toMatchObject([
-    {
-      path: 'src/options.ts',
-      line: 1,
-      body: expect.stringContaining('Keep the 5000 ms timeout from the base branch'),
-    },
+  const comments = githubCollections.reviewComments.all();
+
+  expect(comments.map((comment) => [comment.path, comment.line])).toStrictEqual([
+    ['src/options.ts', 1],
   ]);
 
+  expect(comments[0]?.body).toInclude('Keep the 5000 ms timeout from the base branch');
   expect(summary?.body).toInclude('"reviews":2,');
   expect(summary?.body).not.toInclude('checkedMerges');
   expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('failure');
