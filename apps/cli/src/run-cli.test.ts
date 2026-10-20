@@ -434,6 +434,28 @@ test('it exits 1 and names the problem when a command fails', async () => {
   expect(ctx.stderr.join('')).toStartWith('noslop: name a store query: yield-by-lens');
 });
 
+test.each([
+  [['findings-by-pr', '--pr', '7a'], 'noslop: --pr takes a pull request number, not 7a'],
+  [
+    ['findings-by-pr', '--since', 'last week'],
+    'noslop: --since takes an ISO time such as 2026-10-01T00:00:00Z, not last week',
+  ],
+  [
+    ['open-findings', '--repo', 'example/app'],
+    'noslop: --repo, --pr and --since apply only to findings-by-pr',
+  ],
+])('it exits 1 on the store query %p', async (args, message) => {
+  const ctx = await setupTest();
+
+  const code = await runCLI(
+    ['store', 'query', ...args],
+    ctx.buildContext(ctx.directory, buildStubAdapter({}).adapter),
+  );
+
+  expect(code).toBe(1);
+  expect(ctx.stderr.join('')).toStartWith(message);
+});
+
 test('it reviews a pull request from GitHub and posts its findings and the check', async () => {
   const ctx = await setupTest();
 

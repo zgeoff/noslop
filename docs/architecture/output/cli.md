@@ -44,8 +44,10 @@ they reach, so the published types import nothing but zod.
 list, `--adapter codex|claude`, which replaces the config's adapter, and `--push`, which reviews a
 direct push to the default branch. `eval` takes `--limit`, `--baseline`, `--noise-floor`, `--out`,
 `--adapter`, `--resume`, `--static` and `--depth`, under [the eval harness](../measurement/eval.md).
-Every command takes `--json`, and `--verbose` lowers the log level to debug.
-`noslop <command> --help` lists each command's flags.
+`store query findings-by-pr` takes `--repo`, `--pr` and `--since`, under
+[findings by pull request](../measurement/store.md#findings-by-pull-request). Every command takes
+`--json`, and `--verbose` lowers the log level to debug. `noslop <command> --help` lists each
+command's flags.
 
 Logs go to stderr, so stdout holds only a command's output. A command exits 0 when it completed. It
 exits 1 when it could not run, such as on a bad flag, a git failure or an adapter the CLI does not

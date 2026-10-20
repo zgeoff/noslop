@@ -145,10 +145,27 @@ export async function runCLI(argv: readonly string[], ctx: CLIContext): Promise<
     description: 'Run a named query on the findings store',
     args: {
       name: { type: 'positional', description: `The query: ${STORE_QUERY_NAMES.join(', ')}` },
+      repo: { type: 'string', description: 'findings-by-pr: only this repo, as owner/name' },
+      pr: { type: 'string', description: 'findings-by-pr: only this pull request number' },
+      since: {
+        type: 'string',
+        description: 'findings-by-pr: only the reviews that ended at or after this ISO time',
+      },
       json: JSON_ARG,
     },
     run: (command) =>
-      run(() => runStoreQueryCommand(command.values.name, command.values.json === true, ctx)),
+      run(() =>
+        runStoreQueryCommand(
+          {
+            name: command.values.name,
+            json: command.values.json === true,
+            repo: command.values.repo,
+            pr: command.values.pr,
+            since: command.values.since,
+          },
+          ctx,
+        ),
+      ),
   });
 
   const escape = define({

@@ -79,6 +79,42 @@ fix the next review disproves never counts as yield.
   caused each escape. An escape on a change that no review saw counts under no depth.
 - `dropped-findings` lists each dropped finding with its review's repo, pull request and head, the
   reason, and the rules file and quote, the newest review first.
+- `findings-by-pr` lists each finding of each pull request once, with its latest disposition, under
+  [findings by pull request](#findings-by-pull-request).
 
 The query command prints the rows as text, or as JSON under `--json`. A query's row shape changes
 only with a CLI version, so a reader that pins the version reads one shape.
+
+## Findings by pull request
+
+`noslop store query findings-by-pr [--repo <owner/name>] [--pr <number>] [--since <iso>] --json`
+gives a check-in or an audit every finding of a pull request with its latest reply, so the reader
+needs no knowledge of the store's tables. The query reads only reviews of a pull request, so a local
+branch's review adds no row. Each flag narrows the reviews the query reads: `--repo` to one repo,
+`--pr` to one pull request number, and `--since` to the reviews that ended at or after that time.
+The CLI turns a `--since` time into UTC before the query compares it with the store's times, and it
+refuses these flags on every other query.
+
+The query returns one row per finding of a pull request. When several reviews of the pull request
+report one finding, the row takes the head, location, severity and title from the latest of them.
+The disposition fields hold the latest reply in the finding's thread as given, so a `fixed` finding
+that a later review reports again stays `fixed` here, where `open-findings` counts it open. The rows
+come sorted by repo, pull request, severity, path and line. Under `--json`, the command prints an
+array of rows of this shape:
+
+| Field              | Type             | Holds                                                         |
+| ------------------ | ---------------- | ------------------------------------------------------------- |
+| `repo`             | string           | The repo as owner/name                                        |
+| `pullRequest`      | number           | The pull request number                                       |
+| `head`             | string           | The head commit of the latest review that reported it         |
+| `id`               | string           | The finding id, 16 hex characters                             |
+| `path`             | string           | The file the finding anchors to                               |
+| `startLine`        | number           | The first line of the anchor                                  |
+| `severity`         | string           | The severity, `P1` to `P3`                                    |
+| `lens`             | string           | The lens that reported it                                     |
+| `rule`             | string or `null` | The rules file a taste finding quoted; `null` for other kinds |
+| `title`            | string           | The finding's title                                           |
+| `dispositionKind`  | string or `null` | The kind of the latest disposition; `null` with no reply      |
+| `dispositionValue` | string or `null` | The latest disposition's commit, issue or reason              |
+
+The store keeps no id of a finding's comment, so a row holds no link to it.

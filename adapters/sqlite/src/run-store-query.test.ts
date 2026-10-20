@@ -624,3 +624,160 @@ test('#dropped-findings lists each dropped finding with its rule and quote, newe
     },
   ]);
 });
+
+test('#findings-by-pr lists each finding of a pull request once, with its latest disposition', async () => {
+  const ctx = await setupTest();
+
+  await writeReview(
+    ctx.store,
+    buildMockReviewResult({
+      reviewID: 'review-1',
+      pullRequest: { owner: 'example', repo: 'app', number: 7 },
+      head: 'b'.repeat(40),
+      endedAt: '2026-10-17T10:01:00.000Z',
+      findings: [buildMockFinding({ id: '1111111111111111', title: 'Sum every item' })],
+    }),
+  );
+
+  await writeReview(
+    ctx.store,
+    buildMockReviewResult({
+      reviewID: 'review-2',
+      pullRequest: { owner: 'example', repo: 'app', number: 7 },
+      head: 'c'.repeat(40),
+      endedAt: '2026-10-17T12:01:00.000Z',
+      findings: [
+        buildMockFinding({
+          id: '1111111111111111',
+          title: 'Return the total of every item',
+          anchor: { path: 'src/a.ts', startLine: 3, endLine: 3 },
+        }),
+        buildMockFinding({
+          id: '2222222222222222',
+          lens: 'naming-shape-and-comments',
+          title: 'Start the name with a verb',
+          anchor: { path: 'src/b.ts', startLine: 5, endLine: 5 },
+          criterion: 'taste-rule',
+          rule: 'RULES.md',
+        }),
+      ],
+    }),
+  );
+
+  await writeReview(
+    ctx.store,
+    buildMockReviewResult({
+      reviewID: 'review-branch',
+      head: 'd'.repeat(40),
+      endedAt: '2026-10-17T12:01:00.000Z',
+      findings: [buildMockFinding({ id: '3333333333333333' })],
+    }),
+  );
+
+  await writeDispositions(ctx.store, 'example/app', [
+    {
+      findingID: '1111111111111111',
+      kind: 'not-a-defect',
+      value: 'the caller skips the header row',
+      author: 'dev',
+      authorIsOwner: false,
+      source: 'github',
+      at: '2026-10-17T11:00:00.000Z',
+    },
+    {
+      findingID: '1111111111111111',
+      kind: 'fixed',
+      value: '1a2b3c4',
+      author: 'dev',
+      authorIsOwner: false,
+      source: 'github',
+      at: '2026-10-17T12:30:00.000Z',
+    },
+  ]);
+
+  const rows = await runStoreQuery(ctx.store, 'findings-by-pr');
+
+  expect(rows).toStrictEqual([
+    {
+      repo: 'example/app',
+      pullRequest: 7,
+      head: 'c'.repeat(40),
+      id: '1111111111111111',
+      path: 'src/a.ts',
+      startLine: 3,
+      severity: 'P2',
+      lens: 'correctness',
+      rule: null,
+      title: 'Return the total of every item',
+      dispositionKind: 'fixed',
+      dispositionValue: '1a2b3c4',
+    },
+    {
+      repo: 'example/app',
+      pullRequest: 7,
+      head: 'c'.repeat(40),
+      id: '2222222222222222',
+      path: 'src/b.ts',
+      startLine: 5,
+      severity: 'P2',
+      lens: 'naming-shape-and-comments',
+      rule: 'RULES.md',
+      title: 'Start the name with a verb',
+      dispositionKind: null,
+      dispositionValue: null,
+    },
+  ]);
+});
+
+test('#findings-by-pr keeps only the findings of the repo, pull request and time the filters name', async () => {
+  const ctx = await setupTest();
+
+  await writeReview(
+    ctx.store,
+    buildMockReviewResult({
+      reviewID: 'review-early',
+      pullRequest: { owner: 'example', repo: 'app', number: 7 },
+      endedAt: '2026-10-17T10:01:00.000Z',
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+  );
+
+  await writeReview(
+    ctx.store,
+    buildMockReviewResult({
+      reviewID: 'review-late',
+      pullRequest: { owner: 'example', repo: 'app', number: 7 },
+      endedAt: '2026-10-17T12:01:00.000Z',
+      findings: [buildMockFinding({ id: '2222222222222222' })],
+    }),
+  );
+
+  await writeReview(
+    ctx.store,
+    buildMockReviewResult({
+      reviewID: 'review-other-pr',
+      pullRequest: { owner: 'example', repo: 'app', number: 8 },
+      endedAt: '2026-10-17T12:01:00.000Z',
+      findings: [buildMockFinding({ id: '3333333333333333' })],
+    }),
+  );
+
+  await writeReview(
+    ctx.store,
+    buildMockReviewResult({
+      reviewID: 'review-other-repo',
+      repo: 'example/other',
+      pullRequest: { owner: 'example', repo: 'other', number: 7 },
+      endedAt: '2026-10-17T12:01:00.000Z',
+      findings: [buildMockFinding({ id: '4444444444444444' })],
+    }),
+  );
+
+  const rows = await runStoreQuery(ctx.store, 'findings-by-pr', {
+    repo: 'example/app',
+    pullRequest: 7,
+    since: '2026-10-17T12:00:00.000Z',
+  });
+
+  expect(rows.map((row) => row['id'])).toStrictEqual(['2222222222222222']);
+});
