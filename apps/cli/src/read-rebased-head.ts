@@ -16,7 +16,7 @@ export interface RebasedHeadInput {
 // the branch commit a rebase made of a reviewed head, from the reviewed commits past the base, with
 // any the base now holds left out, the branch commits past it, and the patch ids of both; the
 // choice itself is pickRebasedHead's
-export async function findRebasedHead(
+export async function readRebasedHead(
   runner: Runner,
   input: RebasedHeadInput,
 ): Promise<RebasedHead> {
@@ -67,6 +67,20 @@ async function readCommits(
       });
 }
 
+async function readGitText(
+  runner: Runner,
+  repoDir: string,
+  args: readonly string[],
+): Promise<string> {
+  const result = await runner.run(['git', ...args], { cwd: repoDir });
+
+  if (result.exitCode !== 0) {
+    throw new Error(`git ${args.join(' ')} failed: ${result.stderr.trim()}`);
+  }
+
+  return result.stdout.trim();
+}
+
 // each commit's patch id by its sha, which git keeps the same across file order and whitespace; a
 // commit with no patch, such as an empty one, gets none
 async function readPatchIDs(
@@ -104,18 +118,4 @@ async function readPatchIDs(
     });
 
   return new Map(entries);
-}
-
-async function readGitText(
-  runner: Runner,
-  repoDir: string,
-  args: readonly string[],
-): Promise<string> {
-  const result = await runner.run(['git', ...args], { cwd: repoDir });
-
-  if (result.exitCode !== 0) {
-    throw new Error(`git ${args.join(' ')} failed: ${result.stderr.trim()}`);
-  }
-
-  return result.stdout.trim();
 }

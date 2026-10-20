@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { buildStubReplyDuringWrite } from './build-stub-reply-during-write';
+import { createStubReplyDuringWrite } from './create-stub-reply-during-write';
 import { githubCollections } from './github-collections';
 import { GITHUB_API_URL } from './github-handlers';
 import { githubServer } from './github-server';
@@ -13,7 +13,7 @@ test('it adds the reply on the first edit of an issue comment and still applies 
   });
 
   githubServer.use(
-    buildStubReplyDuringWrite({
+    createStubReplyDuringWrite({
       owner: 'example',
       repo: 'app',
       number: 5,
@@ -48,7 +48,7 @@ test('it adds the reply once however many edits follow', async () => {
   });
 
   githubServer.use(
-    buildStubReplyDuringWrite({
+    createStubReplyDuringWrite({
       owner: 'example',
       repo: 'app',
       number: 5,

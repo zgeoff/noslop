@@ -150,6 +150,16 @@ function buildFingerprint(files: readonly PatchedFile[]): string | null {
     .join('\n');
 }
 
+// GitHub answers 404 for a sha it holds no commit of, and 422 for a sha it cannot resolve
+function isUnknownCommit(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'status' in error &&
+    (error.status === 404 || error.status === 422)
+  );
+}
+
 // reads from GitHub whether the commit descends from the ancestor: the compare lists a commit of a
 // diverged fork too, so only its `ahead` status shows the ancestry; a lost ancestor shows none
 async function readDescendsFrom(
@@ -173,14 +183,4 @@ async function readDescendsFrom(
 
     throw error;
   }
-}
-
-// GitHub answers 404 for a sha it holds no commit of, and 422 for a sha it cannot resolve
-function isUnknownCommit(error: unknown): boolean {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    'status' in error &&
-    (error.status === 404 || error.status === 422)
-  );
 }

@@ -171,14 +171,6 @@ function buildSha(): string {
   return faker.git.commitSha();
 }
 
-function buildFilePath(): string {
-  return faker.system.filePath().slice(1);
-}
-
-function buildFirstLine(): number[] {
-  return [1];
-}
-
 function buildNoPaths(): string[] {
   return [];
 }
@@ -189,4 +181,12 @@ function buildNoRenames(): Record<string, string> {
 
 function buildNoPatches(): Record<string, string> {
   return {};
+}
+
+function buildFilePath(): string {
+  return faker.system.filePath().slice(1);
+}
+
+function buildFirstLine(): number[] {
+  return [1];
 }

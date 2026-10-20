@@ -67,22 +67,6 @@ function mergeObject(
   return { value, sources };
 }
 
-function collectLeafSources(value: unknown, source: string, path: string): Record<string, string> {
-  if (!isPlainObject(value) || Object.keys(value).length === 0) {
-    return { [path]: source };
-  }
-
-  return Object.fromEntries(
-    Object.entries(value).flatMap(([key, child]) =>
-      Object.entries(collectLeafSources(child, source, `${path}.${key}`)),
-    ),
-  );
-}
-
-function pickSourcesUnder(sources: Record<string, string>, path: string): Record<string, string> {
-  return Object.fromEntries(Object.entries(sources).filter(([key]) => isUnder(key, path)));
-}
-
 function removeSourcesUnder(sources: Record<string, string>, path: string): Record<string, string> {
   return Object.fromEntries(Object.entries(sources).filter(([key]) => !isUnder(key, path)));
 }
@@ -93,4 +77,20 @@ function isUnder(key: string, path: string): boolean {
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function pickSourcesUnder(sources: Record<string, string>, path: string): Record<string, string> {
+  return Object.fromEntries(Object.entries(sources).filter(([key]) => isUnder(key, path)));
+}
+
+function collectLeafSources(value: unknown, source: string, path: string): Record<string, string> {
+  if (!isPlainObject(value) || Object.keys(value).length === 0) {
+    return { [path]: source };
+  }
+
+  return Object.fromEntries(
+    Object.entries(value).flatMap(([key, child]) =>
+      Object.entries(collectLeafSources(child, source, `${path}.${key}`)),
+    ),
+  );
 }

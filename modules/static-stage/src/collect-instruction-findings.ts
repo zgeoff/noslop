@@ -4,7 +4,6 @@ import { buildStaticFinding } from './build-static-finding';
 import type { InstructionsEntry } from './types';
 
 const VAGUE_WORDING = /\b(?<word>prefer|usually|where sensible|consider)\b/iu;
-const MIN_RULE_WORDS = 5;
 
 // the direct findings about agent instruction files: a new rule sentence that another instruction
 // file loaded beside it already holds, and a new rule that leaves the agent a vague choice
@@ -69,6 +68,8 @@ export function collectInstructionFindings(
 
   return findings;
 }
+
+const MIN_RULE_WORDS = 5;
 
 // a rule sentence is a sentence of a line with the list marker and the Markdown emphasis gone,
 // lowercased; a sentence of fewer than a few words is a heading or a label, never a rule

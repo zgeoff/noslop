@@ -6,7 +6,7 @@ import {
   buildMockFinding,
   buildMockReviewResult,
   buildStubAppKey,
-  buildStubReplyDuringWrite,
+  createStubReplyDuringWrite,
   githubCollections,
   githubServer,
 } from '@noslop/testing';
@@ -813,7 +813,7 @@ test('it passes the check on a fix answered while the next review publishes, fro
   const [thread] = githubCollections.reviewComments.all();
 
   githubServer.use(
-    buildStubReplyDuringWrite({
+    createStubReplyDuringWrite({
       owner: 'example',
       repo: 'app',
       number: 5,

@@ -13,7 +13,7 @@ export interface StubReply {
 
 // a reply to a finding that lands while noslop publishes: the first edit of an issue comment, such
 // as the summary, adds the reply, then the stand-in's own handler serves the edit
-export function buildStubReplyDuringWrite(reply: StubReply) {
+export function createStubReplyDuringWrite(reply: StubReply) {
   return http.patch(
     `${GITHUB_API_URL}/repos/:owner/:repo/issues/comments/:commentID`,
     async () => {

@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createRunner } from '@noslop/runner';
 import { createTestRepo } from '@noslop/testing';
-import { findRebasedHead } from './find-rebased-head';
+import { readRebasedHead } from './read-rebased-head';
 
 async function setupTest() {
   const directory = await mkdtemp(join(tmpdir(), 'noslop-rebased-head-'));
@@ -36,7 +36,7 @@ test('it maps a reviewed head onto the branch commit a rebase made of it', async
     },
   ]);
 
-  const rebased = await findRebasedHead(ctx.runner, {
+  const rebased = await readRebasedHead(ctx.runner, {
     repoDir: repo.path,
     reviewed: repo.commits[2] ?? '',
     base: repo.commits[1] ?? '',
@@ -64,7 +64,7 @@ test('it maps a reviewed head past the commits of a base branch that rebased too
     },
   ]);
 
-  const rebased = await findRebasedHead(ctx.runner, {
+  const rebased = await readRebasedHead(ctx.runner, {
     repoDir: repo.path,
     reviewed: repo.commits[2] ?? '',
     base: repo.commits[4] ?? '',
@@ -96,7 +96,7 @@ test('it maps no head when the rebase changed the patch of a reviewed commit', a
     },
   ]);
 
-  const rebased = await findRebasedHead(ctx.runner, {
+  const rebased = await readRebasedHead(ctx.runner, {
     repoDir: repo.path,
     reviewed: repo.commits[2] ?? '',
     base: repo.commits[1] ?? '',
@@ -119,7 +119,7 @@ test('it maps no head when a reviewed commit is empty', async () => {
     { message: 'Start the scanner', parent: 1, files: {} },
   ]);
 
-  const rebased = await findRebasedHead(ctx.runner, {
+  const rebased = await readRebasedHead(ctx.runner, {
     repoDir: repo.path,
     reviewed: repo.commits[2] ?? '',
     base: repo.commits[1] ?? '',
@@ -151,7 +151,7 @@ test('it maps no head when the reviewed range holds a merge', async () => {
     },
   ]);
 
-  const rebased = await findRebasedHead(ctx.runner, {
+  const rebased = await readRebasedHead(ctx.runner, {
     repoDir: repo.path,
     reviewed: repo.commits[3] ?? '',
     base: repo.commits[1] ?? '',
@@ -186,7 +186,7 @@ test('it maps no head when the rebase squashed the reviewed commits', async () =
     },
   ]);
 
-  const rebased = await findRebasedHead(ctx.runner, {
+  const rebased = await readRebasedHead(ctx.runner, {
     repoDir: repo.path,
     reviewed: repo.commits[3] ?? '',
     base: repo.commits[1] ?? '',
@@ -211,7 +211,7 @@ test('it maps no head when the reviewed head holds no commit past the base', asy
     },
   ]);
 
-  const rebased = await findRebasedHead(ctx.runner, {
+  const rebased = await readRebasedHead(ctx.runner, {
     repoDir: repo.path,
     reviewed: repo.commits[0] ?? '',
     base: repo.commits[1] ?? '',
@@ -235,7 +235,7 @@ test('it maps no head when the repo holds no commit of the reviewed head', async
     },
   ]);
 
-  const rebased = await findRebasedHead(ctx.runner, {
+  const rebased = await readRebasedHead(ctx.runner, {
     repoDir: repo.path,
     reviewed: 'a'.repeat(40),
     base: repo.commits[0] ?? '',

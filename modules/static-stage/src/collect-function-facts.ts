@@ -1,23 +1,10 @@
 import type { AnalyzeContext } from './analyze-context';
 import type { ASTNode } from './ast-node';
 import { findEnclosingFunction } from './find-enclosing-function';
-import { getField } from './get-field';
+import { findField } from './find-field';
 import { getFields } from './get-fields';
 import { isFunctionNode } from './is-function-node';
 import type { ValueOrigin } from './types';
-
-const BRANCH_TYPES = new Set([
-  'IfStatement',
-  'ConditionalExpression',
-  'ForStatement',
-  'ForInStatement',
-  'ForOfStatement',
-  'WhileStatement',
-  'DoWhileStatement',
-  'CatchClause',
-]);
-
-const LOGICAL_OPERATORS = new Set(['&&', '||', '??']);
 
 // records each function with its name, parameters and cyclomatic complexity: 1, plus 1 for each
 // branch, loop, catch, switch case and logical operator in its own body, not in a nested function
@@ -71,14 +58,63 @@ export function collectFunctionFacts(
   }
 
   if (node.type === 'VariableDeclarator') {
-    const id = getField(node, 'id');
+    const id = findField(node, 'id');
     const name = id?.['name'];
 
     if (typeof name === 'string') {
-      facts.declarations.set(name, readOrigin(getField(node, 'init')));
+      facts.declarations.set(name, getOrigin(findField(node, 'init')));
     }
   }
 }
+
+function getParamName(param: ASTNode, ctx: AnalyzeContext): string {
+  const target = param.type === 'TSParameterProperty' ? findField(param, 'parameter') : param;
+  const inner = target?.type === 'AssignmentPattern' ? findField(target, 'left') : target;
+
+  if (typeof inner?.['name'] === 'string') {
+    return inner['name'];
+  }
+
+  return ctx.parsed.text.slice(param.start, param.end).replaceAll(/\s+/gu, ' ');
+}
+
+function getFunctionName(node: ASTNode, parent: ASTNode | null): string {
+  const id = findField(node, 'id');
+
+  if (typeof id?.['name'] === 'string') {
+    return id['name'];
+  }
+
+  if (parent === null) {
+    return '<anonymous>';
+  }
+
+  const key =
+    parent.type === 'VariableDeclarator' ? findField(parent, 'id') : findField(parent, 'key');
+
+  if (typeof key?.['name'] === 'string') {
+    return key['name'];
+  }
+
+  if (typeof key?.['value'] === 'string') {
+    return key['value'];
+  }
+
+  return '<anonymous>';
+}
+
+const BRANCH_TYPES = new Set([
+  'IfStatement',
+  'ConditionalExpression',
+  'ForStatement',
+  'ForInStatement',
+  'ForOfStatement',
+  'WhileStatement',
+  'DoWhileStatement',
+  'CatchClause',
+]);
+
+const LOGICAL_OPERATORS = new Set(['&&', '||', '??']);
 
 function isBranch(node: ASTNode): boolean {
   if (BRANCH_TYPES.has(node.type)) {
@@ -86,13 +122,13 @@ function isBranch(node: ASTNode): boolean {
   }
 
   if (node.type === 'SwitchCase') {
-    return getField(node, 'test') !== null;
+    return findField(node, 'test') !== null;
   }
 
   return node.type === 'LogicalExpression' && LOGICAL_OPERATORS.has(String(node['operator']));
 }
 
-function readOrigin(init: ASTNode | null): { origin: ValueOrigin; from: string | null } {
+function getOrigin(init: ASTNode | null): { origin: ValueOrigin; from: string | null } {
   if (init === null) {
     return { origin: 'internal', from: null };
   }
@@ -121,40 +157,4 @@ function readOrigin(init: ASTNode | null): { origin: ValueOrigin; from: string |
   }
 
   return { origin: 'internal', from: null };
-}
-
-function getFunctionName(node: ASTNode, parent: ASTNode | null): string {
-  const id = getField(node, 'id');
-
-  if (typeof id?.['name'] === 'string') {
-    return id['name'];
-  }
-
-  if (parent === null) {
-    return '<anonymous>';
-  }
-
-  const key =
-    parent.type === 'VariableDeclarator' ? getField(parent, 'id') : getField(parent, 'key');
-
-  if (typeof key?.['name'] === 'string') {
-    return key['name'];
-  }
-
-  if (typeof key?.['value'] === 'string') {
-    return key['value'];
-  }
-
-  return '<anonymous>';
-}
-
-function getParamName(param: ASTNode, ctx: AnalyzeContext): string {
-  const target = param.type === 'TSParameterProperty' ? getField(param, 'parameter') : param;
-  const inner = target?.type === 'AssignmentPattern' ? getField(target, 'left') : target;
-
-  if (typeof inner?.['name'] === 'string') {
-    return inner['name'];
-  }
-
-  return ctx.parsed.text.slice(param.start, param.end).replaceAll(/\s+/gu, ' ');
 }

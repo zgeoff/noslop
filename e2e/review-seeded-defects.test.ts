@@ -103,7 +103,7 @@ test.skipIf(ADAPTER === undefined)(
         '--head',
         repo.commits[1] ?? '',
         '--adapter',
-        ADAPTER ?? '',
+        Bun.env['NOSLOP_E2E_ADAPTER'] ?? '',
         '--json',
       ],
       {

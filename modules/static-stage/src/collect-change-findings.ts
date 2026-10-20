@@ -88,6 +88,10 @@ function collectRefusedBumps(inputs: ChangeFindingInputs): ModelFinding[] {
   });
 }
 
+function getVersionLocation(manifest: PackageManifest): SourceLocation {
+  return { path: manifest.path, startLine: manifest.versionLine, endLine: manifest.versionLine };
+}
+
 function collectBoundsOverLimit(inputs: ChangeFindingInputs): ModelFinding[] {
   return inputs.files.flatMap((entry) =>
     (entry.analysis?.schemaBounds ?? []).flatMap((bound) => {
@@ -238,6 +242,13 @@ function findWorkflowCall(text: string): string | null {
   return `${head}${quote}${path}@${quote}${match.groups['tail'] ?? ''}`;
 }
 
+function findFirstChange(entry: AnalyzedFile): SourceLocation {
+  const first = Math.min(...entry.lines.touched);
+  const line = Number.isFinite(first) ? first : 1;
+
+  return { path: entry.file.path, startLine: line, endLine: line };
+}
+
 function collectStrayFormatHunks(inputs: ChangeFindingInputs): ModelFinding[] {
   const issue = inputs.linkedIssue;
 
@@ -284,6 +295,14 @@ function collectStrayFormatHunks(inputs: ChangeFindingInputs): ModelFinding[] {
   });
 }
 
+// drops the whitespace outside quoted text, so a change inside a string literal is never format-only
+function normalizeSpace(text: string): string {
+  return text.replaceAll(
+    /(?<quoted>"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`)|\s+/gu,
+    '$<quoted>',
+  );
+}
+
 function collectMissingBumps(inputs: ChangeFindingInputs): ModelFinding[] {
   const needing = new Map<string, PackageManifest>();
 
@@ -327,23 +346,4 @@ function collectMissingBumps(inputs: ChangeFindingInputs): ModelFinding[] {
       }),
     ];
   });
-}
-
-function getVersionLocation(manifest: PackageManifest): SourceLocation {
-  return { path: manifest.path, startLine: manifest.versionLine, endLine: manifest.versionLine };
-}
-
-function findFirstChange(entry: AnalyzedFile): SourceLocation {
-  const first = Math.min(...entry.lines.touched);
-  const line = Number.isFinite(first) ? first : 1;
-
-  return { path: entry.file.path, startLine: line, endLine: line };
-}
-
-// drops the whitespace outside quoted text, so a change inside a string literal is never format-only
-function normalizeSpace(text: string): string {
-  return text.replaceAll(
-    /(?<quoted>"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`)|\s+/gu,
-    '$<quoted>',
-  );
 }

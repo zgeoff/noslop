@@ -5,7 +5,7 @@ import { collectDeclarationFacts } from './collect-declaration-facts';
 import { collectFromAST } from './collect-from-ast';
 import { collectFunctionFacts } from './collect-function-facts';
 import { collectStatementFacts } from './collect-statement-facts';
-import { getField } from './get-field';
+import { findField } from './find-field';
 import { getFields } from './get-fields';
 import type { ParsedSource } from './parse-source';
 import type { SourceAnalysis } from './source-analysis';
@@ -30,10 +30,10 @@ export function collectSourceFacts(
       continue;
     }
 
-    const source = getField(statement, 'source')?.['value'];
+    const source = findField(statement, 'source')?.['value'];
 
     for (const specifier of getFields(statement, 'specifiers')) {
-      const local = getField(specifier, 'local')?.['name'];
+      const local = findField(specifier, 'local')?.['name'];
 
       if (typeof source === 'string' && typeof local === 'string') {
         ctx.importSources.set(local, source);

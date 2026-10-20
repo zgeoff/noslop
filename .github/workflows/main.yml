@@ -150,7 +150,7 @@ jobs:
       - name: Publish the CLI
         if: steps.release-commit.outputs.here == 'true' || github.event_name == 'workflow_dispatch'
         run: |
-          bun scripts/build-cli-package.ts
+          bun scripts/write-cli-package.ts
           cd apps/cli/dist
           name=$(jq -r .name package.json)
           version=$(jq -r .version package.json)

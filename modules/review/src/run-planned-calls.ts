@@ -55,8 +55,6 @@ export interface CallBatch {
   notReviewedByLens: LensNotReviewedFile[];
 }
 
-const ATTEMPTS = 2;
-
 // runs the planned calls, each as parts that fit the prompt limit, up to the parallel limit at once;
 // a failed call retries once, a call that fails twice is recorded as failed, and the records keep the
 // planned order whatever order the calls end in
@@ -118,6 +116,8 @@ interface CallOutcome {
   durationMs: number;
   reason: string;
 }
+
+const ATTEMPTS = 2;
 
 async function runWithRetry(
   call: PlannedCall,

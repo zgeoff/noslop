@@ -27,7 +27,6 @@ export interface FileSlices {
 }
 
 const MIGRATION_PATH = /(?:^|\/)migrations?\//u;
-const SOURCE_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.mts', '.cts', '/index.ts', '/index.js'];
 
 // cuts the facts that belong to whole files, or to single lines, down to the change; `headPaths`
 // holds every path at the head commit, so an instruction file lists the instruction files an agent
@@ -108,6 +107,50 @@ export function buildFileSlices(
       : Math.round((slices.comments.commentLines * 1000) / slices.comments.codeLines);
 
   return slices;
+}
+
+// an agent loads every instruction file in the directories from the repo root down to the file's own
+// directory, so each of those sits beside a changed one
+function collectLoadedBeside(
+  path: string,
+  headPaths: readonly string[],
+  config: ReviewConfig,
+): string[] {
+  const own = dirname(path);
+
+  return headPaths.filter((other) => {
+    if (other === path || !isGlobMatch(other, config.instructions)) {
+      return false;
+    }
+
+    const otherDir = dirname(other);
+
+    return otherDir === '.' || own === otherDir || own.startsWith(`${otherDir}/`);
+  });
+}
+
+const SOURCE_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.mts', '.cts', '/index.ts', '/index.js'];
+
+function resolveImport(
+  fromPath: string,
+  source: string,
+  known: ReadonlySet<string>,
+): string | null {
+  if (!source.startsWith('.')) {
+    return null;
+  }
+
+  const base = normalize(join(dirname(fromPath), source));
+
+  if (known.has(base)) {
+    return base;
+  }
+
+  const found = SOURCE_EXTENSIONS.map((extension) => `${base}${extension}`).find((candidate) =>
+    known.has(candidate),
+  );
+
+  return found ?? null;
 }
 
 function collectLineFacts(entry: AnalyzedFile, slices: FileSlices): void {
@@ -220,46 +263,4 @@ function collectTypeClaims(
       });
     }
   }
-}
-
-// an agent loads every instruction file in the directories from the repo root down to the file's own
-// directory, so each of those sits beside a changed one
-function collectLoadedBeside(
-  path: string,
-  headPaths: readonly string[],
-  config: ReviewConfig,
-): string[] {
-  const own = dirname(path);
-
-  return headPaths.filter((other) => {
-    if (other === path || !isGlobMatch(other, config.instructions)) {
-      return false;
-    }
-
-    const otherDir = dirname(other);
-
-    return otherDir === '.' || own === otherDir || own.startsWith(`${otherDir}/`);
-  });
-}
-
-function resolveImport(
-  fromPath: string,
-  source: string,
-  known: ReadonlySet<string>,
-): string | null {
-  if (!source.startsWith('.')) {
-    return null;
-  }
-
-  const base = normalize(join(dirname(fromPath), source));
-
-  if (known.has(base)) {
-    return base;
-  }
-
-  const found = SOURCE_EXTENSIONS.map((extension) => `${base}${extension}`).find((candidate) =>
-    known.has(candidate),
-  );
-
-  return found ?? null;
 }

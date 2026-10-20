@@ -45,7 +45,7 @@ export async function readFilesAtCommit(
     const contentEnd =
       next === undefined
         ? output.length - 1
-        : findNextAnswer(output, headerEnd + 1, marker, `${commit}:${next} missing\0`);
+        : getNextAnswer(output, headerEnd + 1, marker, `${commit}:${next} missing\0`);
 
     if (type === 'blob') {
       files.set(path, output.slice(headerEnd + 1, contentEnd));
@@ -57,7 +57,7 @@ export async function readFilesAtCommit(
   return files;
 }
 
-function findNextAnswer(output: string, from: number, marker: string, missing: string): number {
+function getNextAnswer(output: string, from: number, marker: string, missing: string): number {
   const byMarker = output.indexOf(`\0${marker} `, from);
   const byMissing = output.indexOf(`\0${missing}`, from);
   const found = [byMarker, byMissing].filter((position) => position !== -1);

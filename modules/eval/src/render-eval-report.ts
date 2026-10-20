@@ -69,10 +69,10 @@ function renderTotals(score: RunScore, reference: RunScore | null): string[] {
     ['Duration (s)', (item) => (item.durationMs / 1000).toFixed(0)],
   ];
 
-  return rows.map(([name, read]) =>
+  return rows.map(([name, formatCell]) =>
     reference === null
-      ? `| ${name} | ${read(score)} |`
-      : `| ${name} | ${read(score)} | ${read(reference)} |`,
+      ? `| ${name} | ${formatCell(score)} |`
+      : `| ${name} | ${formatCell(score)} | ${formatCell(reference)} |`,
   );
 }
 

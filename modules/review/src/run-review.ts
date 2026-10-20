@@ -87,6 +87,19 @@ export interface ReviewRun {
   result: ReviewResult;
 }
 
+interface PassContext {
+  options: RunReviewOptions;
+  change: Change;
+  stage: StaticStageResult;
+  route: Route;
+  worktree: string;
+  staticRaw: RawFinding[];
+
+  // the rules that apply to the change: every rule but a reference's, which needs a changed path
+  // that one of its globs matches
+  rules: readonly Rule[] | null;
+}
+
 // runs the pipeline on one change: the static stage, routing, the calls, and Assemble; the calls
 // read a detached worktree of the head, which the review removes whether it passes or fails
 export async function runReview(options: RunReviewOptions): Promise<ReviewRun> {
@@ -183,6 +196,215 @@ export async function runReview(options: RunReviewOptions): Promise<ReviewRun> {
   };
 }
 
+function collectChangeRules(rules: readonly Rule[] | null, change: Change): Rule[] | null {
+  if (rules === null) {
+    return null;
+  }
+
+  return rules.filter(
+    (rule) =>
+      rule.paths === null ||
+      rule.paths.some((glob) => {
+        const matcher = new Bun.Glob(glob);
+
+        return change.files.some((file) => matcher.match(file.path));
+      }),
+  );
+}
+
+interface Passes {
+  batches: CallBatch[];
+  assembled: AssembledFindings;
+  merged: MergePass;
+  design: DesignPass | null;
+}
+
+// one call per fired lens group, at the effort of the route's depth, then Assemble, the merge pass
+// and, from the second review of a pull request on, the design pass; the worktree lives until the
+// design pass ends, and a review that runs neither a lens call nor the design pass needs none
+async function runPasses(ctx: PassContext): Promise<Passes> {
+  const isDesignDue = ctx.options.config.designPass.enabled && (ctx.options.round ?? 1) >= 2;
+
+  if (ctx.route.calls.length === 0 && !isDesignDue) {
+    return runFindingPasses(ctx, [], false);
+  }
+
+  await createWorktree(ctx);
+
+  try {
+    const batches = ctx.route.calls.length === 0 ? [] : [await runBatch(ctx, ctx.route.calls)];
+
+    return await runFindingPasses(ctx, batches, isDesignDue);
+  } finally {
+    await removeWorktree(ctx);
+  }
+}
+
+const MERGE_CALL = 'merge';
+const DESIGN_CALL = 'design';
+
+async function runFindingPasses(
+  ctx: PassContext,
+  batches: CallBatch[],
+  isDesignDue: boolean,
+): Promise<Passes> {
+  const options = ctx.options;
+  const assembled = buildAssembled(ctx, batches);
+
+  const merged = await runMergePass({
+    findings: assembled.findings,
+    config: options.config,
+    adapter: options.adapter,
+    model: options.mergeModel ?? null,
+    callID: pickPassID(ctx, MERGE_CALL),
+    depth: ctx.route.depth,
+    lenses: ctx.route.lenses,
+    tempDir: options.tempDir,
+    logger: options.logger,
+  });
+
+  if (!isDesignDue) {
+    return { batches, assembled, merged, design: null };
+  }
+
+  const design = await runDesignPass({
+    title: options.title,
+    body: options.body,
+    latest: merged.findings,
+    earlier: options.earlierFindings ?? [],
+    files: await readPullRequestFiles(ctx),
+    base: options.mergeBase ?? ctx.change.base,
+    head: ctx.change.head,
+    riskClasses: ctx.stage.signals.riskClasses,
+    config: options.config,
+    adapter: options.adapter,
+    callID: pickPassID(ctx, DESIGN_CALL),
+    depth: ctx.route.depth,
+    worktree: ctx.worktree,
+    tempDir: options.tempDir,
+    logger: options.logger,
+  });
+
+  return { batches, assembled, merged, design };
+}
+
+function buildAssembled(ctx: PassContext, batches: readonly CallBatch[]): AssembledFindings {
+  return buildFindings({
+    raw: [...ctx.staticRaw, ...batches.flatMap((batch) => batch.raw)],
+    files: ctx.change.files,
+    rules: ctx.rules ?? [],
+    riskClasses: ctx.stage.signals.riskClasses,
+    config: ctx.options.config,
+  });
+}
+
+// the first of name, name-2 and so on that no planned call holds, since a config can name a group
+// `merge` or `design`
+function pickPassID(ctx: PassContext, name: string): string {
+  const taken = new Set(ctx.route.calls.map((call) => call.callID));
+
+  return (
+    [name, ...Array.from({ length: taken.size }, (_, index) => `${name}-${index + 2}`)].find(
+      (id) => !taken.has(id),
+    ) ?? name
+  );
+}
+
+// an approach spans every review of the pull request, so the design pass reads the change since the
+// merge base even when this review covers only the commits since the last reviewed head
+async function readPullRequestFiles(ctx: PassContext): Promise<readonly ChangedFile[]> {
+  const mergeBase = ctx.options.mergeBase;
+
+  if (ctx.options.isIncremental !== true || mergeBase === undefined) {
+    return ctx.change.files;
+  }
+
+  const whole = await readChange({
+    runner: ctx.options.runner,
+    repoDir: ctx.options.repoDir,
+    base: mergeBase,
+    head: ctx.change.head,
+    config: ctx.options.config,
+  });
+
+  return whole.files;
+}
+
+async function createWorktree(ctx: PassContext): Promise<void> {
+  const result = await ctx.options.runner.run(
+    ['git', 'worktree', 'add', '--detach', ctx.worktree, ctx.change.head],
+    { cwd: ctx.options.repoDir },
+  );
+
+  if (result.exitCode !== 0) {
+    throw new Error(`git worktree add failed: ${result.stderr.trim()}`);
+  }
+
+  await removeSecretFiles(ctx);
+}
+
+// the files the `secrets` risk class names leave the worktree before any model reads it, so a
+// reviewer never sees a committed secret; the diff still shows the change's own lines
+async function removeSecretFiles(ctx: PassContext): Promise<void> {
+  const globs = (ctx.options.config.riskClasses['secrets']?.paths ?? []).map(
+    (glob) => new Bun.Glob(glob),
+  );
+
+  if (globs.length === 0) {
+    return;
+  }
+
+  const listed = await ctx.options.runner.run(['git', 'ls-files', '-z'], { cwd: ctx.worktree });
+
+  const secrets = listed.stdout
+    .split('\0')
+    .filter((path) => path !== '' && globs.some((glob) => glob.match(path)));
+
+  // a submodule lists as one path and checks out as a folder, so the removal is recursive
+  await Promise.all(
+    secrets.map((path) => rm(join(ctx.worktree, path), { recursive: true, force: true })),
+  );
+}
+
+function runBatch(ctx: PassContext, calls: readonly PlannedCall[]): Promise<CallBatch> {
+  return runPlannedCalls({
+    calls,
+    depth: ctx.route.depth,
+    adapter: ctx.options.adapter,
+    worktree: ctx.worktree,
+    tempDir: ctx.options.tempDir,
+    logger: ctx.options.logger,
+    slices: ctx.stage.slices,
+    rules: ctx.rules,
+    title: ctx.options.title,
+    body: ctx.options.body,
+    linkedIssue: ctx.options.linkedIssue,
+    base: ctx.change.base,
+    head: ctx.change.head,
+    isIncremental: ctx.options.isIncremental ?? false,
+    parallel: ctx.options.config.thresholds.parallelCalls,
+    data: ctx.options.config.data,
+    maxCallChars: ctx.options.config.thresholds.maxCallChars,
+    maxFileChars: ctx.options.config.thresholds.maxFileChars,
+  });
+}
+
+// a worktree that git cannot remove leaves an entry in the repo's worktree list, so the review
+// logs it for the user to prune
+async function removeWorktree(ctx: PassContext): Promise<void> {
+  const result = await ctx.options.runner.run(
+    ['git', 'worktree', 'remove', '--force', ctx.worktree],
+    { cwd: ctx.options.repoDir },
+  );
+
+  if (result.exitCode !== 0) {
+    ctx.options.logger.warn('git could not remove the worktree {worktree}: {stderr}', {
+      worktree: ctx.worktree,
+      stderr: result.stderr.trim(),
+    });
+  }
+}
+
 // splits off each finding that matches one answered `not-a-defect`, comparing the code each anchor
 // holds at its own head; a review with no such answer reads no code
 async function readDismissedFindings(
@@ -253,226 +475,12 @@ function toAnchorCode(lines: string[] | null, startLine: number, endLine: number
   return lines === null ? null : lines.slice(startLine - 1, endLine).join('\n');
 }
 
-interface PassContext {
-  options: RunReviewOptions;
-  change: Change;
-  stage: StaticStageResult;
-  route: Route;
-  worktree: string;
-  staticRaw: RawFinding[];
+// the fired lenses that a call ran, in the route's order; a call whose files each overflow a call
+// alone runs no part, so its lenses never ran and the store counts none of them
+function collectRunLenses(lenses: readonly LensID[], records: readonly CallRecord[]): LensID[] {
+  const ran = new Set(records.flatMap((record) => record.lenses));
 
-  // the rules that apply to the change: every rule but a reference's, which needs a changed path
-  // that one of its globs matches
-  rules: readonly Rule[] | null;
-}
-
-function collectChangeRules(rules: readonly Rule[] | null, change: Change): Rule[] | null {
-  if (rules === null) {
-    return null;
-  }
-
-  return rules.filter(
-    (rule) =>
-      rule.paths === null ||
-      rule.paths.some((glob) => {
-        const matcher = new Bun.Glob(glob);
-
-        return change.files.some((file) => matcher.match(file.path));
-      }),
-  );
-}
-
-interface Passes {
-  batches: CallBatch[];
-  assembled: AssembledFindings;
-  merged: MergePass;
-  design: DesignPass | null;
-}
-
-// one call per fired lens group, at the effort of the route's depth, then Assemble, the merge pass
-// and, from the second review of a pull request on, the design pass; the worktree lives until the
-// design pass ends, and a review that runs neither a lens call nor the design pass needs none
-async function runPasses(ctx: PassContext): Promise<Passes> {
-  const isDesignDue = ctx.options.config.designPass.enabled && (ctx.options.round ?? 1) >= 2;
-
-  if (ctx.route.calls.length === 0 && !isDesignDue) {
-    return runFindingPasses(ctx, [], false);
-  }
-
-  await createWorktree(ctx);
-
-  try {
-    const batches = ctx.route.calls.length === 0 ? [] : [await runBatch(ctx, ctx.route.calls)];
-
-    return await runFindingPasses(ctx, batches, isDesignDue);
-  } finally {
-    await removeWorktree(ctx);
-  }
-}
-
-async function runFindingPasses(
-  ctx: PassContext,
-  batches: CallBatch[],
-  isDesignDue: boolean,
-): Promise<Passes> {
-  const options = ctx.options;
-  const assembled = buildAssembled(ctx, batches);
-
-  const merged = await runMergePass({
-    findings: assembled.findings,
-    config: options.config,
-    adapter: options.adapter,
-    model: options.mergeModel ?? null,
-    callID: pickPassID(ctx, MERGE_CALL),
-    depth: ctx.route.depth,
-    lenses: ctx.route.lenses,
-    tempDir: options.tempDir,
-    logger: options.logger,
-  });
-
-  if (!isDesignDue) {
-    return { batches, assembled, merged, design: null };
-  }
-
-  const design = await runDesignPass({
-    title: options.title,
-    body: options.body,
-    latest: merged.findings,
-    earlier: options.earlierFindings ?? [],
-    files: await readPullRequestFiles(ctx),
-    base: options.mergeBase ?? ctx.change.base,
-    head: ctx.change.head,
-    riskClasses: ctx.stage.signals.riskClasses,
-    config: options.config,
-    adapter: options.adapter,
-    callID: pickPassID(ctx, DESIGN_CALL),
-    depth: ctx.route.depth,
-    worktree: ctx.worktree,
-    tempDir: options.tempDir,
-    logger: options.logger,
-  });
-
-  return { batches, assembled, merged, design };
-}
-
-// an approach spans every review of the pull request, so the design pass reads the change since the
-// merge base even when this review covers only the commits since the last reviewed head
-async function readPullRequestFiles(ctx: PassContext): Promise<readonly ChangedFile[]> {
-  const mergeBase = ctx.options.mergeBase;
-
-  if (ctx.options.isIncremental !== true || mergeBase === undefined) {
-    return ctx.change.files;
-  }
-
-  const whole = await readChange({
-    runner: ctx.options.runner,
-    repoDir: ctx.options.repoDir,
-    base: mergeBase,
-    head: ctx.change.head,
-    config: ctx.options.config,
-  });
-
-  return whole.files;
-}
-
-// a worktree that git cannot remove leaves an entry in the repo's worktree list, so the review
-// logs it for the user to prune
-async function removeWorktree(ctx: PassContext): Promise<void> {
-  const result = await ctx.options.runner.run(
-    ['git', 'worktree', 'remove', '--force', ctx.worktree],
-    { cwd: ctx.options.repoDir },
-  );
-
-  if (result.exitCode !== 0) {
-    ctx.options.logger.warn('git could not remove the worktree {worktree}: {stderr}', {
-      worktree: ctx.worktree,
-      stderr: result.stderr.trim(),
-    });
-  }
-}
-
-async function createWorktree(ctx: PassContext): Promise<void> {
-  const result = await ctx.options.runner.run(
-    ['git', 'worktree', 'add', '--detach', ctx.worktree, ctx.change.head],
-    { cwd: ctx.options.repoDir },
-  );
-
-  if (result.exitCode !== 0) {
-    throw new Error(`git worktree add failed: ${result.stderr.trim()}`);
-  }
-
-  await removeSecretFiles(ctx);
-}
-
-// the files the `secrets` risk class names leave the worktree before any model reads it, so a
-// reviewer never sees a committed secret; the diff still shows the change's own lines
-async function removeSecretFiles(ctx: PassContext): Promise<void> {
-  const globs = (ctx.options.config.riskClasses['secrets']?.paths ?? []).map(
-    (glob) => new Bun.Glob(glob),
-  );
-
-  if (globs.length === 0) {
-    return;
-  }
-
-  const listed = await ctx.options.runner.run(['git', 'ls-files', '-z'], { cwd: ctx.worktree });
-
-  const secrets = listed.stdout
-    .split('\0')
-    .filter((path) => path !== '' && globs.some((glob) => glob.match(path)));
-
-  // a submodule lists as one path and checks out as a folder, so the removal is recursive
-  await Promise.all(
-    secrets.map((path) => rm(join(ctx.worktree, path), { recursive: true, force: true })),
-  );
-}
-
-function runBatch(ctx: PassContext, calls: readonly PlannedCall[]): Promise<CallBatch> {
-  return runPlannedCalls({
-    calls,
-    depth: ctx.route.depth,
-    adapter: ctx.options.adapter,
-    worktree: ctx.worktree,
-    tempDir: ctx.options.tempDir,
-    logger: ctx.options.logger,
-    slices: ctx.stage.slices,
-    rules: ctx.rules,
-    title: ctx.options.title,
-    body: ctx.options.body,
-    linkedIssue: ctx.options.linkedIssue,
-    base: ctx.change.base,
-    head: ctx.change.head,
-    isIncremental: ctx.options.isIncremental ?? false,
-    parallel: ctx.options.config.thresholds.parallelCalls,
-    data: ctx.options.config.data,
-    maxCallChars: ctx.options.config.thresholds.maxCallChars,
-    maxFileChars: ctx.options.config.thresholds.maxFileChars,
-  });
-}
-
-function buildAssembled(ctx: PassContext, batches: readonly CallBatch[]): AssembledFindings {
-  return buildFindings({
-    raw: [...ctx.staticRaw, ...batches.flatMap((batch) => batch.raw)],
-    files: ctx.change.files,
-    rules: ctx.rules ?? [],
-    riskClasses: ctx.stage.signals.riskClasses,
-    config: ctx.options.config,
-  });
-}
-
-const MERGE_CALL = 'merge';
-const DESIGN_CALL = 'design';
-
-// the first of name, name-2 and so on that no planned call holds, since a config can name a group
-// `merge` or `design`
-function pickPassID(ctx: PassContext, name: string): string {
-  const taken = new Set(ctx.route.calls.map((call) => call.callID));
-
-  return (
-    [name, ...Array.from({ length: taken.size }, (_, index) => `${name}-${index + 2}`)].find(
-      (id) => !taken.has(id),
-    ) ?? name
-  );
+  return lenses.filter((lens) => ran.has(lens));
 }
 
 // the files the call batch left out, as too large or as data, and each data file of the change, which
@@ -523,12 +531,4 @@ function collectDesignNotReviewed(
   );
 
   return [...paths].map((path) => ({ path, lenses: ['design'] }));
-}
-
-// the fired lenses that a call ran, in the route's order; a call whose files each overflow a call
-// alone runs no part, so its lenses never ran and the store counts none of them
-function collectRunLenses(lenses: readonly LensID[], records: readonly CallRecord[]): LensID[] {
-  const ran = new Set(records.flatMap((record) => record.lenses));
-
-  return lenses.filter((lens) => ran.has(lens));
 }

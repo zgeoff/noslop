@@ -69,6 +69,15 @@ export function buildCompareData(
   };
 }
 
+// the head's place against the first commit after the base
+function pickStatus(start: number, end: number): CompareData['status'] {
+  if (start === end) {
+    return 'identical';
+  }
+
+  return start < end ? 'ahead' : 'behind';
+}
+
 // the most commits GitHub's compare lists without page parameters
 const UNPAGED_COMMITS = 250;
 
@@ -83,13 +92,4 @@ function pickPage<Item>(items: readonly Item[], search: URLSearchParams): Item[]
   const perPage = Number(search.get('per_page') ?? '30');
 
   return items.slice((page - 1) * perPage, page * perPage);
-}
-
-// the head's place against the first commit after the base
-function pickStatus(start: number, end: number): CompareData['status'] {
-  if (start === end) {
-    return 'identical';
-  }
-
-  return start < end ? 'ahead' : 'behind';
 }

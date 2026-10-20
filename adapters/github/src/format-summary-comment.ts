@@ -26,8 +26,6 @@ export interface FixStatus {
   posted: number;
 }
 
-const SEVERITIES: readonly Severity[] = ['P1', 'P2', 'P3'];
-
 // the summary comment, written for a person: the count and risk of this review's findings, its failed
 // calls, the files it did not review, whether each `fixed` finding is fixed, a table that links each finding to its comment, then
 // the review's details collapsed and the marker the next run reads
@@ -95,6 +93,8 @@ export function formatSummaryComment(
 
   return lines.join('\n');
 }
+
+const SEVERITIES: readonly Severity[] = ['P1', 'P2', 'P3'];
 
 // "2 findings, both P2", "3 findings: 1 P1, 2 P3", "all 2 findings fixed" once every finding an
 // earlier review posted is, or "no findings", which a re-review writes as "no new findings"

@@ -46,10 +46,10 @@
     "prose": "test -f .claude/skills/docs-writing/scripts/check-prose.sh || { echo 'prose: skipped until repo-sync delivers the docs-writing skill'; exit 0; }; bash .claude/skills/docs-writing/scripts/check-length.sh --package README.md && bash .claude/skills/docs-writing/scripts/check-prose.sh AGENTS.md",
     "test": "bun test --pass-with-no-tests",
     "typecheck": "tsc --noEmit && turbo run typecheck",
-    "files:branch": "bun scripts/collect-branch-files.ts",
+    "files:branch": "bun scripts/read-branch-files.ts",
     "lint:files": "oxlint --no-error-on-unmatched-pattern",
     "test:related": "bun scripts/run-related-tests.ts",
-    "build:cli": "bun scripts/build-cli-package.ts",
+    "build:cli": "bun scripts/write-cli-package.ts",
     "schema:config": "bun scripts/write-config-schema.ts"
   },
   "devDependencies": {
@@ -62,7 +62,7 @@
     "@types/bun": "1.4.2",
     "@zgeoff/bun-test-extended": "0.1.0",
     "@zgeoff/format-codemod": "0.1.0",
-    "@zgeoff/oxlint-config": "0.2.11",
+    "@zgeoff/oxlint-config": "0.5.2",
     "@zgeoff/skill-gate": "0.1.0",
     "knip": "6.39.0",
     "lefthook": "2.1.14",

@@ -266,19 +266,6 @@ function collectContextPaths(
   return [...paths];
 }
 
-function buildContextFile(path: string, config: ReviewConfig): ChangedFile {
-  return {
-    path,
-    oldPath: path,
-    status: 'modified',
-    binary: false,
-    kind: pickFileKind(path, config),
-    hunks: [],
-    addedLines: 0,
-    deletedLines: 0,
-  };
-}
-
 function buildAnalyzedFile(
   file: ChangedFile,
   text: string | null,
@@ -294,6 +281,19 @@ function buildAnalyzedFile(
     parsed,
     analysis: parsed === null ? null : collectSourceFacts(parsed, config.stack),
     lines: buildChangedLines(file),
+  };
+}
+
+function buildContextFile(path: string, config: ReviewConfig): ChangedFile {
+  return {
+    path,
+    oldPath: path,
+    status: 'modified',
+    binary: false,
+    kind: pickFileKind(path, config),
+    hunks: [],
+    addedLines: 0,
+    deletedLines: 0,
   };
 }
 

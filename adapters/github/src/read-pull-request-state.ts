@@ -54,6 +54,12 @@ export interface PullRequestState {
 const formsMarkerSchema = z.strictObject({ replyID: z.int() });
 const FINDING_MARKER_START = '<!-- noslop:finding ';
 
+interface GitHubComment {
+  id: number | bigint;
+  user?: { login: string } | null;
+  created_at?: string;
+}
+
 // everything noslop keeps on a pull request, read back from GitHub: its commits, each finding thread
 // with its replies, and the summary of the latest review; only a comment by noslop's own App holds
 // state, and a comment by anyone else, another bot included, is a reply
@@ -228,12 +234,6 @@ export async function readPullRequestState(
     summary,
     unreadable,
   };
-}
-
-interface GitHubComment {
-  id: number | bigint;
-  user?: { login: string } | null;
-  created_at?: string;
 }
 
 type PostedFinding = Pick<

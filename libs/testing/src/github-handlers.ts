@@ -13,23 +13,6 @@ export const STUB_APP_LOGIN = 'noslop-review[bot]';
 
 type Data<Route extends keyof Endpoints> = Endpoints[Route]['response']['data'];
 
-interface CommentUser {
-  user: { login: string; type: string };
-}
-
-type PullComment = Data<'GET /repos/{owner}/{repo}/pulls/{pull_number}/comments'>[number];
-
-type ReviewCommentData = Pick<PullComment, 'id' | 'path' | 'body' | 'in_reply_to_id'> &
-  Pick<PullComment, 'commit_id' | 'created_at' | 'line' | 'start_line'> &
-  Pick<PullComment, 'original_line' | 'original_start_line'> &
-  CommentUser;
-
-type IssueCommentData = Pick<
-  Data<'GET /repos/{owner}/{repo}/issues/{issue_number}/comments'>[number],
-  'id' | 'body' | 'created_at'
-> &
-  CommentUser;
-
 interface RepoParams {
   owner: string;
   repo: string;
@@ -526,36 +509,22 @@ function buildNotFound() {
   );
 }
 
-function buildUnresolvedLine(comment: Pick<ReviewCommentInput, 'path' | 'line'>) {
-  return HttpResponse.json(
-    {
-      message: 'Unprocessable Entity',
-      errors: [`Line could not be resolved: ${comment.path}:${comment.line}`],
-    },
-    { status: 422 },
-  );
-}
-
-// GitHub takes a review comment only on a line of the pull request's diff
-function isCommentable(
-  repo: RepoParams,
-  number: number,
-  comment: Pick<ReviewCommentInput, 'path' | 'line' | 'start_line'>,
-): boolean {
-  const file = githubCollections.pullFiles.findFirst((query) =>
-    query.where({ owner: repo.owner, repo: repo.repo, number, path: comment.path }),
-  );
-
-  const lines = [comment.start_line ?? comment.line, comment.line];
-
-  return file !== undefined && lines.every((line) => file.lines.includes(line));
-}
-
 function toCommitData(
   sha: string,
 ): Pick<Data<'GET /repos/{owner}/{repo}/pulls/{pull_number}/commits'>[number], 'sha'> {
   return { sha };
 }
+
+interface CommentUser {
+  user: { login: string; type: string };
+}
+
+type PullComment = Data<'GET /repos/{owner}/{repo}/pulls/{pull_number}/comments'>[number];
+
+type ReviewCommentData = Pick<PullComment, 'id' | 'path' | 'body' | 'in_reply_to_id'> &
+  Pick<PullComment, 'commit_id' | 'created_at' | 'line' | 'start_line'> &
+  Pick<PullComment, 'original_line' | 'original_start_line'> &
+  CommentUser;
 
 function toReviewCommentData(
   comment: ReturnType<typeof githubCollections.reviewComments.all>[number],
@@ -574,6 +543,37 @@ function toReviewCommentData(
     user: { login: comment.authorLogin, type: comment.authorType },
   };
 }
+
+// GitHub takes a review comment only on a line of the pull request's diff
+function isCommentable(
+  repo: RepoParams,
+  number: number,
+  comment: Pick<ReviewCommentInput, 'path' | 'line' | 'start_line'>,
+): boolean {
+  const file = githubCollections.pullFiles.findFirst((query) =>
+    query.where({ owner: repo.owner, repo: repo.repo, number, path: comment.path }),
+  );
+
+  const lines = [comment.start_line ?? comment.line, comment.line];
+
+  return file !== undefined && lines.every((line) => file.lines.includes(line));
+}
+
+function buildUnresolvedLine(comment: Pick<ReviewCommentInput, 'path' | 'line'>) {
+  return HttpResponse.json(
+    {
+      message: 'Unprocessable Entity',
+      errors: [`Line could not be resolved: ${comment.path}:${comment.line}`],
+    },
+    { status: 422 },
+  );
+}
+
+type IssueCommentData = Pick<
+  Data<'GET /repos/{owner}/{repo}/issues/{issue_number}/comments'>[number],
+  'id' | 'body' | 'created_at'
+> &
+  CommentUser;
 
 function toIssueCommentData(
   comment: ReturnType<typeof githubCollections.issueComments.all>[number],

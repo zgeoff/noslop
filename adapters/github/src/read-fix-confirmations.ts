@@ -162,6 +162,19 @@ function findOneCommit(fixCommits: FixCommits, sha: string): string | null {
   return matches.length === 1 ? (matches[0] ?? null) : null;
 }
 
+// the files a review left out for one lens: every file no call read, and each file the call of that
+// lens left out while another call read it
+function collectLensSkipped(
+  notReviewed: ReadonlySet<string>,
+  byLens: readonly LensNotReviewedPath[],
+  lens: string,
+): Set<string> {
+  return new Set([
+    ...notReviewed,
+    ...byLens.filter((file) => file.lenses.includes(lens)).map((file) => file.path),
+  ]);
+}
+
 interface FixFiles {
   evidence: FixFileEvidence | null;
 
@@ -191,17 +204,4 @@ function buildFixFiles(read: CommitFiles, fixCommits: FixCommits, findingPath: s
   });
 
   return { evidence, failure: null };
-}
-
-// the files a review left out for one lens: every file no call read, and each file the call of that
-// lens left out while another call read it
-function collectLensSkipped(
-  notReviewed: ReadonlySet<string>,
-  byLens: readonly LensNotReviewedPath[],
-  lens: string,
-): Set<string> {
-  return new Set([
-    ...notReviewed,
-    ...byLens.filter((file) => file.lenses.includes(lens)).map((file) => file.path),
-  ]);
 }

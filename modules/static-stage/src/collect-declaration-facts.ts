@@ -1,31 +1,11 @@
 import { match } from 'ts-pattern';
 import type { AnalyzeContext } from './analyze-context';
 import type { ASTNode } from './ast-node';
-import { getCalleeName } from './get-callee-name';
-import { getField } from './get-field';
+import { findCalleeName } from './find-callee-name';
+import { findField } from './find-field';
 import { getFields } from './get-fields';
 import { getNodeText } from './get-node-text';
 import { isFunctionNode } from './is-function-node';
-
-const ALLOW_DENY_NAME =
-  /^(?:can[A-Z]|is(?:Allowed|Authori[sz]ed|Admin|Owner|Permitted)|has(?:Permission|Access|Role|Scope)|authori[sz]e|check(?:Access|Permission|Auth)|require(?:Auth|Role|Permission|Owner|Admin)|verify(?:Token|Session|Signature|Access)|guard)/u;
-
-const ROW_MAPPER_NAME = /^(?:to[A-Z]\w*(?:Data|DTO|Dto|Response|Row|JSON|Json)|map\w*Row)$/u;
-
-const CREDENTIAL_PATH =
-  /(?:^|\/)\.env(?:\.|$)|credentials?(?:\.json)?$|\.npmrc$|\.netrc$|id_(?:rsa|ed25519)|\.aws\/|(?:^|\/)secrets?\//u;
-
-const CREDENTIAL_NAME = /TOKEN|SECRET|PASSWORD|API_KEY|PRIVATE_KEY|CREDENTIAL/u;
-
-const ENV_OBJECTS = new Set(['process.env', 'Bun.env', 'import.meta.env']);
-
-const INSTRUCTION_KEYS = new Set([
-  'system',
-  'systemPrompt',
-  'instructions',
-  'developer_instructions',
-  'developerInstructions',
-]);
 
 // records the imports, the exports, the declared types with their keys, the `any` types and the calls
 // that return `any`, the config reads, and the security facts a declaration shows: an allow-or-deny
@@ -70,36 +50,15 @@ export function collectDeclarationFacts(
     });
 }
 
-// `JSON.parse` is the one call whose result is typed `any` by its name alone; any other call, such as
-// a `.json()` reader, needs its receiver's type, which the syntax tree does not hold
-function collectAnyCall(node: ASTNode, line: number, ctx: AnalyzeContext): void {
-  if (getCalleeName(node) === 'JSON.parse') {
-    ctx.analysis.jsonParses.push(line);
-  }
-}
-
-function collectCredentialPath(node: ASTNode, line: number, ctx: AnalyzeContext): void {
-  const value = node['value'];
-
-  if (typeof value === 'string' && CREDENTIAL_PATH.test(value)) {
-    ctx.analysis.security.push({
-      line,
-      endLine: line,
-      part: 'credential-read',
-      detail: `names the credential path ${value}`,
-    });
-  }
-}
-
 function collectImport(node: ASTNode, line: number, ctx: AnalyzeContext): void {
-  const source = getField(node, 'source')?.['value'];
+  const source = findField(node, 'source')?.['value'];
 
   if (typeof source !== 'string') {
     return;
   }
 
   const names = getFields(node, 'specifiers').flatMap((specifier) => {
-    const local = getField(specifier, 'local')?.['name'];
+    const local = findField(specifier, 'local')?.['name'];
 
     return typeof local === 'string' ? [local] : [];
   });
@@ -112,18 +71,18 @@ function collectImport(node: ASTNode, line: number, ctx: AnalyzeContext): void {
 }
 
 function collectExports(node: ASTNode, line: number, ctx: AnalyzeContext): void {
-  const declaration = getField(node, 'declaration');
+  const declaration = findField(node, 'declaration');
   const names: string[] = [];
 
   if (declaration !== null) {
-    const id = getField(declaration, 'id')?.['name'];
+    const id = findField(declaration, 'id')?.['name'];
 
     if (typeof id === 'string') {
       names.push(id);
     }
 
     for (const declarator of getFields(declaration, 'declarations')) {
-      const name = getField(declarator, 'id')?.['name'];
+      const name = findField(declarator, 'id')?.['name'];
 
       if (typeof name === 'string') {
         names.push(name);
@@ -132,7 +91,7 @@ function collectExports(node: ASTNode, line: number, ctx: AnalyzeContext): void 
   }
 
   for (const specifier of getFields(node, 'specifiers')) {
-    const name = getField(specifier, 'exported')?.['name'];
+    const name = findField(specifier, 'exported')?.['name'];
 
     if (typeof name === 'string') {
       names.push(name);
@@ -147,8 +106,8 @@ function collectExports(node: ASTNode, line: number, ctx: AnalyzeContext): void 
 }
 
 function collectType(node: ASTNode, exported: boolean, ctx: AnalyzeContext): void {
-  const name = getField(node, 'id')?.['name'];
-  const body = getField(node, 'body') ?? getField(node, 'typeAnnotation');
+  const name = findField(node, 'id')?.['name'];
+  const body = findField(node, 'body') ?? findField(node, 'typeAnnotation');
   const memberField = body?.type === 'TSInterfaceBody' ? 'body' : 'members';
   const members = body === null ? [] : getFields(body, memberField);
 
@@ -159,7 +118,7 @@ function collectType(node: ASTNode, exported: boolean, ctx: AnalyzeContext): voi
   ctx.analysis.types.push({
     name,
     keys: members.flatMap((member) => {
-      const key = getField(member, 'key');
+      const key = findField(member, 'key');
       const keyName = key?.['name'] ?? key?.['value'];
 
       return typeof keyName === 'string' ? [keyName] : [];
@@ -173,9 +132,21 @@ function collectType(node: ASTNode, exported: boolean, ctx: AnalyzeContext): voi
   });
 }
 
+// `JSON.parse` is the one call whose result is typed `any` by its name alone; any other call, such as
+// a `.json()` reader, needs its receiver's type, which the syntax tree does not hold
+function collectAnyCall(node: ASTNode, line: number, ctx: AnalyzeContext): void {
+  if (findCalleeName(node) === 'JSON.parse') {
+    ctx.analysis.jsonParses.push(line);
+  }
+}
+
+const CREDENTIAL_NAME = /TOKEN|SECRET|PASSWORD|API_KEY|PRIVATE_KEY|CREDENTIAL/u;
+
+const ENV_OBJECTS = new Set(['process.env', 'Bun.env', 'import.meta.env']);
+
 function collectConfigRead(node: ASTNode, line: number, ctx: AnalyzeContext): void {
-  const object = getField(node, 'object');
-  const property = getField(node, 'property');
+  const object = findField(node, 'object');
+  const property = findField(node, 'property');
 
   if (object === null || property === null) {
     return;
@@ -200,9 +171,33 @@ function collectConfigRead(node: ASTNode, line: number, ctx: AnalyzeContext): vo
   }
 }
 
+const CREDENTIAL_PATH =
+  /(?:^|\/)\.env(?:\.|$)|credentials?(?:\.json)?$|\.npmrc$|\.netrc$|id_(?:rsa|ed25519)|\.aws\/|(?:^|\/)secrets?\//u;
+
+function collectCredentialPath(node: ASTNode, line: number, ctx: AnalyzeContext): void {
+  const value = node['value'];
+
+  if (typeof value === 'string' && CREDENTIAL_PATH.test(value)) {
+    ctx.analysis.security.push({
+      line,
+      endLine: line,
+      part: 'credential-read',
+      detail: `names the credential path ${value}`,
+    });
+  }
+}
+
+const INSTRUCTION_KEYS = new Set([
+  'system',
+  'systemPrompt',
+  'instructions',
+  'developer_instructions',
+  'developerInstructions',
+]);
+
 function collectInstructionText(node: ASTNode, line: number, ctx: AnalyzeContext): void {
-  const key = getField(node, 'key');
-  const value = getField(node, 'value');
+  const key = findField(node, 'key');
+  const value = findField(node, 'value');
   const keyName = key?.['name'] ?? key?.['value'];
 
   if (typeof keyName !== 'string' || !INSTRUCTION_KEYS.has(keyName) || value === null) {
@@ -223,6 +218,11 @@ function collectInstructionText(node: ASTNode, line: number, ctx: AnalyzeContext
   }
 }
 
+const ALLOW_DENY_NAME =
+  /^(?:can[A-Z]|is(?:Allowed|Authori[sz]ed|Admin|Owner|Permitted)|has(?:Permission|Access|Role|Scope)|authori[sz]e|check(?:Access|Permission|Auth)|require(?:Auth|Role|Permission|Owner|Admin)|verify(?:Token|Session|Signature|Access)|guard)/u;
+
+const ROW_MAPPER_NAME = /^(?:to[A-Z]\w*(?:Data|DTO|Dto|Response|Row|JSON|Json)|map\w*Row)$/u;
+
 function collectSecurityFunction(
   node: ASTNode,
   ancestors: readonly ASTNode[],
@@ -231,7 +231,8 @@ function collectSecurityFunction(
   const parent = ancestors.at(-1);
 
   const id =
-    getField(node, 'id') ?? (parent?.type === 'VariableDeclarator' ? getField(parent, 'id') : null);
+    findField(node, 'id') ??
+    (parent?.type === 'VariableDeclarator' ? findField(parent, 'id') : null);
 
   const name = id?.['name'];
 

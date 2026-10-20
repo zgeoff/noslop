@@ -1,7 +1,7 @@
 import type { AnalyzeContext } from './analyze-context';
 import type { ASTNode } from './ast-node';
 import { collectFromAST } from './collect-from-ast';
-import { getCalleeName } from './get-callee-name';
+import { findCalleeName } from './find-callee-name';
 import { getFields } from './get-fields';
 import { isCallMatch } from './is-call-match';
 import { isFunctionNode } from './is-function-node';
@@ -16,7 +16,6 @@ const TEST_CALLS = new Set([
 ]);
 
 const TABLE_CALLS = new Set(['test.each()', 'it.each()']);
-const ASSERTION_ROOTS = new Set(['expect', 'assert', 't', 'should']);
 
 // records each test with its title, whether its body asserts anything, and a fingerprint of its body,
 // so 2 tests with one body match
@@ -36,7 +35,7 @@ export function collectTestFacts(node: ASTNode, name: string, ctx: AnalyzeContex
   }
 
   ctx.analysis.tests.push({
-    title: readTitle(title, ctx),
+    title: getTitle(title, ctx),
     startLine: ctx.parsed.getLine(node.start),
     endLine: ctx.parsed.getLine(node.end),
     hasAssertion: hasAssertion(body, ctx),
@@ -45,29 +44,15 @@ export function collectTestFacts(node: ASTNode, name: string, ctx: AnalyzeContex
   });
 }
 
-// the body's syntax tree as a list of node types, names and literal values, so layout and comments
-// never count and a changed literal always does
-function buildBodyFingerprint(body: ASTNode): string {
-  const tokens: string[] = [];
-
-  collectFromAST(body, (node) => {
-    const name = node['name'];
-    const raw = node['raw'] ?? node['operator'];
-    const text = typeof raw === 'string' ? raw : '';
-
-    tokens.push(`${node.type}:${typeof name === 'string' ? name : text}`);
-  });
-
-  return new Bun.CryptoHasher('sha256').update(tokens.join('\n')).digest('hex');
-}
-
-function readTitle(node: ASTNode, ctx: AnalyzeContext): string {
+function getTitle(node: ASTNode, ctx: AnalyzeContext): string {
   if (typeof node['value'] === 'string') {
     return node['value'];
   }
 
   return ctx.parsed.text.slice(node.start, node.end);
 }
+
+const ASSERTION_ROOTS = new Set(['expect', 'assert', 't', 'should']);
 
 function hasAssertion(body: ASTNode, ctx: AnalyzeContext): boolean {
   let found = false;
@@ -77,7 +62,7 @@ function hasAssertion(body: ASTNode, ctx: AnalyzeContext): boolean {
       return;
     }
 
-    const name = getCalleeName(node) ?? '';
+    const name = findCalleeName(node) ?? '';
     const root = name.split('.')[0] ?? '';
 
     found =
@@ -109,4 +94,20 @@ function hasAssertionRoot(node: ASTNode): boolean {
   }
 
   return false;
+}
+
+// the body's syntax tree as a list of node types, names and literal values, so layout and comments
+// never count and a changed literal always does
+function buildBodyFingerprint(body: ASTNode): string {
+  const tokens: string[] = [];
+
+  collectFromAST(body, (node) => {
+    const name = node['name'];
+    const raw = node['raw'] ?? node['operator'];
+    const text = typeof raw === 'string' ? raw : '';
+
+    tokens.push(`${node.type}:${typeof name === 'string' ? name : text}`);
+  });
+
+  return new Bun.CryptoHasher('sha256').update(tokens.join('\n')).digest('hex');
 }

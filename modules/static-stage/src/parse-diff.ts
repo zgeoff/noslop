@@ -37,7 +37,7 @@ export function parseDiff(diff: string): ParsedFile[] {
       continue;
     }
 
-    if (hunk === null && readHeaderLine(line, file)) {
+    if (hunk === null && tryParseHeaderLine(line, file)) {
       continue;
     }
 
@@ -63,7 +63,7 @@ export function parseDiff(diff: string): ParsedFile[] {
       continue;
     }
 
-    const parsed = readHunkLine(line, oldLine, newLine);
+    const parsed = parseHunkLine(line, oldLine, newLine);
 
     if (parsed === null) {
       continue;
@@ -78,7 +78,91 @@ export function parseDiff(diff: string): ParsedFile[] {
   return files;
 }
 
-function readHeaderLine(line: string, file: ParsedFile): boolean {
+// the header names the path twice; with no prefixes, an unrenamed path splits the rest in 2 equal
+// halves, and a quoted path ends at its closing quote
+function parseHeaderPath(rest: string): string {
+  if (rest.startsWith('"')) {
+    const end = getClosingQuote(rest);
+
+    return parseGitPath(rest.slice(0, end + 1));
+  }
+
+  const half = (rest.length - 1) / 2;
+
+  if (Number.isInteger(half) && rest.slice(0, half) === rest.slice(half + 1)) {
+    return rest.slice(0, half);
+  }
+
+  return rest.slice(0, rest.indexOf(' '));
+}
+
+function getClosingQuote(text: string): number {
+  for (let index = 1; index < text.length; index += 1) {
+    if (text.charAt(index) === '\\') {
+      index += 1;
+    } else if (text.charAt(index) === '"') {
+      return index;
+    }
+  }
+
+  return text.length - 1;
+}
+
+// each key is the character git writes after a backslash, so the table maps characters, not names
+const ESCAPES: ReadonlyMap<string, string> = new Map([
+  ['n', '\n'],
+  ['t', '\t'],
+  ['r', '\r'],
+  ['"', '"'],
+  ['\\', '\\'],
+  ['a', '\u0007'],
+  ['b', '\b'],
+  ['f', '\f'],
+  ['v', '\v'],
+]);
+
+// git ends a path that holds a space with a tab, and quotes a path that holds a special character,
+// with C escapes and octal bytes for the rest
+function parseGitPath(raw: string): string {
+  const path = raw.endsWith('\t') ? raw.slice(0, -1) : raw;
+
+  if (!path.startsWith('"') || !path.endsWith('"') || path.length < 2) {
+    return path;
+  }
+
+  const bytes: number[] = [];
+
+  const encoder = new TextEncoder();
+
+  const body = path.slice(1, -1);
+
+  for (let index = 0; index < body.length; index += 1) {
+    const char = body.charAt(index);
+
+    if (char !== '\\') {
+      bytes.push(...encoder.encode(char));
+      continue;
+    }
+
+    const octal = /^[0-7]{3}/u.exec(body.slice(index + 1))?.[0];
+
+    if (octal === undefined) {
+      const next = body.charAt(index + 1);
+
+      bytes.push(...encoder.encode(ESCAPES.get(next) ?? next));
+
+      index += 1;
+    } else {
+      bytes.push(Number.parseInt(octal, 8));
+
+      index += 3;
+    }
+  }
+
+  return new TextDecoder().decode(new Uint8Array(bytes));
+}
+
+function tryParseHeaderLine(line: string, file: ParsedFile): boolean {
   const target = file;
 
   if (line.startsWith('--- ')) {
@@ -144,91 +228,7 @@ function readHeaderLine(line: string, file: ParsedFile): boolean {
   return false;
 }
 
-// the header names the path twice; with no prefixes, an unrenamed path splits the rest in 2 equal
-// halves, and a quoted path ends at its closing quote
-function parseHeaderPath(rest: string): string {
-  if (rest.startsWith('"')) {
-    const end = findClosingQuote(rest);
-
-    return parseGitPath(rest.slice(0, end + 1));
-  }
-
-  const half = (rest.length - 1) / 2;
-
-  if (Number.isInteger(half) && rest.slice(0, half) === rest.slice(half + 1)) {
-    return rest.slice(0, half);
-  }
-
-  return rest.slice(0, rest.indexOf(' '));
-}
-
-// each key is the character git writes after a backslash, so the table maps characters, not names
-const ESCAPES: ReadonlyMap<string, string> = new Map([
-  ['n', '\n'],
-  ['t', '\t'],
-  ['r', '\r'],
-  ['"', '"'],
-  ['\\', '\\'],
-  ['a', '\u0007'],
-  ['b', '\b'],
-  ['f', '\f'],
-  ['v', '\v'],
-]);
-
-// git ends a path that holds a space with a tab, and quotes a path that holds a special character,
-// with C escapes and octal bytes for the rest
-function parseGitPath(raw: string): string {
-  const path = raw.endsWith('\t') ? raw.slice(0, -1) : raw;
-
-  if (!path.startsWith('"') || !path.endsWith('"') || path.length < 2) {
-    return path;
-  }
-
-  const bytes: number[] = [];
-
-  const encoder = new TextEncoder();
-
-  const body = path.slice(1, -1);
-
-  for (let index = 0; index < body.length; index += 1) {
-    const char = body.charAt(index);
-
-    if (char !== '\\') {
-      bytes.push(...encoder.encode(char));
-      continue;
-    }
-
-    const octal = /^[0-7]{3}/u.exec(body.slice(index + 1))?.[0];
-
-    if (octal === undefined) {
-      const next = body.charAt(index + 1);
-
-      bytes.push(...encoder.encode(ESCAPES.get(next) ?? next));
-
-      index += 1;
-    } else {
-      bytes.push(Number.parseInt(octal, 8));
-
-      index += 3;
-    }
-  }
-
-  return new TextDecoder().decode(new Uint8Array(bytes));
-}
-
-function findClosingQuote(text: string): number {
-  for (let index = 1; index < text.length; index += 1) {
-    if (text.charAt(index) === '\\') {
-      index += 1;
-    } else if (text.charAt(index) === '"') {
-      return index;
-    }
-  }
-
-  return text.length - 1;
-}
-
-function readHunkLine(line: string, oldLine: number, newLine: number): DiffLine | null {
+function parseHunkLine(line: string, oldLine: number, newLine: number): DiffLine | null {
   const marker = line.charAt(0);
   const text = line.slice(1);
 

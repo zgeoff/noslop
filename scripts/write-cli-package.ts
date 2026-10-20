@@ -40,7 +40,7 @@ export interface CLIPackageManifest {
   dependencies: Record<string, string>;
 }
 
-export async function buildCLIPackage(outDir: string): Promise<CLIPackageManifest> {
+export async function writeCLIPackage(outDir: string): Promise<CLIPackageManifest> {
   const bunVersion = await Bun.file(join(REPO_DIR, '.bun-version')).text();
 
   const entryNames = Object.values(LIBRARY_ENTRIES);
@@ -129,7 +129,7 @@ async function writeDeclarations(outDir: string, entryNames: readonly string[]):
 }
 
 if (import.meta.main) {
-  const manifest = await buildCLIPackage(join(CLI_DIR, 'dist'));
+  const manifest = await writeCLIPackage(join(CLI_DIR, 'dist'));
 
   process.stdout.write(`built ${manifest.name}@${manifest.version} in apps/cli/dist\n`);
 }
