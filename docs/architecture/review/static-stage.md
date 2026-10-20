@@ -69,6 +69,14 @@ counts only on a line the change adds, so a cast that keeps an older comment sta
 An `as const` assertion and a `satisfies` expression keep the check on, so the slice skips them. Any
 entry fires the naming-shape-and-comments lens.
 
+The script slice lists each code file the change adds under the config's script globs that the repo
+never runs again. A script counts as run when a package.json script at the head commit names its
+path from that package's folder, or a workflow file there names its path from the repo root or a
+package's folder. The match takes the whole path, so a command that names a longer path keeps the
+script in the slice. Any entry fires the naming-shape-and-comments lens, which reads the script and
+reports one that ran once only under a rule in the rules file. A git hook or a task runner that runs
+the script is left to the lens, which checks before it reports.
+
 ### The reuse slice and the base index
 
 The reuse slice gives each new function the base functions closest to it. Half of a candidate's

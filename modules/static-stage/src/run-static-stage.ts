@@ -8,6 +8,7 @@ import { buildFileSlices } from './build-file-slices';
 import { buildFunctionSlices } from './build-function-slices';
 import { buildReuseSlice } from './build-reuse-slice';
 import { buildRiskSignals } from './build-risk-signals';
+import { buildScriptSlice } from './build-script-slice';
 import type { ConsumerManifest } from './collect-change-findings';
 import { collectChangeFindings } from './collect-change-findings';
 import { collectInstructionFindings } from './collect-instruction-findings';
@@ -64,12 +65,14 @@ export async function runStaticStage(options: RunStaticStageOptions): Promise<St
     (path) => basename(path) === 'package.json' && !path.includes('node_modules/'),
   );
 
+  const workflowPaths = headPaths.filter((path) => isWorkflowFile(path));
+
   const readable = change.files
     .filter((file) => file.status !== 'deleted' && !file.binary)
     .map((file) => file.path);
 
   const headTexts = await readFilesAtCommit(options.runner, options.repoDir, change.head, [
-    ...new Set([...readable, ...contextPaths, ...manifestPaths]),
+    ...new Set([...readable, ...contextPaths, ...manifestPaths, ...workflowPaths]),
   ]);
 
   // the base side of each changed manifest, of each deleted code file, whose exports leave with it,
@@ -163,6 +166,12 @@ export async function runStaticStage(options: RunStaticStageOptions): Promise<St
     prose: fileSlices.prose,
     comments: fileSlices.comments,
     typeClaims: fileSlices.typeClaims,
+    scripts: buildScriptSlice({
+      files: changed,
+      manifests,
+      workflowTexts: workflowPaths.flatMap((path) => headTexts.get(path) ?? []),
+      config: options.config,
+    }),
     interfaces: fileSlices.interfaces,
     migrations: fileSlices.migrations,
     events: functionSlices.events,

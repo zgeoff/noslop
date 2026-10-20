@@ -272,6 +272,11 @@ export const reviewConfigSchema = z.strictObject({
     .describe('Path globs of the instruction files an agent loads'),
   prose: z.array(z.string().min(1)).describe('Path globs of prose files'),
   infra: z.array(z.string().min(1)).describe('Path globs of files that deploy or provision'),
+  scripts: z
+    .array(z.string().min(1))
+    .describe(
+      'Path globs of scripts; the naming-shape-and-comments lens reads each new one that no package.json script and no workflow names',
+    ),
   synced: z
     .array(z.string().min(1))
     .describe('Path globs of copies that another repo syncs in, which a change must not edit'),

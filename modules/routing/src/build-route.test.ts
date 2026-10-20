@@ -135,6 +135,26 @@ test('it fires the naming lens on a type claim the change adds', () => {
   expect(route.lenses).toStrictEqual(['correctness', 'naming-shape-and-comments']);
 });
 
+test('it fires the naming lens on a new script that nothing runs', () => {
+  const route = buildRoute({
+    change: {
+      base: 'a'.repeat(40),
+      head: 'b'.repeat(40),
+      files: [buildMockChangedFile()],
+      excluded: [],
+    },
+    slices: buildMockSlices({ scripts: ['scripts/codemod/rename-imports.ts'] }),
+    signals: buildMockRiskSignals(),
+    config: BUILT_IN_DEFAULTS,
+    linkedIssue: null,
+    isSync: false,
+    isRelease: false,
+    isPush: false,
+  });
+
+  expect(route.lenses).toStrictEqual(['correctness', 'naming-shape-and-comments']);
+});
+
 test('it runs a marked risk class at Deep with the lenses it forces, one call per group', () => {
   const route = buildRoute({
     change: {

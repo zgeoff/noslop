@@ -178,6 +178,9 @@ export interface Slices {
   prose: ProseEntry[];
   comments: CommentDensity;
   typeClaims: TypeClaimEntry[];
+
+  // each script the change adds that no package.json script and no workflow names
+  scripts: string[];
   interfaces: SourceLocation[];
   migrations: string[];
   events: SourceLocation[];

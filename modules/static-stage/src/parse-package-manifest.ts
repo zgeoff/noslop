@@ -9,9 +9,10 @@ const manifestSchema = z.looseObject({
   dependencies: z.record(z.string(), z.string()).optional(),
   devDependencies: z.record(z.string(), z.string()).optional(),
   peerDependencies: z.record(z.string(), z.string()).optional(),
+  scripts: z.record(z.string(), z.string()).optional(),
 });
 
-// reads a package.json into the fields the edge slice and the version checks use; a file that is not
+// reads a package.json into the fields the edge slice, the version checks and the script slice use; a file that is not
 // a JSON object gives null, so one broken manifest leaves the others readable
 export function parsePackageManifest(path: string, text: string): PackageManifest | null {
   const parsed = manifestSchema.safeParse(parseJSON(text));
@@ -34,6 +35,7 @@ export function parsePackageManifest(path: string, text: string): PackageManifes
       ...manifest.devDependencies,
       ...manifest.dependencies,
     },
+    scriptCommands: Object.values(manifest.scripts ?? {}),
   };
 }
 

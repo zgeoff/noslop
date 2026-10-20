@@ -139,6 +139,7 @@ export const BUILT_IN_DEFAULTS: ReviewConfig = {
     '**/helm/**',
     '**/deploy/**',
   ],
+  scripts: ['**/scripts/**', '**/*codemod*/**', '**/*codemod*'],
   synced: [],
   breakingMarkers: ['!:', 'BREAKING CHANGE'],
   limits: {},

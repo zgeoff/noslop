@@ -20,6 +20,17 @@ test('it tells the naming lens to skip as const, satisfies and a disable comment
   ]);
 });
 
+test('it tells the naming lens to report a one-off script under a rule and skip a script the repo runs again', () => {
+  const prompt = getLensPrompt('naming-shape-and-comments');
+
+  expect(prompt).toIncludeMultiple([
+    'Look for a script that ran once to change the tree',
+    'script or a one-off rewrite of text, when the rules file states a rule against committing one.',
+    '5. A script the repo runs again, such as a build, check or release script, or a helper that one of',
+    'P2 for a one-off script, under the criterion',
+  ]);
+});
+
 test('it tells the naming lens to quote a role table row and skip a choice between two verbs', () => {
   const prompt = getLensPrompt('naming-shape-and-comments');
 

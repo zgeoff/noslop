@@ -1,6 +1,7 @@
 import type { ReviewConfig } from '@noslop/contract';
 import type { PackageManifest } from './analyzed-file';
 import { isGlobMatch } from './is-glob-match';
+import { isInPackage } from './is-in-package';
 import type { Change, RiskSignals, Slices } from './types';
 
 export interface RiskSignalInputs {
@@ -32,9 +33,7 @@ export function buildRiskSignals(inputs: RiskSignalInputs): RiskSignals {
     paths.map(
       (path) =>
         inputs.manifests
-          .filter(
-            (manifest) => manifest.directory === '.' || path.startsWith(`${manifest.directory}/`),
-          )
+          .filter((manifest) => isInPackage(manifest, path))
           .toSorted((left, right) => right.directory.length - left.directory.length)[0]?.path ??
         '.',
     ),
