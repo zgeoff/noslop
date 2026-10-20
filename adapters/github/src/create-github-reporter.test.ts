@@ -5547,6 +5547,53 @@ test('it passes the check once the finding of a not-sound resolution holds a val
   expect(outcome.conclusion).toBe('success');
 });
 
+test('it removes a rejected merge and passes the check when a later run judges its resolution sound', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'c'.repeat(40),
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${'b'.repeat(40)}","base":"${'a'.repeat(40)}","reviews":2,"reported":[],"failedCalls":0,"rejectedMerges":["${'e'.repeat(40)}"],"reviewIDs":["review-a","review-b"]} -->`,
+  });
+
+  const result = buildMockReviewResult({
+    reviewID: 'review-c',
+    pullRequest: { owner: 'example', repo: 'app', number: 5 },
+    base: 'a'.repeat(40),
+    head: 'c'.repeat(40),
+    lenses: [],
+    fixChecks: [],
+    resolutionChecks: [
+      {
+        merge: 'e'.repeat(40),
+        sound: true,
+        reason: 'The merge keeps both timeouts.',
+        findingIDs: [],
+      },
+    ],
+  });
+
+  await ctx.reporter.report(result, { logger: ctx.logger, options: {}, failedReporters: [] });
+
+  const summary = githubCollections.issueComments
+    .all()
+    .findLast((comment) => comment.body.includes('<!-- noslop:summary'));
+
+  expect(summary?.body).not.toInclude('rejectedMerges');
+  expect(summary?.body).toInclude(`"checkedMerges":["${'e'.repeat(40)}"]`);
+  expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('success');
+});
+
 test('it keeps a rejected merge through a later fixes-only run that does not judge it', async () => {
   const ctx = setupTest();
 
