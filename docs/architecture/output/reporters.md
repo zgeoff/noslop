@@ -36,7 +36,8 @@ before it. The command line composes the reporters, so the review module never i
   so the secret stays out of the config file. An answer outside the success range counts as a
   failure.
 - `github` posts the findings and the summary on the pull request and sets the `noslop` check run.
-  It needs a pull request, so it fails on a review of a local range that `--pr` did not name.
+  It needs a pull request, so it fails on a review of a local range that `--pr` did not name. When
+  the same run lists `sqlite`, it records the link to each finding's comment in the findings store.
 
 The built-in defaults list only `json`, so a review with no config prints its result and writes
 nothing else.

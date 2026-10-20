@@ -1,4 +1,4 @@
-import { expect, test } from 'bun:test';
+import { expect, mock, test } from 'bun:test';
 import { getLogger } from '@logtape/logtape';
 import {
   GITHUB_API_URL,
@@ -2204,6 +2204,61 @@ test('it links each finding in the summary table to its comment', async () => {
 
   expect(summary?.body).toInclude(
     `| P2 | [Close the consumer](https://github.com/example/app/pull/5#issuecomment-${unanchored?.id}) | \`consumer.ts:40\` |`,
+  );
+});
+
+test('it hands the link to each finding comment to the comment link recorder', async () => {
+  const privateKey = buildStubAppKey();
+  const recordCommentURLs = mock(() => Promise.resolve());
+
+  const reporter = createGitHubReporter({
+    loadConnection: () => createGitHubConnection({ appID: 1, privateKey, installationID: 7 }),
+    recordCommentURLs,
+  });
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'b'.repeat(40),
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/a.ts',
+    lines: [1],
+  });
+
+  await reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'b'.repeat(40),
+      findings: [
+        buildMockFinding({ id: '1111111111111111' }),
+        buildMockFinding({
+          id: '2222222222222222',
+          title: 'Close the consumer',
+          anchor: { path: 'src/consumer.ts', startLine: 40, endLine: 40 },
+        }),
+      ],
+    }),
+    { logger: getLogger(['test']), options: {}, failedReporters: [] },
+  );
+
+  const [inline] = githubCollections.reviewComments.all();
+
+  const unanchored = githubCollections.issueComments.findFirst((query) =>
+    query.where({ body: (body) => body.includes('<!-- noslop:finding ') }),
+  );
+
+  expect(recordCommentURLs).toHaveBeenCalledExactlyOnceWith(
+    { owner: 'example', repo: 'app', number: 5 },
+    new Map([
+      ['1111111111111111', `https://github.com/example/app/pull/5#discussion_r${inline?.id}`],
+      ['2222222222222222', `https://github.com/example/app/pull/5#issuecomment-${unanchored?.id}`],
+    ]),
   );
 });
 

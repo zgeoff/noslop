@@ -20,8 +20,9 @@ export interface CLIContext {
   writeStderr: (text: string) => void;
   createAdapter: (id: string) => ReviewAdapter;
 
-  // the reporter with the id, or null when noslop has none by that id
-  createReporter: (id: string) => Reporter | null;
+  // the reporter with the id, or null when noslop has none by that id; the store path is the one the
+  // run's sqlite reporter writes, or null when the run lists no sqlite reporter
+  createReporter: (id: string, storePath: string | null) => Reporter | null;
 
   // a GitHub connection, as the App's installation when the environment holds one
   loadGitHubConnection: () => Promise<GitHubConnection>;

@@ -52,6 +52,7 @@ test('it keys each disposition a store held before on the one repo whose reviews
   database.run('ALTER TABLE calls ADD COLUMN chunk integer');
   database.run('ALTER TABLE calls DROP COLUMN cached_input_tokens');
   database.run('ALTER TABLE calls DROP COLUMN cache_write_tokens');
+  database.run('ALTER TABLE findings DROP COLUMN comment_url');
   database.run('DROP TABLE dispositions');
   database.run('DROP TABLE dropped_findings');
 
@@ -98,6 +99,7 @@ test('it gives a call the store held before no cache counts', async () => {
   database.run('ALTER TABLE reviews ADD COLUMN stepped_up_from text');
   database.run('ALTER TABLE calls DROP COLUMN cached_input_tokens');
   database.run('ALTER TABLE calls DROP COLUMN cache_write_tokens');
+  database.run('ALTER TABLE findings DROP COLUMN comment_url');
   database.run('DROP TABLE dropped_findings');
   database.close();
 
@@ -124,6 +126,7 @@ test('it gives a disposition the store held before no pull request', async () =>
   const database = new Database(ctx.path, { strict: true });
 
   database.run(`DELETE FROM kysely_migration WHERE name >= '0007'`);
+  database.run('ALTER TABLE findings DROP COLUMN comment_url');
   database.run('DROP TABLE dispositions');
 
   database.run(`CREATE TABLE dispositions (repo text NOT NULL, finding_id text NOT NULL,
@@ -147,6 +150,36 @@ test('it gives a disposition the store held before no pull request', async () =>
     .execute();
 
   expect(rows).toStrictEqual([{ finding_id: '1111111111111111', pull_request: null }]);
+});
+
+test('it opens a store written before findings kept a comment link and gives its findings none', async () => {
+  const ctx = await setupTest();
+  const first = await loadStore(ctx.path);
+
+  await writeReview(
+    first,
+    buildMockReviewResult({
+      reviewID: 'review-1',
+      pullRequest: { owner: 'example', repo: 'app', number: 7 },
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+  );
+
+  await first.destroy();
+
+  const database = new Database(ctx.path, { strict: true });
+
+  database.run(`DELETE FROM kysely_migration WHERE name >= '0008'`);
+  database.run('ALTER TABLE findings DROP COLUMN comment_url');
+  database.close();
+
+  const store = await loadStore(ctx.path);
+
+  onTestFinished(() => store.destroy());
+
+  const rows = await store.selectFrom('findings').select(['finding_id', 'comment_url']).execute();
+
+  expect(rows).toStrictEqual([{ finding_id: '1111111111111111', comment_url: null }]);
 });
 
 test('it keeps one row of a disposition with no pull request written twice', async () => {

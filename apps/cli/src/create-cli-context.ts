@@ -10,6 +10,7 @@ import { createSQLiteReporter } from '@noslop/sqlite';
 import { createWebhookReporter } from '@noslop/webhook';
 import type { CLIContext } from './cli-context';
 import { createJSONReporter } from './create-json-reporter';
+import { makeCommentURLRecorder } from './make-comment-url-recorder';
 import { makeGitHubConnectionLoader } from './make-github-connection-loader';
 
 // the context the installed CLI runs in: the real runner, the user's cache and data folders, stdout
@@ -25,11 +26,20 @@ export function createCLIContext(env: Readonly<Record<string, string | undefined
   };
 
   const loadGitHubConnection = makeGitHubConnectionLoader(env);
+  const logger = getLogger(['noslop']);
 
-  const reporters: Record<string, () => Reporter> = {
+  // a run with no sqlite reporter wrote no finding rows to link, and opening the store would create a
+  // file the config never asked for
+  const reporters: Record<string, (storePath: string | null) => Reporter> = {
     json: () => createJSONReporter(writeStdout),
     sqlite: () => createSQLiteReporter(join(dataDir, 'store.sqlite')),
-    github: () => createGitHubReporter({ loadConnection: loadGitHubConnection }),
+    github: (storePath) =>
+      createGitHubReporter({
+        loadConnection: loadGitHubConnection,
+        ...(storePath === null
+          ? {}
+          : { recordCommentURLs: makeCommentURLRecorder(storePath, logger) }),
+      }),
     webhook: () => createWebhookReporter({ env }),
   };
 
@@ -38,7 +48,7 @@ export function createCLIContext(env: Readonly<Record<string, string | undefined
     cwd: process.cwd(),
     cacheDir,
     dataDir,
-    logger: getLogger(['noslop']),
+    logger,
     writeStdout,
     writeStderr: (text) => {
       process.stderr.write(text);
@@ -52,7 +62,7 @@ export function createCLIContext(env: Readonly<Record<string, string | undefined
 
       return create();
     },
-    createReporter: (id) => reporters[id]?.() ?? null,
+    createReporter: (id, storePath) => reporters[id]?.(storePath) ?? null,
     loadGitHubConnection,
   };
 }
