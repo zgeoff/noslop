@@ -79,6 +79,12 @@ export async function runFixesOnlyReview(input: FixesOnlyReviewInput): Promise<R
   const range = await readGitLines(input, ['rev-list', `${input.base}..${input.head}`]);
   const bases = await Promise.all(input.fixes.map((fix) => readFixBase(input, fix, range)));
 
+  // a run with no fix to judge reads none of the new commits, so its summary would pass a head that
+  // no lens read; only a merge of the base, which brings in code the base holds, needs no fix
+  if (bases.every((fixBase) => fixBase === null)) {
+    await requireMergesOfBase(input, range);
+  }
+
   const pullRequestFiles = await readGitPaths(input, [
     'diff',
     '-z',
@@ -196,7 +202,7 @@ async function readFixBase(
   }
 
   // a head a rebase left off the branch bounds no diff of it, and the fix must still come after it
-  const held = await Promise.all(floors.map((head) => readBranchContainment(input, head)));
+  const held = await Promise.all(floors.map((head) => readAncestry(input, head, input.head)));
 
   if (held.includes(false)) {
     return null;
@@ -221,16 +227,15 @@ function findOneCommit(range: readonly string[], sha: string): string | null {
   return matches.length === 1 ? (matches[0] ?? null) : null;
 }
 
-// reads from git whether the pull request's head holds the commit
-async function readBranchContainment(
+// reads from git whether the descendant holds the commit
+async function readAncestry(
   input: FixesOnlyReviewInput,
   commit: string,
+  descendant: string,
 ): Promise<boolean> {
   const result = await input.runner.run(
-    ['git', 'merge-base', '--is-ancestor', commit, input.head],
-    {
-      cwd: input.repoDir,
-    },
+    ['git', 'merge-base', '--is-ancestor', commit, descendant],
+    { cwd: input.repoDir },
   );
 
   return result.exitCode === 0;
@@ -247,6 +252,44 @@ async function readNewerHead(
   });
 
   return result.exitCode === 0 ? second : first;
+}
+
+// throws unless the range holds a commit and each of the branch's own commits in it is a merge whose
+// other parents the pull request's base holds; a merge with a conflict resolution still gets its
+// resolution check
+async function requireMergesOfBase(
+  input: FixesOnlyReviewInput,
+  range: readonly string[],
+): Promise<void> {
+  const refusal = '--fixes-only has no `fixed` answer to check';
+
+  if (range.length === 0) {
+    throw new Error(`${refusal}, and no commit came after the last review`);
+  }
+
+  // a commit that a merge brought in from the base is code the base holds, so the range leaves it out
+  const own = await readGitLines(input, [
+    'rev-list',
+    input.head,
+    `^${input.base}`,
+    `^${input.mergeBase}`,
+  ]);
+
+  for (const commit of own) {
+    const listed = await readGitText(input, ['rev-list', '--parents', '-n', '1', commit]);
+
+    const others = listed.split(' ').slice(2);
+
+    const held = await Promise.all(
+      others.map((parent) => readAncestry(input, parent, input.mergeBase)),
+    );
+
+    if (others.length === 0 || held.includes(false)) {
+      throw new Error(
+        `${refusal}, so it cannot pass ${commit.slice(0, 12)}, which no lens read and which is no merge of the base; run a review without --fixes-only`,
+      );
+    }
+  }
 }
 
 // the paths a git command run with `-z` lists, each as the file's own name: `-z` ends each with a NUL

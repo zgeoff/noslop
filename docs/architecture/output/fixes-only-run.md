@@ -13,6 +13,12 @@ code or diff passes the config's file limit gets no call. A fix commit that chan
 pull request's diff gets no call either, and the run judges it not fixed, by the same rule the
 [check](./github-app.md#re-review-and-fix-confirmation) applies.
 
+A run with no `fixed` answer to judge refuses and gives the reason. It writes no summary, so the
+check stays on the head it was on and passes no commit that no lens read. One exception: the run
+goes ahead when each of the branch's own new commits is a merge whose other parents the pull
+request's base holds. Such a merge brings in only code the base holds, and the
+[resolution check](#the-resolution-check) judges each one that is not clean.
+
 A `fixed` reply posted after an earlier fixes-only run passed its commit gets a call too, so the
 next run, at the same head or a later one, checks it. Its diff starts from the newer of the head
 that posted the finding and the head of the newest review that ran its lenses, because that review
@@ -24,9 +30,9 @@ whether the CLI or `noslop post` sends it. A yes confirms the fix under
 run reporting the finding again, so the check names it as still found, and the summary gives the
 reason. The summary marker keeps the findings the run judged fixed with its range, and that range
 confirms no other fix, so a fix the run did not ask about stays unconfirmed, a `fixed` reply posted
-after the run included. A static finding takes a full review, so the run judges its fix not fixed.
-The run writes the summary at the new head and keeps the count of reviews, so the check reads the
-current head. It posts a finding comment only for a finding of a resolution check.
+after the run included. A static finding takes a full review, so the run judges its fix not fixed. A
+run that goes ahead writes the summary at the new head and keeps the count of reviews, so the check
+reads the current head. It posts a finding comment only for a finding of a resolution check.
 
 ## After a rebase
 
