@@ -728,6 +728,87 @@ test('it keeps the link to each posted finding comment in the store the config n
   ]);
 });
 
+test('it creates no store when a review posts to GitHub with no sqlite reporter', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
+    {
+      message: 'Add the total',
+      files: { 'src/total.ts': 'export const zero = 0;\nexport const one = zero - 1;\n' },
+    },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    title: 'Add the total',
+    body: 'Adds one.',
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[1] ?? '',
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[1] ?? '',
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/total.ts',
+    lines: [2],
+  });
+
+  const stub = buildStubAdapter({
+    light: [
+      {
+        findings: {
+          correctness: [
+            {
+              title: 'Add one, not subtract it',
+              body: 'The constant is named one but holds -1.',
+              anchor: { path: 'src/total.ts', startLine: 2, endLine: 2 },
+              secondLocation: null,
+              severity: 'P2',
+              criterion: 'wrong-behaviour-edge-path',
+              rule: null,
+              ruleQuote: null,
+              verdict: 'CONFIRMED',
+              unverifiedFact: null,
+              missingChange: false,
+              fix: null,
+            },
+          ],
+        },
+      },
+    ],
+  });
+
+  const installed = createCLIContext({
+    XDG_DATA_HOME: join(ctx.directory, 'data'),
+    XDG_CACHE_HOME: join(ctx.directory, 'cache'),
+    NOSLOP_GITHUB_APP_ID: '1',
+    NOSLOP_GITHUB_APP_PRIVATE_KEY: buildStubAppKey(),
+    NOSLOP_GITHUB_APP_INSTALLATION_ID: '7',
+  });
+
+  const code = await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'github', '--json'],
+    { ...ctx.buildContext(repo.path, stub.adapter), createReporter: installed.createReporter },
+  );
+
+  const hasStore = await Bun.file(join(ctx.directory, 'data', 'store.sqlite')).exists();
+
+  expect(code).toBe(0);
+  expect(githubCollections.reviewComments.all()).toHaveLength(1);
+  expect(hasStore).toBe(false);
+});
+
 test('it gives the calls the issue that the pull request body closes', async () => {
   const ctx = await setupTest();
 
