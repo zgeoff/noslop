@@ -69,11 +69,15 @@ export async function findRebasedHead(
     ...paired.map((commit) => commit.sha),
   ]);
 
-  const changed = reviewed.findIndex((commit, index) => {
-    const id = ids.get(commit.sha);
+  const empty = reviewed.find((commit) => !ids.has(commit.sha));
 
-    return id === undefined || id !== ids.get(paired[index]?.sha ?? '');
-  });
+  if (empty !== undefined) {
+    return toFailure(`the reviewed commit ${toShort(empty.sha)} has no patch to match`);
+  }
+
+  const changed = reviewed.findIndex(
+    (commit, index) => ids.get(commit.sha) !== ids.get(paired[index]?.sha ?? ''),
+  );
 
   if (changed !== -1) {
     const sha = reviewed[changed]?.sha ?? '';
@@ -120,8 +124,8 @@ async function readCommits(
       });
 }
 
-// each commit's patch id by its sha; a whitespace change counts as a change, and a commit with no
-// patch, such as an empty one, gets none
+// each commit's patch id by its sha, which git keeps the same across file order and whitespace; a
+// commit with no patch, such as an empty one, gets none
 async function readPatchIDs(
   runner: Runner,
   repoDir: string,
@@ -137,7 +141,7 @@ async function readPatchIDs(
     ...shas,
   ]);
 
-  const result = await runner.run(['git', 'patch-id', '--verbatim'], {
+  const result = await runner.run(['git', 'patch-id', '--stable'], {
     cwd: repoDir,
     stdin: `${patches}\n`,
   });

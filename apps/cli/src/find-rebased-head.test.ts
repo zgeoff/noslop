@@ -109,22 +109,14 @@ test('it maps no head when the rebase changed the patch of a reviewed commit', a
   });
 });
 
-test('it maps no head when the rebase changed only the whitespace of a reviewed commit', async () => {
+test('it maps no head when a reviewed commit is empty', async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
     { message: 'Describe the app', parent: 0, files: { 'README.md': '# app\n' } },
-    {
-      message: 'Add the scanner',
-      parent: 0,
-      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = "";\n' },
-    },
-    {
-      message: 'Add the scanner',
-      parent: 1,
-      files: { 'src/scan.ts': 'export const zero = 0;\nexport  const separator = "";\n' },
-    },
+    { message: 'Start the scanner', parent: 0, files: {} },
+    { message: 'Start the scanner', parent: 1, files: {} },
   ]);
 
   const rebased = await findRebasedHead(ctx.runner, {
@@ -136,7 +128,7 @@ test('it maps no head when the rebase changed only the whitespace of a reviewed 
 
   expect(rebased).toStrictEqual({
     head: null,
-    failure: `the rebase changed the patch of the reviewed commit ${(repo.commits[2] ?? '').slice(0, 12)}`,
+    failure: `the reviewed commit ${(repo.commits[2] ?? '').slice(0, 12)} has no patch to match`,
   });
 });
 

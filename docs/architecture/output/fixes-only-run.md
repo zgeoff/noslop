@@ -31,17 +31,18 @@ comment, so the check reads the current head.
 
 A rebase after the last review takes its head off the branch, so the run maps that head onto the
 branch before it starts. The reviewed commits past the pull request's base must open the branch in
-the same order, each with the same patch by git's patch id, and the run starts from the branch
-commit that matches the reviewed head. Each fix diff therefore still covers only the commits after
-the review. A reviewed commit whose patch the base already holds belongs to the base, as in a stack
-whose base branch rebased too, so the mapping leaves it out.
+the same order, each with the same patch by git's patch id, which ignores whitespace and file order,
+and the run starts from the branch commit that matches the reviewed head. Each fix diff therefore
+still covers only the commits after the review. A reviewed commit whose patch the base already holds
+belongs to the base, as in a stack whose base branch rebased too, so the mapping leaves it out.
 
-The run refuses, and gives the reason, in four cases:
+The run refuses, and gives the reason, in five cases:
 
-- The rebase changed a reviewed commit's patch, by a conflict resolution or a whitespace change.
-- The reviewed range holds a merge, whose patch git gives no patch id.
+- The rebase changed a reviewed commit's patch, such as by a conflict resolution.
+- The reviewed range, or the branch commits it maps onto, holds a merge, which has no patch id.
+- A reviewed commit is empty, so it has no patch to match.
 - The branch holds fewer commits past the base than the reviewed range.
-- The repo cannot fetch the reviewed head.
+- The repo holds no commit of the reviewed head.
 
 A `fixed` answer that names a fix commit the rebase rewrote counts the branch commit with the same
 change, as the check counts it, and the run judges that commit. A `fixed` reply posted after an
