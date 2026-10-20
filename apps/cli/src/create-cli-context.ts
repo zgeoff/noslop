@@ -28,7 +28,8 @@ export function createCLIContext(env: Readonly<Record<string, string | undefined
   const loadGitHubConnection = makeGitHubConnectionLoader(env);
   const logger = getLogger(['noslop']);
 
-  // the github reporter keeps each finding's comment link in the store only when the run writes one
+  // a run with no sqlite reporter wrote no finding rows to link, and opening the store would create a
+  // file the config never asked for
   const reporters: Record<string, (storePath: string | null) => Reporter> = {
     json: () => createJSONReporter(writeStdout),
     sqlite: () => createSQLiteReporter(join(dataDir, 'store.sqlite')),
