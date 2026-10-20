@@ -2663,6 +2663,126 @@ test('it checks the resolution of a merge with a conflict under --fixes-only and
   expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('success');
 });
 
+test('it posts the finding of a resolution that drops a change under --fixes-only, fails the check and counts no review', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: { 'src/options.ts': 'export const options = { retries: 1, timeoutMs: 1000 };\n' },
+    },
+    {
+      message: 'Retry 3 times',
+      files: { 'src/options.ts': 'export const options = { retries: 3, timeoutMs: 1000 };\n' },
+    },
+    {
+      message: 'Wait longer',
+      files: { 'src/options.ts': 'export const options = { retries: 1, timeoutMs: 5000 };\n' },
+      parent: 0,
+    },
+    {
+      message: 'Merge main',
+      files: { 'src/options.ts': 'export const options = { retries: 3, timeoutMs: 1000 };\n' },
+      parent: 1,
+      merged: 2,
+    },
+  ]);
+
+  const merge = repo.commits[3] ?? '';
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    title: 'Retry a failed request',
+    body: 'Retries a failed request 3 times.',
+    baseSha: repo.commits[2] ?? '',
+    headSha: merge,
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[1] ?? '',
+    files: ['src/options.ts'],
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: merge,
+    files: ['src/options.ts'],
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/options.ts',
+    lines: [1],
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":2,"reported":[],"failedCalls":0} -->`,
+  });
+
+  const stub = buildStubAdapter({
+    [`resolution-${merge.slice(0, 12)}`]: [
+      {
+        sound: false,
+        reason: 'The resolution drops the 5000 ms timeout the base branch set.',
+        findings: {
+          correctness: [
+            {
+              title: 'Keep the 5000 ms timeout from the base branch',
+              body: 'The base branch raised the timeout to 5000 ms, and the resolution keeps 1000 ms, so slow requests fail again.',
+              anchor: { path: 'src/options.ts', startLine: 1, endLine: 1 },
+              secondLocation: null,
+              severity: 'P1',
+              criterion: 'wrong-result-main-path',
+              rule: null,
+              ruleQuote: null,
+              verdict: 'CONFIRMED',
+              unverifiedFact: null,
+              missingChange: false,
+              fix: 'Set timeoutMs to 5000.',
+            },
+          ],
+          security: [],
+        },
+      },
+    ],
+  });
+
+  await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--fixes-only', '--report', 'github'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  const summary = githubCollections.issueComments
+    .all()
+    .findLast((comment) => comment.body.includes('<!-- noslop:summary'));
+
+  expect(githubCollections.reviewComments.all()).toMatchObject([
+    {
+      path: 'src/options.ts',
+      line: 1,
+      body: expect.stringContaining('Keep the 5000 ms timeout from the base branch'),
+    },
+  ]);
+
+  expect(summary?.body).toInclude('"reviews":2,');
+  expect(summary?.body).not.toInclude('checkedMerges');
+  expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('failure');
+});
+
 test('it rejects a fixed reply under --fixes-only when the call finds the fix does not fix the finding, and fails the check', async () => {
   const ctx = await setupTest();
 
