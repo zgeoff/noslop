@@ -17,6 +17,8 @@ import { z } from 'zod';
 import { buildFixCheckPrompt } from './build-fix-check-prompt';
 import type { ResolutionCheckOptions } from './run-resolution-checks';
 import { runResolutionChecks } from './run-resolution-checks';
+import type { StaticRecheckOptions } from './run-static-recheck';
+import { runStaticRecheck } from './run-static-recheck';
 
 // a finding whose latest answer is `fixed <commit>`, as its comment on the pull request keeps it
 export interface AnsweredFix {
@@ -67,11 +69,15 @@ export interface FixesOnlyReviewInput {
   // with it, the run also checks the resolution of each merge commit among the new commits whose tree
   // differs from the tree `git merge-tree` builds from its parents; without it, the run checks no merge
   resolution?: ResolutionCheckOptions;
+
+  // with it, the run judges the fix of a static finding by running the static stage over the whole
+  // pull request again; without it, the run judges such a fix not fixed
+  staticCheck?: StaticRecheckOptions;
 }
 
-// a run after the last review round with no lens over the change: one call per `fixed` answer that no
-// review has judged asks whether the diff of its files fixes it, and the fix checks list each verdict,
-// so no other fix confirms through the run's silence; only a resolution check raises a finding
+// a run after the last review round with no lens over the change: each `fixed` answer no review judged
+// gets one call over the diff of its files, or the static stage again for a static finding, and the
+// fix checks list each verdict, so no fix confirms through silence; only a merge raises a finding
 export async function runFixesOnlyReview(input: FixesOnlyReviewInput): Promise<ReviewResult> {
   const now = input.now ?? (() => new Date());
   const startedAt = now().toISOString();
@@ -94,9 +100,26 @@ export async function runFixesOnlyReview(input: FixesOnlyReviewInput): Promise<R
     input.head,
   ]);
 
+  // the stage runs once for every static fix the run judges, and not at all for a run with none
+  const hasStaticFix = input.fixes.some(
+    (fix, index) => fix.lens === 'static' && (bases[index] ?? null) !== null,
+  );
+
+  const staticIDs =
+    hasStaticFix && input.staticCheck !== undefined
+      ? await runStaticRecheck({
+          ...input.staticCheck,
+          runner: input.runner,
+          repoDir: input.repoDir,
+          mergeBase: input.mergeBase,
+          head: input.head,
+          title: input.title,
+        })
+      : null;
+
   const outcomes = await Promise.all(
     input.fixes.map((fix, index) =>
-      runFixCheck(input, { fix, base: bases[index] ?? null, pullRequestFiles }),
+      runFixCheck(input, { fix, base: bases[index] ?? null, pullRequestFiles, staticIDs }),
     ),
   );
 
@@ -324,11 +347,15 @@ interface FixTarget {
 
   // each path the pull request's diff changes, the earlier path of a renamed file included
   pullRequestFiles: readonly string[];
+
+  // the IDs of the static findings the whole pull request holds at its head, or null when the run
+  // has no static check
+  staticIDs: ReadonlySet<string> | null;
 }
 
 // one fix's call, over the diff from its base of the finding's file and of each file the fix commit
 // changes; a fix with no base asks nothing, a commit that changes no file of the pull request fixes
-// nothing, and a static finding, which no model lens reported, takes a full review to confirm
+// nothing, and a static finding, which no model lens reported, holds while the static stage reports it
 async function runFixCheck(
   input: FixesOnlyReviewInput,
   target: FixTarget,
@@ -337,12 +364,6 @@ async function runFixCheck(
 
   if (target.base === null) {
     return {};
-  }
-
-  if (fix.lens === 'static') {
-    const reason = 'a static finding takes a full review to confirm its fix';
-
-    return { check: { findingID: fix.id, fixed: false, reason } };
   }
 
   const base = target.base.base;
@@ -370,6 +391,10 @@ async function runFixCheck(
     const reason = 'the commit changes no file of the pull request';
 
     return { check: { findingID: fix.id, fixed: false, reason } };
+  }
+
+  if (fix.lens === 'static') {
+    return { check: buildStaticFixCheck(fix, target.staticIDs) };
   }
 
   const paths = [...new Set([fix.path, ...commitFiles])];
@@ -457,6 +482,25 @@ async function runFixCheck(
       failedCall: { id: callID, lenses: [lens], reason },
     };
   }
+}
+
+// a static finding the stage no longer reports at the head is fixed, by the same rule a review applies
+function buildStaticFixCheck(fix: AnsweredFix, staticIDs: ReadonlySet<string> | null): FixCheck {
+  if (staticIDs === null) {
+    return {
+      findingID: fix.id,
+      fixed: false,
+      reason: 'a static finding takes a full review to confirm its fix',
+    };
+  }
+
+  return staticIDs.has(fix.id)
+    ? { findingID: fix.id, fixed: false, reason: 'the static check still reports it at the head' }
+    : {
+        findingID: fix.id,
+        fixed: true,
+        reason: 'the static check no longer reports it at the head',
+      };
 }
 
 // the lines above and below the anchored line that the call reads, so it sees the code around the

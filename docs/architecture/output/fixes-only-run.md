@@ -4,14 +4,15 @@ A fixes-only run lets a fix that lands after the last review round pass the chec
 review round. It starts from the head of the newest run with no failed call that the summary marker
 keeps, and the branch must hold that head or a commit that a rebase made of it. It runs no lens over
 the diff, and it raises a finding only on what a merge commit wrote, under
-[the resolution check](#the-resolution-check). For each finding whose latest disposition is `fixed`
-with a commit among the new commits, it makes one small call. That call reads the finding, the code
-around the line it anchored to at that head, and the diff since that head of the finding's file and
-of each file the fix commit changes, and answers whether the diff fixes the finding, with a one-line
-reason. A fix such as a new test in another file therefore gets judged on that test. A fix whose
-code or diff passes the config's file limit gets no call. A fix commit that changes no file of the
-pull request's diff gets no call either, and the run judges it not fixed, by the same rule the
-[check](./github-app.md#re-review-and-fix-confirmation) applies.
+[the resolution check](#the-resolution-check). For each finding of a model lens whose latest
+disposition is `fixed` with a commit among the new commits, it makes one small call. A finding of
+the static stage gets [its static check](#static-findings) in place of the call. That call reads the
+finding, the code around the line it anchored to at that head, and the diff since that head of the
+finding's file and of each file the fix commit changes, and answers whether the diff fixes the
+finding, with a one-line reason. A fix such as a new test in another file therefore gets judged on
+that test. A fix whose code or diff passes the config's file limit gets no call. A fix commit that
+changes no file of the pull request's diff gets no call either, and the run judges it not fixed, by
+the same rule the [check](./github-app.md#re-review-and-fix-confirmation) applies.
 
 A run with no `fixed` answer to judge refuses and gives the reason. It writes no summary, so the
 check stays on the head it was on and passes no commit that no lens read. One exception: the run
@@ -30,9 +31,23 @@ whether the CLI or `noslop post` sends it. A yes confirms the fix under
 run reporting the finding again, so the check names it as still found, and the summary gives the
 reason. The summary marker keeps the findings the run judged fixed with its range, and that range
 confirms no other fix, so a fix the run did not ask about stays unconfirmed, a `fixed` reply posted
-after the run included. A static finding takes a full review, so the run judges its fix not fixed. A
-run that goes ahead writes the summary at the new head and keeps the count of reviews, so the check
-reads the current head. It posts a finding comment only for a finding of a resolution check.
+after the run included. A run that goes ahead writes the summary at the new head and keeps the count
+of reviews, so the check reads the current head. It posts a finding comment only for a finding of a
+resolution check.
+
+## Static findings
+
+A `fixed` answer to a finding of the [static stage](../review/static-stage.md) gets no model call.
+The run runs the static stage again, once, over the whole diff of the pull request from its merge
+base to its head, and Assemble gives each finding its ID as in a review. The fix holds when no
+finding of that run has the answered finding's ID, and fails when one has it. A fix commit that
+changes no file of the pull request fails first, by the rule every fix follows.
+
+The stage reads the whole diff because its checks read the change as a whole. A test counts as new
+only on a line the change adds, so a diff of the fix commit alone sees no new test with no
+assertion. A version bump compares a manifest with its side at the base, so a diff of the fix commit
+alone sees both sides already bumped. The stage also reads the pull request's title, its body and
+its linked issue, so the run reads the linked issue when it judges a static fix.
 
 ## After a rebase
 

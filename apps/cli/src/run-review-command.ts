@@ -72,12 +72,7 @@ export async function runReviewCommand(values: ReviewValues, ctx: CLIContext): P
   const change =
     values.pr === undefined
       ? await resolveLocalChange(ctx, repoDir, values)
-      : await resolvePullRequestChange(
-          ctx,
-          repoDir,
-          values,
-          issueText === null && !values.fixesOnly,
-        );
+      : await resolvePullRequestChange(ctx, repoDir, values, issueText === null);
 
   // the config comes from the commit the change starts from, so a change that edits the config is
   // reviewed under the config it would replace
@@ -125,6 +120,12 @@ export async function runReviewCommand(values: ReviewValues, ctx: CLIContext): P
         tempDir,
         logger: ctx.logger,
         resolution: { config: loaded.config, dismissedFindings: change.dismissedFindings },
+        staticCheck: {
+          config: loaded.config,
+          body: change.body,
+          linkedIssue: issueText ?? change.linkedIssue,
+          cacheDir: join(ctx.cacheDir, 'index'),
+        },
         ...(ctx.now === undefined ? {} : { now: ctx.now }),
       });
 
@@ -337,7 +338,7 @@ async function resolvePullRequestChange(
   ctx: CLIContext,
   repoDir: string,
   values: ReviewValues,
-  shouldReadLinkedIssue: boolean,
+  canReadLinkedIssue: boolean,
 ): Promise<ResolvedChange> {
   if (values.base !== undefined || values.head !== undefined) {
     throw new Error(
@@ -427,10 +428,14 @@ async function resolvePullRequestChange(
 
   // a lens head that a rebase left off the branch bounds no late fix, unless it is the reviewed head
   const lensHead = findLensHead(summary) === reviewed ? rebased.head : findLensHead(summary);
+  const fixes = values.fixesOnly ? await readAnsweredFixes(connection, pullRequest, state) : [];
 
-  const linkedIssue = shouldReadLinkedIssue
-    ? await readLinkedIssue(connection, pullRequest, state.body)
-    : null;
+  // a fixes-only run reads the linked issue only to run the static stage again for a static fix,
+  // since a static check compares the change against the issue
+  const linkedIssue =
+    canReadLinkedIssue && (!values.fixesOnly || fixes.some((fix) => fix.lens === 'static'))
+      ? await readLinkedIssue(connection, pullRequest, state.body)
+      : null;
 
   return {
     repo,
@@ -455,7 +460,7 @@ async function resolvePullRequestChange(
       answer: thread.replies.at(-1)?.body.trim().split('\n')[0] ?? null,
     })),
     dismissedFindings: collectDismissedFindings(state.threads),
-    fixes: values.fixesOnly ? await readAnsweredFixes(connection, pullRequest, state) : [],
+    fixes,
   };
 }
 
