@@ -396,6 +396,7 @@ async function readLaterHunks(
   const diff = await readGitText(input, [
     '--literal-pathspecs',
     'diff',
+    '--no-color',
     '--no-ext-diff',
     '--no-renames',
     '--unified=0',

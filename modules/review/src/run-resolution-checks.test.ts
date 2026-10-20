@@ -781,6 +781,87 @@ test('it lists no verdict and records the failed call when the resolution call f
   ]);
 });
 
+test('it moves the anchor of a resolution finding in a repo whose config always colours a diff', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: { 'src/options.ts': 'export const options = { retries: 1, timeoutMs: 1000 };\n' },
+    },
+    {
+      message: 'Retry 3 times',
+      files: { 'src/options.ts': 'export const options = { retries: 3, timeoutMs: 1000 };\n' },
+    },
+    {
+      message: 'Wait longer',
+      files: { 'src/options.ts': 'export const options = { retries: 1, timeoutMs: 5000 };\n' },
+      parent: 0,
+    },
+    {
+      message: 'Merge main',
+      files: { 'src/options.ts': 'export const options = { retries: 3, timeoutMs: 1000 };\n' },
+      parent: 1,
+      merged: 2,
+    },
+    {
+      message: 'Document the options',
+      files: {
+        'src/options.ts':
+          '// the retry policy\n// of the client\nexport const options = { retries: 3, timeoutMs: 1000 };\n',
+      },
+    },
+  ]);
+
+  await Bun.$`git -C ${repo.path} config color.diff always`.quiet();
+
+  const merge = repo.commits[3] ?? '';
+
+  const stub = buildStubAdapter({
+    [`resolution-${merge.slice(0, 12)}`]: [
+      {
+        sound: false,
+        reason: 'The resolution drops the 5000 ms timeout the base branch set.',
+        findings: {
+          correctness: [
+            {
+              title: 'Keep the 5000 ms timeout from the base branch',
+              body: 'The resolution keeps 1000 ms, so slow requests fail again.',
+              anchor: { path: 'src/options.ts', startLine: 1, endLine: 1 },
+              secondLocation: null,
+              severity: 'P1',
+              criterion: 'wrong-result-main-path',
+              rule: null,
+              ruleQuote: null,
+              verdict: 'CONFIRMED',
+              unverifiedFact: null,
+              missingChange: false,
+              fix: null,
+            },
+          ],
+          security: [],
+        },
+      },
+    ],
+  });
+
+  const run = await runResolutionChecks({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: repo.commits[1] ?? '',
+    head: repo.commits[4] ?? '',
+    config: BUILT_IN_DEFAULTS,
+    dismissedFindings: [],
+    adapter: stub.adapter,
+    tempDir: ctx.directory,
+    logger: ctx.logger,
+  });
+
+  expect(run.findings.map((finding) => finding.anchor)).toStrictEqual([
+    { path: 'src/options.ts', startLine: 3, endLine: 3 },
+  ]);
+});
+
 test('it moves the anchor of a resolution finding to its lines at the head when a later commit adds lines above them', async () => {
   const ctx = await setupTest();
 
