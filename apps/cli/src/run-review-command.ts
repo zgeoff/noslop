@@ -10,6 +10,7 @@ import { reviewResultSchema } from '@noslop/contract';
 import type { GitHubConnection, PullRequestState, SummaryMarker } from '@noslop/github';
 import {
   collectDismissedFindings,
+  readFixCommits,
   readLinkedIssue,
   readPullRequestState,
   readThreadDispositions,
@@ -19,6 +20,7 @@ import { runFixesOnlyReview, runReview } from '@noslop/review';
 import { loadStore, readEscapePaths } from '@noslop/sqlite';
 import { buildConfiguredAdapter } from './build-configured-adapter';
 import type { CLIContext } from './cli-context';
+import { findRebasedHead } from './find-rebased-head';
 import { formatReviewSummary } from './format-review-summary';
 import { getStorePath } from './get-store-path';
 import { loadRepoConfig } from './load-repo-config';
@@ -340,12 +342,32 @@ async function resolvePullRequestChange(
 
   const isDelta = reviewed !== null && reviewed !== state.headSha && ancestry.exitCode === 0;
 
+  const refusal =
+    '--fixes-only needs an earlier review with no failed call whose head the branch still holds';
+
   // a fixes-only run may run again at the same head, for a `fixed` reply posted after the last run
-  if (values.fixesOnly && (reviewed === null || ancestry.exitCode !== 0)) {
-    throw new Error(
-      '--fixes-only needs an earlier review with no failed call whose head the branch still holds',
-    );
+  if (values.fixesOnly && reviewed === null) {
+    throw new Error(refusal);
   }
+
+  // a rebase after the review leaves its head off the branch, so the run starts from the branch
+  // commit with the same patches, and each fix diff still covers only the commits after the review
+  const rebased =
+    values.fixesOnly && reviewed !== null && ancestry.exitCode !== 0
+      ? await findRebasedHead(ctx.runner, {
+          repoDir,
+          reviewed,
+          base: state.baseSha,
+          head: state.headSha,
+        })
+      : { head: reviewed, failure: null };
+
+  if (values.fixesOnly && rebased.head === null) {
+    throw new Error(`${refusal}: ${rebased.failure ?? ''}`);
+  }
+
+  // a lens head that a rebase left off the branch bounds no late fix, unless it is the reviewed head
+  const lensHead = findLensHead(summary) === reviewed ? rebased.head : findLensHead(summary);
 
   const linkedIssue = shouldReadLinkedIssue
     ? await readLinkedIssue(connection, pullRequest, state.body)
@@ -353,9 +375,9 @@ async function resolvePullRequestChange(
 
   return {
     repo,
-    base: (values.fixesOnly || isDelta) && reviewed !== null ? reviewed : start,
+    base: (values.fixesOnly || isDelta) && rebased.head !== null ? rebased.head : start,
     head: state.headSha,
-    lensHead: findLensHead(summary),
+    lensHead,
     configCommit: state.baseSha,
     title: state.title,
     body: state.body,
@@ -423,6 +445,15 @@ async function readAnsweredFixes(
   const latest = new Map(dispositions.map((item) => [item.findingID, item]));
   const confirmed = new Set(state.summary?.marker.confirmed);
 
+  // a rebase rewrites a fix commit an answer named, and the check counts the branch commit with its
+  // change in its place, so the run judges that commit
+  const fixCommits = await readFixCommits(connection.client, pullRequest, {
+    commits: state.commits,
+    dispositions,
+    head: state.headSha,
+    threads: state.threads,
+  });
+
   return state.threads.flatMap((thread): AnsweredFix[] => {
     const disposition = latest.get(thread.marker.id);
 
@@ -443,7 +474,9 @@ async function readAnsweredFixes(
         path: thread.marker.path,
         line: thread.line,
         comment: thread.body.replace(/<!-- noslop:[\s\S]*?-->/u, '').trim(),
-        commit: disposition.value,
+        commit:
+          fixCommits.rewritten.get(`${thread.marker.id}:${disposition.value}`)?.commit ??
+          disposition.value,
         postedHead: thread.marker.head ?? null,
       },
     ];

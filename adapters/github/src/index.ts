@@ -4,6 +4,7 @@ export * from './create-github-disposition-source';
 export * from './create-github-file-reader';
 export * from './create-github-reporter';
 export * from './parse-github-app-env';
+export * from './read-fix-commits';
 export * from './read-linked-issue';
 export * from './read-pull-request-state';
 export * from './read-thread-dispositions';

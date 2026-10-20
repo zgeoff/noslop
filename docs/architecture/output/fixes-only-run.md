@@ -2,14 +2,14 @@
 
 A fixes-only run lets a fix that lands after the last review round pass the check without a new
 review round. It starts from the head of the newest run with no failed call that the summary marker
-keeps, and the branch must still hold that head. It runs no lens over the diff and raises no
-finding. For each finding whose latest disposition is `fixed` with a commit among the new commits,
-it makes one small call. That call reads the finding, the code around the line it anchored to at
-that head, and the diff since that head of the finding's file and of each file the fix commit
-changes, and answers whether the diff fixes the finding, with a one-line reason. A fix such as a new
-test in another file therefore gets judged on that test. A fix whose code or diff passes the
-config's file limit gets no call. A fix commit that changes no file of the pull request's diff gets
-no call either, and the run judges it not fixed, by the same rule the
+keeps, and the branch must hold that head or a commit that a rebase made of it. It runs no lens over
+the diff and raises no finding. For each finding whose latest disposition is `fixed` with a commit
+among the new commits, it makes one small call. That call reads the finding, the code around the
+line it anchored to at that head, and the diff since that head of the finding's file and of each
+file the fix commit changes, and answers whether the diff fixes the finding, with a one-line reason.
+A fix such as a new test in another file therefore gets judged on that test. A fix whose code or
+diff passes the config's file limit gets no call. A fix commit that changes no file of the pull
+request's diff gets no call either, and the run judges it not fixed, by the same rule the
 [check](./github-app.md#re-review-and-fix-confirmation) applies.
 
 A `fixed` reply posted after an earlier fixes-only run passed its commit gets a call too, so the
@@ -26,3 +26,24 @@ confirms no other fix, so a fix the run did not ask about stays unconfirmed, a `
 after the run included. A static finding takes a full review, so the run judges its fix not fixed.
 The run writes the summary at the new head, keeps the count of reviews, and posts no finding
 comment, so the check reads the current head.
+
+## After a rebase
+
+A rebase after the last review takes its head off the branch, so the run maps that head onto the
+branch before it starts. The reviewed commits past the pull request's base must open the branch in
+the same order, each with the same patch by git's patch id, and the run starts from the branch
+commit that matches the reviewed head. Each fix diff therefore still covers only the commits after
+the review. A reviewed commit whose patch the base already holds belongs to the base, as in a stack
+whose base branch rebased too, so the mapping leaves it out.
+
+The run refuses, and gives the reason, in four cases:
+
+- The rebase changed a reviewed commit's patch, by a conflict resolution or a whitespace change.
+- The reviewed range holds a merge, whose patch git gives no patch id.
+- The branch holds fewer commits past the base than the reviewed range.
+- The repo cannot fetch the reviewed head.
+
+A `fixed` answer that names a fix commit the rebase rewrote counts the branch commit with the same
+change, as the check counts it, and the run judges that commit. A `fixed` reply posted after an
+earlier fixes-only run gets no call when the head its diff would start from is off the branch, since
+the run cannot tell whether the fix came after that head.
