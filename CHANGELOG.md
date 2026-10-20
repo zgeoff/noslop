@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.8](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.7...@noslop/cli@0.4.8) (2026-10-20)
+
+
+### Features
+
+* **geo-1551:** carry a review onto a clean rebase under --fixes-only ([#64](https://github.com/zgeoff/noslop/issues/64)) ([46b0533](https://github.com/zgeoff/noslop/commit/46b0533c20e9ee082cd772521eea445ea6497ade))
+
 ## [0.4.7](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.6...@noslop/cli@0.4.7) (2026-10-20)
 
 ### Features
