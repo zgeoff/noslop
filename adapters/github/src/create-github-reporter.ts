@@ -150,7 +150,6 @@ async function runReviewPost(
 
   const confirmations = await readConfirmations(client, pr, before, own);
 
-  // the summary gives the fixes-only run's reason for each fix it left unconfirmed
   for (const item of confirmations) {
     const thread = before.threads.find((entry) => entry.marker.id === item.id);
     const failure = findFixCheckFailure(result, item, thread?.marker.path ?? null);
