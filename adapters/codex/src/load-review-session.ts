@@ -29,8 +29,6 @@ const tokenCountSchema = z.looseObject({
   }),
 });
 
-const DAY_MS = 86_400_000;
-
 export interface ReviewSession {
   tokens: Tokens;
 
@@ -45,7 +43,7 @@ export interface ReviewSession {
 // tokens come from the session files Codex writes for the review thread and each thread it started;
 // Codex files a session under the local date it began, and a thread's last count holds its total
 export async function loadReviewSession(query: ReviewSessionQuery): Promise<ReviewSession> {
-  const candidates = await collectSessionFiles(query);
+  const candidates = await readSessionFiles(query);
 
   const threads: Tokens[] = [];
   const files: string[] = [];
@@ -86,7 +84,9 @@ export async function loadReviewSession(query: ReviewSessionQuery): Promise<Revi
   return { tokens: mergeTokens(threads), files, hasReviewThread };
 }
 
-async function collectSessionFiles(query: ReviewSessionQuery): Promise<string[]> {
+const DAY_MS = 86_400_000;
+
+async function readSessionFiles(query: ReviewSessionQuery): Promise<string[]> {
   const files: string[] = [];
 
   // the day before covers a local date behind the review's own start

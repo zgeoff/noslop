@@ -168,18 +168,6 @@ function parseDepthFlag(value: string | undefined): Depth | null {
   return parsed.data;
 }
 
-async function loadDoneRuns(path: string, caseIDs: ReadonlySet<string>): Promise<CaseRun[]> {
-  const exists = await Bun.file(path).exists();
-
-  if (!exists) {
-    return [];
-  }
-
-  const runs = await loadRuns(path);
-
-  return runs.filter((run) => caseIDs.has(run.caseID));
-}
-
 async function loadReference(
   path: string | undefined,
   ctx: CLIContext,
@@ -214,4 +202,16 @@ async function loadNoiseFloor(
   const secondRuns = await loadReference(second, ctx, caseIDs);
 
   return buildRunComparison(firstRuns ?? [], secondRuns ?? [], WINDOW_LINES);
+}
+
+async function loadDoneRuns(path: string, caseIDs: ReadonlySet<string>): Promise<CaseRun[]> {
+  const exists = await Bun.file(path).exists();
+
+  if (!exists) {
+    return [];
+  }
+
+  const runs = await loadRuns(path);
+
+  return runs.filter((run) => caseIDs.has(run.caseID));
 }

@@ -2,9 +2,9 @@ import type { StackPatternKind } from '@noslop/contract';
 import type { AnalyzeContext } from './analyze-context';
 import type { ASTNode } from './ast-node';
 import { collectTestFacts } from './collect-test-facts';
+import { findCalleeName } from './find-callee-name';
 import { findEnclosingFunction } from './find-enclosing-function';
-import { getCalleeName } from './get-callee-name';
-import { getField } from './get-field';
+import { findField } from './find-field';
 import { getFields } from './get-fields';
 import { getNodeText } from './get-node-text';
 import { isCallMatch } from './is-call-match';
@@ -19,23 +19,6 @@ const STACK_KINDS: readonly StackPatternKind[] = [
   'events',
 ];
 
-const SHELL_SINKS = ['exec', 'execSync', 'execFile', 'execFileSync'];
-const SPAWN_SINKS = ['spawn', 'spawnSync'];
-const SQL_SINKS = ['raw', 'unsafe', 'query', '$queryRawUnsafe', '$executeRawUnsafe', 'sql.raw'];
-const CODE_SINKS = ['eval', 'Function'];
-const REDIRECT_SINKS = ['redirect'];
-
-const REQUEST_PATH_CALLS = [
-  'use',
-  'onRequest',
-  'beforeHandle',
-  'onBeforeHandle',
-  'guard',
-  'derive',
-];
-
-const SENSITIVE_HEADER = /override|forwarded|x-http-method|authorization|x-user|x-role|cookie/iu;
-
 // records each call with the stack patterns it matches, and the facts that only a call shows: a test,
 // a type test, a schema bound, an injection sink and the request path
 export function collectCallFacts(
@@ -47,7 +30,7 @@ export function collectCallFacts(
     return;
   }
 
-  const name = getCallName(node);
+  const name = findCallName(node);
 
   if (name === null) {
     return;
@@ -67,7 +50,7 @@ export function collectCallFacts(
     inTransaction: ancestors.some(
       (ancestor) =>
         ancestor.type === 'CallExpression' &&
-        isStackMatch(getCalleeName(ancestor) ?? '', 'transactionHelper', ctx),
+        isStackMatch(findCalleeName(ancestor) ?? '', 'transactionHelper', ctx),
     ),
     matches,
   });
@@ -78,15 +61,15 @@ export function collectCallFacts(
   collectSink(node, name, ctx);
 }
 
-function getCallName(node: ASTNode): string | null {
-  const name = getCalleeName(node);
+function findCallName(node: ASTNode): string | null {
+  const name = findCalleeName(node);
 
   if (name !== null) {
     return name;
   }
 
-  const callee = getField(node, 'callee');
-  const inner = callee?.type === 'CallExpression' ? getCalleeName(callee) : null;
+  const callee = findField(node, 'callee');
+  const inner = callee?.type === 'CallExpression' ? findCalleeName(callee) : null;
 
   return inner === null ? null : `${inner}()`;
 }
@@ -110,7 +93,7 @@ function collectTypeTest(node: ASTNode, name: string, ctx: AnalyzeContext): void
   }
 
   const key = getFields(node, 'arguments')[0]?.['value'];
-  const typeName = findExpectedType(getField(node, 'callee'));
+  const typeName = findExpectedType(findField(node, 'callee'));
 
   if (typeof key === 'string' && typeName !== null) {
     ctx.analysis.typeTests.push({ typeName, key, line: ctx.parsed.getLine(node.start) });
@@ -121,19 +104,19 @@ function findExpectedType(start: ASTNode | null): string | null {
   let current = start;
 
   while (current !== null) {
-    if (current.type === 'CallExpression' && getCalleeName(current) === 'expectTypeOf') {
-      const typeArguments = getField(current, 'typeArguments');
+    if (current.type === 'CallExpression' && findCalleeName(current) === 'expectTypeOf') {
+      const typeArguments = findField(current, 'typeArguments');
       const reference = typeArguments === null ? null : getFields(typeArguments, 'params')[0];
 
       const typeName =
-        reference === undefined || reference === null ? null : getField(reference, 'typeName');
+        reference === undefined || reference === null ? null : findField(reference, 'typeName');
 
       return typeof typeName?.['name'] === 'string' ? typeName['name'] : null;
     }
 
     const field = current.type === 'CallExpression' ? 'callee' : 'object';
 
-    current = getField(current, field);
+    current = findField(current, field);
   }
 
   return null;
@@ -152,12 +135,12 @@ function collectSchemaBound(
   }
 
   const property = ancestors.findLast((ancestor) => ancestor.type === 'Property');
-  const key = property === undefined ? null : getField(property, 'key');
+  const key = property === undefined ? null : findField(property, 'key');
   const keyName = key?.['name'] ?? key?.['value'];
 
   // a chain can span lines, so the bound sits on the line of its own `.max`
-  const callee = getField(node, 'callee');
-  const maxToken = (callee === null ? null : getField(callee, 'property')) ?? node;
+  const callee = findField(node, 'callee');
+  const maxToken = (callee === null ? null : findField(callee, 'property')) ?? node;
 
   if (typeof keyName === 'string') {
     ctx.analysis.schemaBounds.push({
@@ -167,6 +150,23 @@ function collectSchemaBound(
     });
   }
 }
+
+const SHELL_SINKS = ['exec', 'execSync', 'execFile', 'execFileSync'];
+const SPAWN_SINKS = ['spawn', 'spawnSync'];
+const SQL_SINKS = ['raw', 'unsafe', 'query', '$queryRawUnsafe', '$executeRawUnsafe', 'sql.raw'];
+const CODE_SINKS = ['eval', 'Function'];
+const REDIRECT_SINKS = ['redirect'];
+
+const REQUEST_PATH_CALLS = [
+  'use',
+  'onRequest',
+  'beforeHandle',
+  'onBeforeHandle',
+  'guard',
+  'derive',
+];
+
+const SENSITIVE_HEADER = /override|forwarded|x-http-method|authorization|x-user|x-role|cookie/iu;
 
 function collectSink(node: ASTNode, name: string, ctx: AnalyzeContext): void {
   const args = getFields(node, 'arguments');
@@ -223,7 +223,7 @@ function isBuiltFromInput(node: ASTNode | null): boolean {
   }
 
   if (node.type === 'BinaryExpression') {
-    return isBuiltFromInput(getField(node, 'left')) || isBuiltFromInput(getField(node, 'right'));
+    return isBuiltFromInput(findField(node, 'left')) || isBuiltFromInput(findField(node, 'right'));
   }
 
   return ['Identifier', 'MemberExpression', 'CallExpression', 'AwaitExpression'].includes(

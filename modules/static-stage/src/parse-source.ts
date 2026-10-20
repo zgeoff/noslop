@@ -28,7 +28,7 @@ export function parseSource(path: string, text: string): ParsedSource | null {
   }
 
   const lineStarts = buildLineStarts(text);
-  const getLine = (offset: number): number => findLine(lineStarts, offset);
+  const getLine = (offset: number): number => getLineNumber(lineStarts, offset);
 
   return {
     path,
@@ -57,7 +57,7 @@ function buildLineStarts(text: string): number[] {
   return starts;
 }
 
-function findLine(lineStarts: readonly number[], offset: number): number {
+function getLineNumber(lineStarts: readonly number[], offset: number): number {
   let low = 0;
   let high = lineStarts.length - 1;
 

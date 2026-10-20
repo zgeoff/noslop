@@ -17,7 +17,7 @@ if npm view "$name" version >/dev/null 2>&1; then
 fi
 
 bun install --frozen-lockfile
-bun scripts/build-cli-package.ts
+bun scripts/write-cli-package.ts
 (cd apps/cli/dist && rm -f ./*.tgz && bun pm pack && npm publish ./*.tgz --access public)
 
 cat <<EOF

@@ -69,7 +69,7 @@ export async function readChange(options: ReadChangeOptions): Promise<Change> {
     // a script with no extension, such as an executable in a bin folder, names its language in its
     // first line, which a hunk can leave out, so the stage reads it from the committed file
     const commit = parsed.status === 'deleted' ? base : head;
-    const isScript = kind === 'other' ? await hasShebang(options, commit, parsed.path) : false;
+    const isScript = kind === 'other' ? await probeShebang(options, commit, parsed.path) : false;
 
     files.push({
       ...parsed,
@@ -91,6 +91,16 @@ async function resolveCommit(options: ReadChangeOptions, ref: string): Promise<s
   ]);
 
   return sha.trim();
+}
+
+async function runGit(options: ReadChangeOptions, args: readonly string[]): Promise<string> {
+  const result = await options.runner.run(['git', ...args], { cwd: options.repoDir });
+
+  if (result.exitCode !== 0) {
+    throw new Error(`git ${args.join(' ')} failed: ${result.stderr.trim()}`);
+  }
+
+  return result.stdout;
 }
 
 // the paths the pull request changes since its merge base, both paths of a rename among them, or null
@@ -119,7 +129,7 @@ async function readOwnedPaths(
   return new Set(listed.split('\0').filter((path) => path !== ''));
 }
 
-async function hasShebang(
+async function probeShebang(
   options: ReadChangeOptions,
   commit: string,
   path: string,
@@ -129,14 +139,4 @@ async function hasShebang(
   });
 
   return result.exitCode === 0 && result.stdout.startsWith('#!');
-}
-
-async function runGit(options: ReadChangeOptions, args: readonly string[]): Promise<string> {
-  const result = await options.runner.run(['git', ...args], { cwd: options.repoDir });
-
-  if (result.exitCode !== 0) {
-    throw new Error(`git ${args.join(' ')} failed: ${result.stderr.trim()}`);
-  }
-
-  return result.stdout;
 }

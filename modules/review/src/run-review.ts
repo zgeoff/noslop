@@ -89,6 +89,19 @@ export interface ReviewRun {
   result: ReviewResult;
 }
 
+interface PassContext {
+  options: RunReviewOptions;
+  change: Change;
+  stage: StaticStageResult;
+  route: Route;
+  worktree: string;
+  staticRaw: RawFinding[];
+
+  // the rules that apply to the change: every rule but a reference's, which needs a changed path
+  // that one of its globs matches
+  rules: readonly Rule[] | null;
+}
+
 // runs the pipeline on one change: the static stage, routing, the calls, and Assemble; the calls
 // read a detached worktree of the head, which the review removes whether it passes or fails
 export async function runReview(options: RunReviewOptions): Promise<ReviewRun> {
@@ -168,19 +181,6 @@ export async function runReview(options: RunReviewOptions): Promise<ReviewRun> {
   };
 }
 
-interface PassContext {
-  options: RunReviewOptions;
-  change: Change;
-  stage: StaticStageResult;
-  route: Route;
-  worktree: string;
-  staticRaw: RawFinding[];
-
-  // the rules that apply to the change: every rule but a reference's, which needs a changed path
-  // that one of its globs matches
-  rules: readonly Rule[] | null;
-}
-
 function collectChangeRules(rules: readonly Rule[] | null, change: Change): Rule[] | null {
   if (rules === null) {
     return null;
@@ -234,6 +234,9 @@ async function runPasses(ctx: PassContext): Promise<Passes> {
   }
 }
 
+const MERGE_CALL = 'merge';
+const DESIGN_CALL = 'design';
+
 async function runFindingPasses(
   ctx: PassContext,
   batches: CallBatch[],
@@ -279,6 +282,28 @@ async function runFindingPasses(
   return { batches, assembled, merged, design };
 }
 
+function buildAssembled(ctx: PassContext, batches: readonly CallBatch[]): AssembledFindings {
+  return buildFindings({
+    raw: [...ctx.staticRaw, ...batches.flatMap((batch) => batch.raw)],
+    files: ctx.change.files,
+    rules: ctx.rules ?? [],
+    riskClasses: ctx.stage.signals.riskClasses,
+    config: ctx.options.config,
+  });
+}
+
+// the first of name, name-2 and so on that no planned call holds, since a config can name a group
+// `merge` or `design`
+function pickPassID(ctx: PassContext, name: string): string {
+  const taken = new Set(ctx.route.calls.map((call) => call.callID));
+
+  return (
+    [name, ...Array.from({ length: taken.size }, (_, index) => `${name}-${index + 2}`)].find(
+      (id) => !taken.has(id),
+    ) ?? name
+  );
+}
+
 // an approach spans every review of the pull request, so the design pass reads the change since the
 // merge base even when this review covers only the commits since the last reviewed head
 async function readPullRequestFiles(ctx: PassContext): Promise<readonly ChangedFile[]> {
@@ -322,29 +347,12 @@ function runBatch(ctx: PassContext, calls: readonly PlannedCall[]): Promise<Call
   });
 }
 
-function buildAssembled(ctx: PassContext, batches: readonly CallBatch[]): AssembledFindings {
-  return buildFindings({
-    raw: [...ctx.staticRaw, ...batches.flatMap((batch) => batch.raw)],
-    files: ctx.change.files,
-    rules: ctx.rules ?? [],
-    riskClasses: ctx.stage.signals.riskClasses,
-    config: ctx.options.config,
-  });
-}
+// the fired lenses that a call ran, in the route's order; a call whose files each overflow a call
+// alone runs no part, so its lenses never ran and the store counts none of them
+function collectRunLenses(lenses: readonly LensID[], records: readonly CallRecord[]): LensID[] {
+  const ran = new Set(records.flatMap((record) => record.lenses));
 
-const MERGE_CALL = 'merge';
-const DESIGN_CALL = 'design';
-
-// the first of name, name-2 and so on that no planned call holds, since a config can name a group
-// `merge` or `design`
-function pickPassID(ctx: PassContext, name: string): string {
-  const taken = new Set(ctx.route.calls.map((call) => call.callID));
-
-  return (
-    [name, ...Array.from({ length: taken.size }, (_, index) => `${name}-${index + 2}`)].find(
-      (id) => !taken.has(id),
-    ) ?? name
-  );
+  return lenses.filter((lens) => ran.has(lens));
 }
 
 // the files the call batch left out, as too large or as data, and each data file of the change, which
@@ -395,12 +403,4 @@ function collectDesignNotReviewed(
   );
 
   return [...paths].map((path) => ({ path, lenses: ['design'] }));
-}
-
-// the fired lenses that a call ran, in the route's order; a call whose files each overflow a call
-// alone runs no part, so its lenses never ran and the store counts none of them
-function collectRunLenses(lenses: readonly LensID[], records: readonly CallRecord[]): LensID[] {
-  const ran = new Set(records.flatMap((record) => record.lenses));
-
-  return lenses.filter((lens) => ran.has(lens));
 }

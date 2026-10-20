@@ -19,13 +19,13 @@ export interface Runner {
   run: (argv: readonly string[], options: RunOptions) => Promise<RunResult>;
 }
 
-// a process that ignores the stop signal gets this long before the runner kills it outright
-const KILL_GRACE_MS = 2000;
-
 // the one place that spawns a process, so a test replaces every spawn by passing a stand-in runner
 export function createRunner(): Runner {
   return { run: runProcess };
 }
+
+// a process that ignores the stop signal gets this long before the runner kills it outright
+const KILL_GRACE_MS = 2000;
 
 async function runProcess(argv: readonly string[], options: RunOptions): Promise<RunResult> {
   const startedAt = performance.now();

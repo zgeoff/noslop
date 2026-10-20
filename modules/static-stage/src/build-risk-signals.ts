@@ -3,8 +3,6 @@ import type { PackageManifest } from './analyzed-file';
 import { isGlobMatch } from './is-glob-match';
 import type { Change, RiskSignals, Slices } from './types';
 
-const DELETION_CALL = /(?:^|\.)(?:delete\w*|remove\w*|rm|unlink|drop\w*|truncate\w*|destroy\w*)$/iu;
-
 export interface RiskSignalInputs {
   change: Change;
   slices: Slices;
@@ -58,6 +56,8 @@ export function buildRiskSignals(inputs: RiskSignalInputs): RiskSignals {
     pastEscapes: paths.filter((path) => inputs.pastEscapes.includes(path)),
   };
 }
+
+const DELETION_CALL = /(?:^|\.)(?:delete\w*|remove\w*|rm|unlink|drop\w*|truncate\w*|destroy\w*)$/iu;
 
 function collectFiredDetectors(slices: Slices): Set<string> {
   const fired = new Set<string>(slices.security.map((entry) => entry.part));

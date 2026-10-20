@@ -4,8 +4,6 @@ import type { AnalyzedFile } from './analyzed-file';
 import { buildStaticFinding } from './build-static-finding';
 import type { SecurityEntry } from './types';
 
-const TEST_PATH_IN_TEXT = /[\w./-]+\.(?:test|spec)\.[cm]?[jt]sx?/gu;
-
 // the direct findings about tests: a new test with no assertion, 2 tests with one body, a type test
 // on a key its type lacks, a new allow-or-deny check whose tests hold no table of hostile inputs, and
 // a test file that the pull request body names and neither the change nor a merge from the base adds
@@ -40,6 +38,10 @@ function collectUnassertedTests(files: readonly AnalyzedFile[]): ModelFinding[] 
         }),
       ),
   );
+}
+
+function formatShort(text: string): string {
+  return text.length > 40 ? `${text.slice(0, 37)}...` : text;
 }
 
 function collectDuplicateTests(files: readonly AnalyzedFile[]): ModelFinding[] {
@@ -158,6 +160,8 @@ function collectUntabledChecks(
   });
 }
 
+const TEST_PATH_IN_TEXT = /[\w./-]+\.(?:test|spec)\.[cm]?[jt]sx?/gu;
+
 function collectNamedMissingTests(
   files: readonly AnalyzedFile[],
   body: string,
@@ -188,8 +192,4 @@ function collectNamedMissingTests(
         missingChange: true,
       }),
     );
-}
-
-function formatShort(text: string): string {
-  return text.length > 40 ? `${text.slice(0, 37)}...` : text;
 }

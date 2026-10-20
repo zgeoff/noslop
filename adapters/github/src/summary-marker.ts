@@ -39,6 +39,10 @@ export const summaryMarkerSchema = z.strictObject({
   startedAt: z.iso.datetime().optional(),
 });
 
+function buildShaSchema() {
+  return z.string().regex(/^[0-9a-f]{40}$/u);
+}
+
 export type SummaryMarker = z.infer<typeof summaryMarkerSchema>;
 
 function buildReviewedRangeSchema() {
@@ -60,8 +64,4 @@ function buildLensNotReviewedSchema() {
   const file = z.strictObject({ path: z.string(), lenses: z.array(z.string()) });
 
   return z.array(file);
-}
-
-function buildShaSchema() {
-  return z.string().regex(/^[0-9a-f]{40}$/u);
 }

@@ -1,16 +1,13 @@
 import type { AnalyzeContext } from './analyze-context';
 import type { ASTNode } from './ast-node';
 import { collectFromAST } from './collect-from-ast';
+import { findCalleeName } from './find-callee-name';
 import { findEnclosingFunction } from './find-enclosing-function';
-import { getCalleeName } from './get-callee-name';
-import { getField } from './get-field';
+import { findField } from './find-field';
 import { getFields } from './get-fields';
 import { getNodeText } from './get-node-text';
 import { isCallMatch } from './is-call-match';
 import { isFunctionNode } from './is-function-node';
-
-const DENY_TEXT =
-  /\b(?:401|403|forbidden|unauthori[sz]ed|access denied|not allowed|permission)\b/iu;
 
 // records each throw with its nearest catch, each catch, each call left to run detached, and each
 // guard: a throw or an early return under an if, or an invariant call
@@ -22,22 +19,22 @@ export function collectStatementFacts(
   const line = ctx.parsed.getLine(node.start);
 
   if (node.type === 'ThrowStatement') {
-    const argument = getField(node, 'argument');
+    const argument = findField(node, 'argument');
 
     ctx.analysis.throws.push({
       line,
       kind: 'throw',
-      type: argument?.type === 'NewExpression' ? getCalleeName(argument) : null,
+      type: argument?.type === 'NewExpression' ? findCalleeName(argument) : null,
       catchLine: findNearestCatch(node, ancestors, ctx),
     });
   } else if (node.type === 'CatchClause') {
     ctx.analysis.throws.push({ line, kind: 'catch', type: null, catchLine: line });
   } else if (node.type === 'ExpressionStatement') {
-    collectDetached(getField(node, 'expression'), line, ctx);
+    collectDetached(findField(node, 'expression'), line, ctx);
   } else if (node.type === 'IfStatement') {
     collectGuard(node, ancestors, ctx);
   } else if (node.type === 'CallExpression') {
-    const name = getCalleeName(node) ?? '';
+    const name = findCalleeName(node) ?? '';
     const [condition] = getFields(node, 'arguments');
 
     if (isCallMatch(name, ctx.stack.invariant.calls) && condition !== undefined) {
@@ -64,8 +61,8 @@ function findNearestCatch(
       return null;
     }
 
-    const block = getField(ancestor, 'block');
-    const handler = getField(ancestor, 'handler');
+    const block = findField(ancestor, 'block');
+    const handler = findField(ancestor, 'handler');
 
     if (
       ancestor.type === 'TryStatement' &&
@@ -90,14 +87,14 @@ function collectDetached(expression: ASTNode | null, line: number, ctx: AnalyzeC
 
   const target =
     expression.type === 'UnaryExpression' && expression['operator'] === 'void'
-      ? getField(expression, 'argument')
+      ? findField(expression, 'argument')
       : expression;
 
   if (target?.type !== 'CallExpression') {
     return;
   }
 
-  const name = getCalleeName(target) ?? '';
+  const name = findCalleeName(target) ?? '';
   const isVoid = target !== expression;
   const isChain = /\.(?:then|catch|finally)$/u.test(name);
 
@@ -113,9 +110,12 @@ function collectDetached(expression: ASTNode | null, line: number, ctx: AnalyzeC
   });
 }
 
+const DENY_TEXT =
+  /\b(?:401|403|forbidden|unauthori[sz]ed|access denied|not allowed|permission)\b/iu;
+
 function collectGuard(node: ASTNode, ancestors: readonly ASTNode[], ctx: AnalyzeContext): void {
-  const test = getField(node, 'test');
-  const consequent = getField(node, 'consequent');
+  const test = findField(node, 'test');
+  const consequent = findField(node, 'consequent');
 
   const first =
     consequent?.type === 'BlockStatement' ? getFields(consequent, 'body')[0] : consequent;
@@ -169,7 +169,7 @@ function collectNames(condition: ASTNode): string[] {
     const isProperty =
       parent?.type === 'MemberExpression' &&
       parent['computed'] !== true &&
-      getField(parent, 'property') === node;
+      findField(parent, 'property') === node;
 
     if (node.type === 'Identifier' && !isProperty && typeof node['name'] === 'string') {
       names.add(node['name']);

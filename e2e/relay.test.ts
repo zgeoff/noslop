@@ -30,13 +30,17 @@ async function setupTest() {
   // the org's relay: it verifies the result a developer's review sends, then posts it as the App
   const relay = Bun.serve({
     port: 0,
-    fetch: async (request) => {
-      const body: unknown = await request.json();
-      const result = await verify(body, { env: appEnv });
+    routes: {
+      '/noslop': {
+        POST: async (request) => {
+          const body: unknown = await request.json();
+          const result = await verify(body, { env: appEnv });
 
-      await sendResult(result, { env: appEnv, verify: false });
+          await sendResult(result, { env: appEnv, verify: false });
 
-      return new Response('posted');
+          return new Response('posted');
+        },
+      },
     },
   });
 
@@ -58,7 +62,7 @@ async function setupTest() {
   const developerEnv = { ...folders, RELAY_SECRET: 'relay-secret' };
   const ciEnv = { ...folders, ...appEnv };
 
-  const buildContext = (
+  const createContext = (
     env: Record<string, string>,
     cwd: string,
     stub: ReturnType<typeof buildStubAdapter>,
@@ -74,7 +78,7 @@ async function setupTest() {
     createAdapter: () => stub.adapter,
   });
 
-  return { directory, relayURL, stdout, stderr, developerEnv, ciEnv, buildContext };
+  return { directory, relayURL, stdout, stderr, developerEnv, ciEnv, createContext };
 }
 
 test('it carries a review from a developer machine through the relay and passes the check once each finding has an answer', async () => {
@@ -164,7 +168,7 @@ test('it carries a review from a developer machine through the relay and passes 
 
   const unreviewed = await runCLI(
     ['check', '--pr', '9', '--repo', 'example/app'],
-    ctx.buildContext(ctx.ciEnv, repo.path, stub),
+    ctx.createContext(ctx.ciEnv, repo.path, stub),
   );
 
   expect({ code: unreviewed, stderr: ctx.stderr.splice(0).join('') }).toStrictEqual({
@@ -174,7 +178,7 @@ test('it carries a review from a developer machine through the relay and passes 
 
   const reviewed = await runCLI(
     ['review', '--pr', '9', '--repo', 'example/app', '--report', 'webhook'],
-    ctx.buildContext(ctx.developerEnv, repo.path, stub),
+    ctx.createContext(ctx.developerEnv, repo.path, stub),
   );
 
   const finding = githubCollections.reviewComments.findFirst((query) =>
@@ -205,7 +209,7 @@ test('it carries a review from a developer machine through the relay and passes 
 
   const answered = await runCLI(
     ['check', '--pr', '9', '--repo', 'example/app'],
-    ctx.buildContext(ctx.ciEnv, repo.path, stub),
+    ctx.createContext(ctx.ciEnv, repo.path, stub),
   );
 
   expect({ code: answered, stderr: ctx.stderr.join('') }).toStrictEqual({ code: 0, stderr: '' });

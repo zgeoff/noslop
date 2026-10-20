@@ -67,6 +67,10 @@ function buildFileObjectSchema(schema: JSONSchema): JSONSchema {
   };
 }
 
+function isJSONSchema(value: unknown): value is JSONSchema {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 function buildFileValueSchema(value: unknown): unknown {
   if (!isJSONSchema(value)) {
     return value;
@@ -84,8 +88,4 @@ function buildFileValueSchema(value: unknown): unknown {
     ...(description === undefined ? {} : { description }),
     anyOf: [rest, { type: 'null' }],
   };
-}
-
-function isJSONSchema(value: unknown): value is JSONSchema {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

@@ -43,7 +43,6 @@ export interface LoadedConfig {
 }
 
 export const BUILT_IN_SOURCE = 'built-in';
-const CONFIG_FILE = 'review.json';
 
 // starts from the built-in defaults and merges each file of the extends chain over them, from the root
 // parent down to the repo's own review.json; a cycle in the chain fails the load
@@ -105,60 +104,12 @@ export async function loadConfig(options: LoadConfigOptions): Promise<LoadedConf
   };
 }
 
-// rules add up down the extends chain, since each is taste a repo adds to: a file's list appends to
-// the one it inherits, an entry for an inherited path replaces that entry, and null drops the list;
-// null when no file names rules
-function mergeRulesLayers(files: readonly ChainFile[]): { rules: unknown; source: string } | null {
-  let merged: { rules: unknown[] | null; source: string } | null = null;
-
-  for (const file of files) {
-    const next = file.value['rules'];
-
-    if (next === undefined) {
-      continue;
-    }
-
-    const source = formatConfigLocation(file.location);
-
-    if (!Array.isArray(next)) {
-      merged = { rules: null, source };
-      continue;
-    }
-
-    const rules: unknown[] = [...(merged?.rules ?? [])];
-
-    for (const entry of next) {
-      const index = rules.findIndex((inherited: unknown) => isSamePath(inherited, entry));
-
-      if (index === -1) {
-        rules.push(entry);
-      } else {
-        rules[index] = entry;
-      }
-    }
-
-    merged = { rules, source };
-  }
-
-  return merged;
-}
-
-function isSamePath(left: unknown, right: unknown): boolean {
-  const path: unknown =
-    typeof left === 'object' && left !== null ? Reflect.get(left, 'path') : undefined;
-
-  return (
-    typeof path === 'string' &&
-    typeof right === 'object' &&
-    right !== null &&
-    Reflect.get(right, 'path') === path
-  );
-}
-
 interface ChainFile {
   location: ConfigLocation;
   value: Record<string, unknown>;
 }
+
+const CONFIG_FILE = 'review.json';
 
 async function readChain(options: LoadConfigOptions): Promise<ChainFile[]> {
   const chain: ChainFile[] = [];
@@ -209,6 +160,29 @@ async function readChain(options: LoadConfigOptions): Promise<ChainFile[]> {
   return chain;
 }
 
+async function readLocation(
+  location: ConfigLocation,
+  options: LoadConfigOptions,
+): Promise<string | null> {
+  if (location.kind === 'github') {
+    if (options.readRemoteFile === undefined) {
+      throw new Error(`no reader for the remote config ${formatConfigLocation(location)}`);
+    }
+
+    return options.readRemoteFile(location);
+  }
+
+  if (options.readLocalFile !== undefined) {
+    return options.readLocalFile(location.path);
+  }
+
+  const file = Bun.file(location.path);
+
+  const exists = await file.exists();
+
+  return exists ? file.text() : null;
+}
+
 function parseConfigFile(text: string, label: string): Record<string, unknown> {
   let value: unknown;
 
@@ -231,13 +205,13 @@ function parseConfigFile(text: string, label: string): Record<string, unknown> {
   return { ...value };
 }
 
-const REPO_PREFIX = 'repo:';
-
 // each path resolves against the file that names it and keeps its written form as its label; a
 // `repo:` path resolves at load time against the reviewed repo, which a shared config cannot know
 function resolveRulesFiles(raw: unknown, from: ConfigLocation): unknown[] {
   return (Array.isArray(raw) ? raw : [raw]).map((entry: unknown) => resolveRulesFile(entry, from));
 }
+
+const REPO_PREFIX = 'repo:';
 
 function resolveRulesFile(entry: unknown, from: ConfigLocation): unknown {
   if (typeof entry === 'string') {
@@ -263,25 +237,6 @@ function resolveRulesFile(entry: unknown, from: ConfigLocation): unknown {
   };
 }
 
-// a resolved local rules path holds the checkout's folder, so the hash takes it relative to the repo,
-// and 2 checkouts of one commit hash alike wherever each one sits
-function buildHashedConfig(config: ReviewConfig, repoDir: string): ReviewConfig {
-  const root = resolve(repoDir);
-
-  return {
-    ...config,
-    rules:
-      config.rules?.map((file) => ({
-        ...file,
-        path: isLocalRulesPath(file.path) ? relative(root, resolve(file.path)) : file.path,
-      })) ?? null,
-  };
-}
-
-function isLocalRulesPath(path: string): boolean {
-  return !path.startsWith('github:') && !path.startsWith(REPO_PREFIX);
-}
-
 // a label reaches prompts, rule names and finding IDs, so an absolute path gives only its file name,
 // which keeps a machine's folders out of them
 function buildRulesLabel(path: string): string {
@@ -294,6 +249,56 @@ function buildRulesLabel(path: string): string {
   }
 
   return isAbsolute(path) ? basename(path) : normalize(path);
+}
+
+// rules add up down the extends chain, since each is taste a repo adds to: a file's list appends to
+// the one it inherits, an entry for an inherited path replaces that entry, and null drops the list;
+// null when no file names rules
+function mergeRulesLayers(files: readonly ChainFile[]): { rules: unknown; source: string } | null {
+  let merged: { rules: unknown[] | null; source: string } | null = null;
+
+  for (const file of files) {
+    const next = file.value['rules'];
+
+    if (next === undefined) {
+      continue;
+    }
+
+    const source = formatConfigLocation(file.location);
+
+    if (!Array.isArray(next)) {
+      merged = { rules: null, source };
+      continue;
+    }
+
+    const rules: unknown[] = [...(merged?.rules ?? [])];
+
+    for (const entry of next) {
+      const index = rules.findIndex((inherited: unknown) => isSamePath(inherited, entry));
+
+      if (index === -1) {
+        rules.push(entry);
+      } else {
+        rules[index] = entry;
+      }
+    }
+
+    merged = { rules, source };
+  }
+
+  return merged;
+}
+
+function isSamePath(left: unknown, right: unknown): boolean {
+  const path: unknown =
+    typeof left === 'object' && left !== null ? Reflect.get(left, 'path') : undefined;
+
+  return (
+    typeof path === 'string' &&
+    typeof right === 'object' &&
+    right !== null &&
+    Reflect.get(right, 'path') === path
+  );
 }
 
 interface RulesSource {
@@ -370,33 +375,29 @@ function requireInnerPath(path: string, kind: string): string {
   return inner;
 }
 
+// a resolved local rules path holds the checkout's folder, so the hash takes it relative to the repo,
+// and 2 checkouts of one commit hash alike wherever each one sits
+function buildHashedConfig(config: ReviewConfig, repoDir: string): ReviewConfig {
+  const root = resolve(repoDir);
+
+  return {
+    ...config,
+    rules:
+      config.rules?.map((file) => ({
+        ...file,
+        path: isLocalRulesPath(file.path) ? relative(root, resolve(file.path)) : file.path,
+      })) ?? null,
+  };
+}
+
+function isLocalRulesPath(path: string): boolean {
+  return !path.startsWith('github:') && !path.startsWith(REPO_PREFIX);
+}
+
 // each file is one rule under its label, whole: a skill's headings were written for agents, so they
 // mark no rule, and a finding cites its rule by a quote from the file instead
 function buildRules(source: RulesSource): Rule[] {
   const text = source.text?.trim() ?? '';
 
   return text === '' ? [] : [{ name: source.label, body: text, paths: source.paths }];
-}
-
-async function readLocation(
-  location: ConfigLocation,
-  options: LoadConfigOptions,
-): Promise<string | null> {
-  if (location.kind === 'github') {
-    if (options.readRemoteFile === undefined) {
-      throw new Error(`no reader for the remote config ${formatConfigLocation(location)}`);
-    }
-
-    return options.readRemoteFile(location);
-  }
-
-  if (options.readLocalFile !== undefined) {
-    return options.readLocalFile(location.path);
-  }
-
-  const file = Bun.file(location.path);
-
-  const exists = await file.exists();
-
-  return exists ? file.text() : null;
 }

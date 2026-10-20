@@ -76,18 +76,18 @@ export function buildDesignPrompt(input: DesignPromptInput): string {
   return `${sections.join('\n\n')}\n`;
 }
 
-function renderHunksFile(files: readonly ChangedFile[], hunksFile: string): string {
-  return [
-    '## Hunks',
-    `The hunks of this pull request are too large for this input, so the file ${formatPathCode(hunksFile)} in your working directory holds them, in the form this section would, with the head line number beside each line. Read that file whole before you judge the approach. It holds the hunks of these files:`,
-    files.map((file) => `- ${formatPathCode(file.path)}`).join('\n'),
-  ].join('\n\n');
-}
-
 function renderFindings(heading: string, empty: string, findings: readonly unknown[]): string {
   if (findings.length === 0) {
     return `${heading}\n\n${empty}`;
   }
 
   return `${heading}\n\n\`\`\`json\n${JSON.stringify(findings, null, 2)}\n\`\`\``;
+}
+
+function renderHunksFile(files: readonly ChangedFile[], hunksFile: string): string {
+  return [
+    '## Hunks',
+    `The hunks of this pull request are too large for this input, so the file ${formatPathCode(hunksFile)} in your working directory holds them, in the form this section would, with the head line number beside each line. Read that file whole before you judge the approach. It holds the hunks of these files:`,
+    files.map((file) => `- ${formatPathCode(file.path)}`).join('\n'),
+  ].join('\n\n');
 }

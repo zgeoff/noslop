@@ -1,7 +1,5 @@
 import type { Finding } from '@noslop/contract';
 
-const SEVERITY_RANK = { P1: 0, P2: 1, P3: 2 } as const;
-
 // keeps one finding of each group in each file, the highest severity first, then the first listed; an
 // ID the list does not hold, or one an earlier group took, plays no part, so a group can only remove
 // a finding that another finding of its group still reports
@@ -30,6 +28,8 @@ export function mergeGroupedFindings(
 
   return findings.filter((finding) => !removed.has(finding.id));
 }
+
+const SEVERITY_RANK = { P1: 0, P2: 1, P3: 2 } as const;
 
 // the members of one group in each file, all but the one kept
 function collectRemovedIDs(

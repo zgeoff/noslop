@@ -52,6 +52,15 @@ export interface ResolutionChecksRun {
   notReviewed: NotReviewedFile[];
 }
 
+interface ResolutionOutcome {
+  check?: ResolutionCheck;
+  findings?: Finding[];
+  dropped?: DroppedFinding[];
+  record?: CallRecord;
+  failedCall?: FailedCall;
+  notReviewed?: NotReviewedFile[];
+}
+
 // one call per merge of the range whose tree differs from the tree `git merge-tree` builds from its
 // parents, over the diff from that tree to the merge's, so it judges only what the merge wrote; the
 // merges run one at a time, each in a worktree of its own
@@ -90,23 +99,24 @@ export async function runResolutionChecks(
   };
 }
 
-interface ResolutionOutcome {
-  check?: ResolutionCheck;
-  findings?: Finding[];
-  dropped?: DroppedFinding[];
-  record?: CallRecord;
-  failedCall?: FailedCall;
-  notReviewed?: NotReviewedFile[];
+async function readGitLines(
+  input: ResolutionChecksInput,
+  args: readonly string[],
+): Promise<string[]> {
+  const text = await readGitText(input, args);
+
+  return text === '' ? [] : text.split('\n');
 }
 
-const resolutionOutputSchema = z.strictObject({
-  sound: z.boolean(),
-  reason: z.string().min(1),
-  findings: z.strictObject({
-    correctness: z.array(modelFindingSchema),
-    security: z.array(modelFindingSchema),
-  }),
-});
+async function readGitText(input: ResolutionChecksInput, args: readonly string[]): Promise<string> {
+  const result = await input.runner.run(['git', ...args], { cwd: input.repoDir });
+
+  if (result.exitCode !== 0) {
+    throw new Error(`git ${args.join(' ')} failed: ${result.stderr.trim()}`);
+  }
+
+  return result.stdout.trim();
+}
 
 // the check of one merge: none for a clean merge, a not-sound verdict with no call for a merge of
 // more than 2 parents, which `git merge-tree` cannot rebuild, and otherwise one call over the diff
@@ -239,6 +249,15 @@ interface ResolutionCall {
   prompt: string;
   files: readonly ChangedFile[];
 }
+
+const resolutionOutputSchema = z.strictObject({
+  sound: z.boolean(),
+  reason: z.string().min(1),
+  findings: z.strictObject({
+    correctness: z.array(modelFindingSchema),
+    security: z.array(modelFindingSchema),
+  }),
+});
 
 // the call reads a worktree of the merge, and its findings keep to the lines of the resolution diff;
 // a finding that matches one answered `not-a-defect` drops, as in a review
@@ -439,23 +458,4 @@ function findHeadAnchor(
   }
 
   return { ...anchor, startLine: anchor.startLine + shift, endLine: anchor.endLine + shift };
-}
-
-async function readGitLines(
-  input: ResolutionChecksInput,
-  args: readonly string[],
-): Promise<string[]> {
-  const text = await readGitText(input, args);
-
-  return text === '' ? [] : text.split('\n');
-}
-
-async function readGitText(input: ResolutionChecksInput, args: readonly string[]): Promise<string> {
-  const result = await input.runner.run(['git', ...args], { cwd: input.repoDir });
-
-  if (result.exitCode !== 0) {
-    throw new Error(`git ${args.join(' ')} failed: ${result.stderr.trim()}`);
-  }
-
-  return result.stdout.trim();
 }

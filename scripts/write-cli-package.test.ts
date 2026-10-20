@@ -2,7 +2,7 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdtemp, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { buildCLIPackage } from './build-cli-package';
+import { writeCLIPackage } from './write-cli-package';
 
 async function setupTest() {
   const directory = await mkdtemp(join(tmpdir(), 'noslop-cli-package-'));
@@ -17,7 +17,7 @@ async function setupTest() {
 
 test('it builds a manifest that names the bundle, the subpath exports and no workspace dependency', async () => {
   const ctx = await setupTest();
-  const manifest = await buildCLIPackage(ctx.directory);
+  const manifest = await writeCLIPackage(ctx.directory);
 
   expect(manifest).toMatchObject({
     name: '@noslop/cli',
@@ -43,7 +43,7 @@ test('it builds a manifest that names the bundle, the subpath exports and no wor
 test('it writes the bundles, their declarations, the manifest, the README and the LICENSE', async () => {
   const ctx = await setupTest();
 
-  await buildCLIPackage(ctx.directory);
+  await writeCLIPackage(ctx.directory);
 
   const files = await readdir(ctx.directory);
 
@@ -74,7 +74,7 @@ test('it writes the bundles, their declarations, the manifest, the README and th
 test('it bundles the lens prompts and leaves the native parser to npm', async () => {
   const ctx = await setupTest();
 
-  await buildCLIPackage(ctx.directory);
+  await writeCLIPackage(ctx.directory);
 
   const bundle = await Bun.file(join(ctx.directory, 'cli.js')).text();
 
@@ -89,7 +89,7 @@ test('it ships declarations that a project importing the contract from the tarba
   const packageDir = join(ctx.directory, 'package');
   const projectDir = join(ctx.directory, 'project');
 
-  await buildCLIPackage(packageDir);
+  await writeCLIPackage(packageDir);
 
   await Bun.$`bun pm pack --quiet`.cwd(packageDir).quiet();
 

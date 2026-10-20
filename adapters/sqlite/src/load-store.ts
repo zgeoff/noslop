@@ -9,83 +9,6 @@ import type { StoreTables } from './store-tables';
 
 export type Store = Kysely<StoreTables>;
 
-// opens the store at the path, creating the file and its folder when they do not exist, and applies
-// each migration it lacks; the caller destroys the store when it is done
-export async function loadStore(path: string): Promise<Store> {
-  await mkdir(dirname(path), { recursive: true });
-
-  const database = new Database(path, { create: true, strict: true });
-
-  database.run('PRAGMA journal_mode = WAL');
-  database.run('PRAGMA foreign_keys = ON');
-
-  const store = new Kysely<StoreTables>({
-    dialect: new SqliteDialect({ database: buildSqliteDatabase(database) }),
-  });
-
-  const migrator = new Migrator({
-    db: store,
-    provider: { getMigrations: () => Promise.resolve(STORE_MIGRATIONS) },
-  });
-
-  const outcome = await migrator.migrateToLatest();
-
-  if (outcome.error !== undefined) {
-    await store.destroy();
-
-    throw outcome.error instanceof Error
-      ? outcome.error
-      : new Error('a store migration failed', { cause: outcome.error });
-  }
-
-  return store;
-}
-
-// Kysely's SQLite dialect drives a database through the better-sqlite3 interface, which bun:sqlite
-// matches except for the reader flag and its spread parameters
-function buildSqliteDatabase(database: Database): SqliteDatabase {
-  return {
-    close: () => {
-      database.close();
-    },
-    prepare: (text): SqliteStatement => {
-      const statement = database.prepare(text);
-
-      return {
-        reader: statement.columnNames.length > 0,
-        all: (parameters) => statement.all(...toSQLValues(parameters)),
-        run: (parameters) => {
-          const result = statement.run(...toSQLValues(parameters));
-
-          return { changes: result.changes, lastInsertRowid: result.lastInsertRowid };
-        },
-        iterate: (parameters) => statement.iterate(...toSQLValues(parameters)),
-      };
-    },
-  };
-}
-
-type SQLValue = string | number | bigint | boolean | null | Uint8Array;
-
-function toSQLValues(parameters: readonly unknown[]): SQLValue[] {
-  return parameters.map((value) => toSQLValue(value));
-}
-
-function toSQLValue(value: unknown): SQLValue {
-  if (
-    value === null ||
-    typeof value === 'string' ||
-    typeof value === 'number' ||
-    typeof value === 'bigint' ||
-    typeof value === 'boolean' ||
-    value instanceof Uint8Array
-  ) {
-    return value;
-  }
-
-  return value === undefined ? null : JSON.stringify(value);
-}
-
 const STORE_MIGRATIONS: Record<string, Migration> = {
   '0001-the-store': {
     up: async (db) => {
@@ -274,3 +197,80 @@ const STORE_MIGRATIONS: Record<string, Migration> = {
     },
   },
 };
+
+// opens the store at the path, creating the file and its folder when they do not exist, and applies
+// each migration it lacks; the caller destroys the store when it is done
+export async function loadStore(path: string): Promise<Store> {
+  await mkdir(dirname(path), { recursive: true });
+
+  const database = new Database(path, { create: true, strict: true });
+
+  database.run('PRAGMA journal_mode = WAL');
+  database.run('PRAGMA foreign_keys = ON');
+
+  const store = new Kysely<StoreTables>({
+    dialect: new SqliteDialect({ database: buildSqliteDatabase(database) }),
+  });
+
+  const migrator = new Migrator({
+    db: store,
+    provider: { getMigrations: () => Promise.resolve(STORE_MIGRATIONS) },
+  });
+
+  const outcome = await migrator.migrateToLatest();
+
+  if (outcome.error !== undefined) {
+    await store.destroy();
+
+    throw outcome.error instanceof Error
+      ? outcome.error
+      : new Error('a store migration failed', { cause: outcome.error });
+  }
+
+  return store;
+}
+
+// Kysely's SQLite dialect drives a database through the better-sqlite3 interface, which bun:sqlite
+// matches except for the reader flag and its spread parameters
+function buildSqliteDatabase(database: Database): SqliteDatabase {
+  return {
+    close: () => {
+      database.close();
+    },
+    prepare: (text): SqliteStatement => {
+      const statement = database.prepare(text);
+
+      return {
+        reader: statement.columnNames.length > 0,
+        all: (parameters) => statement.all(...toSQLValues(parameters)),
+        run: (parameters) => {
+          const result = statement.run(...toSQLValues(parameters));
+
+          return { changes: result.changes, lastInsertRowid: result.lastInsertRowid };
+        },
+        iterate: (parameters) => statement.iterate(...toSQLValues(parameters)),
+      };
+    },
+  };
+}
+
+type SQLValue = string | number | bigint | boolean | null | Uint8Array;
+
+function toSQLValues(parameters: readonly unknown[]): SQLValue[] {
+  return parameters.map((value) => toSQLValue(value));
+}
+
+function toSQLValue(value: unknown): SQLValue {
+  if (
+    value === null ||
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'bigint' ||
+    typeof value === 'boolean' ||
+    value instanceof Uint8Array
+  ) {
+    return value;
+  }
+
+  return value === undefined ? null : JSON.stringify(value);
+}

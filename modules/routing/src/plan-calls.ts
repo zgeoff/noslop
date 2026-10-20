@@ -2,19 +2,6 @@ import type { Depth, Effort, LensID } from '@noslop/contract';
 import { effortSchema } from '@noslop/contract';
 import type { PlannedCall, RouteInput } from './types';
 
-const DEPTH_EFFORT: Readonly<Record<Depth, Effort>> = {
-  light: 'low',
-  standard: 'medium',
-  deep: 'high',
-};
-
-const LIGHT_CALL = 'light';
-
-interface CallGroup {
-  callID: string;
-  lenses: LensID[];
-}
-
 // groups the fired lenses into calls by the config's grouping, one call per group at every depth but
 // Light, where one call holds them all; a lens with a model of its own runs in a call of its own; each
 // call reads the whole change, so a reviewer always sees every hunk its lenses read
@@ -33,6 +20,13 @@ export function planCalls(
     timeoutMs: pickTimeout(group.lenses, input),
     files: [...input.change.files],
   }));
+}
+
+const LIGHT_CALL = 'light';
+
+interface CallGroup {
+  callID: string;
+  lenses: LensID[];
 }
 
 function buildGroups(input: RouteInput, lenses: readonly LensID[], depth: Depth): CallGroup[] {
@@ -94,6 +88,12 @@ function splitByModel(group: CallGroup, input: RouteInput): CallGroup[] {
     lenses: members,
   }));
 }
+
+const DEPTH_EFFORT: Readonly<Record<Depth, Effort>> = {
+  light: 'low',
+  standard: 'medium',
+  deep: 'high',
+};
 
 // a call runs at the highest effort that any of its lenses asks for
 function pickEffort(lenses: readonly LensID[], depth: Depth, input: RouteInput): Effort {

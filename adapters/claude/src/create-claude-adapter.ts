@@ -10,6 +10,20 @@ export interface ClaudeAdapterOptions {
   command?: string;
 }
 
+// runs a call on `claude -p` with read tools alone and the schema on Claude Code's own flag; noslop's
+// instructions append to the system prompt, and the user's settings files stay unread, so no hook or
+// MCP server of theirs runs inside a review
+export function createClaudeAdapter(options: ClaudeAdapterOptions): ReviewAdapter {
+  const adapter: ReviewAdapter = {
+    id: 'claude',
+    defaultTimeoutMs: 1_200_000,
+    efforts: { low: 'low', medium: 'medium', high: 'high' },
+    runCall: (call) => runClaudeCall(call, adapter, options),
+  };
+
+  return adapter;
+}
+
 // the only tools the model gets; none of them writes, runs a command or reaches the network
 const READ_TOOLS = 'Read,Grep,Glob';
 
@@ -34,20 +48,6 @@ const resultSchema = z.looseObject({
     .optional(),
   modelUsage: z.record(z.string(), z.unknown()).optional(),
 });
-
-// runs a call on `claude -p` with read tools alone and the schema on Claude Code's own flag; noslop's
-// instructions append to the system prompt, and the user's settings files stay unread, so no hook or
-// MCP server of theirs runs inside a review
-export function createClaudeAdapter(options: ClaudeAdapterOptions): ReviewAdapter {
-  const adapter: ReviewAdapter = {
-    id: 'claude',
-    defaultTimeoutMs: 1_200_000,
-    efforts: { low: 'low', medium: 'medium', high: 'high' },
-    runCall: (call) => runClaudeCall(call, adapter, options),
-  };
-
-  return adapter;
-}
 
 async function runClaudeCall<Output>(
   call: CallRequest<Output>,

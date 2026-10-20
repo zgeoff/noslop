@@ -38,6 +38,12 @@ interface Candidate {
   key: string;
 }
 
+interface MatchState {
+  byTarget: Map<number, Candidate[]>;
+  owner: Map<number, Candidate>;
+  assigned: Map<number, Candidate>;
+}
+
 // a target matches one reported finding on its path within the window: closest pairs first, then pairs
 // whose lenses agree, then augmenting paths for as many matches as the window allows; ties break on
 // content, so the result never depends on the order the findings were listed in
@@ -92,7 +98,7 @@ export function collectMatches(
     .toSorted(([, left], [, right]) => (left[0]?.key ?? '').localeCompare(right[0]?.key ?? ''));
 
   for (const [target] of unmatched) {
-    findAugmentingPath(target, state, new Set());
+    tryAugmentPath(target, state, new Set());
   }
 
   return [...state.assigned.values()]
@@ -102,41 +108,6 @@ export function collectMatches(
       distance: candidate.distance,
     }))
     .toSorted((left, right) => left.target - right.target);
-}
-
-interface MatchState {
-  byTarget: Map<number, Candidate[]>;
-  owner: Map<number, Candidate>;
-  assigned: Map<number, Candidate>;
-}
-
-// gives the target a free reported finding, or moves the finding it wants to another target that can
-// take a different one; false when no such path exists
-function findAugmentingPath(target: number, state: MatchState, visited: Set<number>): boolean {
-  for (const candidate of state.byTarget.get(target) ?? []) {
-    if (visited.has(candidate.reported)) {
-      continue;
-    }
-
-    visited.add(candidate.reported);
-
-    const holder = state.owner.get(candidate.reported);
-
-    if (holder === undefined || findAugmentingPath(holder.target, state, visited)) {
-      state.owner.set(candidate.reported, candidate);
-      state.assigned.set(target, candidate);
-
-      return true;
-    }
-  }
-
-  return false;
-}
-
-function buildKey(finding: MatchTarget): string {
-  const anchor = finding.anchor;
-
-  return `${normalizePath(anchor.path)}:${String(anchor.startLine).padStart(8, '0')}:${String(anchor.endLine).padStart(8, '0')}:${finding.lens ?? ''}`;
 }
 
 function countLineDistance(left: LineRange, right: LineRange): number | null {
@@ -153,4 +124,33 @@ function countLineDistance(left: LineRange, right: LineRange): number | null {
   }
 
   return 0;
+}
+
+function buildKey(finding: MatchTarget): string {
+  const anchor = finding.anchor;
+
+  return `${normalizePath(anchor.path)}:${String(anchor.startLine).padStart(8, '0')}:${String(anchor.endLine).padStart(8, '0')}:${finding.lens ?? ''}`;
+}
+
+// gives the target a free reported finding, or moves the finding it wants to another target that can
+// take a different one; false when no such path exists
+function tryAugmentPath(target: number, state: MatchState, visited: Set<number>): boolean {
+  for (const candidate of state.byTarget.get(target) ?? []) {
+    if (visited.has(candidate.reported)) {
+      continue;
+    }
+
+    visited.add(candidate.reported);
+
+    const holder = state.owner.get(candidate.reported);
+
+    if (holder === undefined || tryAugmentPath(holder.target, state, visited)) {
+      state.owner.set(candidate.reported, candidate);
+      state.assigned.set(target, candidate);
+
+      return true;
+    }
+  }
+
+  return false;
 }

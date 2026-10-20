@@ -142,7 +142,7 @@ async function readExistingIssues(
       continue;
     }
 
-    const found = await hasIssue(client, issue);
+    const found = await probeIssue(client, issue);
 
     if (found) {
       existing.add(value);
@@ -181,7 +181,7 @@ function parseIssueRef(value: string, pr: PullRequestRef): IssueRef | null {
   };
 }
 
-async function hasIssue(client: GitHubClient, issue: IssueRef): Promise<boolean> {
+async function probeIssue(client: GitHubClient, issue: IssueRef): Promise<boolean> {
   try {
     await client.request('GET /repos/{owner}/{repo}/issues/{issue_number}', {
       owner: issue.owner,

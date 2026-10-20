@@ -168,21 +168,6 @@ async function readGitText(input: FixesOnlyReviewInput, args: readonly string[])
   return result.stdout.trim();
 }
 
-// the paths a git command run with `-z` lists, each as the file's own name: `-z` ends each with a NUL
-// and turns off git's quoting of an unusual name, which would name no file as a pathspec
-async function readGitPaths(
-  input: FixesOnlyReviewInput,
-  args: readonly string[],
-): Promise<string[]> {
-  const result = await input.runner.run(['git', ...args], { cwd: input.repoDir });
-
-  if (result.exitCode !== 0) {
-    throw new Error(`git ${args.join(' ')} failed: ${result.stderr.trim()}`);
-  }
-
-  return result.stdout.split('\0').filter((path) => path !== '');
-}
-
 // the commit a fix's diff starts from, and the full sha of the fix commit
 interface FixBase {
   base: string;
@@ -262,6 +247,21 @@ async function readNewerHead(
   });
 
   return result.exitCode === 0 ? second : first;
+}
+
+// the paths a git command run with `-z` lists, each as the file's own name: `-z` ends each with a NUL
+// and turns off git's quoting of an unusual name, which would name no file as a pathspec
+async function readGitPaths(
+  input: FixesOnlyReviewInput,
+  args: readonly string[],
+): Promise<string[]> {
+  const result = await input.runner.run(['git', ...args], { cwd: input.repoDir });
+
+  if (result.exitCode !== 0) {
+    throw new Error(`git ${args.join(' ')} failed: ${result.stderr.trim()}`);
+  }
+
+  return result.stdout.split('\0').filter((path) => path !== '');
 }
 
 interface FixCheckOutcome {

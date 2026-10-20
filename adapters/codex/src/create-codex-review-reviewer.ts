@@ -20,8 +20,6 @@ export interface CodexReviewReviewerOptions {
   codexHome?: string;
 }
 
-const threadSchema = z.looseObject({ type: z.literal('thread.started'), thread_id: z.string() });
-
 // the reference reviewer: `codex review` of the case's change, read-only in the reviewed worktree; its
 // runs on the corpus record the baseline and measure the noise floor; Codex keeps the review's
 // session files, because the review's token use is in them alone, and the reviewer removes them
@@ -91,6 +89,8 @@ export function createCodexReviewReviewer(options: CodexReviewReviewerOptions): 
     },
   };
 }
+
+const threadSchema = z.looseObject({ type: z.literal('thread.started'), thread_id: z.string() });
 
 function findThreadID(stdout: string): string | null {
   for (const line of stdout.split('\n')) {

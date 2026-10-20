@@ -54,7 +54,7 @@ function isAnsweredBy(
     return true;
   }
 
-  if (needsOwnAnswer(finding)) {
+  if (isOwnIDOnly(finding)) {
     return false;
   }
 
@@ -72,7 +72,7 @@ function isAnsweredBy(
 
 // a P1 or security finding near an answered one may be a second, real defect, so only an answer to its
 // own ID drops it
-function needsOwnAnswer(finding: Finding): boolean {
+function isOwnIDOnly(finding: Finding): boolean {
   return finding.severity === 'P1' || finding.criterion === 'security-defect';
 }
 

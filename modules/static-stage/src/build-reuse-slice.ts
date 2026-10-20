@@ -65,6 +65,10 @@ function splitNameTokens(name: string): Set<string> {
   );
 }
 
+function normalizeScore(score: number): number {
+  return Math.round(score * 100) / 100;
+}
+
 function countJaccard(left: ReadonlySet<string>, right: ReadonlySet<string>): number {
   if (left.size === 0 && right.size === 0) {
     return 0;
@@ -73,8 +77,4 @@ function countJaccard(left: ReadonlySet<string>, right: ReadonlySet<string>): nu
   const shared = [...left].filter((item) => right.has(item)).length;
 
   return shared / (left.size + right.size - shared);
-}
-
-function normalizeScore(score: number): number {
-  return Math.round(score * 100) / 100;
 }

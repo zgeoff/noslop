@@ -20,10 +20,10 @@ import { runFixesOnlyReview, runReview } from '@noslop/review';
 import { loadStore, readEscapePaths } from '@noslop/sqlite';
 import { buildConfiguredAdapter } from './build-configured-adapter';
 import type { CLIContext } from './cli-context';
-import { findRebasedHead } from './find-rebased-head';
 import { formatReviewSummary } from './format-review-summary';
 import { getStorePath } from './get-store-path';
 import { loadRepoConfig } from './load-repo-config';
+import { readRebasedHead } from './read-rebased-head';
 import { runReporters } from './run-reporters';
 
 export interface ReviewValues {
@@ -191,6 +191,31 @@ export async function runReviewCommand(values: ReviewValues, ctx: CLIContext): P
   return failed.length > 0 ? 1 : 0;
 }
 
+async function readGitText(ctx: CLIContext, cwd: string, args: readonly string[]): Promise<string> {
+  const result = await ctx.runner.run(['git', ...args], { cwd });
+
+  if (result.exitCode !== 0) {
+    throw new Error(`git ${args.join(' ')} failed: ${result.stderr.trim()}`);
+  }
+
+  return result.stdout.trim();
+}
+
+// a relative path resolves against the working directory, as the shell that passed it does
+async function readIssueFile(ctx: CLIContext, path: string): Promise<string> {
+  const file = Bun.file(resolve(ctx.cwd, path));
+
+  const exists = await file.exists();
+
+  if (!exists) {
+    throw new Error(`--issue-file names no file: ${path}`);
+  }
+
+  const text = await file.text();
+
+  return text.trim();
+}
+
 interface ResolvedChange {
   repo: string;
   base: string;
@@ -278,6 +303,33 @@ async function resolveLocalChange(
   };
 }
 
+// the change a branch makes is the one since it left the remote's default branch, or main when the
+// repo has no remote
+async function resolveDefaultBase(ctx: CLIContext, repoDir: string, head: string): Promise<string> {
+  for (const branch of ['origin/HEAD', 'main', 'master']) {
+    const result = await ctx.runner.run(['git', 'merge-base', head, branch], { cwd: repoDir });
+
+    if (result.exitCode === 0) {
+      return result.stdout.trim();
+    }
+  }
+
+  throw new Error('noslop cannot find the branch the change starts from; pass --base');
+}
+
+// owner/repo from the origin remote's URL, or the folder name when the repo has no remote
+async function readRepoName(ctx: CLIContext, repoDir: string): Promise<string> {
+  const result = await ctx.runner.run(['git', 'remote', 'get-url', 'origin'], { cwd: repoDir });
+
+  const match = /[:/](?<owner>[^/:]+)\/(?<repo>[^/]+?)(?:\.git)?$/u.exec(result.stdout.trim());
+  const owner = match?.groups?.['owner'];
+  const repo = match?.groups?.['repo'];
+
+  return result.exitCode === 0 && owner !== undefined && repo !== undefined
+    ? `${owner}/${repo}`
+    : basename(repoDir);
+}
+
 // a pull request's change from GitHub: its title and body, its head, and its base; once noslop has
 // reviewed an earlier head of it, the base is that head, so a re-review covers only the new commits;
 // --full keeps the merge base, so the review covers the whole change again
@@ -361,7 +413,7 @@ async function resolvePullRequestChange(
   // commit with the same patches, and each fix diff still covers only the commits after the review
   const rebased =
     values.fixesOnly && reviewed !== null && ancestry.exitCode !== 0
-      ? await findRebasedHead(ctx.runner, {
+      ? await readRebasedHead(ctx.runner, {
           repoDir,
           reviewed,
           base: state.baseSha,
@@ -490,21 +542,6 @@ async function readAnsweredFixes(
   });
 }
 
-// a relative path resolves against the working directory, as the shell that passed it does
-async function readIssueFile(ctx: CLIContext, path: string): Promise<string> {
-  const file = Bun.file(resolve(ctx.cwd, path));
-
-  const exists = await file.exists();
-
-  if (!exists) {
-    throw new Error(`--issue-file names no file: ${path}`);
-  }
-
-  const text = await file.text();
-
-  return text.trim();
-}
-
 // the files of the repo where a defect escaped an earlier review, from the store; a user with no
 // store yet has none, and the review makes no store to find that out
 async function readPastEscapes(path: string, repo: string): Promise<string[]> {
@@ -521,41 +558,4 @@ async function readPastEscapes(path: string, repo: string): Promise<string[]> {
   } finally {
     await store.destroy();
   }
-}
-
-async function readGitText(ctx: CLIContext, cwd: string, args: readonly string[]): Promise<string> {
-  const result = await ctx.runner.run(['git', ...args], { cwd });
-
-  if (result.exitCode !== 0) {
-    throw new Error(`git ${args.join(' ')} failed: ${result.stderr.trim()}`);
-  }
-
-  return result.stdout.trim();
-}
-
-// the change a branch makes is the one since it left the remote's default branch, or main when the
-// repo has no remote
-async function resolveDefaultBase(ctx: CLIContext, repoDir: string, head: string): Promise<string> {
-  for (const branch of ['origin/HEAD', 'main', 'master']) {
-    const result = await ctx.runner.run(['git', 'merge-base', head, branch], { cwd: repoDir });
-
-    if (result.exitCode === 0) {
-      return result.stdout.trim();
-    }
-  }
-
-  throw new Error('noslop cannot find the branch the change starts from; pass --base');
-}
-
-// owner/repo from the origin remote's URL, or the folder name when the repo has no remote
-async function readRepoName(ctx: CLIContext, repoDir: string): Promise<string> {
-  const result = await ctx.runner.run(['git', 'remote', 'get-url', 'origin'], { cwd: repoDir });
-
-  const match = /[:/](?<owner>[^/:]+)\/(?<repo>[^/]+?)(?:\.git)?$/u.exec(result.stdout.trim());
-  const owner = match?.groups?.['owner'];
-  const repo = match?.groups?.['repo'];
-
-  return result.exitCode === 0 && owner !== undefined && repo !== undefined
-    ? `${owner}/${repo}`
-    : basename(repoDir);
 }

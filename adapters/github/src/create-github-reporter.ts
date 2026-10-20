@@ -223,6 +223,10 @@ function toOwnRange(result: ReviewResult): KeptRange {
   };
 }
 
+function toLensNotReviewedPaths(result: ReviewResult): { path: string; lenses: string[] }[] {
+  return result.notReviewedByLens.map((file) => ({ path: file.path, lenses: [...file.lenses] }));
+}
+
 async function runCheck(
   connection: GitHubConnection,
   pr: PullRequestRef,
@@ -305,16 +309,6 @@ function isUnprocessable(error: unknown): boolean {
   return typeof error === 'object' && error !== null && 'status' in error && error.status === 422;
 }
 
-function formatUnanchoredComment(finding: Finding, head: string): string {
-  const anchor = `\`${finding.anchor.path}:${finding.anchor.startLine}-${finding.anchor.endLine}\``;
-
-  return [
-    `GitHub cannot anchor this finding at ${anchor}, outside the diff. Answer it in a comment that starts with its id, \`${finding.id}\`.`,
-    '',
-    formatFindingComment(finding, head),
-  ].join('\n');
-}
-
 async function createIssueComment(
   client: GitHubClient,
   pr: PullRequestRef,
@@ -326,6 +320,16 @@ async function createIssueComment(
     issue_number: pr.number,
     body,
   });
+}
+
+function formatUnanchoredComment(finding: Finding, head: string): string {
+  const anchor = `\`${finding.anchor.path}:${finding.anchor.startLine}-${finding.anchor.endLine}\``;
+
+  return [
+    `GitHub cannot anchor this finding at ${anchor}, outside the diff. Answer it in a comment that starts with its id, \`${finding.id}\`.`,
+    '',
+    formatFindingComment(finding, head),
+  ].join('\n');
 }
 
 // the follow-ups that no issue of the App files yet: a retry after a post that failed past its issues,
@@ -381,6 +385,81 @@ async function createFollowUpIssue(
       formatMarker('follow-up', { id: finding.id, pullRequest: pr.number }),
     ].join('\n'),
   });
+}
+
+// the fixes this review confirms; a fix answered after the review before it ran, inside that review's
+// range, counts as that review read it, as the check counted it, so the answer needs no extra review
+async function readConfirmations(
+  client: GitHubClient,
+  pr: PullRequestRef,
+  before: PullRequestState,
+  review: ReviewedRange,
+): Promise<FixConfirmation[]> {
+  const dispositions = await readThreadDispositions(client, pr, before.threads);
+
+  const fixCommits = await readFixCommits(client, pr, {
+    commits: before.commits,
+    dispositions,
+    head: review.head,
+    threads: before.threads,
+  });
+
+  const previous = before.summary?.marker ?? null;
+
+  // this review's verdict is the newest, so the earlier reviews' word counts only where it is silent
+  const earlier =
+    previous === null
+      ? null
+      : await readHeldFixes(client, pr, {
+          threads: before.threads,
+          dispositions,
+          fixCommits,
+          marker: previous,
+        });
+
+  const held = earlier?.states ?? new Map();
+
+  return readFixConfirmations(client, pr, {
+    threads: before.threads,
+    dispositions,
+    fixCommits,
+    review,
+    held,
+  });
+}
+
+// strikes the heading of each finding comment whose fix the review confirms, and restores a struck
+// comment whose fix no longer holds, around the same marker
+async function updateFixedComments(
+  client: GitHubClient,
+  pr: PullRequestRef,
+  threads: readonly FindingThread[],
+  confirmations: readonly FixConfirmation[],
+): Promise<void> {
+  for (const thread of threads) {
+    const confirmation = confirmations.find((item) => item.id === thread.marker.id && item.fixed);
+    const commit = confirmation?.commit ?? null;
+    const body = formatFixedFindingComment(thread.body, thread.marker, commit);
+
+    if (body === thread.body) {
+      continue;
+    }
+
+    const params = { owner: pr.owner, repo: pr.repo, comment_id: thread.commentID, body };
+
+    await (thread.source === 'review'
+      ? client.request('PATCH /repos/{owner}/{repo}/pulls/comments/{comment_id}', params)
+      : client.request('PATCH /repos/{owner}/{repo}/issues/comments/{comment_id}', params));
+  }
+}
+
+function toCommentURL(pr: PullRequestRef, thread: FindingThread): string {
+  const anchor =
+    thread.source === 'review'
+      ? `discussion_r${thread.commentID}`
+      : `issuecomment-${thread.commentID}`;
+
+  return `https://github.com/${pr.owner}/${pr.repo}/pull/${pr.number}#${anchor}`;
 }
 
 // the most characters of review ranges the summary marker keeps, far under GitHub's comment limit
@@ -476,87 +555,8 @@ function isSameRange(range: KeptRange, other: KeptRange): boolean {
   );
 }
 
-function toLensNotReviewedPaths(result: ReviewResult): { path: string; lenses: string[] }[] {
-  return result.notReviewedByLens.map((file) => ({ path: file.path, lenses: [...file.lenses] }));
-}
-
 function isSameList(list: readonly string[], other: readonly string[]): boolean {
   return list.length === other.length && list.every((item, index) => item === other[index]);
-}
-
-// the fixes this review confirms; a fix answered after the review before it ran, inside that review's
-// range, counts as that review read it, as the check counted it, so the answer needs no extra review
-async function readConfirmations(
-  client: GitHubClient,
-  pr: PullRequestRef,
-  before: PullRequestState,
-  review: ReviewedRange,
-): Promise<FixConfirmation[]> {
-  const dispositions = await readThreadDispositions(client, pr, before.threads);
-
-  const fixCommits = await readFixCommits(client, pr, {
-    commits: before.commits,
-    dispositions,
-    head: review.head,
-    threads: before.threads,
-  });
-
-  const previous = before.summary?.marker ?? null;
-
-  // this review's verdict is the newest, so the earlier reviews' word counts only where it is silent
-  const earlier =
-    previous === null
-      ? null
-      : await readHeldFixes(client, pr, {
-          threads: before.threads,
-          dispositions,
-          fixCommits,
-          marker: previous,
-        });
-
-  const held = earlier?.states ?? new Map();
-
-  return readFixConfirmations(client, pr, {
-    threads: before.threads,
-    dispositions,
-    fixCommits,
-    review,
-    held,
-  });
-}
-
-// strikes the heading of each finding comment whose fix the review confirms, and restores a struck
-// comment whose fix no longer holds, around the same marker
-async function updateFixedComments(
-  client: GitHubClient,
-  pr: PullRequestRef,
-  threads: readonly FindingThread[],
-  confirmations: readonly FixConfirmation[],
-): Promise<void> {
-  for (const thread of threads) {
-    const confirmation = confirmations.find((item) => item.id === thread.marker.id && item.fixed);
-    const commit = confirmation?.commit ?? null;
-    const body = formatFixedFindingComment(thread.body, thread.marker, commit);
-
-    if (body === thread.body) {
-      continue;
-    }
-
-    const params = { owner: pr.owner, repo: pr.repo, comment_id: thread.commentID, body };
-
-    await (thread.source === 'review'
-      ? client.request('PATCH /repos/{owner}/{repo}/pulls/comments/{comment_id}', params)
-      : client.request('PATCH /repos/{owner}/{repo}/issues/comments/{comment_id}', params));
-  }
-}
-
-function toCommentURL(pr: PullRequestRef, thread: FindingThread): string {
-  const anchor =
-    thread.source === 'review'
-      ? `discussion_r${thread.commentID}`
-      : `issuecomment-${thread.commentID}`;
-
-  return `https://github.com/${pr.owner}/${pr.repo}/pull/${pr.number}#${anchor}`;
 }
 
 async function writeSummaryComment(
