@@ -823,6 +823,63 @@ test('#findings-by-pr gives a finding only the dispositions of its own pull requ
   ]);
 });
 
+test('#findings-by-pr shows each pull request its own disposition when 2 share a disposition key', async () => {
+  const ctx = await setupTest();
+
+  await writeReview(
+    ctx.store,
+    buildMockReviewResult({
+      reviewID: 'review-7',
+      pullRequest: { owner: 'example', repo: 'app', number: 7 },
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+  );
+
+  await writeReview(
+    ctx.store,
+    buildMockReviewResult({
+      reviewID: 'review-8',
+      pullRequest: { owner: 'example', repo: 'app', number: 8 },
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+  );
+
+  await writeDispositions(ctx.store, 'example/app', 7, [
+    {
+      findingID: '1111111111111111',
+      kind: 'fixed',
+      value: '1a2b3c4',
+      author: 'dev',
+      authorIsOwner: false,
+      source: 'github',
+      at: '2026-10-17T11:00:00.000Z',
+    },
+  ]);
+
+  await writeDispositions(ctx.store, 'example/app', 8, [
+    {
+      findingID: '1111111111111111',
+      kind: 'not-a-defect',
+      value: 'the caller holds the lock',
+      author: 'dev',
+      authorIsOwner: false,
+      source: 'github',
+      at: '2026-10-17T11:00:00.000Z',
+    },
+  ]);
+
+  const rows = await runStoreQuery(ctx.store, 'findings-by-pr');
+
+  expect(rows).toMatchObject([
+    { pullRequest: 7, dispositionKind: 'fixed', dispositionValue: '1a2b3c4' },
+    {
+      pullRequest: 8,
+      dispositionKind: 'not-a-defect',
+      dispositionValue: 'the caller holds the lock',
+    },
+  ]);
+});
+
 test('#findings-by-pr gives a disposition with no pull request to the finding in every pull request of its repo', async () => {
   const ctx = await setupTest();
 
