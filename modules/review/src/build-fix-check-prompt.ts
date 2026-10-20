@@ -9,9 +9,6 @@ export interface FixCheckPromptInput {
   diff: string;
 }
 
-// the prompt of one fix check, which reads the finding as posted, the code it anchored to, the fix
-// commit's whole patch and the diff from the fix commit to the head, and answers whether the fix
-// commit fixes it and the fix holds at the head; it raises no other defect
 export function buildFixCheckPrompt(input: FixCheckPromptInput): string {
   return [
     'A reviewer posted the finding below on a pull request, and the author answered that a later commit fixes it.',
