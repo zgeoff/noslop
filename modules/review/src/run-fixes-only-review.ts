@@ -184,7 +184,7 @@ async function readFixBase(
   }
 
   // a head a rebase left off the branch bounds no diff of it, and the fix must still come after it
-  const held = await Promise.all(floors.map((head) => isOnBranch(input, head)));
+  const held = await Promise.all(floors.map((head) => readBranchContainment(input, head)));
 
   if (held.includes(false)) {
     return null;
@@ -209,8 +209,11 @@ function findOneCommit(range: readonly string[], sha: string): string | null {
   return matches.length === 1 ? (matches[0] ?? null) : null;
 }
 
-// whether the pull request's head holds the commit
-async function isOnBranch(input: FixesOnlyReviewInput, commit: string): Promise<boolean> {
+// reads from git whether the pull request's head holds the commit
+async function readBranchContainment(
+  input: FixesOnlyReviewInput,
+  commit: string,
+): Promise<boolean> {
   const result = await input.runner.run(
     ['git', 'merge-base', '--is-ancestor', commit, input.head],
     {
