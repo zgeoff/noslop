@@ -132,22 +132,7 @@ async function runResolutionCheck(
     return {};
   }
 
-  // the change reads between 2 commits, so the rebuilt tree gets a commit of its own, which only this
-  // repo holds and no ref names
-  const base = await readGitText(input, [
-    '-c',
-    'user.name=noslop',
-    '-c',
-    'user.email=noslop@localhost',
-    'commit-tree',
-    rebuilt.tree,
-    '-p',
-    first,
-    '-p',
-    second,
-    '-m',
-    'the tree git merge-tree builds',
-  ]);
+  const base = await createRebuiltMergeCommit(input, rebuilt.tree, [first, second]);
 
   const change = await readChange({
     runner: input.runner,
@@ -215,6 +200,37 @@ async function readMergeTree(
   const [tree = '', ...conflicted] = result.stdout.split('\0').filter((part) => part !== '');
 
   return { tree: tree.trim(), conflicted };
+}
+
+// the change reads between 2 commits, so the rebuilt tree gets a commit of its own; git writes it to
+// the repo's objects, no ref names it, and git's garbage collection removes it
+async function createRebuiltMergeCommit(
+  input: ResolutionChecksInput,
+  tree: string,
+  parents: readonly [string, string],
+): Promise<string> {
+  const args = [
+    '-c',
+    'user.name=noslop',
+    '-c',
+    'user.email=noslop@localhost',
+    'commit-tree',
+    tree,
+    '-p',
+    parents[0],
+    '-p',
+    parents[1],
+    '-m',
+    'the tree git merge-tree builds',
+  ];
+
+  const result = await input.runner.run(['git', ...args], { cwd: input.repoDir });
+
+  if (result.exitCode !== 0) {
+    throw new Error(`git commit-tree failed: ${result.stderr.trim()}`);
+  }
+
+  return result.stdout.trim();
 }
 
 interface ResolutionCall {
