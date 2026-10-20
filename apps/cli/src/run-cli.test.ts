@@ -6291,6 +6291,91 @@ test('it fails a read-only check with exit 1 under the job token, and writes not
   expect(hasStore).toBe(false);
 });
 
+test('it keeps a check read-only when the environment also holds the App keys', async () => {
+  const ctx = await setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    baseRef: 'main',
+    headSha: 'b'.repeat(40),
+  });
+
+  await githubCollections.branches.create({
+    owner: 'example',
+    repo: 'app',
+    name: 'main',
+    sha: 'a'.repeat(40),
+  });
+
+  await githubCollections.files.create({
+    owner: 'example',
+    repo: 'app',
+    ref: 'a'.repeat(40),
+    path: 'review.json',
+    content: '{ "github": { "app": "noslop-review" } }\n',
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${'b'.repeat(40)}","reviews":1,"reported":["1111111111111111"],"failedCalls":0} -->`,
+  });
+
+  const finding = await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/total.ts',
+    line: 2,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:finding {"id":"1111111111111111","title":"Sum every item","path":"src/total.ts","lens":"correctness","severity":"P2","riskClass":null,"writtenByChange":true,"head":"${'b'.repeat(40)}"} -->`,
+  });
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    body: 'I will look at this tomorrow.',
+    authorLogin: 'dev',
+    inReplyToID: finding.id,
+  });
+
+  const requested = mock<(request: string) => void>();
+
+  githubServer.events.on('request:start', (event) => {
+    requested(`${event.request.method} ${new URL(event.request.url).pathname}`);
+  });
+
+  onTestFinished(() => {
+    githubServer.events.removeAllListeners('request:start');
+  });
+
+  const code = await runCLI(
+    ['check', '--pr', '9', '--repo', 'example/app', '--read-only'],
+    ctx.buildContext(ctx.directory, buildStubAdapter({}).adapter),
+  );
+
+  expect(code).toBe(1);
+  expect(requested).toHaveBeenCalledWith('GET /app');
+
+  expect(
+    requested.mock.calls.flat().filter((request: string) => request.includes(' /repos/')),
+  ).toSatisfyAll((request: string) => request.startsWith('GET '));
+
+  expect(githubCollections.checkRuns.all()).toStrictEqual([]);
+  expect(githubCollections.reviewComments.all()).toHaveLength(2);
+
+  const hasStore = await Bun.file(join(ctx.directory, 'data', 'store.sqlite')).exists();
+
+  expect(hasStore).toBe(false);
+});
+
 test('it passes a read-only check with exit 0 under the job token, and writes nothing to GitHub', async () => {
   const ctx = await setupTest();
 
