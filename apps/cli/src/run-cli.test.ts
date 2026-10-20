@@ -41,7 +41,6 @@ async function setupTest() {
     NOSLOP_GITHUB_APP_INSTALLATION_ID: '7',
   });
 
-  // the GitHub connection comes from the loader the test passes, the App's keys unless it says
   const buildContext = (
     cwd: string,
     adapter: ReviewAdapter,
