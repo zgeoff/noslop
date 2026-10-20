@@ -124,11 +124,18 @@ export async function runReviewCommand(values: ReviewValues, ctx: CLIContext): P
         adapter,
         tempDir,
         logger: ctx.logger,
+        resolution: { config: loaded.config, dismissedFindings: change.dismissedFindings },
         ...(ctx.now === undefined ? {} : { now: ctx.now }),
       });
 
       for (const check of run.fixChecks ?? []) {
         ctx.logger.info('the fix of {findingID} holds: {fixed}, {reason}', { ...check });
+      }
+
+      for (const check of run.resolutionChecks ?? []) {
+        ctx.logger.info('the resolution of merge {merge} is sound: {sound}, {reason}', {
+          ...check,
+        });
       }
 
       result = reviewResultSchema.parse(run);

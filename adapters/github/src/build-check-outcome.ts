@@ -49,8 +49,8 @@ export interface CheckOutcome {
   open: OpenFinding[];
 }
 
-// the noslop check passes when a review ran on the current head, no call or reporter failed, and every
-// posted finding holds a valid disposition
+// the noslop check passes when a review ran on the current head, no call or reporter failed, the
+// summary holds no rejected merge resolution, and every posted finding holds a valid disposition
 export function buildCheckOutcome(input: CheckOutcomeInput): CheckOutcome {
   const latest = new Map(input.dispositions.map((item) => [item.findingID, item]));
 
@@ -76,6 +76,10 @@ export function buildCheckOutcome(input: CheckOutcomeInput): CheckOutcome {
 
   if (input.unreadable > 0) {
     problems.push(`${input.unreadable} finding comments hold a marker noslop cannot read.`);
+  }
+
+  for (const merge of input.summary?.rejectedMerges ?? []) {
+    problems.push(`The resolution of merge ${merge.slice(0, 12)} does not hold.`);
   }
 
   if (open.length > 0) {

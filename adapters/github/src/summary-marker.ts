@@ -24,6 +24,15 @@ export const summaryMarkerSchema = z.strictObject({
 
   // on a fixes-only run, the findings whose fix its calls judged fixed, the only fixes its range reads
   checked: z.array(z.string()).optional(),
+
+  // each merge commit whose resolution a fixes-only run judged sound, the ones earlier summaries held
+  // among them, so a reader that counts the commits since the last lens review can count each such
+  // merge as checked
+  checkedMerges: z.array(buildShaSchema()).optional(),
+
+  // each merge whose resolution a fixes-only run since the last lens review judged not sound with no
+  // finding to carry the verdict, which fails the check
+  rejectedMerges: z.array(buildShaSchema()).optional(),
   reviewIDs: z.array(z.string()).optional(),
 
   // when the review that wrote the summary started, so a retry of an earlier review leaves it alone

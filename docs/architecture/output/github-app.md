@@ -235,8 +235,8 @@ finding in code the change wrote, goes on the pull request at every review.
 
 ### The fixes-only run
 
-A fixes-only run checks only the `fixed` answers after the last review round and raises no finding,
-under [the fixes-only run](./fixes-only-run.md).
+A fixes-only run checks the `fixed` answers and the merge resolutions after the last review round,
+and raises a finding only on a merge resolution, under [the fixes-only run](./fixes-only-run.md).
 
 ## The check run
 
@@ -245,6 +245,7 @@ The check passes when all of these hold, and fails otherwise:
 - The summary marker's head is the current head of the pull request.
 - No call of that review failed.
 - No reporter that ran before the `github` reporter failed.
+- The summary marker holds no merge whose resolution a fixes-only run rejected with no finding.
 - Every finding comment of the App holds a marker noslop can read.
 - Every finding, P3 included, holds a valid disposition.
 

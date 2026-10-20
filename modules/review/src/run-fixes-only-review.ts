@@ -15,6 +15,8 @@ import { REVIEW_OUTPUT_VERSION, buildFixFileEvidence } from '@noslop/contract';
 import type { Runner } from '@noslop/runner';
 import { z } from 'zod';
 import { buildFixCheckPrompt } from './build-fix-check-prompt';
+import type { ResolutionCheckOptions } from './run-resolution-checks';
+import { runResolutionChecks } from './run-resolution-checks';
 
 // a finding whose latest answer is `fixed <commit>`, as its comment on the pull request keeps it
 export interface AnsweredFix {
@@ -61,11 +63,15 @@ export interface FixesOnlyReviewInput {
   tempDir: string;
   logger: Logger;
   now?: () => Date;
+
+  // with it, the run also checks the resolution of each merge commit among the new commits whose tree
+  // differs from the tree `git merge-tree` builds from its parents; without it, the run checks no merge
+  resolution?: ResolutionCheckOptions;
 }
 
-// a run after the last review round with no lens and no finding: one call per `fixed` answer that no
-// review has judged asks whether the diff of the finding's file and the fix commit's files fixes it,
-// and the result's fix checks list each verdict, so no other fix confirms through the run's silence
+// a run after the last review round with no lens over the change: one call per `fixed` answer that no
+// review has judged asks whether the diff of its files fixes it, and the fix checks list each verdict,
+// so no other fix confirms through the run's silence; only a resolution check raises a finding
 export async function runFixesOnlyReview(input: FixesOnlyReviewInput): Promise<ReviewResult> {
   const now = input.now ?? (() => new Date());
   const startedAt = now().toISOString();
@@ -90,6 +96,20 @@ export async function runFixesOnlyReview(input: FixesOnlyReviewInput): Promise<R
 
   const tooLarge = new Set(outcomes.flatMap((outcome) => outcome.tooLarge ?? []));
 
+  const merges =
+    input.resolution === undefined
+      ? null
+      : await runResolutionChecks({
+          ...input.resolution,
+          runner: input.runner,
+          repoDir: input.repoDir,
+          base: input.base,
+          head: input.head,
+          adapter: input.adapter,
+          tempDir: input.tempDir,
+          logger: input.logger,
+        });
+
   // the range reaches back to the oldest base a fix used, so it holds each commit the run judged
   let base = input.base;
 
@@ -109,14 +129,21 @@ export async function runFixesOnlyReview(input: FixesOnlyReviewInput): Promise<R
     special: null,
     riskClasses: [],
     lenses: [],
-    calls: outcomes.flatMap((outcome) => outcome.record ?? []),
-    findings: [],
-    dropped: [],
-    failedCalls: outcomes.flatMap((outcome) => outcome.failedCall ?? []),
-    notReviewed: [...tooLarge].map((path): NotReviewedFile => ({ path, reason: 'too-large' })),
+    calls: [...outcomes.flatMap((outcome) => outcome.record ?? []), ...(merges?.records ?? [])],
+    findings: merges?.findings ?? [],
+    dropped: merges?.dropped ?? [],
+    failedCalls: [
+      ...outcomes.flatMap((outcome) => outcome.failedCall ?? []),
+      ...(merges?.failedCalls ?? []),
+    ],
+    notReviewed: [
+      ...[...tooLarge].map((path): NotReviewedFile => ({ path, reason: 'too-large' })),
+      ...(merges?.notReviewed ?? []),
+    ],
     notReviewedByLens: [],
     configHash: input.configHash,
     fixChecks: outcomes.flatMap((outcome) => outcome.check ?? []),
+    ...(merges === null || merges.checks.length === 0 ? {} : { resolutionChecks: merges.checks }),
     startedAt,
     endedAt: now().toISOString(),
   };

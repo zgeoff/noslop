@@ -61,6 +61,13 @@ export const findingSchema = z
     // code the change did not write
     riskClass: z.string().min(1).optional(),
     fix: z.string().min(1).optional(),
+
+    // the commit whose lines the anchor names, set only when a later commit rewrote those lines, so the
+    // head of the result holds none of them and the finding posts outside the diff
+    anchorCommit: z
+      .string()
+      .regex(/^[0-9a-f]{40}$/u)
+      .optional(),
   })
   .refine((finding) => finding.verdict === 'CONFIRMED' || finding.unverifiedFact !== undefined, {
     message: 'a PLAUSIBLE finding holds the fact its lens could not read',

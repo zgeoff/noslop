@@ -27,8 +27,8 @@ export interface FixStatus {
 }
 
 // the summary comment, written for a person: the count and risk of this review's findings, its failed
-// calls, the files it did not review, whether each `fixed` finding is fixed, a table that links each finding to its comment, then
-// the review's details collapsed and the marker the next run reads
+// calls, the files it did not review, each fix and merge resolution it judged, a table that links each
+// finding to its comment, then the review's details collapsed and the marker the next run reads
 export function formatSummaryComment(
   result: ReviewResult,
   marker: SummaryMarker,
@@ -64,6 +64,22 @@ export function formatSummaryComment(
       const line = item.fixed
         ? `✅ ${item.title}: fixed in ${sha}${formatFixFiles(item.changesFindingFile)}`
         : `❌ ${item.title}: not fixed in ${sha}${item.failure === undefined ? '' : ` (${item.failure})`}`;
+
+      lines.push(line);
+    }
+  }
+
+  const resolutions = result.resolutionChecks ?? [];
+
+  if (resolutions.length > 0) {
+    lines.push('');
+
+    for (const check of resolutions) {
+      const sha = `\`${check.merge.slice(0, 7)}\``;
+
+      const line = check.sound
+        ? `✅ The resolution of merge ${sha} holds: ${check.reason}`
+        : `❌ The resolution of merge ${sha} does not hold: ${check.reason}`;
 
       lines.push(line);
     }
