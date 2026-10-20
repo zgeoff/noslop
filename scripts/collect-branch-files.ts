@@ -9,7 +9,7 @@ interface CollectBranchFilesOptions {
   readonly env?: Readonly<Record<string, string | undefined>>;
 }
 
-export async function readBranchFiles(
+export async function collectBranchFiles(
   options: Readonly<CollectBranchFilesOptions>,
 ): Promise<string[]> {
   const head = await runGit(options, ['rev-parse', '--abbrev-ref', 'origin/HEAD']);
@@ -62,14 +62,14 @@ async function runGit(options: Readonly<CollectBranchFilesOptions>, args: readon
 
 async function runCLI(): Promise<void> {
   try {
-    const files = await readBranchFiles({ cwd: process.cwd() });
+    const files = await collectBranchFiles({ cwd: process.cwd() });
 
     if (files.length > 0) {
       process.stdout.write(`${files.join('\n')}\n`);
     }
   } catch (error) {
     process.stderr.write(
-      `read-branch-files: ${error instanceof Error ? error.message : String(error)}\n`,
+      `collect-branch-files: ${error instanceof Error ? error.message : String(error)}\n`,
     );
 
     process.exit(1);
