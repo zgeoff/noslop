@@ -2,10 +2,11 @@
 
 ## [0.4.3](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.2...@noslop/cli@0.4.3) (2026-10-20)
 
-
 ### Features
 
-* **geo-1515:** match a p1 or security finding by its own id alone ([#50](https://github.com/zgeoff/noslop/issues/50)) ([a243dd8](https://github.com/zgeoff/noslop/commit/a243dd86d9e8e8cf60c50e654af3860cb0cf6467))
+- **geo-1515:** match a p1 or security finding by its own id alone
+  ([#50](https://github.com/zgeoff/noslop/issues/50))
+  ([a243dd8](https://github.com/zgeoff/noslop/commit/a243dd86d9e8e8cf60c50e654af3860cb0cf6467))
 
 ## [0.4.2](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.1...@noslop/cli@0.4.2) (2026-10-19)
 
