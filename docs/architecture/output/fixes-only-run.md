@@ -39,9 +39,14 @@ resolution check.
 
 A `fixed` answer to a finding of the [static stage](../review/static-stage.md) gets no model call.
 The run runs the static stage again, once, over the whole diff of the pull request from its merge
-base to its head, and Assemble gives each finding its ID as in a review. The fix holds when no
-finding of that run has the answered finding's ID, and fails when one has it. A fix commit that
-changes no file of the pull request fails first, by the rule every fix follows.
+base to its head, and Assemble applies the finding rules as in a review. The fix fails when that run
+reports a finding with the same file and title on the lines that hold the answered finding's line
+now, and holds otherwise. The run follows that line from the head that posted the finding through
+the diff to the head: a hunk above it moves it, and a hunk that rewrites it hands over the lines it
+wrote. The place decides, not the ID, because Assemble numbers 2 findings with one title by their
+order, so a fix of the first hands its ID to the second. A finding the run cannot place, such as one
+outside the diff, fails while any finding with its file and title remains. A fix commit that changes
+no file of the pull request fails first, by the rule every fix follows.
 
 The stage reads the whole diff because its checks read the change as a whole. A test counts as new
 only on a line the change adds, so a diff of the fix commit alone sees no new test with no

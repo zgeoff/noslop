@@ -1,4 +1,4 @@
-import type { ReviewConfig } from '@noslop/contract';
+import type { Finding, ReviewConfig } from '@noslop/contract';
 import { buildFindings } from '@noslop/findings';
 import type { Runner } from '@noslop/runner';
 import { readChange, runStaticStage } from '@noslop/static-stage';
@@ -22,9 +22,9 @@ export interface StaticRecheckInput extends StaticRecheckOptions {
   title: string;
 }
 
-// the IDs of the static findings a review of the whole pull request reports at its head; a check
-// such as a new test with no assertion reads the change from the merge base, not the fix commit's
-export async function runStaticRecheck(input: StaticRecheckInput): Promise<Set<string>> {
+// the static findings a review of the whole pull request reports at its head; a check such as a new
+// test with no assertion reads the change from the merge base, not the fix commit's
+export async function runStaticRecheck(input: StaticRecheckInput): Promise<Finding[]> {
   const change = await readChange({
     runner: input.runner,
     repoDir: input.repoDir,
@@ -45,8 +45,7 @@ export async function runStaticRecheck(input: StaticRecheckInput): Promise<Set<s
     pastEscapes: [],
   });
 
-  // Assemble numbers a defect found at a second place into its ID, as a review does, so each ID
-  // matches the one the review posted
+  // Assemble drops a finding off the diff and cuts a long title, as in the review that posted it
   const assembled = buildFindings({
     raw: stage.findings.map((finding) => ({ lens: 'static', callID: null, finding })),
     files: change.files,
@@ -55,5 +54,5 @@ export async function runStaticRecheck(input: StaticRecheckInput): Promise<Set<s
     config: input.config,
   });
 
-  return new Set(assembled.findings.map((finding) => finding.id));
+  return assembled.findings;
 }
