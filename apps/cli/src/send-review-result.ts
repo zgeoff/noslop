@@ -30,7 +30,7 @@ export async function sendReviewResult(
 
   const connection = await deps.loadConnection();
 
-  if (connection.appLogin === null) {
+  if (connection.auth !== 'app') {
     throw new Error(
       'posting needs the App: set NOSLOP_GITHUB_APP_ID, NOSLOP_GITHUB_APP_PRIVATE_KEY and NOSLOP_GITHUB_APP_INSTALLATION_ID',
     );

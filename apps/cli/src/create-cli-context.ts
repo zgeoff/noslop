@@ -9,9 +9,9 @@ import { createRunner } from '@noslop/runner';
 import { createSQLiteReporter } from '@noslop/sqlite';
 import { createWebhookReporter } from '@noslop/webhook';
 import type { CLIContext } from './cli-context';
+import { createGitHubConnectionLoader } from './create-github-connection-loader';
 import { createJSONReporter } from './create-json-reporter';
 import { makeCommentURLRecorder } from './make-comment-url-recorder';
-import { makeGitHubConnectionLoader } from './make-github-connection-loader';
 
 // the context the installed CLI runs in: the real runner, the user's cache and data folders, stdout
 // and stderr, and the adapters and reporters noslop ships
@@ -25,7 +25,8 @@ export function createCLIContext(env: Readonly<Record<string, string | undefined
     claude: () => createClaudeAdapter({ runner }),
   };
 
-  const loadGitHubConnection = makeGitHubConnectionLoader(env);
+  const github = createGitHubConnectionLoader(env);
+  const loadGitHubConnection = github.load;
   const logger = getLogger(['noslop']);
 
   // a run with no sqlite reporter wrote no finding rows to link, and opening the store would create a
@@ -64,6 +65,7 @@ export function createCLIContext(env: Readonly<Record<string, string | undefined
     },
     createReporter: (id, storePath) => reporters[id]?.(storePath) ?? null,
     loadGitHubConnection,
+    setGitHubAppSlug: github.setAppSlug,
   };
 }
 

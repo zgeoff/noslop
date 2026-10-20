@@ -121,10 +121,20 @@ App's answer to a free-text reply, holds the id of the reply it answered.
 
 Only a comment by the App's own login holds state. The adapter reads that login from GitHub's
 endpoint for the authenticated App when it connects, and treats a comment by anyone else, other bots
-included, as a reply, because anyone can paste a marker into a comment. With no App credentials in
-the environment, the connection reads GitHub anonymously and trusts no comment. A finding comment of
-the App whose marker noslop cannot read fails the check, so a damaged marker never drops a finding
-from the gate.
+included, as a reply, because anyone can paste a marker into a comment. A finding comment of the App
+whose marker noslop cannot read fails the check, so a damaged marker never drops a finding from the
+gate.
+
+A review on a developer's machine runs without the App's keys. The connection then reads GitHub with
+`GH_TOKEN`, or with `GITHUB_TOKEN` when `GH_TOKEN` is unset, and anonymously when neither is set, so
+the token decides which private repos the review reaches. Such a connection learns the App's login
+from the `github.app` key of the config instead: it trusts a comment by `<slug>[bot]`, so a
+developer's review runs as a delta, drops a finding answered `not-a-defect`, and confirms a fix, as
+the App's review does. A review of a pull request loads that config from the base branch before it
+reads any comment, so a pull request cannot name its own App. With the App's keys present, the CLI
+refuses a `github.app` slug that names another App, since the App's own comments would then hold no
+state. A connection without the App's keys never posts: the GitHub reporter and `post` refuse it,
+because a comment under the token's login holds no state for a later review.
 
 ## Dispositions
 

@@ -15,15 +15,18 @@ flowchart LR
 
 You need a GitHub App installed on the repo, as [set up a repo](./set-up-a-repo.md) describes, and a
 place to host the relay. The relay and the CI job hold the App's keys; a developer's machine never
-does. Without the App's keys, a review reads the pull request through GitHub's API with no
-credentials, so the repo must be public.
+does. Without the App's keys, a review reads the pull request through GitHub's API with the
+developer's `GH_TOKEN`, or `GITHUB_TOKEN` when `GH_TOKEN` is unset. On a public repo, a review with
+neither token reads the pull request anonymously. Your org issues the token: noslop stores none and
+runs no login.
 
 ## Send each review to the relay
 
-1. Add the webhook reporter to the repo's `review.json` on the default branch:
+1. Add the webhook reporter and your App's slug to the repo's `review.json` on the default branch:
 
    ```json
    {
+     "github": { "app": "<app_slug>" },
      "reporters": {
        "webhook": {
          "url": "https://relay.example.com/noslop",
@@ -35,9 +38,12 @@ credentials, so the repo must be public.
    ```
 
    [Reporters](../architecture/output/reporters.md) covers the options. The secret stays in each
-   developer's environment, out of the config file.
+   developer's environment, out of the config file. The slug is the name in the App's URL,
+   `https://github.com/apps/<app_slug>`. A developer's review trusts only the comments of
+   `<app_slug>[bot]`, so it runs as a delta from the App's last summary, drops a finding answered
+   `not-a-defect`, and confirms a fix. The App's own reviews refuse a slug that names another App.
 
-2. On a developer's machine, set `NOSLOP_RELAY_SECRET` and review the pull request:
+2. On a developer's machine, set `NOSLOP_RELAY_SECRET` and `GH_TOKEN`, and review the pull request:
 
    ```bash
    noslop review --pr <number> --report webhook

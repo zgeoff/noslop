@@ -1,5 +1,6 @@
 import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { basename, join, resolve } from 'node:path';
+import type { LoadedConfig } from '@noslop/config';
 import type {
   DismissedFinding,
   EarlierFinding,
@@ -12,6 +13,7 @@ import {
   collectDismissedFindings,
   readFixCommits,
   readLinkedIssue,
+  readPullRequestBase,
   readPullRequestState,
   readThreadDispositions,
 } from '@noslop/github';
@@ -74,9 +76,7 @@ export async function runReviewCommand(values: ReviewValues, ctx: CLIContext): P
       ? await resolveLocalChange(ctx, repoDir, values)
       : await resolvePullRequestChange(ctx, repoDir, values, issueText === null);
 
-  // the config comes from the commit the change starts from, so a change that edits the config is
-  // reviewed under the config it would replace
-  const loaded = await loadRepoConfig(ctx, repoDir, { commit: change.configCommit });
+  const loaded = change.config;
 
   for (const label of loaded.missingRules) {
     ctx.logger.warn('the repo holds no rules file {label}, so the review reads no rules from it', {
@@ -223,9 +223,9 @@ interface ResolvedChange {
   base: string;
   head: string;
 
-  // the commit the config reads from: a pull request's base, or a local change's base, which a
-  // delta review of a pull request does not share, since its base is a head of the pull request
-  configCommit: string;
+  // the config at a pull request's base or a local change's base, so a change that edits the config
+  // is reviewed under the config it would replace; a delta review's base is a head of the pull request
+  config: LoadedConfig;
   title: string;
   body: string;
 
@@ -293,7 +293,7 @@ async function resolveLocalChange(
     repo,
     base,
     head,
-    configCommit: base,
+    config: await loadRepoConfig(ctx, repoDir, { commit: base }),
     title,
     body,
     linkedIssue: null,
@@ -368,6 +368,17 @@ async function resolvePullRequestChange(
   }
 
   const pullRequest = { owner, repo: name, number };
+
+  // the base branch's config names the App whose comments hold state, so it loads before the comments
+  // are read; a config the pull request edits cannot name its own App
+  const untrusted = await ctx.loadGitHubConnection();
+  const configCommit = await readPullRequestBase(untrusted, pullRequest);
+
+  await ctx.runner.run(['git', 'fetch', '--quiet', 'origin', configCommit], { cwd: repoDir });
+
+  const config = await loadRepoConfig(ctx, repoDir, { commit: configCommit });
+
+  ctx.setGitHubAppSlug(config.config.github.app);
 
   const connection = await ctx.loadGitHubConnection();
   const state = await readPullRequestState(connection, pullRequest);
@@ -449,7 +460,7 @@ async function resolvePullRequestChange(
     head: state.headSha,
     lensHead,
     rebasedFrom: rebased.head === reviewed ? null : reviewed,
-    configCommit: state.baseSha,
+    config,
     title: state.title,
     body: state.body,
     linkedIssue,

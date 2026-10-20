@@ -4,18 +4,27 @@ import type { GitHubAppCredentials } from './parse-github-app-env';
 
 export type GitHubClient = Octokit;
 
-// a client and the login GitHub gives the App's own comments, so noslop reads back only the state its
-// own App wrote; with no credentials, an anonymous client that reads public repos and trusts no comment
+// how a client reaches GitHub: as the App's installation, with a token from the environment, or with
+// no credential, which reads only public repos
+export type GitHubAuth = 'app' | 'token' | 'anonymous';
+
+// a client and the login of the App whose comments hold noslop's state, so noslop reads back only the
+// state that App wrote; the App's keys give its login, and with no keys noslop trusts no comment until
+// the config names the App
 export interface GitHubConnection {
   client: GitHubClient;
+  auth: GitHubAuth;
   appLogin: string | null;
 }
 
 export async function createGitHubConnection(
   credentials: GitHubAppCredentials | null,
+  token: string | null = null,
 ): Promise<GitHubConnection> {
   if (credentials === null) {
-    return { client: new Octokit(), appLogin: null };
+    return token === null
+      ? { client: new Octokit(), auth: 'anonymous', appLogin: null }
+      : { client: new Octokit({ auth: token }), auth: 'token', appLogin: null };
   }
 
   const app = new App({ appId: credentials.appID, privateKey: credentials.privateKey });
@@ -23,5 +32,5 @@ export async function createGitHubConnection(
   const self = await app.octokit.request('GET /app');
   const client = await app.getInstallationOctokit(credentials.installationID);
 
-  return { client, appLogin: `${self.data?.slug ?? ''}[bot]` };
+  return { client, auth: 'app', appLogin: `${self.data?.slug ?? ''}[bot]` };
 }

@@ -128,6 +128,9 @@ review. To answer its findings, see [Answer a finding](./answer-a-finding.md).
 ## Review a pull request from your machine
 
 `noslop review --pr <number>` reviews a pull request without the App, and prints the result as a
-local review does. With no App credentials in the environment, noslop reads GitHub anonymously, so
-it reaches only public repos and posts nothing. To post as the App, set `NOSLOP_GITHUB_APP_ID`,
-`NOSLOP_GITHUB_APP_PRIVATE_KEY` and `NOSLOP_GITHUB_APP_INSTALLATION_ID`, and add `--report github`.
+local review does. With no App credentials in the environment, noslop reads GitHub with `GH_TOKEN`,
+then `GITHUB_TOKEN`, and anonymously when neither is set, so a private repo needs a token that can
+read it. It posts nothing. Set `github.app` in `review.json` to the App's slug, and your review
+trusts the App's comments: it covers only the commits since the App's last review. To post as the
+App, set `NOSLOP_GITHUB_APP_ID`, `NOSLOP_GITHUB_APP_PRIVATE_KEY` and
+`NOSLOP_GITHUB_APP_INSTALLATION_ID`, and add `--report github`.

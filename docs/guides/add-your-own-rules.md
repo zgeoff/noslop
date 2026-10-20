@@ -91,8 +91,9 @@ Keep the shared rules and their `review.json` in a repo of their own, and have e
    `github:<owner>/<repo>` reads `review.json` from that repo's default branch. Add `/<path>` to
    read another file, or `@<ref>` to pin a branch, tag or commit.
 
-3. Make the shared repo public, or run noslop with the GitHub App's credentials in the environment.
-   Without them, noslop reads GitHub anonymously and reaches only public repos.
+3. Make the shared repo public, or run noslop with the GitHub App's credentials or a `GH_TOKEN` that
+   can read the shared repo in the environment. Without either, noslop reads GitHub anonymously and
+   reaches only public repos.
 
 The repo's own `rules` list appends to the shared one. An entry whose path matches a shared entry
 replaces it, so a repo can change that file's references. `"rules": null` drops every inherited

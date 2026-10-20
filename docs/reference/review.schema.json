@@ -1191,6 +1191,33 @@
         }
       ]
     },
+    "github": {
+      "description": "How a review reads GitHub",
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "app": {
+              "default": null,
+              "description": "The slug of the GitHub App that posts the reviews; a review run without its keys trusts the comments of <slug>[bot] as its state",
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[a-z\\d-]+$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "report": {
       "description": "The reporters a review runs, by id",
       "anyOf": [
