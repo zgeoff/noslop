@@ -3119,10 +3119,35 @@ test('it confirms no fixed reply posted after a --fixes-only review that never c
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":2,"reported":["1111111111111111"],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":2,"reported":["1111111111111111","2222222222222222"],"failedCalls":0} -->`,
   });
 
-  const context = ctx.buildContext(repo.path, buildStubAdapter({}).adapter);
+  // a second finding whose fix the first fixes-only run checks
+  const checked = await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/scan.ts',
+    line: 2,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:finding {"id":"2222222222222222","title":"Name the separator","path":"src/scan.ts","lens":"design","severity":"P2","riskClass":null,"writtenByChange":true,"head":"${repo.commits[1] ?? ''}"} -->`,
+  });
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    body: `fixed ${(repo.commits[2] ?? '').slice(0, 7)}`,
+    authorLogin: 'dev',
+    inReplyToID: checked.id,
+  });
+
+  const stub = buildStubAdapter({
+    'fix-2222222222222222': [{ fixed: true, reason: 'The separator has a name now.' }],
+  });
+
+  const context = ctx.buildContext(repo.path, stub.adapter);
 
   await runCLI(
     ['review', '--pr', '9', '--repo', 'example/app', '--fixes-only', '--report', 'github'],
@@ -3224,11 +3249,54 @@ test('it keeps a fixed reply posted after 2 --fixes-only reviews open until a --
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":2,"reported":["1111111111111111"],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":2,"reported":["1111111111111111","2222222222222222","3333333333333333"],"failedCalls":0} -->`,
+  });
+
+  // a finding whose fix the first fixes-only run checks
+  const first = await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/scan.ts',
+    line: 2,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:finding {"id":"2222222222222222","title":"Name the separator","path":"src/scan.ts","lens":"design","severity":"P2","riskClass":null,"writtenByChange":true,"head":"${repo.commits[1] ?? ''}"} -->`,
+  });
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    body: `fixed ${(repo.commits[2] ?? '').slice(0, 7)}`,
+    authorLogin: 'dev',
+    inReplyToID: first.id,
+  });
+
+  // a finding whose fix the second fixes-only run checks
+  const second = await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/scan.ts',
+    line: 2,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:finding {"id":"3333333333333333","title":"Define the tab","path":"src/scan.ts","lens":"design","severity":"P2","riskClass":null,"writtenByChange":true,"head":"${repo.commits[1] ?? ''}"} -->`,
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/tab.ts',
+    lines: [1],
   });
 
   const stub = buildStubAdapter({
     'fix-1111111111111111': [{ fixed: true, reason: 'The separator is a colon now.' }],
+    'fix-2222222222222222': [{ fixed: true, reason: 'The separator has a name now.' }],
+    'fix-3333333333333333': [{ fixed: true, reason: 'The tab is defined now.' }],
   });
 
   const context = ctx.buildContext(repo.path, stub.adapter);
@@ -3242,6 +3310,15 @@ test('it keeps a fixed reply posted after 2 --fixes-only reviews open until a --
     data(record) {
       record.headSha = repo.commits[3] ?? '';
     },
+  });
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    body: `fixed ${(repo.commits[3] ?? '').slice(0, 7)}`,
+    authorLogin: 'dev',
+    inReplyToID: second.id,
   });
 
   await runCLI(
@@ -3274,7 +3351,11 @@ test('it keeps a fixed reply posted after 2 --fixes-only reviews open until a --
     ),
   });
 
-  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['fix-1111111111111111']);
+  expect(stub.requests.map((request) => request.callID)).toStrictEqual([
+    'fix-2222222222222222',
+    'fix-3333333333333333',
+    'fix-1111111111111111',
+  ]);
 
   expect(githubCollections.checkRuns.all().at(-1)).toMatchObject({
     headSha: repo.commits[3] ?? '',
@@ -3282,7 +3363,7 @@ test('it keeps a fixed reply posted after 2 --fixes-only reviews open until a --
   });
 });
 
-test('it makes no call for a fix the summary holds as confirmed and keeps the check passing', async () => {
+test('it refuses --fixes-only with no fixed answer to check, so the summary stays on its head and the check fails at the new head', async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
@@ -3371,18 +3452,36 @@ test('it makes no call for a fix the summary holds as confirmed and keeps the ch
   });
 
   const stub = buildStubAdapter({});
+  const context = ctx.buildContext(repo.path, stub.adapter);
 
-  await runCLI(
+  const code = await runCLI(
     ['review', '--pr', '9', '--repo', 'example/app', '--fixes-only', '--report', 'github'],
-    ctx.buildContext(repo.path, stub.adapter),
+    context,
   );
 
-  expect(stub.requests).toStrictEqual([]);
+  const stderr = ctx.stderr.join('');
 
-  expect(githubCollections.checkRuns.all().at(-1)).toMatchObject({
-    headSha: repo.commits[3] ?? '',
-    conclusion: 'success',
+  await runCLI(['check', '--pr', '9', '--repo', 'example/app'], context);
+
+  const summary = githubCollections.issueComments
+    .all()
+    .findLast((comment) => comment.body.includes('<!-- noslop:summary'));
+
+  expect({ code, stderr }).toStrictEqual({
+    code: 1,
+    stderr: `noslop: --fixes-only has no \`fixed\` answer to check, so it cannot pass ${(repo.commits[3] ?? '').slice(0, 12)}, which no lens read and which is no merge of the base; run a review without --fixes-only\n`,
   });
+
+  expect(stub.requests).toStrictEqual([]);
+  expect(summary?.body).toInclude(`{"head":"${repo.commits[2] ?? ''}"`);
+
+  expect(githubCollections.checkRuns.all()).toMatchObject([
+    {
+      headSha: repo.commits[3] ?? '',
+      conclusion: 'failure',
+      title: `No noslop review for this commit, ${(repo.commits[3] ?? '').slice(0, 12)}.`,
+    },
+  ]);
 });
 
 test('it bases a --fixes-only review on the last head with no failed call after a fix check failed', async () => {
