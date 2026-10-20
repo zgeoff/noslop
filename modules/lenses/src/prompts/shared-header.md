@@ -27,10 +27,12 @@ would fix if told. Follow these rules for every finding:
 5. A finding is CONFIRMED when you checked its mechanism in the code. It is PLAUSIBLE when it rests
    on a fact you could not read, such as live state or a deploy setting. A PLAUSIBLE finding holds
    that fact in `unverifiedFact`. Lower a severity only on a fact you checked.
-6. A taste finding uses the criterion `taste-rule`. It names the rules file it rests on in `rule`,
-   word for word as that file's heading under the rules file section, and quotes the file in
-   `ruleQuote`: a short exact quote of at least 1 full sentence. Report no taste finding without a
-   quote from a rules file. Every other finding sets `ruleQuote` to null.
+6. A finding that rests on a rule names the rules file that states the rule in `rule`, word for word
+   as that file's heading under the rules file section, and quotes the file in `ruleQuote`: a short
+   exact quote of at least 1 full sentence. It keeps the criterion its lens gives it, and a broken
+   rule that no other criterion fits uses `taste-rule`. When a lens section asks for a break of a
+   rule, report it only with a quote from a rules file. Every other finding sets `rule` and
+   `ruleQuote` to null.
 7. Do not report a behaviour the change makes on purpose, as its diff, title or linked issue states.
 
 Write each finding in this form:

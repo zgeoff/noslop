@@ -501,6 +501,79 @@ test('it keeps 2 taste findings on one line that quote different rules', () => {
   ]);
 });
 
+test('it keeps the criterion and severity of a finding that quotes a rule', () => {
+  const result = buildFindings({
+    raw: [
+      {
+        lens: 'naming-shape-and-comments',
+        callID: 'architecture',
+        finding: {
+          title: 'Drop the comment that restates the loop',
+          body: 'The comment says what the loop does, which the loop already shows.',
+          anchor: { path: 'src/a.ts', startLine: 1, endLine: 1 },
+          secondLocation: null,
+          severity: 'P3',
+          criterion: 'comments',
+          rule: 'skills/code/SKILL.md',
+          ruleQuote: 'A comment gives the reason, never the steps.',
+          verdict: 'CONFIRMED',
+          unverifiedFact: null,
+          missingChange: false,
+          fix: null,
+        },
+      },
+    ],
+    files: [buildMockChangedFile()],
+    rules: [
+      {
+        name: 'skills/code/SKILL.md',
+        body: '## Comments\n\nA comment gives the reason, never the steps.',
+      },
+    ],
+    riskClasses: [],
+    config: BUILT_IN_DEFAULTS,
+  });
+
+  expect(
+    result.findings.map((finding) => [finding.criterion, finding.severity, finding.rule]),
+  ).toStrictEqual([['comments', 'P3', 'skills/code/SKILL.md: Comments']]);
+});
+
+test('it drops a finding of any criterion whose quote the rules file lacks', () => {
+  const result = buildFindings({
+    raw: [
+      {
+        lens: 'architecture-and-boundaries',
+        callID: 'architecture',
+        finding: {
+          title: 'Remove the wrapper that only forwards',
+          body: 'The wrapper passes its arguments through and adds nothing.',
+          anchor: { path: 'src/a.ts', startLine: 1, endLine: 1 },
+          secondLocation: null,
+          severity: 'P2',
+          criterion: 'design-defect',
+          rule: 'skills/code/SKILL.md',
+          ruleQuote: 'A layer adds behaviour.',
+          verdict: 'CONFIRMED',
+          unverifiedFact: null,
+          missingChange: false,
+          fix: null,
+        },
+      },
+    ],
+    files: [buildMockChangedFile()],
+    rules: [{ name: 'skills/code/SKILL.md', body: '## Names\n\nA name says what it returns.' }],
+    riskClasses: [],
+    config: BUILT_IN_DEFAULTS,
+  });
+
+  expect(result.findings).toStrictEqual([]);
+
+  expect(result.dropped.map((item) => [item.raw.lens, item.reason])).toStrictEqual([
+    ['architecture-and-boundaries', 'unknown-rule'],
+  ]);
+});
+
 test('it anchors a deleted line to the head line after it, as the static stage does', () => {
   const file = buildMockChangedFile({
     hunks: [

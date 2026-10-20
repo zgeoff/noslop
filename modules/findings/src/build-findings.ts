@@ -76,12 +76,10 @@ function buildFinding(
     return 'outside-diff-without-location';
   }
 
-  const cited =
-    model.criterion === 'taste-rule'
-      ? findRuleCitation(input.rules, model.rule, model.ruleQuote)
-      : model.rule;
+  const citesRule = model.criterion === 'taste-rule' || model.ruleQuote !== null;
+  const cited = citesRule ? findRuleCitation(input.rules, model.rule, model.ruleQuote) : model.rule;
 
-  if (model.criterion === 'taste-rule' && cited === null) {
+  if (citesRule && cited === null) {
     return 'unknown-rule';
   }
 
@@ -109,7 +107,7 @@ function buildFinding(
     ...(secondLocation === undefined ? {} : { secondLocation }),
     severity: CRITERION_SEVERITY[model.criterion],
     criterion: model.criterion,
-    ...(model.criterion === 'taste-rule' && cited !== null ? { rule: cited } : {}),
+    ...(citesRule && cited !== null ? { rule: cited } : {}),
     verdict: model.verdict,
     ...(model.verdict === 'PLAUSIBLE' && model.unverifiedFact !== null
       ? { unverifiedFact: model.unverifiedFact }

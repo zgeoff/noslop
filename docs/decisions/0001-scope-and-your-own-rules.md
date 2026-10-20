@@ -2,7 +2,7 @@
 
 - Date: 2026-10-17
 - Status: decided
-- Updated: 2026-10-18
+- Updated: 2026-10-20
 
 noslop reviews pull requests that coding agents write, and it runs with little or no config. The
 core holds no project names, paths, stack assumptions or taste rules. noslop ships no rule set: each
@@ -35,10 +35,13 @@ starts the review, and CI only checks its result.
 
 - Taste rules, stack patterns and risk classes are config, under
   [0010](0010-the-reviewer-config.md).
-- A taste lens with no rules file checks only generic concerns.
+- A lens checks a rule only when a rules file states it, so a repo with no rules file gets only the
+  checks for defects.
 
 ## Changes
 
 - 2026-10-18: an organisation that runs noslop owns the transport, identity, hosting and policy,
   noslop owns what decides whether a review is valid, the developer starts the review, and CI only
   checks it.
+- 2026-10-20: a lens checks a rule only when a rules file states it, so a coding agent that loads
+  the same files knows every rule a review checks.
