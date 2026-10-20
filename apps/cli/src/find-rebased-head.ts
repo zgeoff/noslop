@@ -1,4 +1,6 @@
 import type { Runner } from '@noslop/runner';
+import type { ListedCommit, RebasedHead } from './pick-rebased-head';
+import { pickRebasedHead } from './pick-rebased-head';
 
 export interface RebasedHeadInput {
   repoDir: string;
@@ -11,17 +13,9 @@ export interface RebasedHeadInput {
   head: string;
 }
 
-export interface RebasedHead {
-  // the branch commit that stands for the reviewed head
-  head: string | null;
-
-  // why no branch commit stands for it, which the refusal gives
-  failure: string | null;
-}
-
-// the branch commit a rebase made of a reviewed head: the reviewed commits past the base, with any
-// the base now holds left out, must open the branch in order, each with the same patch; a merge, a
-// conflict resolution or any other change to a reviewed patch maps no head
+// the branch commit a rebase made of a reviewed head, from the reviewed commits past the base, with
+// any the base now holds left out, the branch commits past it, and the patch ids of both; the
+// choice itself is pickRebasedHead's
 export async function findRebasedHead(
   runner: Runner,
   input: RebasedHeadInput,
@@ -31,7 +25,7 @@ export async function findRebasedHead(
   });
 
   if (readable.exitCode !== 0) {
-    return toFailure(`the repo holds no commit ${toShort(input.reviewed)}`);
+    return { head: null, failure: `the repo holds no commit ${input.reviewed.slice(0, 12)}` };
   }
 
   // a stack's base branch may have rebased too, so a reviewed commit the base holds the patch of is
@@ -44,61 +38,10 @@ export async function findRebasedHead(
 
   const branch = await readCommits(runner, input.repoDir, [`${input.base}..${input.head}`]);
 
-  if (reviewed.length === 0) {
-    return toFailure(`the reviewed head ${toShort(input.reviewed)} holds no commit past the base`);
-  }
+  const shas = [...reviewed, ...branch.slice(0, reviewed.length)].map((commit) => commit.sha);
+  const patchIDs = shas.length === 0 ? new Map() : await readPatchIDs(runner, input.repoDir, shas);
 
-  const merge = [...reviewed, ...branch.slice(0, reviewed.length)].find(
-    (commit) => commit.parents > 1,
-  );
-
-  if (merge !== undefined) {
-    return toFailure(`the merge ${toShort(merge.sha)} takes a full review`);
-  }
-
-  if (branch.length < reviewed.length) {
-    return toFailure(
-      `the branch holds ${branch.length} of the ${reviewed.length} reviewed commits past the base`,
-    );
-  }
-
-  const paired = branch.slice(0, reviewed.length);
-
-  const ids = await readPatchIDs(runner, input.repoDir, [
-    ...reviewed.map((commit) => commit.sha),
-    ...paired.map((commit) => commit.sha),
-  ]);
-
-  const empty = reviewed.find((commit) => !ids.has(commit.sha));
-
-  if (empty !== undefined) {
-    return toFailure(`the reviewed commit ${toShort(empty.sha)} has no patch to match`);
-  }
-
-  const changed = reviewed.findIndex(
-    (commit, index) => ids.get(commit.sha) !== ids.get(paired[index]?.sha ?? ''),
-  );
-
-  if (changed !== -1) {
-    const sha = reviewed[changed]?.sha ?? '';
-
-    return toFailure(`the rebase changed the patch of the reviewed commit ${toShort(sha)}`);
-  }
-
-  return { head: paired.at(-1)?.sha ?? null, failure: null };
-}
-
-function toFailure(failure: string): RebasedHead {
-  return { head: null, failure };
-}
-
-function toShort(sha: string): string {
-  return sha.slice(0, 12);
-}
-
-interface ListedCommit {
-  sha: string;
-  parents: number;
+  return pickRebasedHead({ reviewedHead: input.reviewed, reviewed, branch, patchIDs });
 }
 
 // the commits a rev-list range lists, oldest first, each with its count of parents
