@@ -228,6 +228,14 @@ const STORE_MIGRATIONS: Record<string, Migration> = {
         ON dispositions (repo, COALESCE(pull_request, 0), finding_id, source, at)`.execute(db);
     },
   },
+
+  // the link to the comment the github reporter posted for a finding, so a query row links its
+  // thread; a row the store held before has none
+  '0008-findings-with-comment-urls': {
+    up: async (db) => {
+      await db.schema.alterTable('findings').addColumn('comment_url', 'text').execute();
+    },
+  },
 };
 
 // opens the store at the path, creating the file and its folder when they do not exist, and applies

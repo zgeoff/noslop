@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { buildMockDroppedFinding, buildMockFinding, buildMockReviewResult } from '@noslop/testing';
 import { loadStore } from './load-store';
 import { runStoreQuery } from './run-store-query';
+import { updateCommentURLs } from './update-comment-urls';
 import { writeDispositions } from './write-dispositions';
 import { writeReview } from './write-review';
 
@@ -711,6 +712,8 @@ test('#findings-by-pr lists each finding of a pull request once, with its latest
       title: 'Return the total of every item',
       dispositionKind: 'fixed',
       dispositionValue: '1a2b3c4',
+      outcome: 'fixed',
+      commentURL: null,
     },
     {
       repo: 'example/app',
@@ -725,6 +728,8 @@ test('#findings-by-pr lists each finding of a pull request once, with its latest
       title: 'Start the name with a verb',
       dispositionKind: null,
       dispositionValue: null,
+      outcome: 'open',
+      commentURL: null,
     },
   ]);
 });
@@ -921,5 +926,142 @@ test('#findings-by-pr gives a disposition with no pull request to the finding in
   expect(rows).toMatchObject([
     { pullRequest: 7, dispositionKind: 'not-a-defect' },
     { pullRequest: 8, dispositionKind: 'not-a-defect' },
+  ]);
+});
+
+test('#findings-by-pr shows a fixed finding that a later review reports again as open, with its fixed answer', async () => {
+  const ctx = await setupTest();
+
+  await writeReview(
+    ctx.store,
+    buildMockReviewResult({
+      reviewID: 'review-1',
+      pullRequest: { owner: 'example', repo: 'app', number: 7 },
+      endedAt: '2026-10-17T10:01:00.000Z',
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+  );
+
+  await writeDispositions(ctx.store, 'example/app', 7, [
+    {
+      findingID: '1111111111111111',
+      kind: 'fixed',
+      value: '1a2b3c4',
+      author: 'dev',
+      authorIsOwner: false,
+      source: 'github',
+      at: '2026-10-17T11:00:00.000Z',
+    },
+  ]);
+
+  await writeReview(
+    ctx.store,
+    buildMockReviewResult({
+      reviewID: 'review-2',
+      pullRequest: { owner: 'example', repo: 'app', number: 7 },
+      endedAt: '2026-10-17T12:01:00.000Z',
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+  );
+
+  const rows = await runStoreQuery(ctx.store, 'findings-by-pr');
+
+  expect(rows).toMatchObject([
+    {
+      id: '1111111111111111',
+      dispositionKind: 'fixed',
+      dispositionValue: '1a2b3c4',
+      outcome: 'open',
+    },
+  ]);
+});
+
+test('#findings-by-pr keeps a fixed finding fixed when no review after the answer reports it', async () => {
+  const ctx = await setupTest();
+
+  await writeReview(
+    ctx.store,
+    buildMockReviewResult({
+      reviewID: 'review-1',
+      pullRequest: { owner: 'example', repo: 'app', number: 7 },
+      endedAt: '2026-10-17T10:01:00.000Z',
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+  );
+
+  await writeDispositions(ctx.store, 'example/app', 7, [
+    {
+      findingID: '1111111111111111',
+      kind: 'fixed',
+      value: '1a2b3c4',
+      author: 'dev',
+      authorIsOwner: false,
+      source: 'github',
+      at: '2026-10-17T11:00:00.000Z',
+    },
+  ]);
+
+  await writeReview(
+    ctx.store,
+    buildMockReviewResult({
+      reviewID: 'review-2',
+      pullRequest: { owner: 'example', repo: 'app', number: 7 },
+      endedAt: '2026-10-17T12:01:00.000Z',
+      findings: [buildMockFinding({ id: '2222222222222222' })],
+    }),
+  );
+
+  const rows = await runStoreQuery(ctx.store, 'findings-by-pr');
+
+  expect(rows).toMatchObject([
+    { id: '1111111111111111', dispositionKind: 'fixed', outcome: 'fixed' },
+    { id: '2222222222222222', dispositionKind: null, outcome: 'open' },
+  ]);
+});
+
+test('#findings-by-pr gives each finding the comment link the reporter stored, and none to a finding it never linked', async () => {
+  const ctx = await setupTest();
+
+  await writeReview(
+    ctx.store,
+    buildMockReviewResult({
+      reviewID: 'review-1',
+      pullRequest: { owner: 'example', repo: 'app', number: 7 },
+      endedAt: '2026-10-17T10:01:00.000Z',
+      findings: [
+        buildMockFinding({ id: '1111111111111111' }),
+        buildMockFinding({
+          id: '2222222222222222',
+          anchor: { path: 'src/b.ts', startLine: 5, endLine: 5 },
+        }),
+      ],
+    }),
+  );
+
+  await updateCommentURLs(
+    ctx.store,
+    'example/app',
+    7,
+    new Map([['1111111111111111', 'https://github.com/example/app/pull/7#discussion_r101']]),
+  );
+
+  await writeReview(
+    ctx.store,
+    buildMockReviewResult({
+      reviewID: 'review-2',
+      pullRequest: { owner: 'example', repo: 'app', number: 7 },
+      endedAt: '2026-10-17T12:01:00.000Z',
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+  );
+
+  const rows = await runStoreQuery(ctx.store, 'findings-by-pr');
+
+  expect(rows).toMatchObject([
+    {
+      id: '1111111111111111',
+      commentURL: 'https://github.com/example/app/pull/7#discussion_r101',
+    },
+    { id: '2222222222222222', commentURL: null },
   ]);
 });

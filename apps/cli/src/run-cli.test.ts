@@ -538,6 +538,8 @@ test('it lists the findings of the repo, pull request and time the flags name, f
       title: 'Return the total of every item',
       dispositionKind: null,
       dispositionValue: null,
+      outcome: 'open',
+      commentURL: null,
     },
   ]);
 });

@@ -65,6 +65,9 @@ export interface FindingRow {
   depth: string;
   model: string | null;
   effort: string | null;
+
+  // the link to the finding's comment on its pull request; null until the github reporter posts it
+  comment_url: string | null;
 }
 
 export interface DroppedFindingRow {

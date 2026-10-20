@@ -1,5 +1,6 @@
 import type { Reporter, ReviewConfig, ReviewResult } from '@noslop/contract';
 import type { CLIContext } from './cli-context';
+import { getStorePath } from './get-store-path';
 
 // runs the listed reporters in order, and a reporter that runs last after them, so it sees which ones
 // failed; a failed reporter is logged and the rest still run; a json reporter with no path is left
@@ -12,13 +13,14 @@ export async function runReporters(
 ): Promise<string[]> {
   const failed: string[] = [];
   const reporters: Reporter[] = [];
+  const storePath = ids.includes('sqlite') ? getStorePath(config, ctx) : null;
 
   for (const id of ids) {
     if (id === 'json' && config.reporters[id]?.path === undefined) {
       continue;
     }
 
-    const reporter = ctx.createReporter(id);
+    const reporter = ctx.createReporter(id, storePath);
 
     if (reporter === null) {
       ctx.logger.error('the config lists a reporter noslop does not have: {id}', { id });

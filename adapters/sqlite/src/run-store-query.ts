@@ -197,13 +197,16 @@ const QUERIES: Record<
     ORDER BY reviews.ended_at DESC, reviews.review_id, dropped_findings.rowid`,
 
   // each finding of each pull request once, from the latest review that reported it, with the latest
-  // disposition of its own pull request as given; a disposition that holds no pull request applies to
-  // the finding in every pull request of its repo
+  // disposition of its own pull request as given, or of none, and the outcome `open-findings` gives
+  // it; the comment link comes from whichever review of the pull request the github reporter linked
   'findings-by-pr': (filters) => sql`
     WITH reported AS (
       SELECT * FROM (
         SELECT reviews.repo AS repo, reviews.pull_request AS pull_request, reviews.head AS head,
-          findings.*,
+          reviews.ended_at AS ended_at, findings.*,
+          MAX(findings.comment_url) OVER (
+            PARTITION BY reviews.repo, reviews.pull_request, findings.finding_id
+          ) AS link,
           ROW_NUMBER() OVER (
             PARTITION BY reviews.repo, reviews.pull_request, findings.finding_id
             ORDER BY reviews.ended_at DESC, reviews.review_id DESC
@@ -217,9 +220,10 @@ const QUERIES: Record<
       ) WHERE position = 1
     ),
     latest AS (
-      SELECT repo, pull_request, finding_id, kind, value FROM (
+      SELECT repo, pull_request, finding_id, kind, value, at FROM (
         SELECT reported.repo AS repo, reported.pull_request AS pull_request,
           reported.finding_id AS finding_id, dispositions.kind AS kind, dispositions.value AS value,
+          dispositions.at AS at,
           ROW_NUMBER() OVER (
             PARTITION BY reported.repo, reported.pull_request, reported.finding_id
             ORDER BY dispositions.at DESC
@@ -242,7 +246,13 @@ const QUERIES: Record<
       reported.rule AS rule,
       reported.title AS title,
       latest.kind AS "dispositionKind",
-      latest.value AS "dispositionValue"
+      latest.value AS "dispositionValue",
+      CASE
+        WHEN latest.kind IS NULL THEN 'open'
+        WHEN latest.kind = 'fixed' AND reported.ended_at > latest.at THEN 'open'
+        ELSE latest.kind
+      END AS outcome,
+      reported.link AS "commentURL"
     FROM reported LEFT JOIN latest USING (repo, pull_request, finding_id)
     ORDER BY reported.repo, reported.pull_request, reported.severity, reported.path,
       reported.start_line, reported.finding_id`,

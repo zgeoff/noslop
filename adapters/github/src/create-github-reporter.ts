@@ -31,6 +31,9 @@ import { toReviewedRanges } from './to-reviewed-ranges';
 
 export interface GitHubReporterOptions {
   loadConnection: () => Promise<GitHubConnection>;
+
+  // keeps the link to each finding's comment, by finding ID, once the post and its check are done
+  recordCommentURLs?: (pr: PullRequestRef, links: ReadonlyMap<string, string>) => Promise<void>;
 }
 
 // posts one pull request review with an inline comment per new finding, the summary, then the check
@@ -50,7 +53,7 @@ export function createGitHubReporter(options: GitHubReporterOptions): Reporter {
       }
 
       await withPullRequestLock(`${pr.owner}/${pr.repo}#${pr.number}`, () =>
-        runReviewPost(options.loadConnection, pr, result, ctx),
+        runReviewPost(options, pr, result, ctx),
       );
     },
   };
@@ -90,12 +93,12 @@ async function waitForEnd(post: Promise<void>): Promise<void> {
 }
 
 async function runReviewPost(
-  loadConnection: () => Promise<GitHubConnection>,
+  options: GitHubReporterOptions,
   pr: PullRequestRef,
   result: ReviewResult,
   ctx: ReporterContext,
 ): Promise<void> {
-  const connection = await loadConnection();
+  const connection = await options.loadConnection();
 
   const client = connection.client;
 
@@ -191,6 +194,8 @@ async function runReviewPost(
   );
 
   await runCheck(connection, pr, result.head, ctx);
+
+  await options.recordCommentURLs?.(pr, links);
 }
 
 // the range this review read; a fixes-only run reported no finding, so a fix it judged not fixed
