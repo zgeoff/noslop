@@ -90,7 +90,7 @@ export function buildCallPrompt(input: CallPromptInput): string {
 
 function renderRules(rules: CallPromptInput['rules']): string {
   if (rules === null || rules.length === 0) {
-    return '## Rules file\n\nThe repo names no rules file, so report no taste finding.';
+    return '## Rules file\n\nThe repo names no rules file, so report no finding that rests on a rule.';
   }
 
   return ['## Rules file', ...rules.map((rule) => `### ${rule.name}\n\n${rule.body}`)].join('\n\n');

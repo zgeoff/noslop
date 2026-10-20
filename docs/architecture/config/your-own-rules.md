@@ -14,12 +14,12 @@ file or a list of them. Each file reaches the taste lenses whole, under its labe
 config wrote it. noslop reads no structure into it, so a repo's skills serve as its rules unchanged,
 and a renamed heading changes nothing.
 
-A taste finding names the file it rests on and quotes it, at least one full sentence, word for word.
-Assemble looks for the quote in the file, with whitespace collapsed and case kept, and drops a
-finding whose quote the file does not hold. The finding keeps the file's label and the nearest
-level-2 or level-3 heading above the quote as its rule, such as
-`.claude/skills/testing/SKILL.md: Loops`, so the store counts the yield of each section. A heading
-inside a code block is example text and labels nothing.
+A finding that rests on a rule, a taste finding or one of another criterion, names the file it rests
+on and quotes it, at least one full sentence, word for word. Assemble looks for the quote in the
+file, with whitespace collapsed and case kept, and drops a finding whose quote the file does not
+hold. The finding keeps the file's label and the nearest level-2 or level-3 heading above the quote
+as its rule, such as `.claude/skills/testing/SKILL.md: Loops`, so the store counts the yield of each
+section. A heading inside a code block is example text and labels nothing.
 
 A list entry can name references: files beside it, each with the path globs it applies to. A
 reference reaches a review only when the change touches a path that one of its globs matches, so a
@@ -45,9 +45,9 @@ path and a reference both stay inside the folder they resolve against.
 
 A call whose lenses read the rules file carries every file that applies to the change, each under
 its label, and [the lenses](../review/lenses.md) covers which lenses read it.
-[Findings](../review/findings.md) describes how Assemble checks a taste finding's quote. A repo with
-no rules file gets a prompt that tells the lenses to report no taste finding, so the taste lenses
-check only generic concerns.
+[Findings](../review/findings.md) describes how Assemble checks a finding's quote. A repo with no
+rules file gets a prompt that tells the lenses to report no finding that rests on a rule, so the
+lenses check only for defects.
 
 ## Stack patterns
 

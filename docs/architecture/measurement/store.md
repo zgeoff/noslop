@@ -38,8 +38,8 @@ per escape. A list or an object sits in its column as JSON text, and a boolean a
   yield, noise and recall count per lens. A finding that no call reported, such as one from the
   static stage, takes the review's depth and no model.
 - A dropped finding row keeps a finding that Assemble dropped: its lens, call, title, anchor and
-  criterion, the reason it was dropped, and the rules file and quote a taste finding gave. The rows
-  let a reader check whether a finding rule throws away real findings.
+  criterion, the reason it was dropped, and the rules file and quote the finding gave. The rows let
+  a reader check whether a finding rule throws away real findings.
 - A disposition row keeps the repo and the finding id, the kind and its value, the author and
   whether the author owns the repo, the source it came from and its time. A finding id is unique
   only within one repo, so the repo is part of the key. The row keeps the pull request whose thread
@@ -106,19 +106,19 @@ counts only for the finding of its own pull request. A reply that holds no pull 
 the finding in every pull request of its repo. The rows come sorted by repo, pull request, severity,
 path and line. Under `--json`, the command prints an array of rows of this shape:
 
-| Field              | Type             | Holds                                                         |
-| ------------------ | ---------------- | ------------------------------------------------------------- |
-| `repo`             | string           | The repo as owner/name                                        |
-| `pullRequest`      | number           | The pull request number                                       |
-| `head`             | string           | The head commit of the latest review that reported it         |
-| `id`               | string           | The finding id, 16 hex characters                             |
-| `path`             | string           | The file the finding anchors to                               |
-| `startLine`        | number           | The first line of the anchor                                  |
-| `severity`         | string           | The severity, `P1` to `P3`                                    |
-| `lens`             | string           | The lens that reported it                                     |
-| `rule`             | string or `null` | The rules file a taste finding quoted; `null` for other kinds |
-| `title`            | string           | The finding's title                                           |
-| `dispositionKind`  | string or `null` | The kind of the latest disposition; `null` with no reply      |
-| `dispositionValue` | string or `null` | The latest disposition's commit, issue or reason              |
+| Field              | Type             | Holds                                                                     |
+| ------------------ | ---------------- | ------------------------------------------------------------------------- |
+| `repo`             | string           | The repo as owner/name                                                    |
+| `pullRequest`      | number           | The pull request number                                                   |
+| `head`             | string           | The head commit of the latest review that reported it                     |
+| `id`               | string           | The finding id, 16 hex characters                                         |
+| `path`             | string           | The file the finding anchors to                                           |
+| `startLine`        | number           | The first line of the anchor                                              |
+| `severity`         | string           | The severity, `P1` to `P3`                                                |
+| `lens`             | string           | The lens that reported it                                                 |
+| `rule`             | string or `null` | The rules file and section the finding quoted; `null` when it quoted none |
+| `title`            | string           | The finding's title                                                       |
+| `dispositionKind`  | string or `null` | The kind of the latest disposition; `null` with no reply                  |
+| `dispositionValue` | string or `null` | The latest disposition's commit, issue or reason                          |
 
 The store keeps no id of a finding's comment, so a row holds no link to it.

@@ -3,6 +3,7 @@ import { BUILT_IN_DEFAULTS } from '@noslop/config';
 import { buildMockChangedFile } from '@noslop/testing';
 import { buildFindingID } from './build-finding-id';
 import { buildFindings } from './build-findings';
+import { splitDismissedFindings } from './split-dismissed-findings';
 
 test('it keeps a finding on a changed line with its ID, severity and change marker', () => {
   const result = buildFindings({
@@ -498,6 +499,154 @@ test('it keeps 2 taste findings on one line that quote different rules', () => {
   expect(result.findings.map((finding) => finding.rule)).toStrictEqual([
     'skills/code/SKILL.md: Names',
     'skills/code/SKILL.md: Files',
+  ]);
+});
+
+test('it keeps the criterion and severity of a finding that quotes a rule', () => {
+  const result = buildFindings({
+    raw: [
+      {
+        lens: 'naming-shape-and-comments',
+        callID: 'architecture',
+        finding: {
+          title: 'Drop the comment that restates the loop',
+          body: 'The comment says what the loop does, which the loop already shows.',
+          anchor: { path: 'src/a.ts', startLine: 1, endLine: 1 },
+          secondLocation: null,
+          severity: 'P3',
+          criterion: 'comments',
+          rule: 'skills/code/SKILL.md',
+          ruleQuote: 'A comment gives the reason, never the steps.',
+          verdict: 'CONFIRMED',
+          unverifiedFact: null,
+          missingChange: false,
+          fix: null,
+        },
+      },
+    ],
+    files: [buildMockChangedFile()],
+    rules: [
+      {
+        name: 'skills/code/SKILL.md',
+        body: '## Comments\n\nA comment gives the reason, never the steps.',
+      },
+    ],
+    riskClasses: [],
+    config: BUILT_IN_DEFAULTS,
+  });
+
+  expect(
+    result.findings.map((finding) => [finding.criterion, finding.severity, finding.rule]),
+  ).toStrictEqual([['comments', 'P3', 'skills/code/SKILL.md: Comments']]);
+});
+
+test('it keeps a finding that quotes a rule after the same finding without a quote was dismissed', () => {
+  const unquoted = {
+    title: 'Drop the comment that restates the loop',
+    body: 'The comment says what the loop does, which the loop already shows.',
+    anchor: { path: 'src/a.ts', startLine: 1, endLine: 1 },
+    secondLocation: null,
+    severity: 'P3',
+    criterion: 'comments',
+    rule: null,
+    ruleQuote: null,
+    verdict: 'CONFIRMED',
+    unverifiedFact: null,
+    missingChange: false,
+    fix: null,
+  } as const;
+
+  const rules = [
+    {
+      name: 'skills/code/SKILL.md',
+      body: '## Comments\n\nA comment gives the reason, never the steps.',
+    },
+  ];
+
+  const [dismissedFinding] = buildFindings({
+    raw: [{ lens: 'naming-shape-and-comments', callID: 'architecture', finding: unquoted }],
+    files: [buildMockChangedFile()],
+    rules,
+    riskClasses: [],
+    config: BUILT_IN_DEFAULTS,
+  }).findings;
+
+  const [quotedFinding] = buildFindings({
+    raw: [
+      {
+        lens: 'naming-shape-and-comments',
+        callID: 'architecture',
+        finding: {
+          ...unquoted,
+          rule: 'skills/code/SKILL.md',
+          ruleQuote: 'A comment gives the reason, never the steps.',
+        },
+      },
+    ],
+    files: [buildMockChangedFile()],
+    rules,
+    riskClasses: [],
+    config: BUILT_IN_DEFAULTS,
+  }).findings;
+
+  if (dismissedFinding === undefined || quotedFinding === undefined) {
+    throw new Error('expected a finding from each build');
+  }
+
+  const split = splitDismissedFindings({
+    findings: [{ finding: quotedFinding, code: '// adds each item to the total' }],
+    dismissed: [
+      {
+        finding: {
+          id: dismissedFinding.id,
+          path: 'src/a.ts',
+          criterion: 'comments',
+          rule: null,
+          head: 'a'.repeat(40),
+          startLine: 1,
+          endLine: 1,
+        },
+        code: '// adds each item to the total',
+      },
+    ],
+    maxLines: 5,
+  });
+
+  expect(split).toStrictEqual({ kept: [quotedFinding], dismissed: [] });
+});
+
+test('it drops a finding of any criterion whose quote the rules file lacks', () => {
+  const result = buildFindings({
+    raw: [
+      {
+        lens: 'architecture-and-boundaries',
+        callID: 'architecture',
+        finding: {
+          title: 'Remove the wrapper that only forwards',
+          body: 'The wrapper passes its arguments through and adds nothing.',
+          anchor: { path: 'src/a.ts', startLine: 1, endLine: 1 },
+          secondLocation: null,
+          severity: 'P2',
+          criterion: 'design-defect',
+          rule: 'skills/code/SKILL.md',
+          ruleQuote: 'A layer adds behaviour.',
+          verdict: 'CONFIRMED',
+          unverifiedFact: null,
+          missingChange: false,
+          fix: null,
+        },
+      },
+    ],
+    files: [buildMockChangedFile()],
+    rules: [{ name: 'skills/code/SKILL.md', body: '## Names\n\nA name says what it returns.' }],
+    riskClasses: [],
+    config: BUILT_IN_DEFAULTS,
+  });
+
+  expect(result.findings).toStrictEqual([]);
+
+  expect(result.dropped.map((item) => [item.raw.lens, item.reason])).toStrictEqual([
+    ['architecture-and-boundaries', 'unknown-rule'],
   ]);
 });
 
