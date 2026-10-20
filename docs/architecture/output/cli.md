@@ -18,12 +18,13 @@ runs the same contract and checks as the CLI:
 - The root export and `@noslop/cli/contract` hold the review result schema and its types.
 - `@noslop/cli/verify` runs the check of [verifying a result](#verifying-a-result).
 - `@noslop/cli/post` posts a result, as [posting a result](#posting-a-result) describes.
-- `@noslop/cli/check` sets a pull request's check run, as `noslop check` does.
+- `@noslop/cli/check` sets a pull request's check run, as `noslop check` does, or with `readOnly`
+  returns the outcome and writes nothing, as [checking read-only](#checking-read-only) describes.
 
-The last 3 take the App's keys from the caller, never from the process environment. The entries
-leave zod to npm, so a caller's schemas and the package's declarations share one zod. tsdown writes
-each entry's declarations with TypeScript's own emit and inlines the types of the workspace packages
-they reach, so the published types import nothing but zod.
+The last 3 take the App's keys or a token from the caller, never from the process environment. The
+entries leave zod to npm, so a caller's schemas and the package's declarations share one zod. tsdown
+writes each entry's declarations with TypeScript's own emit and inlines the types of the workspace
+packages they reach, so the published types import nothing but zod.
 
 ## Commands
 
@@ -35,6 +36,7 @@ they reach, so the published types import nothing but zod.
 | `noslop verify <file>`                                       | Checks a review result against its pull request's head and base config     |
 | `noslop post <file> [--no-verify]`                           | Posts a verified review result to its pull request as the App              |
 | `noslop check --pr <number> --repo <owner/name>`             | Sets a pull request's check run from its dispositions, with no review      |
+| `noslop check --read-only --pr <number> --repo <owner/name>` | Prints a pull request's check outcome and writes nothing to GitHub         |
 | `noslop config`                                              | Prints the merged config and the file each key comes from                  |
 | `noslop store query <name>`                                  | Runs a named query on the [findings store](../measurement/store.md)        |
 | `noslop store escape --repo --issue --head --defect`         | Records a defect that a review missed                                      |
@@ -54,7 +56,8 @@ exits 1 when it could not run, such as on a bad flag, a git failure or an adapte
 have, and `review` exits 1 when any reporter fails. `check` exits 0 whatever else the check
 concludes, because its job is to set the check run, and the check run carries the conclusion. One
 exception: `check` exits 1 when no noslop review covers the pull request's head, under
-[the check run](./github-app.md#the-check-run).
+[the check run](./github-app.md#the-check-run). `check --read-only` sets no check run, so it exits 1
+unless the check passes.
 
 ## Choosing the change
 
@@ -118,6 +121,19 @@ first and posts nothing when the result fails, so a relay that posts with it pos
 the current head under the enforced config. `--no-verify` skips the verification, for a result the
 caller checked itself. `post` needs the App's keys in the environment, and refuses to run with a
 token or an anonymous GitHub connection.
+
+## Checking read-only
+
+`check --read-only` computes the outcome the check run would hold and writes nothing: no check run,
+no answer to a free-text reply, and no dispositions in the store. A CI job runs it with its own
+token, so the App's keys stay with the relay. A token knows no App, so the check trusts the comments
+of the App that `github.app` names in the config on the base branch's tip, which it loads as
+[verifying a result](#verifying-a-result) loads it. It refuses to run when that config names no App
+and the environment holds no App keys. It prints the title and each open finding, and exits 1 unless
+the check passes.
+
+Without the flag, `check` sets the check run as the App, and refuses to run with a token or an
+anonymous GitHub connection.
 
 ## Folders
 

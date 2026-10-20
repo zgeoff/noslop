@@ -2,6 +2,7 @@ import type { PullRequestRef } from '@noslop/contract';
 import { createGitHubDispositionSource } from '@noslop/github';
 import { loadStore, writeDispositions } from '@noslop/sqlite';
 import cliPackage from '../package.json' with { type: 'json' };
+import type { PullRequestCheck } from './check-pull-request';
 import { checkPullRequest } from './check-pull-request';
 import type { CLIContext } from './cli-context';
 import { getStorePath } from './get-store-path';
@@ -12,11 +13,12 @@ export interface CheckValues {
   pr: string;
   repo: string;
   json: boolean;
+  readOnly: boolean;
 }
 
-// sets the noslop check run of a pull request again from what GitHub holds, with no new review, and
-// records the dispositions in the store; it exits 1 when no noslop review covers the head, and 0
-// whatever else the check concludes, since the check run carries the conclusion
+// sets the noslop check run again from what GitHub holds and records the dispositions in the store,
+// exiting 0 whatever the check concludes, since the check run carries it; read-only, it writes
+// neither, so the exit code carries the conclusion
 export async function runCheckCommand(values: CheckValues, ctx: CLIContext): Promise<number> {
   const number = Number(values.pr);
   const [owner, name] = values.repo.split('/');
@@ -31,15 +33,17 @@ export async function runCheckCommand(values: CheckValues, ctx: CLIContext): Pro
 
   const pullRequest = { owner, repo: name, number };
 
-  const outcome = await checkPullRequest(pullRequest, ctx.loadGitHubConnection);
+  const outcome = await checkPullRequest(
+    pullRequest,
+    { load: ctx.loadGitHubConnection, setAppSlug: ctx.setGitHubAppSlug },
+    { readOnly: values.readOnly },
+  );
 
-  await writePullRequestDispositions(ctx, pullRequest);
+  if (!values.readOnly) {
+    await writePullRequestDispositions(ctx, pullRequest);
+  }
 
-  const output = values.json
-    ? `${JSON.stringify(outcome, null, 2)}\n`
-    : `noslop check: ${outcome.conclusion}, ${outcome.title}\n`;
-
-  ctx.writeStdout(output);
+  ctx.writeStdout(formatCheckOutput(outcome, values));
 
   if (!outcome.reviewed) {
     ctx.writeStderr('noslop: no noslop review for this commit\n');
@@ -47,7 +51,7 @@ export async function runCheckCommand(values: CheckValues, ctx: CLIContext): Pro
     return 1;
   }
 
-  return 0;
+  return values.readOnly && outcome.conclusion !== 'success' ? 1 : 0;
 }
 
 // the typed replies of the pull request go to the store, so yield and noise per lens count them
@@ -79,4 +83,20 @@ async function writePullRequestDispositions(
   } finally {
     await store.destroy();
   }
+}
+
+// a read-only check sets no check run, so its text output carries each line of the check run's
+// summary that the title does not hold
+function formatCheckOutput(outcome: PullRequestCheck, values: CheckValues): string {
+  if (values.json) {
+    return `${JSON.stringify(outcome, null, 2)}\n`;
+  }
+
+  const details = values.readOnly
+    ? outcome.summary.split('\n').filter((line) => line !== '' && line !== outcome.title)
+    : [];
+
+  return [`noslop check: ${outcome.conclusion}, ${outcome.title}`, ...details]
+    .map((line) => `${line}\n`)
+    .join('');
 }
