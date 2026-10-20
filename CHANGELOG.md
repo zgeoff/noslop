@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.4.9](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.8...@noslop/cli@0.4.9) (2026-10-20)
+
+### Features
+
+- **geo-1421:** point the rule lenses at the rules file
+  ([#63](https://github.com/zgeoff/noslop/issues/63))
+  ([8060cc1](https://github.com/zgeoff/noslop/commit/8060cc1ec29b7b6e1420508f12ebc85fb293d722))
+- **geo-1528:** reopen re-reported fixes and link comments by pr
+  ([#65](https://github.com/zgeoff/noslop/issues/65))
+  ([320d599](https://github.com/zgeoff/noslop/commit/320d5999b4f1f522ca88dae127a0022eec2a7a0c))
+- **geo-1556:** read github with a token, trust the app the config names
+  ([#71](https://github.com/zgeoff/noslop/issues/71))
+  ([c302a79](https://github.com/zgeoff/noslop/commit/c302a79474d44113de9134d422d5d2b4c867b985))
+
+### Bug Fixes
+
+- **geo-1532:** refuse a newer store schema and name a lost review record
+  ([#70](https://github.com/zgeoff/noslop/issues/70))
+  ([0b12232](https://github.com/zgeoff/noslop/commit/0b12232185d36a2028ef9f70c9330af95849954c))
+
 ## [0.4.8](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.7...@noslop/cli@0.4.8) (2026-10-20)
 
 ### Features
