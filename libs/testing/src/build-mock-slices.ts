@@ -20,6 +20,7 @@ export function buildMockSlices(overrides: SlicesOverrides = {}): Slices {
     instructions: [],
     prose: [],
     typeClaims: [],
+    scripts: [],
     interfaces: [],
     migrations: [],
     events: [],

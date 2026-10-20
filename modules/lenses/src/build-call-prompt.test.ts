@@ -37,6 +37,7 @@ test('it joins the header, each lens section in order and each slice once', () =
       instructions: [],
       prose: [],
       typeClaims: [],
+      scripts: [],
       comments: { commentLines: 0, codeLines: 1, perThousand: 0, target: 120 },
       interfaces: [
         { path: 'src/a.ts', startLine: 1, endLine: 1 },
@@ -113,6 +114,12 @@ test('it joins the header, each lens section in order and each slice once', () =
     []
     \`\`\`
 
+    ## Slice: scripts
+
+    \`\`\`json
+    []
+    \`\`\`
+
     ## Slice: interfaces
 
     \`\`\`json
@@ -145,6 +152,7 @@ test('it tells the lenses to report no rule finding when the repo names no rules
       instructions: [],
       prose: [],
       typeClaims: [],
+      scripts: [],
       comments: { commentLines: 0, codeLines: 0, perThousand: 0, target: 120 },
       interfaces: [],
       migrations: [],
@@ -182,6 +190,7 @@ test('it tells the lenses not to judge the description on an incremental review'
       instructions: [],
       prose: [],
       typeClaims: [],
+      scripts: [],
       comments: { commentLines: 0, codeLines: 0, perThousand: 0, target: 120 },
       interfaces: [],
       migrations: [],
@@ -219,6 +228,7 @@ test('it leaves the description check to the lenses on a full review', () => {
       instructions: [],
       prose: [],
       typeClaims: [],
+      scripts: [],
       comments: { commentLines: 0, codeLines: 0, perThousand: 0, target: 120 },
       interfaces: [],
       migrations: [],
@@ -254,6 +264,7 @@ test('it writes a hostile left-out file name as inert code in the prompt', () =>
       instructions: [],
       prose: [],
       typeClaims: [],
+      scripts: [],
       comments: { commentLines: 0, codeLines: 0, perThousand: 0, target: 120 },
       interfaces: [],
       migrations: [],
@@ -304,6 +315,7 @@ test('it lists the files the call leaves out with the reason for each', () => {
       instructions: [],
       prose: [],
       typeClaims: [],
+      scripts: [],
       comments: { commentLines: 0, codeLines: 0, perThousand: 0, target: 120 },
       interfaces: [],
       migrations: [],

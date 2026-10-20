@@ -32,7 +32,7 @@ export const LENS_INPUTS: Readonly<Record<LensID, LensInput>> = {
   },
   'naming-shape-and-comments': {
     hunks: CHANGED_CODE,
-    slices: ['functions', 'comments', 'typeClaims'],
+    slices: ['functions', 'comments', 'typeClaims', 'scripts'],
     rules: true,
   },
   'cross-repo-and-platform-limits': { hunks: CHANGED_CODE, slices: ['edges'], rules: false },

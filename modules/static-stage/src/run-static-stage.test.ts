@@ -2174,3 +2174,195 @@ test('it records an edge for a changed interface member and for the exports of a
     ['packages/core/src/old.ts', 'export', 'readOld'],
   ]);
 });
+
+test('it lists each script the change adds that no package script and no workflow names', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'package.json':
+          '{\n  "name": "shop",\n  "scripts": { "build": "bun scripts/build.ts" }\n}\n',
+        'scripts/build.ts': 'console.log("build");\n',
+        'src/cart.ts': 'export const cart = 1;\n',
+      },
+    },
+    {
+      message: 'head',
+      files: {
+        'scripts/codemod/rename-imports.ts': "import { walk } from './lib/walk';\n\nwalk('src');\n",
+        'scripts/codemod/lib/walk.ts': 'export function walk(root: string) {\n  return root;\n}\n',
+        'src/cart.ts': 'export const cart = 2;\n',
+        'src/checkout.ts': 'export const checkout = 1;\n',
+      },
+    },
+  ]);
+
+  const config = BUILT_IN_DEFAULTS;
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config,
+    title: 'refactor: rename the cart imports',
+    body: '',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(result.slices.scripts).toStrictEqual([
+    'scripts/codemod/lib/walk.ts',
+    'scripts/codemod/rename-imports.ts',
+  ]);
+});
+
+test('it leaves out a new script that a package script names from its own folder', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'packages/web/package.json': '{\n  "name": "web"\n}\n',
+      },
+    },
+    {
+      message: 'head',
+      files: {
+        'packages/web/package.json':
+          '{\n  "name": "web",\n  "scripts": { "seed": "bun ./scripts/seed.ts --demo" }\n}\n',
+        'packages/web/scripts/seed.ts': 'console.log("seed");\n',
+      },
+    },
+  ]);
+
+  const config = BUILT_IN_DEFAULTS;
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config,
+    title: 'feat: seed the demo data',
+    body: '',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(result.slices.scripts).toStrictEqual([]);
+});
+
+test('it leaves out a new script that an unchanged workflow names', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        '.github/workflows/release.yml': [
+          'on: push',
+          'jobs:',
+          '  release:',
+          '    runs-on: ubuntu-latest',
+          '    steps:',
+          '      - run: bun scripts/publish.ts',
+          '',
+        ].join('\n'),
+      },
+    },
+    {
+      message: 'head',
+      files: {
+        'scripts/publish.ts': 'console.log("publish");\n',
+      },
+    },
+  ]);
+
+  const config = BUILT_IN_DEFAULTS;
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config,
+    title: 'feat: publish the package',
+    body: '',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(result.slices.scripts).toStrictEqual([]);
+});
+
+test('it lists a new script that a package script names only inside a longer path', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'package.json':
+          '{\n  "name": "shop",\n  "scripts": { "seed": "bun tools/scripts/seed.ts" }\n}\n',
+      },
+    },
+    {
+      message: 'head',
+      files: {
+        'scripts/seed.ts': 'console.log("seed");\n',
+      },
+    },
+  ]);
+
+  const config = BUILT_IN_DEFAULTS;
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config,
+    title: 'chore: seed the shop',
+    body: '',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(result.slices.scripts).toStrictEqual(['scripts/seed.ts']);
+});

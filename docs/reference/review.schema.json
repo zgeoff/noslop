@@ -1122,6 +1122,21 @@
         }
       ]
     },
+    "scripts": {
+      "description": "Path globs of scripts; the naming-shape-and-comments lens reads each new one that no package.json script and no workflow names",
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "synced": {
       "description": "Path globs of copies that another repo syncs in, which a change must not edit",
       "anyOf": [

@@ -25,4 +25,5 @@ export interface PackageManifest {
   versionLine: number;
   isPrivate: boolean;
   dependencies: Record<string, string>;
+  scriptCommands: string[];
 }
