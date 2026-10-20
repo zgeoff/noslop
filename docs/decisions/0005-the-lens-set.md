@@ -27,8 +27,8 @@ single review concern:
 Code comments belong to naming, shape and comments, which reads the code beside them. A disable
 comment for a lint rule that bans casts is one of them, so the same lens reports each one a change
 adds, and the `any` values whose type no checker confirms. A one-off script that a change commits,
-such as a codemod, is the shape of the tree, so the same lens reads each new script that nothing
-runs again.
+such as a codemod, stays in the tree with no caller, so the lens that judges shape reads each new
+script that nothing runs again.
 
 The design lens runs after the other lenses and the merge pass, over the findings of every review so
 far, the whole diff and the pull request body. Its task is what the body states, and it reads no

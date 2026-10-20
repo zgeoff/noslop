@@ -27,11 +27,12 @@ export function buildScriptSlice(inputs: ScriptSliceInputs): string[] {
 }
 
 function isScriptRun(path: string, inputs: ScriptSliceInputs): boolean {
-  const owners = inputs.manifests.flatMap((manifest) => {
-    const relative = toPackagePath(path, manifest.directory);
-
-    return relative === null ? [] : [{ manifest, relative }];
-  });
+  const owners = inputs.manifests
+    .filter((manifest) => manifest.directory === '.' || path.startsWith(`${manifest.directory}/`))
+    .map((manifest) => ({
+      manifest,
+      relative: manifest.directory === '.' ? path : path.slice(manifest.directory.length + 1),
+    }));
 
   const workflowPatterns = [path, ...owners.map((owner) => owner.relative)].map((candidate) =>
     buildPathPattern(candidate),
@@ -44,14 +45,6 @@ function isScriptRun(path: string, inputs: ScriptSliceInputs): boolean {
       ),
     ) || inputs.workflowTexts.some((text) => workflowPatterns.some((pattern) => pattern.test(text)))
   );
-}
-
-function toPackagePath(path: string, directory: string): string | null {
-  if (directory === '.') {
-    return path;
-  }
-
-  return path.startsWith(`${directory}/`) ? path.slice(directory.length + 1) : null;
 }
 
 // a command names the path as a whole word, with or without a leading `./`, so `scripts/build.ts`
