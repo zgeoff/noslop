@@ -3312,6 +3312,80 @@ test('it confirms no fix on a file the re-review left out', async () => {
   expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('failure');
 });
 
+test('it leaves a fix that a fixes-only run left unjudged as too large unconfirmed, says why, and reports no finding again', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'c'.repeat(40),
+  });
+
+  for (const commit of [
+    { sha: 'b'.repeat(40), files: ['src/a.ts'] },
+    { sha: 'c'.repeat(40), files: ['src/a.ts'] },
+  ]) {
+    await githubCollections.pullCommits.create({
+      owner: 'example',
+      repo: 'app',
+      number: 5,
+      ...commit,
+    });
+  }
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/a.ts',
+    lines: [1],
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'b'.repeat(40),
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const [thread] = githubCollections.reviewComments.all();
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    body: `fixed ${'c'.repeat(7)}`,
+    authorLogin: 'dev',
+    inReplyToID: thread?.id ?? null,
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      base: 'b'.repeat(40),
+      head: 'c'.repeat(40),
+      lenses: [],
+      findings: [],
+      fixChecks: [],
+      notReviewed: [{ path: 'src/a.ts', reason: 'too-large' }],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const summary = githubCollections.issueComments
+    .all()
+    .findLast((comment) => comment.body.includes('<!-- noslop:summary'));
+
+  expect(summary?.body).toInclude(
+    '(unjudged: its diff passes the file limit, so no call read it whole)',
+  );
+
+  expect(summary?.body).toInclude('"reported":[]');
+});
+
 test("it confirms no fix on a file the re-review's call of the finding's lens left out while another lens read it", async () => {
   const ctx = setupTest();
 

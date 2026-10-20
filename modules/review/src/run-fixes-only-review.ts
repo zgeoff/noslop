@@ -68,8 +68,6 @@ export interface FixesOnlyReviewInput {
   title: string;
   configHash: string;
   fixes: readonly AnsweredFix[];
-
-  // the config's file limit: a fix whose code or diff passes it gets no call and stays unconfirmed
   maxFileChars: number;
   adapter: ReviewAdapter;
   tempDir: string;
@@ -133,7 +131,7 @@ export async function runFixesOnlyReview(input: FixesOnlyReviewInput): Promise<R
     ),
   );
 
-  const tooLarge = new Set(outcomes.flatMap((outcome) => outcome.tooLarge ?? []));
+  const tooLarge = new Set(outcomes.flatMap((outcome) => outcome.tooLargePath ?? []));
 
   const merges =
     input.resolution === undefined
@@ -353,9 +351,7 @@ interface FixCheckOutcome {
   check?: FixCheck;
   record?: CallRecord;
   failedCall?: FailedCall;
-
-  // the finding's file, when its code or diff passes the file limit
-  tooLarge?: string;
+  tooLargePath?: string;
 }
 
 const fixCheckOutputSchema = z.strictObject({ fixed: z.boolean(), reason: z.string().min(1) });
@@ -372,9 +368,6 @@ interface FixTarget {
   staticFindings: readonly Finding[] | null;
 }
 
-// one fix's call, over the diff from its base of the finding's file and of each file the fix commit
-// changes; a fix with no base asks nothing, a commit that changes no file of the pull request fixes
-// nothing, and a static finding, which no model lens reported, holds while the static stage reports it
 async function runFixCheck(
   input: FixesOnlyReviewInput,
   target: FixTarget,
@@ -434,26 +427,42 @@ async function runFixCheck(
     return { check };
   }
 
-  const paths = [...new Set([fix.path, ...commitFiles])];
-
   const code = await readAnchoredCode(input, fix, base);
 
-  // a path is a file's own name, never a glob
+  // every file, since a later commit can move the fix's code or its test to a file the fix commit
+  // never changed, and only the line it adds there tells a move from a deletion
   const diff = await readGitText(input, [
-    '--literal-pathspecs',
     'diff',
-    base,
+    '--no-color',
+    '--no-ext-diff',
+    '--no-renames',
+    target.base.commit,
     input.head,
-    '--',
-    ...paths,
   ]);
 
-  if (code.length > input.maxFileChars || diff.length > input.maxFileChars) {
-    input.logger.warn('the fix of {id} passes the file limit, so it stays unconfirmed', {
-      id: fix.id,
-    });
+  const patch = await readGitText(input, [
+    'diff-tree',
+    '-p',
+    '--root',
+    '--no-commit-id',
+    '--no-color',
+    '--no-ext-diff',
+    '--no-renames',
+    '--diff-merges=first-parent',
+    target.base.commit,
+  ]);
 
-    return { tooLarge: fix.path };
+  const parts = [code, diff, patch];
+
+  if (parts.some((part) => part.length > input.maxFileChars)) {
+    input.logger.warn(
+      'the fix of {id} passes the file limit, so no call reads it cut and it stays unjudged',
+      {
+        id: fix.id,
+      },
+    );
+
+    return { tooLargePath: fix.path };
   }
 
   const lens: CallLens = fix.lens;
@@ -479,6 +488,8 @@ async function runFixCheck(
     comment: fix.comment,
     path: fix.path,
     code,
+    commit: target.base.commit,
+    patch,
     diff,
   });
 

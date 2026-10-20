@@ -69,7 +69,7 @@ test('it lists the verdict of each fix check and raises no finding', async () =>
   expect(result.failedCalls).toStrictEqual([]);
 });
 
-test("it gives the call the numbered code around the anchored line at the reviewed head and the diff of the fix commit's files", async () => {
+test("it gives the call the numbered code around the anchored line at the reviewed head and the fix commit's patch, and no change of an earlier commit", async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
@@ -80,11 +80,11 @@ test("it gives the call the numbered code around the anchored line at the review
         'src/other.ts': 'export const other = 1;\n',
       },
     },
+    { message: 'Bump the other value', files: { 'src/other.ts': 'export const other = 2;\n' } },
     {
       message: 'Reject an empty separator',
       files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = ":";\n' },
     },
-    { message: 'Bump the other value', files: { 'src/other.ts': 'export const other = 2;\n' } },
   ]);
 
   const stub = buildStubAdapter({
@@ -110,7 +110,7 @@ test("it gives the call the numbered code around the anchored line at the review
         path: 'src/scan.ts',
         line: 2,
         comment: 'An empty separator splits the line into single characters.',
-        commit: (repo.commits[1] ?? '').slice(0, 7),
+        commit: (repo.commits[2] ?? '').slice(0, 7),
         postedHead: null,
       },
     ],
@@ -182,6 +182,201 @@ test("it judges a fix whose commit only adds a test in another file from that te
   ]);
 });
 
+test("it gives the call the fix commit's whole patch when a later commit moves its code and its test to other files", async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const separator = "";\n' } },
+    {
+      message: 'Reject an empty separator',
+      files: {
+        'src/scan.ts': 'export const separator = ":";\n',
+        'src/scan.test.ts': 'test("it splits on a colon", () => {});\n',
+      },
+    },
+    {
+      message: 'Give the separator its own module',
+      files: {
+        'src/scan.ts': "export { separator } from './separator';\n",
+        'src/scan.test.ts': null,
+        'src/separator.ts': 'export const separator = ":";\n',
+        'src/separator.test.ts': 'test("it splits on a colon", () => {});\n',
+      },
+    },
+  ]);
+
+  const stub = buildStubAdapter({
+    'fix-1111111111111111': [
+      { fixed: true, reason: 'The separator is a colon, and a test checks it.' },
+    ],
+  });
+
+  const result = await runFixesOnlyReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/app',
+    pullRequest: { owner: 'example', repo: 'app', number: 9 },
+    base: repo.commits[0] ?? '',
+    head: repo.commits[2] ?? '',
+    mergeBase: repo.commits[0] ?? '',
+    lensHead: null,
+    title: 'Scan the header line',
+    configHash: 'hash',
+    fixes: [
+      {
+        id: '1111111111111111',
+        title: 'Reject an empty separator',
+        lens: 'correctness',
+        path: 'src/scan.ts',
+        line: 1,
+        comment:
+          'An empty separator splits the line into single characters, and no test checks it.',
+        commit: (repo.commits[1] ?? '').slice(0, 7),
+        postedHead: null,
+      },
+    ],
+    maxFileChars: 10_000,
+    adapter: stub.adapter,
+    tempDir: ctx.directory,
+    logger: ctx.logger,
+  });
+
+  expect(stub.requests[0]?.prompt).toInclude(
+    '-export const separator = "";\n+export const separator = ":";',
+  );
+
+  expect(stub.requests[0]?.prompt).toInclude(
+    '+++ b/src/scan.test.ts\n@@ -0,0 +1 @@\n+test("it splits on a colon", () => {});',
+  );
+
+  expect(stub.requests[0]?.prompt).toInclude(
+    '+++ b/src/separator.test.ts\n@@ -0,0 +1 @@\n+test("it splits on a colon", () => {});',
+  );
+
+  expect(result.fixChecks).toStrictEqual([
+    {
+      findingID: '1111111111111111',
+      fixed: true,
+      reason: 'The separator is a colon, and a test checks it.',
+    },
+  ]);
+});
+
+test('it gives the call the deletion of a test that a later commit removes with no move', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const separator = ":";\n' } },
+    {
+      message: 'Test the separator',
+      files: { 'src/scan.test.ts': 'test("it splits on a colon", () => {});\n' },
+    },
+    {
+      message: 'Test the reader instead',
+      files: { 'src/scan.test.ts': 'test("it reads a line", () => {});\n' },
+    },
+  ]);
+
+  const stub = buildStubAdapter({
+    'fix-1111111111111111': [{ fixed: false, reason: 'A later commit deletes the test.' }],
+  });
+
+  await runFixesOnlyReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/app',
+    pullRequest: { owner: 'example', repo: 'app', number: 9 },
+    base: repo.commits[0] ?? '',
+    head: repo.commits[2] ?? '',
+    mergeBase: repo.commits[0] ?? '',
+    lensHead: null,
+    title: 'Scan the header line',
+    configHash: 'hash',
+    fixes: [
+      {
+        id: '1111111111111111',
+        title: 'Test the separator',
+        lens: 'tests',
+        path: 'src/scan.ts',
+        line: 1,
+        comment: 'No test covers the separator.',
+        commit: (repo.commits[1] ?? '').slice(0, 7),
+        postedHead: null,
+      },
+    ],
+    maxFileChars: 10_000,
+    adapter: stub.adapter,
+    tempDir: ctx.directory,
+    logger: ctx.logger,
+  });
+
+  const prompt = stub.requests[0]?.prompt ?? '';
+  const later = prompt.slice(prompt.indexOf('## The diff from the fix commit to the head'));
+
+  expect(later).toInclude(
+    '-test("it splits on a colon", () => {});\n+test("it reads a line", () => {});',
+  );
+
+  expect(later).not.toInclude('+test("it splits on a colon"');
+});
+
+test("it asks nothing about a fix whose commit's patch passes the file limit, names the file as too large and rules no verdict", async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const separator = "";\n' } },
+    {
+      message: 'Reject an empty separator',
+      files: {
+        'src/scan.ts': 'export const separator = ":";\n',
+        'src/scan.test.ts': `test("it splits on a colon", () => {\n${'  expect(split("a:b")).toStrictEqual(["a", "b"]);\n'.repeat(8)}});\n`,
+      },
+    },
+    {
+      message: 'Move the separator test',
+      files: {
+        'src/scan.test.ts': null,
+        'src/separator.test.ts': 'test("it splits on a colon", () => {});\n',
+      },
+    },
+  ]);
+
+  const stub = buildStubAdapter({});
+
+  const result = await runFixesOnlyReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/app',
+    pullRequest: { owner: 'example', repo: 'app', number: 9 },
+    base: repo.commits[0] ?? '',
+    head: repo.commits[2] ?? '',
+    mergeBase: repo.commits[0] ?? '',
+    lensHead: null,
+    title: 'Scan the header line',
+    configHash: 'hash',
+    fixes: [
+      {
+        id: '1111111111111111',
+        title: 'Reject an empty separator',
+        lens: 'correctness',
+        path: 'src/scan.ts',
+        line: 1,
+        comment: 'An empty separator splits the line into single characters.',
+        commit: (repo.commits[1] ?? '').slice(0, 7),
+        postedHead: null,
+      },
+    ],
+    maxFileChars: 400,
+    adapter: stub.adapter,
+    tempDir: ctx.directory,
+    logger: ctx.logger,
+  });
+
+  expect(stub.requests).toStrictEqual([]);
+  expect(result.fixChecks).toStrictEqual([]);
+  expect(result.notReviewed).toStrictEqual([{ path: 'src/scan.ts', reason: 'too-large' }]);
+});
+
 test('it gives the call the diff of a fix in a file whose name git quotes', async () => {
   const ctx = await setupTest();
 
@@ -235,12 +430,12 @@ test('it reads a fix file whose name is a glob as that one file', async () => {
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'src/scan.ts': 'export const separator = ":";\n' } },
     {
-      message: 'Test the separator',
-      files: { 'src/[a].test.ts': 'test("it splits on a colon", () => {});\n' },
-    },
-    {
       message: 'Add the reader test',
       files: { 'src/a.test.ts': 'test("it reads a line", () => {});\n' },
+    },
+    {
+      message: 'Test the separator',
+      files: { 'src/[a].test.ts': 'test("it splits on a colon", () => {});\n' },
     },
   ]);
 
@@ -267,7 +462,7 @@ test('it reads a fix file whose name is a glob as that one file', async () => {
         path: 'src/scan.ts',
         line: 1,
         comment: 'No test covers the separator.',
-        commit: (repo.commits[1] ?? '').slice(0, 7),
+        commit: (repo.commits[2] ?? '').slice(0, 7),
         postedHead: null,
       },
     ],
