@@ -1192,6 +1192,101 @@ test('it refuses a run with no fixed answer to check and no commit since the las
   );
 });
 
+test('it runs with no fixed answer to check when a rebase made the head of the reviewed head and no commit came after', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const separator = "";\n' } },
+    { message: 'Describe the app', files: { 'README.md': '# app\n' } },
+    {
+      message: 'Reject an empty separator',
+      files: { 'src/scan.ts': 'export const separator = ":";\n' },
+      parent: 0,
+    },
+    {
+      message: 'Reject an empty separator',
+      files: { 'src/scan.ts': 'export const separator = ":";\n' },
+      parent: 1,
+    },
+  ]);
+
+  const stub = buildStubAdapter({});
+
+  const result = await runFixesOnlyReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/app',
+    pullRequest: { owner: 'example', repo: 'app', number: 9 },
+    base: repo.commits[3] ?? '',
+    head: repo.commits[3] ?? '',
+    mergeBase: repo.commits[1] ?? '',
+    lensHead: repo.commits[3] ?? '',
+    rebasedFrom: repo.commits[2] ?? '',
+    title: 'Scan the header line',
+    configHash: 'hash',
+    fixes: [],
+    maxFileChars: 10_000,
+    adapter: stub.adapter,
+    tempDir: ctx.directory,
+    logger: ctx.logger,
+  });
+
+  expect(stub.requests).toStrictEqual([]);
+
+  expect(result).toMatchObject({
+    base: repo.commits[3] ?? '',
+    head: repo.commits[3] ?? '',
+    fixChecks: [],
+    failedCalls: [],
+  });
+});
+
+test('it refuses a run with no fixed answer to check over a commit that came after the branch commit a rebase made of the reviewed head', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const separator = "";\n' } },
+    { message: 'Describe the app', files: { 'README.md': '# app\n' } },
+    {
+      message: 'Reject an empty separator',
+      files: { 'src/scan.ts': 'export const separator = ":";\n' },
+      parent: 0,
+    },
+    {
+      message: 'Reject an empty separator',
+      files: { 'src/scan.ts': 'export const separator = ":";\n' },
+      parent: 1,
+    },
+    { message: 'Add a tab', files: { 'src/tab.ts': 'export const tab = "\\t";\n' } },
+  ]);
+
+  const stub = buildStubAdapter({});
+
+  expect(
+    runFixesOnlyReview({
+      runner: ctx.runner,
+      repoDir: repo.path,
+      repo: 'example/app',
+      pullRequest: { owner: 'example', repo: 'app', number: 9 },
+      base: repo.commits[3] ?? '',
+      head: repo.commits[4] ?? '',
+      mergeBase: repo.commits[1] ?? '',
+      lensHead: repo.commits[3] ?? '',
+      rebasedFrom: repo.commits[2] ?? '',
+      title: 'Scan the header line',
+      configHash: 'hash',
+      fixes: [],
+      maxFileChars: 10_000,
+      adapter: stub.adapter,
+      tempDir: ctx.directory,
+      logger: ctx.logger,
+    }),
+  ).rejects.toThrowWithMessage(
+    Error,
+    `--fixes-only has no \`fixed\` answer to check, so it cannot pass ${(repo.commits[4] ?? '').slice(0, 12)}, which no lens read and which is no merge of the base; run a review without --fixes-only`,
+  );
+});
+
 test('it refuses a run with no fixed answer to check over a merge of a branch the base does not hold', async () => {
   const ctx = await setupTest();
 

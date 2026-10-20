@@ -57,6 +57,10 @@ export interface FixesOnlyReviewInput {
 
   // the head of the newest review that ran its lenses, which judged every fix before it
   lensHead: string | null;
+
+  // the reviewed head that a rebase took off the branch, when the base is the branch commit with its
+  // patches; a run with no new commit past that base then carries the review onto the head
+  rebasedFrom?: string;
   title: string;
   configHash: string;
   fixes: readonly AnsweredFix[];
@@ -279,14 +283,20 @@ async function readNewerHead(
   return result.exitCode === 0 ? second : first;
 }
 
-// throws unless the range holds a commit and each of the branch's own commits in it is a merge whose
-// other parents the pull request's base holds; a merge with a conflict resolution still gets its
+// throws unless each of the branch's own commits in the range is a merge whose other parents the
+// pull request's base holds, and the range holds a commit or the base stands for a rebased head; a merge with a conflict resolution still gets its
 // resolution check
 async function requireMergesOfBase(
   input: FixesOnlyReviewInput,
   range: readonly string[],
 ): Promise<void> {
   const refusal = '--fixes-only has no `fixed` answer to check';
+
+  // a rebase that kept each reviewed patch leaves the review true of the head, so with no commit past
+  // the base the run has nothing that no lens read
+  if (range.length === 0 && input.rebasedFrom !== undefined) {
+    return;
+  }
 
   if (range.length === 0) {
     throw new Error(`${refusal}, and no commit came after the last review`);

@@ -115,6 +115,7 @@ export async function runReviewCommand(values: ReviewValues, ctx: CLIContext): P
         configHash: loaded.hash,
         fixes: change.fixes,
         lensHead: change.lensHead,
+        ...(change.rebasedFrom === null ? {} : { rebasedFrom: change.rebasedFrom }),
         maxFileChars: loaded.config.thresholds.maxFileChars,
         adapter,
         tempDir,
@@ -257,6 +258,10 @@ interface ResolvedChange {
 
   // the head of the newest lens review of a pull request, which a fixes-only run reads past
   lensHead: string | null;
+
+  // the reviewed head that a rebase took off the branch, when the base is the branch commit with its
+  // patches
+  rebasedFrom: string | null;
 }
 
 async function resolveLocalChange(
@@ -301,6 +306,7 @@ async function resolveLocalChange(
     dismissedFindings: [],
     fixes: [],
     lensHead: null,
+    rebasedFrom: null,
   };
 }
 
@@ -442,6 +448,7 @@ async function resolvePullRequestChange(
     base: (values.fixesOnly || isDelta) && rebased.head !== null ? rebased.head : start,
     head: state.headSha,
     lensHead,
+    rebasedFrom: rebased.head === reviewed ? null : reviewed,
     configCommit: state.baseSha,
     title: state.title,
     body: state.body,
