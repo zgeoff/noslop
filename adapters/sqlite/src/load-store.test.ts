@@ -114,3 +114,68 @@ test('it gives a call the store held before no cache counts', async () => {
     { input_tokens: 100, cached_input_tokens: 0, cache_write_tokens: 0 },
   ]);
 });
+
+test('it gives a disposition the store held before no pull request', async () => {
+  const ctx = await setupTest();
+  const first = await loadStore(ctx.path);
+
+  await first.destroy();
+
+  const database = new Database(ctx.path, { strict: true });
+
+  database.run(`DELETE FROM kysely_migration WHERE name >= '0007'`);
+  database.run('DROP TABLE dispositions');
+
+  database.run(`CREATE TABLE dispositions (repo text NOT NULL, finding_id text NOT NULL,
+    kind text NOT NULL, value text NOT NULL, author text NOT NULL,
+    author_is_owner integer NOT NULL, source text NOT NULL, at text NOT NULL,
+    CONSTRAINT dispositions_pk PRIMARY KEY (repo, finding_id, source, at))`);
+
+  database.run(`INSERT INTO dispositions VALUES
+    ('example/app', '1111111111111111', 'deferred', '#123', 'dev', 1, 'github',
+      '2026-10-17T11:00:00.000Z')`);
+
+  database.close();
+
+  const store = await loadStore(ctx.path);
+
+  onTestFinished(() => store.destroy());
+
+  const rows = await store
+    .selectFrom('dispositions')
+    .select(['finding_id', 'pull_request'])
+    .execute();
+
+  expect(rows).toStrictEqual([{ finding_id: '1111111111111111', pull_request: null }]);
+});
+
+test('it keeps one row of a disposition with no pull request written twice', async () => {
+  const ctx = await setupTest();
+  const store = await loadStore(ctx.path);
+
+  onTestFinished(() => store.destroy());
+
+  const row = {
+    repo: 'example/app',
+    pull_request: null,
+    finding_id: '1111111111111111',
+    kind: 'deferred',
+    value: '#123',
+    author: 'dev',
+    author_is_owner: 1,
+    source: 'github',
+    at: '2026-10-17T11:00:00.000Z',
+  };
+
+  await store.insertInto('dispositions').values(row).execute();
+
+  await store
+    .insertInto('dispositions')
+    .values(row)
+    .onConflict((conflict) => conflict.doNothing())
+    .execute();
+
+  const rows = await store.selectFrom('dispositions').select(['finding_id']).execute();
+
+  expect(rows).toStrictEqual([{ finding_id: '1111111111111111' }]);
+});

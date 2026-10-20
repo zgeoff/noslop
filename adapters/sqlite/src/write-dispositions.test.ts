@@ -30,8 +30,8 @@ test('it records a disposition read twice from one source once', async () => {
     at: '2026-10-17T11:00:00.000Z',
   } as const;
 
-  await writeDispositions(ctx.store, 'example/app', [disposition]);
-  await writeDispositions(ctx.store, 'example/app', [disposition]);
+  await writeDispositions(ctx.store, 'example/app', 7, [disposition]);
+  await writeDispositions(ctx.store, 'example/app', 7, [disposition]);
 
   const rows = await ctx.store.selectFrom('dispositions').selectAll().execute();
 
@@ -45,6 +45,7 @@ test('it records a disposition read twice from one source once', async () => {
       author_is_owner: 1,
       source: 'github',
       at: '2026-10-17T11:00:00.000Z',
+      pull_request: 7,
     },
   ]);
 });
@@ -62,8 +63,8 @@ test('it records one finding ID from 2 repos as 2 dispositions', async () => {
     at: '2026-10-17T11:00:00.000Z',
   } as const;
 
-  await writeDispositions(ctx.store, 'example/x', [disposition]);
-  await writeDispositions(ctx.store, 'example/y', [disposition]);
+  await writeDispositions(ctx.store, 'example/x', 7, [disposition]);
+  await writeDispositions(ctx.store, 'example/y', 7, [disposition]);
 
   const rows = await ctx.store
     .selectFrom('dispositions')
@@ -74,5 +75,44 @@ test('it records one finding ID from 2 repos as 2 dispositions', async () => {
   expect(rows).toStrictEqual([
     { repo: 'example/x', finding_id: '1111111111111111' },
     { repo: 'example/y', finding_id: '1111111111111111' },
+  ]);
+});
+
+test('it records one disposition key from 2 pull requests of a repo as 2 dispositions', async () => {
+  const ctx = await setupTest();
+
+  await writeDispositions(ctx.store, 'example/app', 7, [
+    {
+      findingID: '1111111111111111',
+      kind: 'fixed',
+      value: '1a2b3c4',
+      author: 'dev',
+      authorIsOwner: true,
+      source: 'github',
+      at: '2026-10-17T11:00:00.000Z',
+    },
+  ]);
+
+  await writeDispositions(ctx.store, 'example/app', 8, [
+    {
+      findingID: '1111111111111111',
+      kind: 'not-a-defect',
+      value: 'the caller holds the lock',
+      author: 'dev',
+      authorIsOwner: true,
+      source: 'github',
+      at: '2026-10-17T11:00:00.000Z',
+    },
+  ]);
+
+  const rows = await ctx.store
+    .selectFrom('dispositions')
+    .select(['pull_request', 'kind', 'value'])
+    .orderBy('pull_request')
+    .execute();
+
+  expect(rows).toStrictEqual([
+    { pull_request: 7, kind: 'fixed', value: '1a2b3c4' },
+    { pull_request: 8, kind: 'not-a-defect', value: 'the caller holds the lock' },
   ]);
 });

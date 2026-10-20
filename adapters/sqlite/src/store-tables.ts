@@ -90,6 +90,9 @@ export interface DispositionRow {
   author_is_owner: number;
   source: string;
   at: string;
+
+  // the pull request whose thread held the reply; null for a row from before the store kept it
+  pull_request: number | null;
 }
 
 export interface EscapeRow {

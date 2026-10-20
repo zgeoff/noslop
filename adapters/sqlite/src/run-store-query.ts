@@ -10,9 +10,19 @@ export const STORE_QUERY_NAMES = [
   'recall-by-lens',
   'recall-by-depth',
   'dropped-findings',
+  'findings-by-pr',
 ] as const;
 
 export type StoreQueryName = (typeof STORE_QUERY_NAMES)[number];
+
+// the reviews a query reads; only `findings-by-pr` reads them, and an absent filter keeps every review
+export interface StoreQueryFilters {
+  repo?: string;
+  pullRequest?: number;
+
+  // an ISO time; a review that ended before it is left out
+  since?: string;
+}
 
 // each finding of a repo counts once, under its latest disposition, and at the depth of the first
 // review that reported it; 2 reviews of one change that report one defect share its ID; a review
@@ -46,9 +56,12 @@ const OUTCOMES = sql`
     FROM seen LEFT JOIN latest USING (repo, finding_id)
   )`;
 
-const QUERIES: Record<StoreQueryName, RawBuilder<Record<string, unknown>>> = {
+const QUERIES: Record<
+  StoreQueryName,
+  (filters: StoreQueryFilters) => RawBuilder<Record<string, unknown>>
+> = {
   // the share of each lens's findings that end fixed, and the share that end not a defect
-  'yield-by-lens': sql`
+  'yield-by-lens': () => sql`
     WITH ${OUTCOMES}
     SELECT
       lens,
@@ -63,7 +76,7 @@ const QUERIES: Record<StoreQueryName, RawBuilder<Record<string, unknown>>> = {
     ORDER BY lens`,
 
   // the same shares at each depth, by the depth of the first review that reported each finding
-  'yield-by-depth': sql`
+  'yield-by-depth': () => sql`
     WITH ${OUTCOMES}
     SELECT
       depth,
@@ -79,7 +92,7 @@ const QUERIES: Record<StoreQueryName, RawBuilder<Record<string, unknown>>> = {
 
   // each open finding of each change's latest review, the most severe first; a pull request is one
   // change, and a local branch, which has no pull request, is one change per base
-  'open-findings': sql`
+  'open-findings': () => sql`
     WITH ${OUTCOMES},
     last_reviews AS (
       SELECT review_id FROM (
@@ -108,7 +121,7 @@ const QUERIES: Record<StoreQueryName, RawBuilder<Record<string, unknown>>> = {
     ORDER BY findings.severity, reviews.repo, findings.path, findings.start_line`,
 
   // what the calls at each depth cost, from the calls table
-  'cost-by-depth': sql`
+  'cost-by-depth': () => sql`
     SELECT
       depth,
       COUNT(*) AS calls,
@@ -123,7 +136,7 @@ const QUERIES: Record<StoreQueryName, RawBuilder<Record<string, unknown>>> = {
     ORDER BY depth`,
 
   // each escape, with whether its lens ran on the change that caused it and what that lens reported
-  'recall-by-lens': sql`
+  'recall-by-lens': () => sql`
     SELECT
       escapes.lens AS lens,
       COUNT(*) AS escapes,
@@ -144,7 +157,7 @@ const QUERIES: Record<StoreQueryName, RawBuilder<Record<string, unknown>>> = {
 
   // each escape at the depth of the latest review of the change that caused it, with whether its lens
   // ran there and reported on its file; an escape on a change no review saw has no depth
-  'recall-by-depth': sql`
+  'recall-by-depth': () => sql`
     WITH reviewed AS (
       SELECT escapes.*, (
         SELECT reviews.review_id FROM reviews
@@ -168,7 +181,7 @@ const QUERIES: Record<StoreQueryName, RawBuilder<Record<string, unknown>>> = {
 
   // each finding Assemble dropped, newest review first, with the rule and quote a taste finding cited,
   // so a reader can check a quote the rules file did not hold against the file
-  'dropped-findings': sql`
+  'dropped-findings': () => sql`
     SELECT
       reviews.repo AS repo,
       reviews.pull_request AS "pullRequest",
@@ -182,14 +195,66 @@ const QUERIES: Record<StoreQueryName, RawBuilder<Record<string, unknown>>> = {
       dropped_findings.rule_quote AS "ruleQuote"
     FROM dropped_findings JOIN reviews USING (review_id)
     ORDER BY reviews.ended_at DESC, reviews.review_id, dropped_findings.rowid`,
+
+  // each finding of each pull request once, from the latest review that reported it, with the latest
+  // disposition of its own pull request as given; a disposition that holds no pull request applies to
+  // the finding in every pull request of its repo
+  'findings-by-pr': (filters) => sql`
+    WITH reported AS (
+      SELECT * FROM (
+        SELECT reviews.repo AS repo, reviews.pull_request AS pull_request, reviews.head AS head,
+          findings.*,
+          ROW_NUMBER() OVER (
+            PARTITION BY reviews.repo, reviews.pull_request, findings.finding_id
+            ORDER BY reviews.ended_at DESC, reviews.review_id DESC
+          ) AS position
+        FROM findings JOIN reviews USING (review_id)
+        WHERE reviews.pull_request IS NOT NULL
+          AND (${filters.repo ?? null} IS NULL OR reviews.repo = ${filters.repo ?? null})
+          AND (${filters.pullRequest ?? null} IS NULL
+            OR reviews.pull_request = ${filters.pullRequest ?? null})
+          AND (${filters.since ?? null} IS NULL OR reviews.ended_at >= ${filters.since ?? null})
+      ) WHERE position = 1
+    ),
+    latest AS (
+      SELECT repo, pull_request, finding_id, kind, value FROM (
+        SELECT reported.repo AS repo, reported.pull_request AS pull_request,
+          reported.finding_id AS finding_id, dispositions.kind AS kind, dispositions.value AS value,
+          ROW_NUMBER() OVER (
+            PARTITION BY reported.repo, reported.pull_request, reported.finding_id
+            ORDER BY dispositions.at DESC
+          ) AS position
+        FROM reported JOIN dispositions
+          ON dispositions.repo = reported.repo AND dispositions.finding_id = reported.finding_id
+            AND (dispositions.pull_request IS NULL
+              OR dispositions.pull_request = reported.pull_request)
+      ) WHERE position = 1
+    )
+    SELECT
+      reported.repo AS repo,
+      reported.pull_request AS "pullRequest",
+      reported.head AS head,
+      reported.finding_id AS id,
+      reported.path AS path,
+      reported.start_line AS "startLine",
+      reported.severity AS severity,
+      reported.lens AS lens,
+      reported.rule AS rule,
+      reported.title AS title,
+      latest.kind AS "dispositionKind",
+      latest.value AS "dispositionValue"
+    FROM reported LEFT JOIN latest USING (repo, pull_request, finding_id)
+    ORDER BY reported.repo, reported.pull_request, reported.severity, reported.path,
+      reported.start_line, reported.finding_id`,
 };
 
 // runs one of the store's named queries; a reader pins the CLI version and reads the same row shape
 export async function runStoreQuery(
   store: Store,
   name: StoreQueryName,
+  filters: StoreQueryFilters = {},
 ): Promise<Record<string, unknown>[]> {
-  const result = await QUERIES[name].execute(store);
+  const result = await QUERIES[name](filters).execute(store);
 
   return result.rows;
 }
