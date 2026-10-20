@@ -42,11 +42,11 @@ per escape. A list or an object sits in its column as JSON text, and a boolean a
   let a reader check whether a finding rule throws away real findings.
 - A disposition row keeps the repo and the finding id, the kind and its value, the author and
   whether the author owns the repo, the source it came from and its time. A finding id is unique
-  only within one repo, so the repo is part of the key. A disposition the store holds already, from
-  the same source at the same time, is kept as it is, so reading one thread twice records it once.
-  The row keeps the pull request whose thread held the reply, because 2 pull requests of one repo
+  only within one repo, so the repo is part of the key. The row keeps the pull request whose thread
+  held the reply, and the pull request is part of the key too, because 2 pull requests of one repo
   can report findings that share an id. A row from a store older than that column holds no pull
-  request.
+  request. A disposition the store holds already, for the same pull request from the same source at
+  the same time, is kept as it is, so reading one thread twice records it once.
 - An escape row keeps the issue that reported a defect, the repo and head of the change that caused
   it, the lens that should have caught it, and the location when it is known.
 

@@ -197,11 +197,35 @@ const STORE_MIGRATIONS: Record<string, Migration> = {
     },
   },
 
-  // 2 pull requests of one repo can report findings that share an ID, so each disposition keeps the
-  // pull request whose thread held it; a row the store held before keeps none
+  // 2 pull requests of one repo can report findings that share an ID, so each disposition keys on the
+  // pull request whose thread held it; a row the store held before keeps none, and the key reads no
+  // pull request as 0, a number no pull request takes, so those rows stay unique among themselves
   '0007-dispositions-by-pull-request': {
     up: async (db) => {
-      await db.schema.alterTable('dispositions').addColumn('pull_request', 'integer').execute();
+      await db.schema
+        .createTable('dispositions_by_pull_request')
+        .addColumn('repo', 'text', (column) => column.notNull())
+        .addColumn('finding_id', 'text', (column) => column.notNull())
+        .addColumn('kind', 'text', (column) => column.notNull())
+        .addColumn('value', 'text', (column) => column.notNull())
+        .addColumn('author', 'text', (column) => column.notNull())
+        .addColumn('author_is_owner', 'integer', (column) => column.notNull())
+        .addColumn('source', 'text', (column) => column.notNull())
+        .addColumn('at', 'text', (column) => column.notNull())
+        .addColumn('pull_request', 'integer')
+        .execute();
+
+      await sql`
+        INSERT INTO dispositions_by_pull_request
+        SELECT repo, finding_id, kind, value, author, author_is_owner, source, at, NULL
+        FROM dispositions`.execute(db);
+
+      await db.schema.dropTable('dispositions').execute();
+      await sql`ALTER TABLE dispositions_by_pull_request RENAME TO dispositions`.execute(db);
+
+      await sql`
+        CREATE UNIQUE INDEX dispositions_key
+        ON dispositions (repo, COALESCE(pull_request, 0), finding_id, source, at)`.execute(db);
     },
   },
 };
