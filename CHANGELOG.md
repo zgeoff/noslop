@@ -2,10 +2,11 @@
 
 ## [0.4.5](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.4...@noslop/cli@0.4.5) (2026-10-20)
 
-
 ### Features
 
-* **geo-1501:** check a merge's conflict resolution in a fixes-only run ([#54](https://github.com/zgeoff/noslop/issues/54)) ([67db079](https://github.com/zgeoff/noslop/commit/67db079e5e33bfd923b184ccd91f12b53c2cec14))
+- **geo-1501:** check a merge's conflict resolution in a fixes-only run
+  ([#54](https://github.com/zgeoff/noslop/issues/54))
+  ([67db079](https://github.com/zgeoff/noslop/commit/67db079e5e33bfd923b184ccd91f12b53c2cec14))
 
 ## [0.4.4](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.3...@noslop/cli@0.4.4) (2026-10-20)
 
