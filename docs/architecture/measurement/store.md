@@ -131,3 +131,5 @@ pull request of its repo. The rows come sorted by repo, pull request, severity, 
 
 A finding of a pull request takes the comment link from any review of that pull request that the
 `github` reporter linked, so a later review that only the `sqlite` reporter wrote keeps the link.
+The link lookup reads every review of the pull request, including the reviews that `--since` leaves
+out.

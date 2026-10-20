@@ -198,15 +198,12 @@ const QUERIES: Record<
 
   // each finding of each pull request once, from the latest review that reported it, with the latest
   // disposition of its own pull request as given, or of none, and the outcome `open-findings` gives
-  // it; the comment link comes from whichever review of the pull request the github reporter linked
+  // it; the comment link comes from any review of the pull request, whatever the time filter keeps
   'findings-by-pr': (filters) => sql`
     WITH reported AS (
       SELECT * FROM (
         SELECT reviews.repo AS repo, reviews.pull_request AS pull_request, reviews.head AS head,
           reviews.ended_at AS ended_at, findings.*,
-          MAX(findings.comment_url) OVER (
-            PARTITION BY reviews.repo, reviews.pull_request, findings.finding_id
-          ) AS link,
           ROW_NUMBER() OVER (
             PARTITION BY reviews.repo, reviews.pull_request, findings.finding_id
             ORDER BY reviews.ended_at DESC, reviews.review_id DESC
@@ -233,6 +230,13 @@ const QUERIES: Record<
             AND (dispositions.pull_request IS NULL
               OR dispositions.pull_request = reported.pull_request)
       ) WHERE position = 1
+    ),
+    links AS (
+      SELECT reviews.repo AS repo, reviews.pull_request AS pull_request,
+        findings.finding_id AS finding_id, MAX(findings.comment_url) AS link
+      FROM findings JOIN reviews USING (review_id)
+      WHERE reviews.pull_request IS NOT NULL AND findings.comment_url IS NOT NULL
+      GROUP BY reviews.repo, reviews.pull_request, findings.finding_id
     )
     SELECT
       reported.repo AS repo,
@@ -252,8 +256,10 @@ const QUERIES: Record<
         WHEN latest.kind = 'fixed' AND reported.ended_at > latest.at THEN 'open'
         ELSE latest.kind
       END AS outcome,
-      reported.link AS "commentURL"
-    FROM reported LEFT JOIN latest USING (repo, pull_request, finding_id)
+      links.link AS "commentURL"
+    FROM reported
+    LEFT JOIN latest USING (repo, pull_request, finding_id)
+    LEFT JOIN links USING (repo, pull_request, finding_id)
     ORDER BY reported.repo, reported.pull_request, reported.severity, reported.path,
       reported.start_line, reported.finding_id`,
 };

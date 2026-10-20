@@ -1065,3 +1065,45 @@ test('#findings-by-pr gives each finding the comment link the reporter stored, a
     { id: '2222222222222222', commentURL: null },
   ]);
 });
+
+test('#findings-by-pr keeps the comment link of a review that the time filter leaves out', async () => {
+  const ctx = await setupTest();
+
+  await writeReview(
+    ctx.store,
+    buildMockReviewResult({
+      reviewID: 'review-1',
+      pullRequest: { owner: 'example', repo: 'app', number: 7 },
+      endedAt: '2026-10-17T10:01:00.000Z',
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+  );
+
+  await updateCommentURLs(
+    ctx.store,
+    'example/app',
+    7,
+    new Map([['1111111111111111', 'https://github.com/example/app/pull/7#discussion_r101']]),
+  );
+
+  await writeReview(
+    ctx.store,
+    buildMockReviewResult({
+      reviewID: 'review-2',
+      pullRequest: { owner: 'example', repo: 'app', number: 7 },
+      endedAt: '2026-10-17T12:01:00.000Z',
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+  );
+
+  const rows = await runStoreQuery(ctx.store, 'findings-by-pr', {
+    since: '2026-10-17T12:00:00.000Z',
+  });
+
+  expect(rows).toMatchObject([
+    {
+      id: '1111111111111111',
+      commentURL: 'https://github.com/example/app/pull/7#discussion_r101',
+    },
+  ]);
+});
