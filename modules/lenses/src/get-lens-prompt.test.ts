@@ -20,6 +20,16 @@ test('it tells the naming lens to skip as const, satisfies and a disable comment
   ]);
 });
 
+test('it tells the naming lens to cite a role table row and skip a choice between two verbs', () => {
+  const prompt = getLensPrompt('naming-shape-and-comments');
+
+  expect(prompt).toIncludeMultiple([
+    '2. For rule 1, cite the one row of the role table whose promise the name breaks. A rules file with',
+    '   - A test data factory named `create`, where the table gives data factories another verb.',
+    '4. A choice between two verbs, such as `read` or `load`. Rule 1 reports a broken promise, never a',
+  ]);
+});
+
 test('it leaves the criteria placeholder in the shared header', () => {
   expect(getLensPrompt('shared-header')).toInclude('{{criteria}}');
 });
