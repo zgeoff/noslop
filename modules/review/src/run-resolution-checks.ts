@@ -317,9 +317,12 @@ async function runResolutionCall(
     const placed = await resolveHeadFindings(input, call.merge, answered.kept);
 
     // a resolution that raises a finding is no sound one, whatever the call's own verdict says, and a
-    // not-sound verdict that rests only on findings the author answered `not-a-defect` holds
+    // not-sound verdict that rests only on findings the author answered `not-a-defect` holds; a
+    // finding that Assemble dropped has no answer, so it keeps the verdict
     const isAnswered =
-      assembled.findings.length > 0 && answered.dismissed.length === assembled.findings.length;
+      assembled.findings.length > 0 &&
+      assembled.dropped.length === 0 &&
+      answered.dismissed.length === assembled.findings.length;
 
     return {
       check: {

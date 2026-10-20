@@ -632,6 +632,107 @@ test('it makes no call for a resolution past the call limit, records it as faile
   expect(run.notReviewed).toStrictEqual([{ path: 'src/options.ts', reason: 'too-large' }]);
 });
 
+test('it keeps a not-sound verdict when Assemble drops a finding beside one answered not-a-defect', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: { 'src/options.ts': 'export const options = { retries: 1, timeoutMs: 1000 };\n' },
+    },
+    {
+      message: 'Retry 3 times',
+      files: { 'src/options.ts': 'export const options = { retries: 3, timeoutMs: 1000 };\n' },
+    },
+    {
+      message: 'Wait longer',
+      files: { 'src/options.ts': 'export const options = { retries: 1, timeoutMs: 5000 };\n' },
+      parent: 0,
+    },
+    {
+      message: 'Merge main',
+      files: { 'src/options.ts': 'export const options = { retries: 3, timeoutMs: 5000 };\n' },
+      parent: 1,
+      merged: 2,
+    },
+  ]);
+
+  const merge = repo.commits[3] ?? '';
+
+  const stub = buildStubAdapter({
+    [`resolution-${merge.slice(0, 12)}`]: [
+      {
+        sound: false,
+        reason: 'Three retries can stack past the timeout, and the client drops the cap.',
+        findings: {
+          correctness: [
+            {
+              title: 'Bound the retries by the timeout',
+              body: 'Three retries of 5000 ms each wait 15 seconds, past what a caller expects.',
+              anchor: { path: 'src/options.ts', startLine: 1, endLine: 1 },
+              secondLocation: null,
+              severity: 'P2',
+              criterion: 'wrong-behaviour-edge-path',
+              rule: null,
+              ruleQuote: null,
+              verdict: 'CONFIRMED',
+              unverifiedFact: null,
+              missingChange: false,
+              fix: null,
+            },
+            {
+              title: 'Keep the page cap in the client',
+              body: 'The client no longer reads the page cap, so a list request fetches every page.',
+              anchor: { path: 'src/client.ts', startLine: 4, endLine: 4 },
+              secondLocation: null,
+              severity: 'P2',
+              criterion: 'wrong-behaviour-edge-path',
+              rule: null,
+              ruleQuote: null,
+              verdict: 'CONFIRMED',
+              unverifiedFact: null,
+              missingChange: false,
+              fix: null,
+            },
+          ],
+          security: [],
+        },
+      },
+    ],
+  });
+
+  const run = await runResolutionChecks({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: repo.commits[1] ?? '',
+    head: merge,
+    config: BUILT_IN_DEFAULTS,
+    dismissedFindings: [
+      {
+        id: '2222222222222222',
+        path: 'src/options.ts',
+        criterion: 'wrong-behaviour-edge-path',
+        rule: null,
+        head: repo.commits[1] ?? '',
+        startLine: 1,
+        endLine: 1,
+      },
+    ],
+    adapter: stub.adapter,
+    tempDir: ctx.directory,
+    logger: ctx.logger,
+  });
+
+  expect(run.checks).toStrictEqual([
+    {
+      merge,
+      sound: false,
+      reason: 'Three retries can stack past the timeout, and the client drops the cap.',
+      findingIDs: [],
+    },
+  ]);
+});
+
 test('it lists no verdict and records the failed call when the resolution call fails', async () => {
   const ctx = await setupTest();
 
