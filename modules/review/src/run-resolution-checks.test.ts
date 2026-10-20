@@ -340,6 +340,54 @@ test('it makes no call for a merge whose tree equals the tree git merge-tree bui
   expect(stub.requests).toStrictEqual([]);
 });
 
+test('it judges a merge of 3 parents not sound with no call', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/options.ts': 'export const options = { retries: 1 };\n' } },
+    {
+      message: 'Retry 3 times',
+      files: { 'src/options.ts': 'export const options = { retries: 3 };\n' },
+    },
+    {
+      message: 'Cap the pages',
+      files: { 'src/limits.ts': 'export const maxPages = 40;\n' },
+      parent: 0,
+    },
+    {
+      message: 'Name the client',
+      files: { 'src/client.ts': 'export const name = "app";\n' },
+      parent: 0,
+    },
+    { message: 'Merge both', files: {}, parent: 1, merged: [2, 3] },
+  ]);
+
+  const merge = repo.commits[4] ?? '';
+  const stub = buildStubAdapter({});
+
+  const run = await runResolutionChecks({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: repo.commits[1] ?? '',
+    head: merge,
+    config: BUILT_IN_DEFAULTS,
+    dismissedFindings: [],
+    adapter: stub.adapter,
+    tempDir: ctx.directory,
+    logger: ctx.logger,
+  });
+
+  expect(run.checks).toStrictEqual([
+    {
+      merge,
+      sound: false,
+      reason: 'noslop rebuilds a merge of 2 parents only, and this merge has 3',
+    },
+  ]);
+
+  expect(stub.requests).toStrictEqual([]);
+});
+
 test('it checks a hand edit in a merge that git merged on its own', async () => {
   const ctx = await setupTest();
 

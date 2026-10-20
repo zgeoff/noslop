@@ -15,9 +15,9 @@ export interface TestCommit {
   // build a second line of history, such as commits on a base branch
   parent?: number;
 
-  // the index of an earlier commit this one merges in as its second parent; the files apply on top of
-  // the merged tree, and they resolve a conflict the merge left
-  merged?: number;
+  // the index of an earlier commit this one merges in as its second parent, or a list of them for an
+  // octopus merge; the files apply on top of the merged tree, and they resolve a conflict the merge left
+  merged?: number | readonly number[];
 }
 
 export interface TestRepo {
@@ -49,8 +49,11 @@ export async function createTestRepo(
     // a merge with a conflict stops with the conflict markers in place, and the entry's files resolve
     // it; a merge that git could not start leaves no MERGE_HEAD
     if (commit.merged !== undefined) {
+      const indexes = typeof commit.merged === 'number' ? [commit.merged] : commit.merged;
+      const merged = indexes.map((index) => getCommit(shas, index));
+
       const merge =
-        await $`git -C ${path} -c user.email=test@example.com -c user.name=test merge -q --no-ff --no-commit ${getCommit(shas, commit.merged)}`
+        await $`git -C ${path} -c user.email=test@example.com -c user.name=test merge -q --no-ff --no-commit ${merged}`
           .nothrow()
           .quiet();
 

@@ -112,6 +112,24 @@ test('it commits a merge whose conflict the entry resolves with the resolved fil
   expect(file).toBe('export const a = 5;\n');
 });
 
+test('it commits an octopus merge of each commit an entry lists', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/a.ts': 'export const a = 1;\n' } },
+    { message: 'first side', files: { 'src/b.ts': 'export const b = 1;\n' }, parent: 0 },
+    { message: 'second side', files: { 'src/c.ts': 'export const c = 1;\n' }, parent: 0 },
+    { message: 'merge both', files: {}, parent: 0, merged: [1, 2] },
+  ]);
+
+  const parents =
+    await ctx.$`git -C ${repo.path} log -1 --format=%P ${repo.commits[3] ?? ''}`.text();
+
+  expect(parents.trim()).toBe(
+    `${repo.commits[0] ?? ''} ${repo.commits[1] ?? ''} ${repo.commits[2] ?? ''}`,
+  );
+});
+
 test('it commits into its own repo when GIT_DIR names another, as inside a git hook', async () => {
   const ctx = await setupTest();
 
