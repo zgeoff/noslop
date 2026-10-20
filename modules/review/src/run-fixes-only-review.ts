@@ -368,9 +368,6 @@ interface FixTarget {
   staticFindings: readonly Finding[] | null;
 }
 
-// one fix's call, over the fix commit's patch and the diff from its base of the finding's file and of
-// each file the fix commit changes; a fix with no base asks nothing, a commit that changes no file of the pull request fixes
-// nothing, and a static finding, which no model lens reported, holds while the static stage reports it
 async function runFixCheck(
   input: FixesOnlyReviewInput,
   target: FixTarget,
