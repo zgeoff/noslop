@@ -19,6 +19,7 @@ import { RESOLUTION_LENSES, buildResolutionPrompt } from '@noslop/lenses';
 import type { Runner } from '@noslop/runner';
 import { readChange } from '@noslop/static-stage';
 import { z } from 'zod';
+import { buildDroppedFindings } from './build-dropped-findings';
 import { createReviewWorktree } from './create-review-worktree';
 import { readDismissedFindings } from './read-dismissed-findings';
 import { removeReviewWorktree } from './remove-review-worktree';
@@ -328,29 +329,7 @@ async function runResolutionCall(
         findingIDs: placed.map((finding) => finding.id),
       },
       findings: placed,
-      dropped: [
-        ...assembled.dropped.map((item): DroppedFinding => ({
-          lens: item.raw.lens,
-          callID,
-          title: item.raw.finding.title,
-          anchor: item.raw.finding.anchor,
-          criterion: item.raw.finding.criterion,
-          reason: item.reason,
-          rule: item.raw.finding.rule,
-          ruleQuote: item.raw.finding.ruleQuote,
-        })),
-        ...answered.dismissed.map((item): DroppedFinding => ({
-          lens: item.finding.lens,
-          callID,
-          title: item.finding.title,
-          anchor: item.finding.anchor,
-          criterion: item.finding.criterion,
-          reason: 'answered-not-a-defect',
-          rule: item.finding.rule ?? null,
-          ruleQuote: null,
-          answeredID: item.answeredID,
-        })),
-      ],
+      dropped: buildDroppedFindings(assembled.dropped, answered.dismissed),
       record: {
         ...record,
         model: result.model,
