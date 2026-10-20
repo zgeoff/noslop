@@ -314,7 +314,7 @@ async function runResolutionCall(
       maxLines: input.config.thresholds.dismissedMaxLines,
     });
 
-    const placed = await resolveHeadFindings(input, call.merge, answered.kept);
+    const placed = await loadHeadFindings(input, call.merge, answered.kept);
 
     // a resolution that raises a finding is no sound one, whatever the call's own verdict says, and a
     // not-sound verdict that rests only on findings the author answered `not-a-defect` holds; a
@@ -360,7 +360,7 @@ async function runResolutionCall(
 // the reporter posts each finding at the pull request's head, so each anchor moves from the merge's
 // lines to the same lines at the head; a finding whose lines a later commit rewrote keeps its anchor
 // at the merge, which it names, and posts outside the diff
-async function resolveHeadFindings(
+async function loadHeadFindings(
   input: ResolutionChecksInput,
   merge: string,
   findings: readonly Finding[],
