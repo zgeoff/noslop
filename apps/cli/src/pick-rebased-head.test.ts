@@ -101,3 +101,28 @@ test('it picks no head when the paired branch commit has another patch id', () =
     failure: 'the rebase changed the patch of the reviewed commit a10000000000',
   });
 });
+
+test('it picks no head when the second of 2 reviewed commits pairs with another patch id', () => {
+  expect(
+    pickRebasedHead({
+      reviewedHead: 'a200000000000000000000000000000000000000',
+      reviewed: [
+        { sha: 'a100000000000000000000000000000000000000', parents: 1 },
+        { sha: 'a200000000000000000000000000000000000000', parents: 1 },
+      ],
+      branch: [
+        { sha: 'b100000000000000000000000000000000000000', parents: 1 },
+        { sha: 'b200000000000000000000000000000000000000', parents: 1 },
+      ],
+      patchIDs: new Map([
+        ['a100000000000000000000000000000000000000', 'p1'],
+        ['a200000000000000000000000000000000000000', 'p2'],
+        ['b100000000000000000000000000000000000000', 'p1'],
+        ['b200000000000000000000000000000000000000', 'p9'],
+      ]),
+    }),
+  ).toStrictEqual({
+    head: null,
+    failure: 'the rebase changed the patch of the reviewed commit a20000000000',
+  });
+});
