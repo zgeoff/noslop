@@ -4,8 +4,6 @@ export interface FixCheckPromptInput {
   comment: string;
   path: string;
   code: string;
-
-  // the fix commit's full sha and its whole patch
   commit: string;
   patch: string;
   diff: string;
