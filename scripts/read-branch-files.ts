@@ -2,15 +2,15 @@
 // branch, one per line. lefthook's {push_files} lists all of history for a branch
 // with no upstream, so the pre-push baseline reads its file list from here.
 
-interface CollectBranchFilesOptions {
+interface ReadBranchFilesOptions {
   readonly cwd: string;
 
   // The whole environment of the git runs; left out, they inherit this process's.
   readonly env?: Readonly<Record<string, string | undefined>>;
 }
 
-export async function collectBranchFiles(
-  options: Readonly<CollectBranchFilesOptions>,
+export async function readBranchFiles(
+  options: Readonly<ReadBranchFilesOptions>,
 ): Promise<string[]> {
   const head = await runGit(options, ['rev-parse', '--abbrev-ref', 'origin/HEAD']);
 
@@ -42,8 +42,8 @@ export async function collectBranchFiles(
   return diff.stdout.split('\n').filter((line) => line !== '');
 }
 
-async function runGit(options: Readonly<CollectBranchFilesOptions>, args: readonly string[]) {
-  const child = Bun.spawn(['git', ...args], {
+async function runGit(options: Readonly<ReadBranchFilesOptions>, args: readonly string[]) {
+  const subprocess = Bun.spawn(['git', ...args], {
     cwd: options.cwd,
     ...(options.env === undefined ? {} : { env: { ...options.env } }),
     stdin: 'ignore',
@@ -52,9 +52,9 @@ async function runGit(options: Readonly<CollectBranchFilesOptions>, args: readon
   });
 
   const [stdout, stderr, exitCode] = await Promise.all([
-    new Response(child.stdout).text(),
-    new Response(child.stderr).text(),
-    child.exited,
+    new Response(subprocess.stdout).text(),
+    new Response(subprocess.stderr).text(),
+    subprocess.exited,
   ]);
 
   return { exitCode, stdout, stderr };
@@ -62,14 +62,14 @@ async function runGit(options: Readonly<CollectBranchFilesOptions>, args: readon
 
 async function runCLI(): Promise<void> {
   try {
-    const files = await collectBranchFiles({ cwd: process.cwd() });
+    const files = await readBranchFiles({ cwd: process.cwd() });
 
     if (files.length > 0) {
       process.stdout.write(`${files.join('\n')}\n`);
     }
   } catch (error) {
     process.stderr.write(
-      `collect-branch-files: ${error instanceof Error ? error.message : String(error)}\n`,
+      `read-branch-files: ${error instanceof Error ? error.message : String(error)}\n`,
     );
 
     process.exit(1);
