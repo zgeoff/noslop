@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.7](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.6...@noslop/cli@0.4.7) (2026-10-20)
+
+
+### Features
+
+* **geo-1296:** add a findings-by-pr store query ([#60](https://github.com/zgeoff/noslop/issues/60)) ([c83ca97](https://github.com/zgeoff/noslop/commit/c83ca9772b4c09fb97e3acb9648e29594e3b1b38))
+* **geo-1480:** confirm a static fix in a fixes-only run ([#61](https://github.com/zgeoff/noslop/issues/61)) ([8ae8ba2](https://github.com/zgeoff/noslop/commit/8ae8ba288c2624e06b96de0d34c63bb6eb284934))
+
 ## [0.4.6](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.5...@noslop/cli@0.4.6) (2026-10-20)
 
 ### Features
