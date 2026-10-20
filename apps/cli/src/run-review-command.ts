@@ -18,6 +18,7 @@ import {
 import type { AnsweredFix } from '@noslop/review';
 import { runFixesOnlyReview, runReview } from '@noslop/review';
 import { loadStore, readEscapePaths } from '@noslop/sqlite';
+import cliPackage from '../package.json' with { type: 'json' };
 import { buildConfiguredAdapter } from './build-configured-adapter';
 import type { CLIContext } from './cli-context';
 import { formatReviewSummary } from './format-review-summary';
@@ -563,7 +564,7 @@ async function readPastEscapes(path: string, repo: string): Promise<string[]> {
     return [];
   }
 
-  const store = await loadStore(path);
+  const store = await loadStore(path, { version: cliPackage.version });
 
   try {
     return await readEscapePaths(store, repo);

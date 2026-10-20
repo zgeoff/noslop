@@ -1,3 +1,4 @@
+import { Database } from 'bun:sqlite';
 import { expect, mock, onTestFinished, test } from 'bun:test';
 import { mkdtemp, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -18,6 +19,7 @@ import {
   githubCollections,
   githubServer,
 } from '@noslop/testing';
+import cliPackage from '../package.json' with { type: 'json' };
 import type { CLIContext } from './cli-context';
 import { createCLIContext } from './create-cli-context';
 import { createJSONReporter } from './create-json-reporter';
@@ -366,6 +368,50 @@ test('it records the review in the store and answers a store query', async () =>
 
   expect(code).toBe(0);
   expect(rows).toMatchObject([{ title: 'Keep a at 1', path: 'src/a.ts', severity: 'P2' }]);
+});
+
+test('it fails a review before any lens call when the store schema is newer than this noslop', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'review.json': '{ "report": ["sqlite"] }\n',
+        'src/a.ts': 'export const a = 1;\n',
+      },
+    },
+    { message: 'Change a', files: { 'src/a.ts': 'export const a = 2;\n' } },
+  ]);
+
+  const storePath = join(ctx.directory, 'data', 'store.sqlite');
+
+  const first = await loadStore(storePath);
+
+  await first.destroy();
+
+  const database = new Database(storePath, { strict: true });
+
+  database.run(
+    `INSERT INTO kysely_migration (name, timestamp) VALUES ('9999-a-later-schema', '2026-10-18T09:00:00.000Z')`,
+  );
+
+  database.close();
+
+  const stub = buildStubAdapter({ light: [{ findings: {} }] });
+
+  const code = await runCLI(
+    ['review', '--base', repo.commits[0] ?? '', '--head', repo.commits[1] ?? '', '--json'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  expect(code).toBe(1);
+
+  expect(ctx.stderr.join('')).toStartWith(
+    `noslop: the store schema 9999-a-later-schema is newer than this noslop (${cliPackage.version}), whose newest migration is `,
+  );
+
+  expect(stub.requests).toStrictEqual([]);
 });
 
 test('it prints the merged config with the source of each key', async () => {

@@ -20,8 +20,12 @@ same way from the same config, so it reads the file the reporter writes.
 
 Opening the store creates the file and its folder when they are missing, then applies each migration
 the file lacks, so a newer CLI upgrades an older store the first time it opens it. A migration that
-fails closes the store and fails the command. The store runs through Bun's SQLite driver behind
-Kysely, in SQLite's WAL mode with foreign keys enforced, and each command closes it when done.
+fails closes the store and fails the command. An older CLI cannot read or write a newer schema, so
+when the store holds a migration newer than the newest one the CLI knows, opening it fails at once
+with an error that holds that migration and the CLI version, before the store or the review changes
+anything. A review opens the store before its lenses run whenever the file exists. The store runs
+through Bun's SQLite driver behind Kysely, in SQLite's WAL mode with foreign keys enforced, and each
+command closes it when done.
 
 ## What the store records
 
@@ -53,9 +57,12 @@ per escape. A list or an object sits in its column as JSON text, and a boolean a
   it, the lens that should have caught it, and the location when it is known.
 
 The reporter writes a review, its calls, its findings and its dropped findings in one transaction,
-so a reader never sees a review without its findings. A finding id leaves out the line numbers, so
-two reviews of one change that report one defect share the id, and the queries count the defect
-once.
+so a reader never sees a review without its findings. When the reporter cannot open the store or
+write the review, its error holds the review's repo, pull request and head and states that the store
+record was not written. The other reporters run either way, so the GitHub check posts whether or not
+the record was written. The reporter tries the write only once. A finding id leaves out the line
+numbers, so two reviews of one change that report one defect share the id, and the queries count the
+defect once.
 
 Four writers fill the store. The `sqlite` reporter writes each review. The `github` reporter runs
 after it and, when the same run lists `sqlite`, records the link to each finding's comment on every
