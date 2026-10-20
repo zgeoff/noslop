@@ -10,6 +10,7 @@ import { followUpMarkerSchema } from './follow-up-marker';
 import { formatFindingComment } from './format-finding-comment';
 import { formatFixedFindingComment } from './format-fixed-finding-comment';
 import { formatMarker } from './format-marker';
+import { formatRewrittenComment } from './format-rewritten-comment';
 import type { FixConfirmation } from './format-summary-comment';
 import { formatSummaryComment } from './format-summary-comment';
 import { parseMarker } from './parse-marker';
@@ -115,11 +116,17 @@ async function runReviewPost(
   }
 
   const followUps = plan.followUps;
+  const rewritten = plan.inline.filter((finding) => finding.anchorCommit !== undefined);
+  const inline = plan.inline.filter((finding) => finding.anchorCommit === undefined);
 
-  const unanchored = await createReviewComments(client, pr, result.head, plan.inline);
+  const unanchored = await createReviewComments(client, pr, result.head, inline);
 
   for (const finding of unanchored) {
     await createIssueComment(client, pr, formatUnanchoredComment(finding, result.head));
+  }
+
+  for (const finding of rewritten) {
+    await createIssueComment(client, pr, formatRewrittenComment(finding, result.head));
   }
 
   const unfiled =

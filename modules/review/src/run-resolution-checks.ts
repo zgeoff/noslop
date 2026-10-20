@@ -288,6 +288,8 @@ async function runResolutionCall(
       maxLines: input.config.thresholds.dismissedMaxLines,
     });
 
+    const placed = await resolveHeadFindings(input, call.merge, answered.kept);
+
     // a resolution that raises a finding is no sound one, whatever the call's own verdict says
     return {
       check: {
@@ -295,7 +297,7 @@ async function runResolutionCall(
         sound: output.sound && answered.kept.length === 0,
         reason: output.reason,
       },
-      findings: answered.kept,
+      findings: placed,
       dropped: [
         ...assembled.dropped.map((item): DroppedFinding => ({
           lens: item.raw.lens,
@@ -341,6 +343,89 @@ async function runResolutionCall(
   } finally {
     await removeReviewWorktree(worktree);
   }
+}
+
+// the reporter posts each finding at the pull request's head, so each anchor moves from the merge's
+// lines to the same lines at the head; a finding whose lines a later commit rewrote keeps its anchor
+// at the merge, which it names, and posts outside the diff
+async function resolveHeadFindings(
+  input: ResolutionChecksInput,
+  merge: string,
+  findings: readonly Finding[],
+): Promise<Finding[]> {
+  const placed: Finding[] = [];
+
+  for (const finding of findings) {
+    const hunks =
+      merge === input.head ? [] : await readLaterHunks(input, merge, finding.anchor.path);
+
+    const anchor = findHeadAnchor(hunks, finding.anchor);
+    const moved = anchor === null ? { ...finding, anchorCommit: merge } : { ...finding, anchor };
+
+    placed.push(moved);
+  }
+
+  return placed;
+}
+
+interface LaterHunk {
+  oldStart: number;
+  oldLines: number;
+  newLines: number;
+}
+
+// the hunks with no context lines of the file's change from the merge to the head; a path is a file's
+// own name, never a glob, and a rename reads as a deletion, so a finding in a renamed file drops
+async function readLaterHunks(
+  input: ResolutionChecksInput,
+  merge: string,
+  path: string,
+): Promise<LaterHunk[]> {
+  const diff = await readGitText(input, [
+    '--literal-pathspecs',
+    'diff',
+    '--no-ext-diff',
+    '--no-renames',
+    '--unified=0',
+    merge,
+    input.head,
+    '--',
+    path,
+  ]);
+
+  return [...diff.matchAll(/^@@ -(?<os>\d+)(?:,(?<ol>\d+))? \+\d+(?:,(?<nl>\d+))? @@/gmu)].map(
+    (match) => ({
+      oldStart: Number(match.groups?.['os']),
+      oldLines: Number(match.groups?.['ol'] ?? '1'),
+      newLines: Number(match.groups?.['nl'] ?? '1'),
+    }),
+  );
+}
+
+// the anchor's lines at the head, shifted by each hunk above them; null when a hunk changes a line of
+// the anchor or adds a line inside it; a hunk that adds lines only, with no old line, adds them after
+// its start line
+function findHeadAnchor(
+  hunks: readonly LaterHunk[],
+  anchor: Finding['anchor'],
+): Finding['anchor'] | null {
+  let shift = 0;
+
+  for (const hunk of hunks) {
+    const oldEnd = hunk.oldLines === 0 ? hunk.oldStart : hunk.oldStart + hunk.oldLines - 1;
+    const isAbove = oldEnd < anchor.startLine;
+
+    const isBelow =
+      hunk.oldLines === 0 ? hunk.oldStart >= anchor.endLine : hunk.oldStart > anchor.endLine;
+
+    if (isAbove) {
+      shift += hunk.newLines - hunk.oldLines;
+    } else if (!isBelow) {
+      return null;
+    }
+  }
+
+  return { ...anchor, startLine: anchor.startLine + shift, endLine: anchor.endLine + shift };
 }
 
 async function readGitLines(

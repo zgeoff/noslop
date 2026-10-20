@@ -5408,3 +5408,44 @@ test('it drops a merge from the checked merges when a later run judges its resol
   expect(summary?.body).toInclude('<!-- noslop:summary');
   expect(summary?.body).not.toInclude('checkedMerges');
 });
+
+test('it posts a finding whose lines a later commit rewrote as an issue comment that names its commit and lines', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'c'.repeat(40),
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/a.ts',
+    lines: [1],
+  });
+
+  const result = buildMockReviewResult({
+    pullRequest: { owner: 'example', repo: 'app', number: 5 },
+    head: 'c'.repeat(40),
+    findings: [buildMockFinding({ id: '1111111111111111', anchorCommit: 'e'.repeat(40) })],
+  });
+
+  await ctx.reporter.report(result, { logger: ctx.logger, options: {}, failedReporters: [] });
+
+  const comments = githubCollections.issueComments
+    .all()
+    .map((comment) => comment.body)
+    .filter((body) => body.includes('<!-- noslop:finding'));
+
+  expect(githubCollections.reviewComments.all()).toStrictEqual([]);
+  expect(comments).toHaveLength(1);
+
+  expect(comments[0]).toStartWith(
+    `This finding sits at \`src/a.ts:1-1\` of \`${'e'.repeat(40)}\`, and a later commit rewrote those lines, so GitHub cannot anchor it at the head. Answer it in a comment that starts with its id, \`1111111111111111\`.`,
+  );
+
+  expect(comments[0]).toInclude(`"head":"${'e'.repeat(40)}"`);
+});

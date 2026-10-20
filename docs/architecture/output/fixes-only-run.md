@@ -63,9 +63,12 @@ code either side brought in stays out of the call, which reads a worktree of the
 The call carries the correctness and security lenses. It answers whether the resolution keeps the
 change each side made and adds no defect, gives a one-line reason, and reports each defect it finds
 as a finding on the resolution's lines. Assemble applies the finding rules to those findings, and a
-finding that matches one answered `not-a-defect` drops, as in a review. A resolution with a finding
-is not sound, whatever the call answers. A merge of more than 2 parents is not sound with no call,
-because `git merge-tree` rebuilds a merge of 2 parents only.
+finding that matches one answered `not-a-defect` drops, as in a review. The reporter posts each
+finding at the pull request's head, so the run moves its anchor from the merge's lines to the same
+lines at the head. A finding whose lines a later commit rewrote keeps its anchor at the merge and
+goes to an issue comment that names the merge and those lines. A resolution with a finding is not
+sound, whatever the call answers. A merge of more than 2 parents is not sound with no call, because
+`git merge-tree` rebuilds a merge of 2 parents only.
 
 The result lists each verdict in its resolution checks, and the summary shows each one with its
 reason. The summary marker keeps each merge whose resolution a run judged sound, with the ones the
