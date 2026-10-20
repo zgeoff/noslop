@@ -2676,6 +2676,166 @@ test('it refuses --fixes-only when a rebase changed the patch of a reviewed comm
   expect(githubCollections.checkRuns.all()).toStrictEqual([]);
 });
 
+test('it carries the last review under --fixes-only onto a clean rebase with no new commit, so the check passes at the new head', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
+    { message: 'Describe the app', parent: 0, files: { 'README.md': '# app\n' } },
+    {
+      message: 'Add the scanner',
+      parent: 0,
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = "";\n' },
+    },
+    {
+      message: 'Reject an empty separator',
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = ":";\n' },
+    },
+    {
+      message: 'Add the scanner',
+      parent: 1,
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = "";\n' },
+    },
+    {
+      message: 'Reject an empty separator',
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = ":";\n' },
+    },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    title: 'Scan the header line',
+    body: 'Scans the header line.',
+    baseSha: repo.commits[1] ?? '',
+    headSha: repo.commits[5] ?? '',
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[2] ?? '',
+    files: ['src/scan.ts'],
+    isOnBranch: false,
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[3] ?? '',
+    files: ['src/scan.ts'],
+    patches: {
+      'src/scan.ts':
+        '@@ -2,1 +2,1 @@\n-export const separator = "";\n+export const separator = ":";',
+    },
+    isOnBranch: false,
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[4] ?? '',
+    files: ['src/scan.ts'],
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[5] ?? '',
+    files: ['src/scan.ts'],
+    patches: {
+      'src/scan.ts':
+        '@@ -2,1 +2,1 @@\n-export const separator = "";\n+export const separator = ":";',
+    },
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/scan.ts',
+    lines: [1, 2],
+  });
+
+  const thread = await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/scan.ts',
+    line: 2,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:finding {"id":"1111111111111111","title":"Reject an empty separator","path":"src/scan.ts","lens":"correctness","severity":"P2","riskClass":null,"writtenByChange":true,"head":"${repo.commits[2] ?? ''}"} -->`,
+  });
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    body: `fixed ${repo.commits[3] ?? ''}`,
+    authorLogin: 'dev',
+    inReplyToID: thread.id,
+  });
+
+  const other = await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/scan.ts',
+    line: 1,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:finding {"id":"2222222222222222","title":"Name the zero constant","path":"src/scan.ts","lens":"naming-shape-and-comments","severity":"P3","riskClass":null,"writtenByChange":false,"head":"${repo.commits[2] ?? ''}"} -->`,
+  });
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    body: 'not-a-defect the name matches the protocol field',
+    authorLogin: 'dev',
+    inReplyToID: other.id,
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${repo.commits[3] ?? ''}","base":"${repo.commits[2] ?? ''}","notReviewed":[],"checked":["1111111111111111"],"earlier":[{"base":"${repo.commits[0] ?? ''}","head":"${repo.commits[2] ?? ''}","reported":["1111111111111111","2222222222222222"],"notReviewed":[]}],"reviews":1,"reported":[],"failedCalls":0,"confirmed":["1111111111111111:${repo.commits[3] ?? ''}"]} -->`,
+  });
+
+  const stub = buildStubAdapter({});
+  const context = ctx.buildContext(repo.path, stub.adapter);
+
+  const code = await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--fixes-only', '--report', 'github'],
+    context,
+  );
+
+  await runCLI(['check', '--pr', '9', '--repo', 'example/app'], context);
+
+  const summary = githubCollections.issueComments
+    .all()
+    .findLast((comment) => comment.body.includes('<!-- noslop:summary'));
+
+  expect(code).toBe(0);
+  expect(stub.requests).toStrictEqual([]);
+  expect(summary?.body).toInclude(`{"head":"${repo.commits[5] ?? ''}"`);
+  expect(summary?.body).toInclude('"reviews":1,');
+
+  expect(githubCollections.checkRuns.all().at(-1)).toMatchObject({
+    headSha: repo.commits[5] ?? '',
+    conclusion: 'success',
+  });
+});
+
 test('it checks the resolution of a merge with a conflict under --fixes-only and marks the merge as checked', async () => {
   const ctx = await setupTest();
 

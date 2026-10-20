@@ -15,10 +15,15 @@ changes no file of the pull request's diff gets no call either, and the run judg
 the same rule the [check](./github-app.md#re-review-and-fix-confirmation) applies.
 
 A run with no `fixed` answer to judge refuses and gives the reason. It writes no summary, so the
-check stays on the head it was on and passes no commit that no lens read. One exception: the run
-goes ahead when each of the branch's own new commits is a merge whose other parents the pull
-request's base holds. Such a merge brings in only code the base holds, and the
-[resolution check](#the-resolution-check) judges each one that is not clean.
+check stays on the head it was on and passes no commit that no lens read. The run goes ahead in two
+cases:
+
+- Each of the branch's own new commits is a merge whose other parents the pull request's base holds.
+  Such a merge brings in only code the base holds, and the [resolution check](#the-resolution-check)
+  judges each one that is not clean.
+- A clean rebase made the head of the reviewed head, and no commit follows it. The
+  [mapping after a rebase](#after-a-rebase) matched each reviewed commit by its patch, so the review
+  still holds for the head, and the run carries it onto the head with the count of reviews kept.
 
 A `fixed` reply posted after an earlier fixes-only run passed its commit gets a call too, so the
 next run, at the same head or a later one, checks it. Its diff starts from the newer of the head
