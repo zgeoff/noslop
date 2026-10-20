@@ -59,9 +59,9 @@ rules path reads from the case's clone, as a live review of that repo reads it.
 
 Each case that ends is written at once to `runs.json` in the out folder, which `--out` names or
 which sits under the user's cache folder. A run cut short therefore keeps every case it finished.
-Each finding in it keeps its criterion and the rule it cites, so a run can count taste findings and
-their rules. A noslop case also keeps each finding Assemble dropped, with the reason and the rule
-and quote it cited, so a run shows whether the quote check drops real taste findings. The file is a
+Each finding in it keeps its criterion and the rule it cites, so a run can count the findings that
+rest on each rule. A noslop case also keeps each finding Assemble dropped, with the reason and the
+rule and quote it cited, so a run shows whether the quote check drops real findings. The file is a
 recorded run, and a later eval reads it as a baseline or as half of a noise floor. When the run
 ends, the harness writes the report as Markdown and the score as JSON beside it, and prints one of
 them.

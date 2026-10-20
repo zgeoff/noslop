@@ -45,8 +45,8 @@ path and a reference both stay inside the folder they resolve against.
 
 A call whose lenses read the rules file carries every file that applies to the change, each under
 its label, and [the lenses](../review/lenses.md) covers which lenses read it.
-[Findings](../review/findings.md) describes how Assemble checks a taste finding's quote. A repo with
-no rules file gets a prompt that tells the lenses to report no finding that rests on a rule, so the
+[Findings](../review/findings.md) describes how Assemble checks a finding's quote. A repo with no
+rules file gets a prompt that tells the lenses to report no finding that rests on a rule, so the
 lenses check only for defects.
 
 ## Stack patterns
