@@ -3,6 +3,7 @@ import { BUILT_IN_DEFAULTS } from '@noslop/config';
 import { buildMockChangedFile } from '@noslop/testing';
 import { buildFindingID } from './build-finding-id';
 import { buildFindings } from './build-findings';
+import { splitDismissedFindings } from './split-dismissed-findings';
 
 test('it keeps a finding on a changed line with its ID, severity and change marker', () => {
   const result = buildFindings({
@@ -537,6 +538,81 @@ test('it keeps the criterion and severity of a finding that quotes a rule', () =
   expect(
     result.findings.map((finding) => [finding.criterion, finding.severity, finding.rule]),
   ).toStrictEqual([['comments', 'P3', 'skills/code/SKILL.md: Comments']]);
+});
+
+test('it keeps a finding that quotes a rule after the same finding without a quote was dismissed', () => {
+  const unquoted = {
+    title: 'Drop the comment that restates the loop',
+    body: 'The comment says what the loop does, which the loop already shows.',
+    anchor: { path: 'src/a.ts', startLine: 1, endLine: 1 },
+    secondLocation: null,
+    severity: 'P3',
+    criterion: 'comments',
+    rule: null,
+    ruleQuote: null,
+    verdict: 'CONFIRMED',
+    unverifiedFact: null,
+    missingChange: false,
+    fix: null,
+  } as const;
+
+  const rules = [
+    {
+      name: 'skills/code/SKILL.md',
+      body: '## Comments\n\nA comment gives the reason, never the steps.',
+    },
+  ];
+
+  const [dismissedFinding] = buildFindings({
+    raw: [{ lens: 'naming-shape-and-comments', callID: 'architecture', finding: unquoted }],
+    files: [buildMockChangedFile()],
+    rules,
+    riskClasses: [],
+    config: BUILT_IN_DEFAULTS,
+  }).findings;
+
+  const [quotedFinding] = buildFindings({
+    raw: [
+      {
+        lens: 'naming-shape-and-comments',
+        callID: 'architecture',
+        finding: {
+          ...unquoted,
+          rule: 'skills/code/SKILL.md',
+          ruleQuote: 'A comment gives the reason, never the steps.',
+        },
+      },
+    ],
+    files: [buildMockChangedFile()],
+    rules,
+    riskClasses: [],
+    config: BUILT_IN_DEFAULTS,
+  }).findings;
+
+  if (dismissedFinding === undefined || quotedFinding === undefined) {
+    throw new Error('expected a finding from each build');
+  }
+
+  const split = splitDismissedFindings({
+    findings: [{ finding: quotedFinding, code: '// adds each item to the total' }],
+    dismissed: [
+      {
+        finding: {
+          id: dismissedFinding.id,
+          path: 'src/a.ts',
+          criterion: 'comments',
+          rule: null,
+          head: 'a'.repeat(40),
+          startLine: 1,
+          endLine: 1,
+        },
+        code: '// adds each item to the total',
+      },
+    ],
+    maxLines: 5,
+  });
+
+  expect(split).toStrictEqual({ kept: [quotedFinding], dismissed: [] });
 });
 
 test('it drops a finding of any criterion whose quote the rules file lacks', () => {
