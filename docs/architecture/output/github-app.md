@@ -245,6 +245,7 @@ The check passes when all of these hold, and fails otherwise:
 - The summary marker's head is the current head of the pull request.
 - No call of that review failed.
 - No reporter that ran before the `github` reporter failed.
+- The summary marker holds no merge whose resolution a fixes-only run rejected with no finding.
 - Every finding comment of the App holds a marker noslop can read.
 - Every finding, P3 included, holds a valid disposition.
 

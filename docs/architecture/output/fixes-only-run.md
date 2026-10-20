@@ -74,6 +74,11 @@ sound, whatever the call answers. A not-sound answer that rests only on findings
 The result lists each verdict in its resolution checks, and the summary shows each one with its
 reason. The summary marker keeps each merge whose resolution a run judged sound, with the ones the
 summary before it kept, so a reader that counts the commits since the last lens review can count
-such a merge as checked. A later verdict on the same merge replaces the earlier one. A merge whose
-call failed, or whose diff passes the config's call limit, stays unchecked, and the run lists its
-files as not reviewed.
+such a merge as checked. A later verdict on the same merge replaces the earlier one.
+
+A not-sound verdict that raised a finding fails the check through that finding, until the author
+answers it. A not-sound verdict with no finding has nothing to answer, so the summary marker keeps
+the merge as rejected, and the check fails while the marker holds a rejected merge. A later
+fixes-only run keeps the list, and a lens review starts it again. A merge whose call failed, or
+whose diff passes the config's call limit, stays unchecked, and the run lists its files as not
+reviewed.

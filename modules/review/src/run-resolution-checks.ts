@@ -122,7 +122,7 @@ async function runResolutionCheck(
   if (parents.length !== 2 || first === undefined || second === undefined) {
     const reason = `noslop rebuilds a merge of 2 parents only, and this merge has ${parents.length}`;
 
-    return { check: { merge, sound: false, reason } };
+    return { check: { merge, sound: false, reason, findingIDs: [] } };
   }
 
   const rebuilt = await readMergeTree(input, first, second);
@@ -300,6 +300,7 @@ async function runResolutionCall(
         merge: call.merge,
         sound: answered.kept.length === 0 && (output.sound || isAnswered),
         reason: output.reason,
+        findingIDs: placed.map((finding) => finding.id),
       },
       findings: placed,
       dropped: [

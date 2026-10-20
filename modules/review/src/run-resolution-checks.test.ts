@@ -67,7 +67,12 @@ test('it passes a merge whose resolution keeps the change of each side', async (
   });
 
   expect(run.checks).toStrictEqual([
-    { merge, sound: true, reason: 'The merge keeps 3 retries and the 5000 ms timeout.' },
+    {
+      merge,
+      sound: true,
+      reason: 'The merge keeps 3 retries and the 5000 ms timeout.',
+      findingIDs: [],
+    },
   ]);
 
   expect(run.findings).toStrictEqual([]);
@@ -208,6 +213,14 @@ test('it reports a resolution that drops the change of one side', async () => {
       merge,
       sound: false,
       reason: 'The resolution drops the 5000 ms timeout the base branch set.',
+      findingIDs: [
+        buildFindingID(
+          'correctness',
+          'src/options.ts',
+          'wrong-result-main-path',
+          'Keep the 5000 ms timeout from the base branch',
+        ),
+      ],
     },
   ]);
 
@@ -301,7 +314,19 @@ test('it judges a resolution not sound when it raises a finding, whatever the ca
   });
 
   expect(run.checks).toStrictEqual([
-    { merge, sound: false, reason: 'The merge keeps both sides.' },
+    {
+      merge,
+      sound: false,
+      reason: 'The merge keeps both sides.',
+      findingIDs: [
+        buildFindingID(
+          'correctness',
+          'src/options.ts',
+          'wrong-result-main-path',
+          'Keep the 5000 ms timeout from the base branch',
+        ),
+      ],
+    },
   ]);
 });
 
@@ -382,6 +407,7 @@ test('it judges a merge of 3 parents not sound with no call', async () => {
       merge,
       sound: false,
       reason: 'noslop rebuilds a merge of 2 parents only, and this merge has 3',
+      findingIDs: [],
     },
   ]);
 
@@ -435,7 +461,12 @@ test('it checks a hand edit in a merge that git merged on its own', async () => 
   });
 
   expect(run.checks).toStrictEqual([
-    { merge, sound: false, reason: 'The merge doubles the page cap the base branch set.' },
+    {
+      merge,
+      sound: false,
+      reason: 'The merge doubles the page cap the base branch set.',
+      findingIDs: [],
+    },
   ]);
 
   expect(stub.requests[0]?.prompt).toInclude(
@@ -540,7 +571,7 @@ test('it drops a resolution finding that matches one answered not-a-defect and j
   ]);
 
   expect(run.checks).toStrictEqual([
-    { merge, sound: true, reason: 'Three retries can stack past the timeout.' },
+    { merge, sound: true, reason: 'Three retries can stack past the timeout.', findingIDs: [] },
   ]);
 });
 

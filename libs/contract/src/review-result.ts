@@ -82,6 +82,10 @@ export const resolutionCheckSchema = z.strictObject({
   merge: commitSchema,
   sound: z.boolean(),
   reason: z.string().min(1),
+
+  // the findings the check raised on the resolution, so a reader tells a verdict its findings carry
+  // from one that only the verdict reports
+  findingIDs: z.array(z.string().regex(/^[0-9a-f]{16}$/u)),
 });
 
 export type ResolutionCheck = z.infer<typeof resolutionCheckSchema>;
