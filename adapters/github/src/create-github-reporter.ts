@@ -7,6 +7,7 @@ import type {
 } from '@noslop/contract';
 import { buildMergeLists } from './build-merge-lists';
 import type { GitHubClient, GitHubConnection } from './create-github-connection';
+import { findFixCheckFailure } from './find-fix-check-failure';
 import { followUpMarkerSchema } from './follow-up-marker';
 import { formatFindingComment } from './format-finding-comment';
 import { formatFixedFindingComment } from './format-fixed-finding-comment';
@@ -149,12 +150,13 @@ async function runReviewPost(
 
   const confirmations = await readConfirmations(client, pr, before, own);
 
-  // the summary gives the fixes-only run's reason for each fix it judged not fixed
+  // the summary gives the fixes-only run's reason for each fix it left unconfirmed
   for (const item of confirmations) {
-    const check = result.fixChecks?.find((entry) => entry.findingID === item.id);
+    const thread = before.threads.find((entry) => entry.marker.id === item.id);
+    const failure = findFixCheckFailure(result, item, thread?.marker.path ?? null);
 
-    if (!item.fixed && check?.fixed === false) {
-      item.failure = check.reason;
+    if (failure !== null) {
+      item.failure = failure;
     }
   }
 

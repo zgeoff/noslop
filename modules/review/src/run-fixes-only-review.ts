@@ -69,7 +69,8 @@ export interface FixesOnlyReviewInput {
   configHash: string;
   fixes: readonly AnsweredFix[];
 
-  // the config's file limit: a fix whose code or diff passes it gets no call and stays unconfirmed
+  // the config's file limit: a fix whose code, patch or diff passes it gets no call and stays
+  // unconfirmed
   maxFileChars: number;
   adapter: ReviewAdapter;
   tempDir: string;
@@ -354,7 +355,7 @@ interface FixCheckOutcome {
   record?: CallRecord;
   failedCall?: FailedCall;
 
-  // the finding's file, when its code or diff passes the file limit
+  // the finding's file, when its code, patch or diff passes the file limit
   tooLarge?: string;
 }
 
@@ -372,8 +373,8 @@ interface FixTarget {
   staticFindings: readonly Finding[] | null;
 }
 
-// one fix's call, over the diff from its base of the finding's file and of each file the fix commit
-// changes; a fix with no base asks nothing, a commit that changes no file of the pull request fixes
+// one fix's call, over the fix commit's patch and the diff from its base of the finding's file and of
+// each file the fix commit changes; a fix with no base asks nothing, a commit that changes no file of the pull request fixes
 // nothing, and a static finding, which no model lens reported, holds while the static stage reports it
 async function runFixCheck(
   input: FixesOnlyReviewInput,
@@ -448,10 +449,29 @@ async function runFixCheck(
     ...paths,
   ]);
 
-  if (code.length > input.maxFileChars || diff.length > input.maxFileChars) {
-    input.logger.warn('the fix of {id} passes the file limit, so it stays unconfirmed', {
-      id: fix.id,
-    });
+  // the commit's own patch, since a later commit can move its code or its test to a file the diff to
+  // the head leaves out
+  const patch = await readGitText(input, [
+    'diff-tree',
+    '-p',
+    '--root',
+    '--no-commit-id',
+    '--no-color',
+    '--no-ext-diff',
+    '--no-renames',
+    '--diff-merges=first-parent',
+    target.base.commit,
+  ]);
+
+  const parts = [code, diff, patch];
+
+  if (parts.some((part) => part.length > input.maxFileChars)) {
+    input.logger.warn(
+      'the fix of {id} passes the file limit, so no call reads it cut and it stays unjudged',
+      {
+        id: fix.id,
+      },
+    );
 
     return { tooLarge: fix.path };
   }
@@ -479,6 +499,8 @@ async function runFixCheck(
     comment: fix.comment,
     path: fix.path,
     code,
+    commit: target.base.commit,
+    patch,
     diff,
   });
 

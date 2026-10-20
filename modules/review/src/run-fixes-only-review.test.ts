@@ -182,6 +182,139 @@ test("it judges a fix whose commit only adds a test in another file from that te
   ]);
 });
 
+test("it gives the call the fix commit's whole patch when a later commit moves its code and its test to other files", async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const separator = "";\n' } },
+    {
+      message: 'Reject an empty separator',
+      files: {
+        'src/scan.ts': 'export const separator = ":";\n',
+        'src/scan.test.ts': 'test("it splits on a colon", () => {});\n',
+      },
+    },
+    {
+      message: 'Give the separator its own module',
+      files: {
+        'src/scan.ts': "export { separator } from './separator';\n",
+        'src/scan.test.ts': null,
+        'src/separator.ts': 'export const separator = ":";\n',
+        'src/separator.test.ts': 'test("it splits on a colon", () => {});\n',
+      },
+    },
+  ]);
+
+  const stub = buildStubAdapter({
+    'fix-1111111111111111': [
+      { fixed: true, reason: 'The separator is a colon, and a test checks it.' },
+    ],
+  });
+
+  const result = await runFixesOnlyReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/app',
+    pullRequest: { owner: 'example', repo: 'app', number: 9 },
+    base: repo.commits[0] ?? '',
+    head: repo.commits[2] ?? '',
+    mergeBase: repo.commits[0] ?? '',
+    lensHead: null,
+    title: 'Scan the header line',
+    configHash: 'hash',
+    fixes: [
+      {
+        id: '1111111111111111',
+        title: 'Reject an empty separator',
+        lens: 'correctness',
+        path: 'src/scan.ts',
+        line: 1,
+        comment:
+          'An empty separator splits the line into single characters, and no test checks it.',
+        commit: (repo.commits[1] ?? '').slice(0, 7),
+        postedHead: null,
+      },
+    ],
+    maxFileChars: 10_000,
+    adapter: stub.adapter,
+    tempDir: ctx.directory,
+    logger: ctx.logger,
+  });
+
+  expect(stub.requests[0]?.prompt).toInclude(
+    '-export const separator = "";\n+export const separator = ":";',
+  );
+
+  expect(stub.requests[0]?.prompt).toInclude(
+    '+++ b/src/scan.test.ts\n@@ -0,0 +1 @@\n+test("it splits on a colon", () => {});',
+  );
+
+  expect(result.fixChecks).toStrictEqual([
+    {
+      findingID: '1111111111111111',
+      fixed: true,
+      reason: 'The separator is a colon, and a test checks it.',
+    },
+  ]);
+});
+
+test("it asks nothing about a fix whose commit's patch passes the file limit, names the file as too large and rules no verdict", async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const separator = "";\n' } },
+    {
+      message: 'Reject an empty separator',
+      files: {
+        'src/scan.ts': 'export const separator = ":";\n',
+        'src/scan.test.ts': `test("it splits on a colon", () => {\n${'  expect(split("a:b")).toStrictEqual(["a", "b"]);\n'.repeat(8)}});\n`,
+      },
+    },
+    {
+      message: 'Move the separator test',
+      files: {
+        'src/scan.test.ts': null,
+        'src/separator.test.ts': 'test("it splits on a colon", () => {});\n',
+      },
+    },
+  ]);
+
+  const stub = buildStubAdapter({});
+
+  const result = await runFixesOnlyReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/app',
+    pullRequest: { owner: 'example', repo: 'app', number: 9 },
+    base: repo.commits[0] ?? '',
+    head: repo.commits[2] ?? '',
+    mergeBase: repo.commits[0] ?? '',
+    lensHead: null,
+    title: 'Scan the header line',
+    configHash: 'hash',
+    fixes: [
+      {
+        id: '1111111111111111',
+        title: 'Reject an empty separator',
+        lens: 'correctness',
+        path: 'src/scan.ts',
+        line: 1,
+        comment: 'An empty separator splits the line into single characters.',
+        commit: (repo.commits[1] ?? '').slice(0, 7),
+        postedHead: null,
+      },
+    ],
+    maxFileChars: 400,
+    adapter: stub.adapter,
+    tempDir: ctx.directory,
+    logger: ctx.logger,
+  });
+
+  expect(stub.requests).toStrictEqual([]);
+  expect(result.fixChecks).toStrictEqual([]);
+  expect(result.notReviewed).toStrictEqual([{ path: 'src/scan.ts', reason: 'too-large' }]);
+});
+
 test('it gives the call the diff of a fix in a file whose name git quotes', async () => {
   const ctx = await setupTest();
 
