@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { getLogger } from '@logtape/logtape';
 import type { ReviewAdapter } from '@noslop/contract';
 import { reviewResultSchema } from '@noslop/contract';
-import { createGitHubConnection, createGitHubReporter } from '@noslop/github';
+import { createGitHubReporter } from '@noslop/github';
 import { createRunner } from '@noslop/runner';
 import { createSQLiteReporter, loadStore, runStoreQuery, writeReview } from '@noslop/sqlite';
 import {
@@ -15,6 +15,7 @@ import {
   buildMockReviewResult,
   buildStubAdapter,
   buildStubAppKey,
+  buildStubPrivateRepo,
   createTestRepo,
   githubCollections,
   githubServer,
@@ -22,6 +23,8 @@ import {
 import cliPackage from '../package.json' with { type: 'json' };
 import type { CLIContext } from './cli-context';
 import { createCLIContext } from './create-cli-context';
+import type { GitHubConnectionLoader } from './create-github-connection-loader';
+import { createGitHubConnectionLoader } from './create-github-connection-loader';
 import { createJSONReporter } from './create-json-reporter';
 import { runCLI } from './run-cli';
 
@@ -32,8 +35,19 @@ async function setupTest() {
 
   const stdout: string[] = [];
   const stderr: string[] = [];
+  const privateKey = buildStubAppKey();
 
-  const buildContext = (cwd: string, adapter: ReviewAdapter): CLIContext => ({
+  const appLoader = createGitHubConnectionLoader({
+    NOSLOP_GITHUB_APP_ID: '1',
+    NOSLOP_GITHUB_APP_PRIVATE_KEY: privateKey,
+    NOSLOP_GITHUB_APP_INSTALLATION_ID: '7',
+  });
+
+  const buildContext = (
+    cwd: string,
+    adapter: ReviewAdapter,
+    github: GitHubConnectionLoader = appLoader,
+  ): CLIContext => ({
     runner: createRunner(),
     cwd,
     cacheDir: join(directory, 'cache'),
@@ -52,13 +66,11 @@ async function setupTest() {
           stdout.push(text);
         }),
         sqlite: createSQLiteReporter(join(directory, 'data', 'store.sqlite')),
-        github: createGitHubReporter({ loadConnection }),
+        github: createGitHubReporter({ loadConnection: github.load }),
       })[id] ?? null,
-    loadGitHubConnection: loadConnection,
+    loadGitHubConnection: github.load,
+    setGitHubAppSlug: github.setAppSlug,
   });
-
-  const privateKey = buildStubAppKey();
-  const loadConnection = () => createGitHubConnection({ appID: 1, privateKey, installationID: 7 });
 
   return { directory, stdout, stderr, buildContext };
 }
@@ -1075,6 +1087,327 @@ test('it reviews a pull request from the head of its last review', async () => {
   const result = reviewResultSchema.parse(JSON.parse(ctx.stdout.join('')));
 
   expect(result.base).toBe(repo.commits[1] ?? '');
+});
+
+test('it reads a pull request of a private repo with GH_TOKEN and no App keys', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
+    {
+      message: 'Add one',
+      files: { 'src/total.ts': 'export const zero = 0;\nexport const one = 1;\n' },
+    },
+  ]);
+
+  githubServer.use(buildStubPrivateRepo({ owner: 'example', repo: 'app', token: 'ghp_reader' }));
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    title: 'Add one',
+    body: 'Adds one.',
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[1] ?? '',
+  });
+
+  const stub = buildStubAdapter({
+    light: [{ findings: { correctness: [] } }],
+  });
+
+  const code = await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'json', '--json'],
+    ctx.buildContext(
+      repo.path,
+      stub.adapter,
+      createGitHubConnectionLoader({ GH_TOKEN: 'ghp_reader' }),
+    ),
+  );
+
+  const result = reviewResultSchema.parse(JSON.parse(ctx.stdout.join('')));
+
+  expect(code).toBe(0);
+  expect(result.pullRequest).toStrictEqual({ owner: 'example', repo: 'app', number: 9 });
+  expect(result.head).toBe(repo.commits[1] ?? '');
+});
+
+test('it fails to read a pull request of a private repo with no token', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
+    {
+      message: 'Add one',
+      files: { 'src/total.ts': 'export const zero = 0;\nexport const one = 1;\n' },
+    },
+  ]);
+
+  githubServer.use(buildStubPrivateRepo({ owner: 'example', repo: 'app', token: 'ghp_reader' }));
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[1] ?? '',
+  });
+
+  const code = await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'json', '--json'],
+    ctx.buildContext(repo.path, buildStubAdapter({}).adapter, createGitHubConnectionLoader({})),
+  );
+
+  expect(code).toBe(1);
+  expect(ctx.stdout).toStrictEqual([]);
+});
+
+test('it reviews a pull request from the head of a summary by the App the config names, with a token', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'review.json': JSON.stringify({ github: { app: 'example-reviewer' } }),
+        'src/total.ts': 'export const zero = 0;\n',
+      },
+    },
+    {
+      message: 'Add one',
+      files: { 'src/total.ts': 'export const zero = 0;\nexport const one = 1;\n' },
+    },
+    {
+      message: 'Add two',
+      files: {
+        'src/total.ts': 'export const zero = 0;\nexport const one = 1;\nexport const two = 2;\n',
+      },
+    },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    title: 'Add one and two',
+    body: 'Adds one and two.',
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[2] ?? '',
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: 'example-reviewer[bot]',
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","reviews":1,"reported":[],"failedCalls":0} -->`,
+  });
+
+  const stub = buildStubAdapter({
+    light: [{ findings: { correctness: [] } }],
+  });
+
+  await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'json', '--json'],
+    ctx.buildContext(
+      repo.path,
+      stub.adapter,
+      createGitHubConnectionLoader({ GH_TOKEN: 'ghp_reader' }),
+    ),
+  );
+
+  const result = reviewResultSchema.parse(JSON.parse(ctx.stdout.join('')));
+
+  expect(result.base).toBe(repo.commits[1] ?? '');
+});
+
+test('it reviews the whole pull request when a summary comes from another login than the App the config names', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'review.json': JSON.stringify({ github: { app: 'example-reviewer' } }),
+        'src/total.ts': 'export const zero = 0;\n',
+      },
+    },
+    {
+      message: 'Add one',
+      files: { 'src/total.ts': 'export const zero = 0;\nexport const one = 1;\n' },
+    },
+    {
+      message: 'Add two',
+      files: {
+        'src/total.ts': 'export const zero = 0;\nexport const one = 1;\nexport const two = 2;\n',
+      },
+    },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    title: 'Add one and two',
+    body: 'Adds one and two.',
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[2] ?? '',
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: 'impostor-reviewer[bot]',
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","reviews":1,"reported":[],"failedCalls":0} -->`,
+  });
+
+  const stub = buildStubAdapter({
+    light: [{ findings: { correctness: [] } }],
+  });
+
+  await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'json', '--json'],
+    ctx.buildContext(
+      repo.path,
+      stub.adapter,
+      createGitHubConnectionLoader({ GH_TOKEN: 'ghp_reader' }),
+    ),
+  );
+
+  const result = reviewResultSchema.parse(JSON.parse(ctx.stdout.join('')));
+
+  expect(result.base).toBe(repo.commits[0] ?? '');
+});
+
+test('it drops a finding answered not-a-defect in a thread of the App the config names, with a token', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'review.json': JSON.stringify({ github: { app: 'example-reviewer' } }),
+        'src/total.ts': 'export const zero = 0;\n',
+      },
+    },
+    {
+      message: 'Add one',
+      files: { 'src/total.ts': 'export const zero = 0;\nexport const one = 1;\n' },
+    },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    title: 'Add one',
+    body: 'Adds one.',
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[1] ?? '',
+  });
+
+  const posted = await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/total.ts',
+    line: 2,
+    authorLogin: 'example-reviewer[bot]',
+    authorType: 'Bot',
+    body: `<!-- noslop:finding {"id":"1111111111111111","title":"Name the constant for its use","path":"src/total.ts","lens":"correctness","severity":"P2","riskClass":null,"writtenByChange":true,"criterion":"wrong-behaviour-edge-path","rule":null,"head":"${repo.commits[1] ?? ''}"} -->`,
+  });
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    body: 'not-a-defect the name matches the domain',
+    authorLogin: 'dev',
+    inReplyToID: posted.id,
+  });
+
+  const stub = buildStubAdapter({
+    light: [
+      {
+        findings: {
+          correctness: [
+            {
+              title: 'Name the constant for its use',
+              body: 'The name one says nothing of what the constant counts.',
+              anchor: { path: 'src/total.ts', startLine: 2, endLine: 2 },
+              secondLocation: null,
+              severity: 'P2',
+              criterion: 'wrong-behaviour-edge-path',
+              rule: null,
+              ruleQuote: null,
+              verdict: 'CONFIRMED',
+              unverifiedFact: null,
+              missingChange: false,
+              fix: null,
+            },
+          ],
+        },
+      },
+    ],
+  });
+
+  await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'json', '--json', '--full'],
+    ctx.buildContext(
+      repo.path,
+      stub.adapter,
+      createGitHubConnectionLoader({ GH_TOKEN: 'ghp_reader' }),
+    ),
+  );
+
+  const result = reviewResultSchema.parse(JSON.parse(ctx.stdout.join('')));
+
+  expect(result.findings).toStrictEqual([]);
+
+  expect(result.dropped).toPartiallyContain({
+    reason: 'answered-not-a-defect',
+    answeredID: '1111111111111111',
+  });
+});
+
+test('it refuses an App slug in the config that differs from the App of the keys', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'review.json': JSON.stringify({ github: { app: 'example-reviewer' } }),
+        'src/total.ts': 'export const zero = 0;\n',
+      },
+    },
+    {
+      message: 'Add one',
+      files: { 'src/total.ts': 'export const zero = 0;\nexport const one = 1;\n' },
+    },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[1] ?? '',
+  });
+
+  const code = await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'json', '--json'],
+    ctx.buildContext(repo.path, buildStubAdapter({}).adapter),
+  );
+
+  expect(code).toBe(1);
+
+  expect(ctx.stderr.join('')).toStartWith(
+    `noslop: github.app names the App example-reviewer, but the App's keys belong to ${STUB_APP_LOGIN}; set github.app to the slug of the App that posts the reviews`,
+  );
 });
 
 test('it reviews only the files the pull request changes after it merges its base branch', async () => {
@@ -2608,6 +2941,110 @@ test('it confirms a fixed reply under --fixes-only and posts nothing new', async
   expect(githubCollections.issueComments.all()).toHaveLength(1);
   expect(githubCollections.issues.all()).toStrictEqual([]);
   expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('success');
+});
+
+test('it confirms a fixed reply under --fixes-only in a thread of the App the config names, with a token', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'review.json': JSON.stringify({ github: { app: 'example-reviewer' } }),
+        'src/scan.ts': 'export const zero = 0;\n',
+      },
+    },
+    {
+      message: 'Add the scanner',
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = "";\n' },
+    },
+    {
+      message: 'Reject an empty separator',
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = ":";\n' },
+    },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    title: 'Scan the header line',
+    body: 'Scans the header line.',
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[2] ?? '',
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[1] ?? '',
+    files: ['src/scan.ts'],
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[2] ?? '',
+    files: ['src/scan.ts'],
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/scan.ts',
+    lines: [2],
+  });
+
+  const thread = await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/scan.ts',
+    line: 2,
+    authorLogin: 'example-reviewer[bot]',
+    authorType: 'Bot',
+    body: `<!-- noslop:finding {"id":"1111111111111111","title":"Reject an empty separator","path":"src/scan.ts","lens":"correctness","severity":"P2","riskClass":null,"writtenByChange":true,"head":"${repo.commits[1] ?? ''}"} -->`,
+  });
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    body: `fixed ${(repo.commits[2] ?? '').slice(0, 7)}`,
+    authorLogin: 'dev',
+    inReplyToID: thread.id,
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: 'example-reviewer[bot]',
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":2,"reported":["1111111111111111"],"failedCalls":0} -->`,
+  });
+
+  const stub = buildStubAdapter({
+    'fix-1111111111111111': [{ fixed: true, reason: 'The separator is a colon now.' }],
+  });
+
+  await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--fixes-only', '--report', 'json', '--json'],
+    ctx.buildContext(
+      repo.path,
+      stub.adapter,
+      createGitHubConnectionLoader({ GH_TOKEN: 'ghp_reader' }),
+    ),
+  );
+
+  const result = reviewResultSchema.parse(JSON.parse(ctx.stdout.join('')));
+
+  expect(result.fixChecks).toStrictEqual([
+    { findingID: '1111111111111111', fixed: true, reason: 'The separator is a colon now.' },
+  ]);
 });
 
 test('it confirms a fixed reply under --fixes-only from the branch commit a rebase made of the reviewed head', async () => {

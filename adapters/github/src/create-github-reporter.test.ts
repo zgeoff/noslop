@@ -5763,3 +5763,29 @@ test('it posts a finding whose lines a later commit rewrote as an issue comment 
 
   expect(comments[0]).toInclude(`"head":"${'e'.repeat(40)}"`);
 });
+
+test('it refuses to post under a token, whose comments no later review trusts', async () => {
+  const reporter = createGitHubReporter({
+    loadConnection: () => createGitHubConnection(null, 'ghp_reader'),
+  });
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    baseSha: 'a'.repeat(40),
+    headSha: 'b'.repeat(40),
+  });
+
+  const result = buildMockReviewResult({
+    pullRequest: { owner: 'example', repo: 'app', number: 5 },
+    head: 'b'.repeat(40),
+  });
+
+  expect(
+    reporter.report(result, { logger: getLogger(['test']), options: {}, failedReporters: [] }),
+  ).rejects.toThrowWithMessage(
+    Error,
+    'the github reporter posts as the App: set NOSLOP_GITHUB_APP_ID, NOSLOP_GITHUB_APP_PRIVATE_KEY and NOSLOP_GITHUB_APP_INSTALLATION_ID',
+  );
+});

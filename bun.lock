@@ -116,6 +116,7 @@
       },
       "devDependencies": {
         "@noslop/testing": "workspace:*",
+        "msw": "catalog:",
       },
     },
     "apps/github-app": {

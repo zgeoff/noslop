@@ -100,6 +100,13 @@ async function runReviewPost(
 ): Promise<void> {
   const connection = await options.loadConnection();
 
+  // a post under a token writes markers under the token's login, and no later review trusts them
+  if (connection.auth !== 'app') {
+    throw new Error(
+      'the github reporter posts as the App: set NOSLOP_GITHUB_APP_ID, NOSLOP_GITHUB_APP_PRIVATE_KEY and NOSLOP_GITHUB_APP_INSTALLATION_ID',
+    );
+  }
+
   const client = connection.client;
 
   const before = await readPullRequestState(connection, pr);

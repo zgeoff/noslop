@@ -1,5 +1,6 @@
 import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { basename, join, resolve } from 'node:path';
+import type { LoadedConfig } from '@noslop/config';
 import type {
   DismissedFinding,
   EarlierFinding,
@@ -12,7 +13,6 @@ import {
   collectDismissedFindings,
   readFixCommits,
   readLinkedIssue,
-  readPullRequestState,
   readThreadDispositions,
 } from '@noslop/github';
 import type { AnsweredFix } from '@noslop/review';
@@ -25,6 +25,7 @@ import { formatReviewSummary } from './format-review-summary';
 import { getStorePath } from './get-store-path';
 import { loadRepoConfig } from './load-repo-config';
 import { readRebasedHead } from './read-rebased-head';
+import { readTrustedPullRequest } from './read-trusted-pull-request';
 import { runReporters } from './run-reporters';
 
 export interface ReviewValues {
@@ -75,9 +76,7 @@ export async function runReviewCommand(values: ReviewValues, ctx: CLIContext): P
       ? await resolveLocalChange(ctx, repoDir, values)
       : await resolvePullRequestChange(ctx, repoDir, values, issueText === null);
 
-  // the config comes from the commit the change starts from, so a change that edits the config is
-  // reviewed under the config it would replace
-  const loaded = await loadRepoConfig(ctx, repoDir, { commit: change.configCommit });
+  const loaded = change.config;
 
   for (const label of loaded.missingRules) {
     ctx.logger.warn('the repo holds no rules file {label}, so the review reads no rules from it', {
@@ -224,9 +223,9 @@ interface ResolvedChange {
   base: string;
   head: string;
 
-  // the commit the config reads from: a pull request's base, or a local change's base, which a
-  // delta review of a pull request does not share, since its base is a head of the pull request
-  configCommit: string;
+  // the config at a pull request's base or a local change's base, so a change that edits the config
+  // is reviewed under the config it would replace; a delta review's base is a head of the pull request
+  config: LoadedConfig;
   title: string;
   body: string;
 
@@ -294,7 +293,7 @@ async function resolveLocalChange(
     repo,
     base,
     head,
-    configCommit: base,
+    config: await loadRepoConfig(ctx, repoDir, { commit: base }),
     title,
     body,
     linkedIssue: null,
@@ -370,8 +369,11 @@ async function resolvePullRequestChange(
 
   const pullRequest = { owner, repo: name, number };
 
-  const connection = await ctx.loadGitHubConnection();
-  const state = await readPullRequestState(connection, pullRequest);
+  const trusted = await readTrustedPullRequest(ctx, repoDir, pullRequest);
+
+  const config = trusted.config;
+  const connection = trusted.connection;
+  const state = trusted.state;
 
   // only a review with no failed call covered its head, so only such a head bases a delta
   const summary = state.summary?.marker;
@@ -450,7 +452,7 @@ async function resolvePullRequestChange(
     head: state.headSha,
     lensHead,
     rebasedFrom: rebased.head === reviewed ? null : reviewed,
-    configCommit: state.baseSha,
+    config,
     title: state.title,
     body: state.body,
     linkedIssue,

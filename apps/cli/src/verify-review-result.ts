@@ -42,6 +42,16 @@ export async function verifyReviewResult(
     );
   }
 
+  // a review without the App's keys trusted the comments of the App the base config names, so only
+  // that App may post its result
+  const appSlug = loaded.config.github.app;
+
+  if (connection.auth === 'app' && appSlug !== null && connection.appLogin !== `${appSlug}[bot]`) {
+    problems.push(
+      `the config on ${state.baseRef} names the App ${appSlug}, but the App's keys belong to ${connection.appLogin ?? 'no App'}`,
+    );
+  }
+
   if (problems.length > 0) {
     throw new Error(`the result does not verify: ${problems.join('; ')}`);
   }

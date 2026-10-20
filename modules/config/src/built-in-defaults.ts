@@ -143,6 +143,7 @@ export const BUILT_IN_DEFAULTS: ReviewConfig = {
   breakingMarkers: ['!:', 'BREAKING CHANGE'],
   limits: {},
   versionBump: [],
+  github: { app: null },
   report: ['json'],
   reporters: {},
 };

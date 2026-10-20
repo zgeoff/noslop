@@ -24,7 +24,11 @@ export interface CLIContext {
   // run's sqlite reporter writes, or null when the run lists no sqlite reporter
   createReporter: (id: string, storePath: string | null) => Reporter | null;
 
-  // a GitHub connection, as the App's installation when the environment holds one
+  // a GitHub connection, as the App's installation when the environment holds one, else with the
+  // environment's token
   loadGitHubConnection: () => Promise<GitHubConnection>;
+
+  // names the App whose comments the connection trusts, from the loaded config
+  setGitHubAppSlug: (slug: string | null) => void;
   now?: () => Date;
 }

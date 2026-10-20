@@ -286,6 +286,20 @@ export const reviewConfigSchema = z.strictObject({
   versionBump: z
     .array(z.string().min(1))
     .describe('Path globs whose change needs a version bump in the package that owns them'),
+
+  // a layer that sets the slug to null removes it, so a missing slug means none
+  github: z
+    .strictObject({
+      app: z
+        .string()
+        .regex(/^[a-z\d-]+$/u, 'a slug holds lowercase letters, digits and hyphens, with no [bot]')
+        .nullable()
+        .default(null)
+        .describe(
+          'The slug of the GitHub App that posts the reviews; a review run without its keys trusts the comments of <slug>[bot] as its state',
+        ),
+    })
+    .describe('How a review reads GitHub'),
   report: z.array(z.string().min(1)).describe('The reporters a review runs, by id'),
   reporters: z
     .record(z.string(), reporterOptionsSchema)

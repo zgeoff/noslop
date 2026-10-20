@@ -361,6 +361,58 @@ test('it gives 2 rules lists that differ only in a file text 2 hashes', async ()
   expect(first.hash).not.toBe(second.hash);
 });
 
+test('it gives 2 configs that differ only in the App slug 2 hashes', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(
+    join(ctx.directory, 'review.json'),
+    JSON.stringify({ github: { app: 'example-reviewer' } }),
+  );
+
+  const first = await loadConfig({ repoDir: ctx.directory });
+
+  await Bun.write(
+    join(ctx.directory, 'review.json'),
+    JSON.stringify({ github: { app: 'other-reviewer' } }),
+  );
+
+  const second = await loadConfig({ repoDir: ctx.directory });
+
+  expect(first.hash).not.toBe(second.hash);
+});
+
+test('it reads no App slug from a config that removes the inherited one', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(
+    join(ctx.directory, 'shared', 'base.json'),
+    JSON.stringify({ github: { app: 'example-reviewer' } }),
+  );
+
+  await Bun.write(
+    join(ctx.directory, 'repo', 'review.json'),
+    JSON.stringify({ extends: '../shared/base.json', github: { app: null } }),
+  );
+
+  const loaded = await loadConfig({ repoDir: join(ctx.directory, 'repo') });
+
+  expect(loaded.config.github).toStrictEqual({ app: null });
+});
+
+test('it refuses an App slug that holds the bot suffix', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(
+    join(ctx.directory, 'review.json'),
+    JSON.stringify({ github: { app: 'example-reviewer[bot]' } }),
+  );
+
+  expect(loadConfig({ repoDir: ctx.directory })).rejects.toThrowWithMessage(
+    Error,
+    'the merged config is not valid:\ngithub.app: a slug holds lowercase letters, digits and hyphens, with no [bot]',
+  );
+});
+
 test('it loads the rules file when the repo directory is a relative path', async () => {
   const ctx = await setupTest();
 

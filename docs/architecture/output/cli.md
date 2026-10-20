@@ -114,8 +114,8 @@ that lists one never verifies. `verify` exits 1 and prints each mismatch to stde
 the summary and the check run, as a review with `--report github` posts them. It verifies the result
 first and posts nothing when the result fails, so a relay that posts with it posts only a review of
 the current head under the enforced config. `--no-verify` skips the verification, for a result the
-caller checked itself. `post` needs the App's keys in the environment, and refuses to run with an
-anonymous GitHub connection.
+caller checked itself. `post` needs the App's keys in the environment, and refuses to run with a
+token or an anonymous GitHub connection.
 
 ## Folders
 
