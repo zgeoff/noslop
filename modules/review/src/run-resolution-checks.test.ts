@@ -575,6 +575,63 @@ test('it drops a resolution finding that matches one answered not-a-defect and j
   ]);
 });
 
+test('it makes no call for a resolution past the call limit, records it as failed and lists its files as too large', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: { 'src/options.ts': 'export const options = { retries: 1, timeoutMs: 1000 };\n' },
+    },
+    {
+      message: 'Retry 3 times',
+      files: { 'src/options.ts': 'export const options = { retries: 3, timeoutMs: 1000 };\n' },
+    },
+    {
+      message: 'Wait longer',
+      files: { 'src/options.ts': 'export const options = { retries: 1, timeoutMs: 5000 };\n' },
+      parent: 0,
+    },
+    {
+      message: 'Merge main',
+      files: { 'src/options.ts': 'export const options = { retries: 3, timeoutMs: 5000 };\n' },
+      parent: 1,
+      merged: 2,
+    },
+  ]);
+
+  const merge = repo.commits[3] ?? '';
+  const stub = buildStubAdapter({});
+
+  const run = await runResolutionChecks({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: repo.commits[1] ?? '',
+    head: merge,
+    config: {
+      ...BUILT_IN_DEFAULTS,
+      thresholds: { ...BUILT_IN_DEFAULTS.thresholds, maxCallChars: 100 },
+    },
+    dismissedFindings: [],
+    adapter: stub.adapter,
+    tempDir: ctx.directory,
+    logger: ctx.logger,
+  });
+
+  expect(stub.requests).toStrictEqual([]);
+  expect(run.checks).toStrictEqual([]);
+
+  expect(run.failedCalls).toStrictEqual([
+    {
+      id: `resolution-${merge.slice(0, 12)}`,
+      lenses: ['correctness', 'security'],
+      reason: 'the resolution passes the call limit, so no call read it',
+    },
+  ]);
+
+  expect(run.notReviewed).toStrictEqual([{ path: 'src/options.ts', reason: 'too-large' }]);
+});
+
 test('it lists no verdict and records the failed call when the resolution call fails', async () => {
   const ctx = await setupTest();
 

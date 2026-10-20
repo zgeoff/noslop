@@ -80,5 +80,6 @@ A not-sound verdict that raised a finding fails the check through that finding, 
 answers it. A not-sound verdict with no finding has nothing to answer, so the summary marker keeps
 the merge as rejected, and the check fails while the marker holds a rejected merge. A later
 fixes-only run keeps the list, and a lens review starts it again. A merge whose call failed, or
-whose diff passes the config's call limit, stays unchecked, and the run lists its files as not
-reviewed.
+whose diff passes the config's call limit, stays unchecked. The run counts it as a failed call, so
+the check fails, and the next fixes-only run starts from the head before this run and checks the
+merge again. The run lists the files of a resolution past the call limit as not reviewed.

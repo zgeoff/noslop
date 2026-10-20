@@ -169,7 +169,16 @@ async function runResolutionCheck(
       merge: merge.slice(0, 12),
     });
 
+    // the skipped call counts as failed, so the run is partial: the check fails, and the next
+    // fixes-only run starts from the head before this one and checks the merge again
+    const reason = 'the resolution passes the call limit, so no call read it';
+
     return {
+      failedCall: {
+        id: `resolution-${merge.slice(0, 12)}`,
+        lenses: [...RESOLUTION_LENSES],
+        reason,
+      },
       notReviewed: change.files.map((file): NotReviewedFile => ({
         path: file.path,
         reason: 'too-large',
