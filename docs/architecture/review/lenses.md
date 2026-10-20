@@ -45,8 +45,8 @@ line carries none. A lens anchors each finding to a line number it reads, so the
 back point at the reviewed head.
 
 When a lens reads the rules file and the repo names none, the prompt says so and tells the lenses to
-report no taste finding. A taste finding needs a rule from that file under 0003, so the prompt keeps
-the model from inventing one.
+report no finding that rests on a rule. A lens prompt states no rule of its own, and a finding that
+rests on a rule quotes that file under 0003, so the prompt keeps the model from inventing one.
 
 ## The design lens
 

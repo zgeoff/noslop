@@ -128,7 +128,7 @@ test('it joins the header, each lens section in order and each slice once', () =
   `);
 });
 
-test('it tells the lenses to report no taste finding when the repo names no rules file', () => {
+test('it tells the lenses to report no rule finding when the repo names no rules file', () => {
   const prompt = buildCallPrompt({
     lenses: ['tests'],
     files: [],
@@ -160,7 +160,9 @@ test('it tells the lenses to report no taste finding when the repo names no rule
     isIncremental: false,
   });
 
-  expect(prompt).toInclude('The repo names no rules file, so report no taste finding.');
+  expect(prompt).toInclude(
+    'The repo names no rules file, so report no finding that rests on a rule.',
+  );
 });
 
 test('it tells the lenses not to judge the description on an incremental review', () => {

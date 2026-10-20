@@ -6,51 +6,39 @@
 
 ## Prompt
 
-Find names, shapes and comments in the change that mislead a reader or break a named rule, and the
-type claims it adds that no checker confirms.
+Find names, shapes, comments and type claims in the change that break a rule in the rules file.
 
-Look for:
+Look for a break of the rules file's rule on:
 
-1. A function name that breaks a promise of the role table, where lint cannot check that promise.
-   The role table is the table in the rules file that gives the verb for each recurring job and the
-   promise that verb makes, such as no I/O. Report only these cases:
-   - I/O behind a helper whose name starts with no verb, called from a function whose verb promises
-     no I/O.
-   - An effectful verb, such as `write` or `remove`, on a body that only computes a value from its
-     arguments.
-   - A function whose verb promises no I/O that changes an argument it was passed.
-   - A test data factory named `create`, where the table gives data factories another verb.
-   - A name that does not say what its function does.
-2. A comment that restates the code instead of giving the reason the obvious alternative is wrong.
-3. A new block of comments that pushes the change over the comment-density target.
-4. A comment that names project state: a ticket, a date, a person, a session.
-5. A shape the rules file names, broken: parameter order, options objects, return types on a miss.
-6. A lint disable comment the change adds for a rule that bans type assertions. The `typeClaims`
-   slice lists each one as `cast-disable`. Report each comment as its own finding, whatever reason
-   it gives, so each new cast that keeps a disable comment is seen.
-7. A value typed `any` that the change passes where a typed value is expected: an argument to a
-   typed parameter, a typed return, or a typed variable. The `typeClaims` slice lists each `any`
-   type the change writes as `any-type`, and each `JSON.parse` call it adds as `any-value`. An `any`
-   that another call returns counts too. Lint cannot see this claim, because `any` turns the type
-   check off.
+1. Function names: a verb whose promise in the role table the function breaks, where lint cannot
+   check that promise, or a name that does not say what its function does. The role table is the
+   table in the rules file that gives the verb for each recurring job and the promise that verb
+   makes, such as no I/O.
+2. Comments. When the `comments` slice shows the change over the comment-density target, check each
+   new block of comments.
+3. Type claims. The `typeClaims` slice lists each lint disable comment the change adds for a rule
+   that bans type assertions as `cast-disable`, each `any` type it writes as `any-type`, and each
+   `JSON.parse` call it adds as `any-value`. An `any` that another call returns counts too.
+4. Any other naming or shape rule the rules file states, such as parameter order, options objects,
+   or the return type on a miss.
 
 Check each candidate:
 
-1. Cite the rule from the rules file by name. A finding with no named rule is dropped, except for
-   rules 2, 6 and 7 above, which hold in every repo.
-2. For rule 1, cite the one row of the role table whose promise the name breaks. A rules file with
-   no role table gets no rule 1 finding.
+1. Quote the rule from the rules file. A candidate with no rule to quote is not a finding.
+2. For a function name, quote the one row of the role table whose promise the name breaks.
 3. Quote the name or comment in the title.
-4. For rule 7, name the typed parameter, return or variable the `any` value reaches.
+4. Report each `cast-disable` comment as its own finding, whatever reason it gives, so each new cast
+   that keeps a disable comment is seen.
+5. For an `any` value, name the typed parameter, return or variable it reaches.
 
 Do not report:
 
-1. A rule the repo's lint config enforces. A disable comment turns its rule off, so rule 6 still
-   holds.
+1. A rule the repo's lint config enforces. A disable comment turns its rule off, so a `cast-disable`
+   comment is still a finding.
 2. Code the change did not add or change, such as a disable comment that was there before it.
 3. An `as const` assertion, or a `satisfies` expression: neither one turns a type check off.
-4. A choice between two verbs, such as `read` or `load`. Rule 1 reports a broken promise, never a
-   choice between two verbs.
+4. A choice between two verbs, such as `read` or `load`. A function name finding reports a broken
+   promise, never a choice between two verbs.
 
 Severity: P2 for a name that hides behaviour. P2 for an `any` value that reaches a typed place,
 under the criterion `wrong-behaviour-edge-path`. P3 for every other finding.

@@ -6,20 +6,22 @@
 
 ## Prompt
 
-Find tests in the change that cannot fail, and changed behaviour that no test covers.
+Find tests in the change that break a testing rule in the rules file, chiefly the rule on tests that
+pass without the change they cover.
 
-Look for:
+Look for a break of the rules file's rule on:
 
-1. A test that would still pass if the change it covers were reverted.
-2. A test that checks only its own stand-in, not the code under test.
-3. A test that calls a helper directly and never runs the path the change touched.
-4. A test that compares only values it defined itself.
-5. A changed behaviour with no test that exercises it.
+1. A test that would still pass if the change it covers were reverted, such as one that checks only
+   its own stand-in, calls only a helper the change left alone, or compares only values it defined
+   itself.
+2. A changed behaviour with no test that exercises it.
+3. Any other testing rule the rules file states.
 
 Check each candidate:
 
-1. Name the line you would revert and say why the test still passes.
-2. For a missing test, state the behaviour as a case: the input and the expected result.
+1. Quote the rule from the rules file. A candidate with no rule to quote is not a finding.
+2. Name the line you would revert and say why the test still passes.
+3. For a missing test, state the behaviour as a case: the input and the expected result.
 
 Do not report:
 
