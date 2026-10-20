@@ -30,8 +30,8 @@ test('it records a disposition read twice from one source once', async () => {
     at: '2026-10-17T11:00:00.000Z',
   } as const;
 
-  await writeDispositions(ctx.store, 'example/app', [disposition]);
-  await writeDispositions(ctx.store, 'example/app', [disposition]);
+  await writeDispositions(ctx.store, 'example/app', 7, [disposition]);
+  await writeDispositions(ctx.store, 'example/app', 7, [disposition]);
 
   const rows = await ctx.store.selectFrom('dispositions').selectAll().execute();
 
@@ -45,6 +45,7 @@ test('it records a disposition read twice from one source once', async () => {
       author_is_owner: 1,
       source: 'github',
       at: '2026-10-17T11:00:00.000Z',
+      pull_request: 7,
     },
   ]);
 });
@@ -62,8 +63,8 @@ test('it records one finding ID from 2 repos as 2 dispositions', async () => {
     at: '2026-10-17T11:00:00.000Z',
   } as const;
 
-  await writeDispositions(ctx.store, 'example/x', [disposition]);
-  await writeDispositions(ctx.store, 'example/y', [disposition]);
+  await writeDispositions(ctx.store, 'example/x', 7, [disposition]);
+  await writeDispositions(ctx.store, 'example/y', 7, [disposition]);
 
   const rows = await ctx.store
     .selectFrom('dispositions')

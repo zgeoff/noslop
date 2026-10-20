@@ -196,18 +196,11 @@ const QUERIES: Record<
     FROM dropped_findings JOIN reviews USING (review_id)
     ORDER BY reviews.ended_at DESC, reviews.review_id, dropped_findings.rowid`,
 
-  // each finding of each pull request once, as the latest review of the pull request that reported it
-  // gave it, with the kind and value of the finding's latest disposition; the kind is the reply as
-  // given, so a `fixed` finding that a later review reports again stays `fixed` here
+  // each finding of each pull request once, from the latest review that reported it, with the latest
+  // disposition of its own pull request as given; a disposition that holds no pull request applies to
+  // the finding in every pull request of its repo
   'findings-by-pr': (filters) => sql`
-    WITH latest AS (
-      SELECT repo, finding_id, kind, value FROM (
-        SELECT repo, finding_id, kind, value,
-          ROW_NUMBER() OVER (PARTITION BY repo, finding_id ORDER BY at DESC) AS position
-        FROM dispositions
-      ) WHERE position = 1
-    ),
-    reported AS (
+    WITH reported AS (
       SELECT * FROM (
         SELECT reviews.repo AS repo, reviews.pull_request AS pull_request, reviews.head AS head,
           findings.*,
@@ -221,6 +214,20 @@ const QUERIES: Record<
           AND (${filters.pullRequest ?? null} IS NULL
             OR reviews.pull_request = ${filters.pullRequest ?? null})
           AND (${filters.since ?? null} IS NULL OR reviews.ended_at >= ${filters.since ?? null})
+      ) WHERE position = 1
+    ),
+    latest AS (
+      SELECT repo, pull_request, finding_id, kind, value FROM (
+        SELECT reported.repo AS repo, reported.pull_request AS pull_request,
+          reported.finding_id AS finding_id, dispositions.kind AS kind, dispositions.value AS value,
+          ROW_NUMBER() OVER (
+            PARTITION BY reported.repo, reported.pull_request, reported.finding_id
+            ORDER BY dispositions.at DESC
+          ) AS position
+        FROM reported JOIN dispositions
+          ON dispositions.repo = reported.repo AND dispositions.finding_id = reported.finding_id
+            AND (dispositions.pull_request IS NULL
+              OR dispositions.pull_request = reported.pull_request)
       ) WHERE position = 1
     )
     SELECT
@@ -236,7 +243,7 @@ const QUERIES: Record<
       reported.title AS title,
       latest.kind AS "dispositionKind",
       latest.value AS "dispositionValue"
-    FROM reported LEFT JOIN latest USING (repo, finding_id)
+    FROM reported LEFT JOIN latest USING (repo, pull_request, finding_id)
     ORDER BY reported.repo, reported.pull_request, reported.severity, reported.path,
       reported.start_line, reported.finding_id`,
 };

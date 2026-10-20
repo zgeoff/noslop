@@ -42,7 +42,7 @@ test('#yield-by-lens gives each lens its fixed and not-a-defect shares', async (
     }),
   );
 
-  await writeDispositions(ctx.store, 'example/app', [
+  await writeDispositions(ctx.store, 'example/app', 7, [
     {
       findingID: '1111111111111111',
       kind: 'fixed',
@@ -102,7 +102,7 @@ test('#yield-by-depth counts each finding at the depth of the first review that 
     }),
   );
 
-  await writeDispositions(ctx.store, 'example/app', [
+  await writeDispositions(ctx.store, 'example/app', 7, [
     {
       findingID: '1111111111111111',
       kind: 'fixed',
@@ -156,7 +156,7 @@ test('#open-findings lists the findings of the latest review with no disposition
     }),
   );
 
-  await writeDispositions(ctx.store, 'example/app', [
+  await writeDispositions(ctx.store, 'example/app', 7, [
     {
       findingID: '3333333333333333',
       kind: 'fixed',
@@ -198,7 +198,7 @@ test('#open-findings reopens a fixed finding that a later review reports again',
     }),
   );
 
-  await writeDispositions(ctx.store, 'example/app', [
+  await writeDispositions(ctx.store, 'example/app', 7, [
     {
       findingID: '1111111111111111',
       kind: 'fixed',
@@ -274,7 +274,7 @@ test('#yield-by-lens applies a disposition only to the finding ID of its own rep
     }),
   );
 
-  await writeDispositions(ctx.store, 'example/x', [
+  await writeDispositions(ctx.store, 'example/x', 7, [
     {
       findingID: '1111111111111111',
       kind: 'not-a-defect',
@@ -674,7 +674,7 @@ test('#findings-by-pr lists each finding of a pull request once, with its latest
     }),
   );
 
-  await writeDispositions(ctx.store, 'example/app', [
+  await writeDispositions(ctx.store, 'example/app', 7, [
     {
       findingID: '1111111111111111',
       kind: 'not-a-defect',
@@ -780,4 +780,89 @@ test('#findings-by-pr keeps only the findings of the repo, pull request and time
   });
 
   expect(rows.map((row) => row['id'])).toStrictEqual(['2222222222222222']);
+});
+
+test('#findings-by-pr gives a finding only the dispositions of its own pull request', async () => {
+  const ctx = await setupTest();
+
+  await writeReview(
+    ctx.store,
+    buildMockReviewResult({
+      reviewID: 'review-7',
+      pullRequest: { owner: 'example', repo: 'app', number: 7 },
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+  );
+
+  await writeReview(
+    ctx.store,
+    buildMockReviewResult({
+      reviewID: 'review-8',
+      pullRequest: { owner: 'example', repo: 'app', number: 8 },
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+  );
+
+  await writeDispositions(ctx.store, 'example/app', 8, [
+    {
+      findingID: '1111111111111111',
+      kind: 'fixed',
+      value: '1a2b3c4',
+      author: 'dev',
+      authorIsOwner: false,
+      source: 'github',
+      at: '2026-10-17T11:00:00.000Z',
+    },
+  ]);
+
+  const rows = await runStoreQuery(ctx.store, 'findings-by-pr');
+
+  expect(rows).toMatchObject([
+    { pullRequest: 7, dispositionKind: null, dispositionValue: null },
+    { pullRequest: 8, dispositionKind: 'fixed', dispositionValue: '1a2b3c4' },
+  ]);
+});
+
+test('#findings-by-pr gives a disposition with no pull request to the finding in every pull request of its repo', async () => {
+  const ctx = await setupTest();
+
+  await writeReview(
+    ctx.store,
+    buildMockReviewResult({
+      reviewID: 'review-7',
+      pullRequest: { owner: 'example', repo: 'app', number: 7 },
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+  );
+
+  await writeReview(
+    ctx.store,
+    buildMockReviewResult({
+      reviewID: 'review-8',
+      pullRequest: { owner: 'example', repo: 'app', number: 8 },
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+  );
+
+  await ctx.store
+    .insertInto('dispositions')
+    .values({
+      repo: 'example/app',
+      pull_request: null,
+      finding_id: '1111111111111111',
+      kind: 'not-a-defect',
+      value: 'the caller holds the lock',
+      author: 'dev',
+      author_is_owner: 0,
+      source: 'github',
+      at: '2026-10-17T11:00:00.000Z',
+    })
+    .execute();
+
+  const rows = await runStoreQuery(ctx.store, 'findings-by-pr');
+
+  expect(rows).toMatchObject([
+    { pullRequest: 7, dispositionKind: 'not-a-defect' },
+    { pullRequest: 8, dispositionKind: 'not-a-defect' },
+  ]);
 });

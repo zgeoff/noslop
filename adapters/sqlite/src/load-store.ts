@@ -196,6 +196,14 @@ const STORE_MIGRATIONS: Record<string, Migration> = {
         .execute();
     },
   },
+
+  // 2 pull requests of one repo can report findings that share an ID, so each disposition keeps the
+  // pull request whose thread held it; a row the store held before keeps none
+  '0007-dispositions-by-pull-request': {
+    up: async (db) => {
+      await db.schema.alterTable('dispositions').addColumn('pull_request', 'integer').execute();
+    },
+  },
 };
 
 // opens the store at the path, creating the file and its folder when they do not exist, and applies

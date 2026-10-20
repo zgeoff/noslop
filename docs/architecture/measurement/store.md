@@ -44,6 +44,9 @@ per escape. A list or an object sits in its column as JSON text, and a boolean a
   whether the author owns the repo, the source it came from and its time. A finding id is unique
   only within one repo, so the repo is part of the key. A disposition the store holds already, from
   the same source at the same time, is kept as it is, so reading one thread twice records it once.
+  The row keeps the pull request whose thread held the reply, because 2 pull requests of one repo
+  can report findings that share an id. A row from a store older than that column holds no pull
+  request.
 - An escape row keeps the issue that reported a defect, the repo and head of the change that caused
   it, the lens that should have caught it, and the location when it is known.
 
@@ -98,9 +101,10 @@ refuses these flags on every other query.
 The query returns one row per finding of a pull request. When several reviews of the pull request
 report one finding, the row takes the head, location, severity and title from the latest of them.
 The disposition fields hold the latest reply in the finding's thread as given, so a `fixed` finding
-that a later review reports again stays `fixed` here, where `open-findings` counts it open. The rows
-come sorted by repo, pull request, severity, path and line. Under `--json`, the command prints an
-array of rows of this shape:
+that a later review reports again stays `fixed` here, where `open-findings` counts it open. A reply
+counts only for the finding of its own pull request. A reply that holds no pull request counts for
+the finding in every pull request of its repo. The rows come sorted by repo, pull request, severity,
+path and line. Under `--json`, the command prints an array of rows of this shape:
 
 | Field              | Type             | Holds                                                         |
 | ------------------ | ---------------- | ------------------------------------------------------------- |

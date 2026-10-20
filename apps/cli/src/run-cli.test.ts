@@ -3729,11 +3729,16 @@ test('it records the dispositions of a pull request in the store when it sets th
 
   const rows = await store
     .selectFrom('dispositions')
-    .select(['finding_id', 'kind', 'value'])
+    .select(['finding_id', 'pull_request', 'kind', 'value'])
     .execute();
 
   expect(rows).toStrictEqual([
-    { finding_id: '1111111111111111', kind: 'not-a-defect', value: 'the caller awaits it' },
+    {
+      finding_id: '1111111111111111',
+      pull_request: 9,
+      kind: 'not-a-defect',
+      value: 'the caller awaits it',
+    },
   ]);
 });
 
