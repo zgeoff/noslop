@@ -3,7 +3,7 @@ import { expect, mock, onTestFinished, test } from 'bun:test';
 import { mkdtemp, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { getLogger } from '@logtape/logtape';
+import { configureSync, getLogger, resetSync } from '@logtape/logtape';
 import type { ReviewAdapter } from '@noslop/contract';
 import { reviewResultSchema } from '@noslop/contract';
 import { createGitHubReporter } from '@noslop/github';
@@ -480,6 +480,128 @@ test('it names each repo: rules file that the repo does not hold', async () => {
   expect(ctx.stdout.join('')).toInclude(
     'rules file not in this repo, so no rules from it: skills/tests/SKILL.md',
   );
+});
+
+test('it warns once in a review about a missing reference that 2 rules files name', async () => {
+  const ctx = await setupTest();
+
+  const warnings: string[] = [];
+
+  configureSync({
+    sinks: {
+      buffer: (record) => {
+        warnings.push(record.message.join(''));
+      },
+    },
+    loggers: [
+      { category: ['logtape', 'meta'], lowestLevel: 'error', sinks: [] },
+      { category: ['test'], lowestLevel: 'warning', sinks: ['buffer'] },
+    ],
+  });
+
+  onTestFinished(() => {
+    resetSync();
+  });
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'review.json': JSON.stringify({
+          rules: [
+            {
+              path: 'repo:skills/style/SKILL.md',
+              references: { 'references/sql.md': ['**/*.sql'] },
+            },
+            {
+              path: 'repo:skills/style/EXTRA.md',
+              references: { 'references/sql.md': ['**/*.sql'] },
+            },
+          ],
+        }),
+        'skills/style/SKILL.md': '# Style\n\n- [SQL](./references/sql.md): queries.\n',
+        'skills/style/EXTRA.md': '# Extra\n\n- [SQL](./references/sql.md): migrations.\n',
+        'src/a.ts': 'export const a = 1;\n',
+      },
+    },
+    { message: 'Change a', files: { 'src/a.ts': 'export const a = 2;\n' } },
+  ]);
+
+  const stub = buildStubAdapter({ light: [{ findings: { correctness: [] } }] });
+
+  await runCLI(
+    ['review', '--base', repo.commits[0] ?? '', '--head', repo.commits[1] ?? '', '--json'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  expect(warnings).toStrictEqual([
+    'the repo holds no rules file skills/style/references/sql.md, so the review reads no rules from it',
+  ]);
+});
+
+test('it gives no warning in a review about a reference that the synced rules file leaves out', async () => {
+  const ctx = await setupTest();
+
+  const warnings: string[] = [];
+
+  configureSync({
+    sinks: {
+      buffer: (record) => {
+        warnings.push(record.message.join(''));
+      },
+    },
+    loggers: [
+      { category: ['logtape', 'meta'], lowestLevel: 'error', sinks: [] },
+      { category: ['test'], lowestLevel: 'warning', sinks: ['buffer'] },
+    ],
+  });
+
+  onTestFinished(() => {
+    resetSync();
+  });
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'review.json': JSON.stringify({
+          rules: [
+            {
+              path: 'repo:.claude/skills/testing/SKILL.md',
+              references: {
+                'references/http.md': ['**/*.test.ts'],
+                'references/go.md': ['**/*.go'],
+              },
+            },
+          ],
+        }),
+        '.claude/skills/testing/SKILL.md': [
+          '# Testing',
+          '',
+          '## References',
+          '',
+          '- [HTTP mocking](./references/http.md): a client of a remote service.',
+          '',
+          '## Loading the skill',
+          '',
+          'Load the project skill as well.',
+          '',
+        ].join('\n'),
+        '.claude/skills/testing/references/http.md': '# HTTP mocking\n\nMock at the edge.\n',
+        'src/a.ts': 'export const a = 1;\n',
+      },
+    },
+    { message: 'Change a', files: { 'src/a.ts': 'export const a = 2;\n' } },
+  ]);
+
+  const stub = buildStubAdapter({ light: [{ findings: { correctness: [] } }] });
+
+  await runCLI(
+    ['review', '--base', repo.commits[0] ?? '', '--head', repo.commits[1] ?? '', '--json'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  expect(warnings).toBeEmpty();
 });
 
 test('it exits 1 and names the problem when a command fails', async () => {

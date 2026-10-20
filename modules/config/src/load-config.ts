@@ -36,7 +36,8 @@ export interface LoadedConfig {
   chain: string[];
   rules: Rule[] | null;
 
-  // the labels of the `repo:` files and references the repo lacks, which hold no rule
+  // the labels of the `repo:` files and references the repo lacks, which hold no rule, each once;
+  // a reference its file never names is left out
   missingRules: string[];
 
   hash: string;
@@ -99,7 +100,13 @@ export async function loadConfig(options: LoadConfigOptions): Promise<LoadedConf
     sources,
     chain: files.map((file) => formatConfigLocation(file.location)),
     rules: rules === null ? null : rules.flatMap((source) => buildRules(source)),
-    missingRules: (rules ?? []).flatMap((source) => (source.text === null ? [source.label] : [])),
+    missingRules: [
+      ...new Set(
+        (rules ?? []).flatMap((source) =>
+          source.text === null && source.isExpected ? [source.label] : [],
+        ),
+      ),
+    ],
     hash: hash.digest('hex').slice(0, 16),
   };
 }
@@ -307,12 +314,15 @@ interface RulesSource {
   // null for a `repo:` file or a reference that the repo lacks
   text: string | null;
   paths: readonly string[] | null;
+
+  // false for a reference that the repo was not meant to hold
+  isExpected: boolean;
 }
 
 // a reference's label sits beside its file's label, so one reference name under 2 files stays apart;
 // a repo syncs only the skills and references it needs, so a `repo:` file or a reference it lacks
 // holds no rule, and any other missing file fails the load
-function readRulesSources(
+async function readRulesSources(
   files: readonly RulesFile[],
   options: LoadConfigOptions,
 ): Promise<RulesSource[]> {
@@ -321,21 +331,22 @@ function readRulesSources(
     const location = resolveRulesLocation(file.path, options);
 
     return [
-      { location, label, paths: null, required: !file.path.startsWith(REPO_PREFIX) },
-      ...Object.entries(file.references ?? {}).map(([reference, paths]) => ({
-        location: parseConfigLocation(
-          requireInnerPath(reference, 'reference'),
-          location,
-          CONFIG_FILE,
-        ),
-        label: normalize(join(dirname(label), reference)),
-        paths,
-        required: false,
-      })),
+      { location, label, paths: null, required: !file.path.startsWith(REPO_PREFIX), name: null },
+      ...Object.entries(file.references ?? {}).map(([reference, paths]) => {
+        const name = requireInnerPath(reference, 'reference');
+
+        return {
+          location: parseConfigLocation(name, location, CONFIG_FILE),
+          label: normalize(join(dirname(label), reference)),
+          paths,
+          required: false,
+          name,
+        };
+      }),
     ];
   });
 
-  return Promise.all(
+  const texts = await Promise.all(
     sources.map(async (source) => {
       const text = await readLocation(source.location, options);
 
@@ -343,9 +354,28 @@ function readRulesSources(
         throw new Error(`the rules file ${source.label} does not exist`);
       }
 
-      return { label: source.label, text, paths: source.paths };
+      return text;
     }),
   );
+
+  let fileText: string | null = null;
+
+  // a sync that leaves a reference out of a repo drops the section of its file that links it, so a
+  // reference the file's text never names is one the repo was not meant to hold
+  return sources.map((source, index) => {
+    const text = texts[index] ?? null;
+
+    if (source.name === null) {
+      fileText = text;
+    }
+
+    return {
+      label: source.label,
+      text,
+      paths: source.paths,
+      isExpected: source.name === null || fileText === null || fileText.includes(source.name),
+    };
+  });
 }
 
 // the chain has resolved each path but a `repo:` one against the file that names it already

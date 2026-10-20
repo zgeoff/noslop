@@ -111,8 +111,10 @@ noslop config
    A remote parent reads as `github:<owner>/<repo>/review.json`.
 2. The `rules` line holds the merged list, each entry with its resolved path and its label. Its
    source in parentheses is the last file that set `rules`.
-3. Each `repo:` file the repo lacks prints its own line:
-   `rules file not in this repo, so no rules from it: <label>`.
+3. Each `repo:` file or reference the repo lacks prints its own line:
+   `rules file not in this repo, so no rules from it: <label>`. A missing reference prints no line
+   when the text of its rules file does not hold its path, because the repo was not meant to hold
+   it.
 
 The first line, `config <hash>`, changes when the config or the text of any rules file changes. Two
 reviews with the same hash ran under the same rules, so you can compare their findings in the

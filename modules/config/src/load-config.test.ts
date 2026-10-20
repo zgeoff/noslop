@@ -562,19 +562,69 @@ test('it loads no rules from a repo: file or a reference that the repo does not 
 
   await Bun.write(
     join(ctx.directory, 'skills/code/SKILL.md'),
-    '## Naming\n\n1. Start with a verb.',
+    '## Naming\n\n1. Start with a verb, as [Nix](./references/nix.md) does.',
   );
 
   const loaded = await loadConfig({ repoDir: ctx.directory });
 
   expect(loaded.rules).toStrictEqual([
-    { name: 'skills/code/SKILL.md', body: '## Naming\n\n1. Start with a verb.', paths: null },
+    {
+      name: 'skills/code/SKILL.md',
+      body: '## Naming\n\n1. Start with a verb, as [Nix](./references/nix.md) does.',
+      paths: null,
+    },
   ]);
 
   expect(loaded.missingRules).toStrictEqual([
     'skills/code/references/nix.md',
     'skills/testing/SKILL.md',
   ]);
+});
+
+test('it names no missing reference that its rules file never names', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(
+    join(ctx.directory, 'review.json'),
+    JSON.stringify({
+      rules: [
+        {
+          path: 'repo:skills/code/SKILL.md',
+          references: { 'references/nix.md': ['**/*.nix'], 'references/sql.md': ['**/*.sql'] },
+        },
+      ],
+    }),
+  );
+
+  await Bun.write(
+    join(ctx.directory, 'skills/code/SKILL.md'),
+    '## Naming\n\n1. Start with a verb, as [SQL](./references/sql.md) does.',
+  );
+
+  const loaded = await loadConfig({ repoDir: ctx.directory });
+
+  expect(loaded.missingRules).toStrictEqual(['skills/code/references/sql.md']);
+});
+
+test('it names a missing reference once when 2 rules files in one folder name it', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(
+    join(ctx.directory, 'review.json'),
+    JSON.stringify({
+      rules: [
+        { path: 'repo:skills/code/SKILL.md', references: { 'references/sql.md': ['**/*.sql'] } },
+        { path: 'repo:skills/code/EXTRA.md', references: { 'references/sql.md': ['**/*.sql'] } },
+      ],
+    }),
+  );
+
+  await Bun.write(join(ctx.directory, 'skills/code/SKILL.md'), '- [SQL](./references/sql.md)');
+  await Bun.write(join(ctx.directory, 'skills/code/EXTRA.md'), '- [SQL](./references/sql.md)');
+
+  const loaded = await loadConfig({ repoDir: ctx.directory });
+
+  expect(loaded.missingRules).toStrictEqual(['skills/code/references/sql.md']);
 });
 
 test('it gives a missing repo: file and an empty one 2 hashes', async () => {
