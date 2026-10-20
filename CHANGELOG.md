@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.4.10](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.9...@noslop/cli@0.4.10) (2026-10-20)
+
+### Features
+
+- **geo-1557:** check a pull request read-only with the job's token
+  ([#75](https://github.com/zgeoff/noslop/issues/75))
+  ([0ac66dd](https://github.com/zgeoff/noslop/commit/0ac66dd85c63afe790bd66b586718e69c261d577))
+
+### Bug Fixes
+
+- **geo-1558:** load a pull request's config from its base branch tip
+  ([#73](https://github.com/zgeoff/noslop/issues/73))
+  ([0d4d3bc](https://github.com/zgeoff/noslop/commit/0d4d3bc85c8526e10f6d1d603968ebd5d272f45d))
+- **geo-1573:** judge a late fix whose heads a rebase rewrote
+  ([#77](https://github.com/zgeoff/noslop/issues/77))
+  ([8104c9f](https://github.com/zgeoff/noslop/commit/8104c9fa4b9d8701f9c415eb3e8f04907a953b8c))
+- **geo-1580:** warn once per missing rules file, skip unlinked ones
+  ([#79](https://github.com/zgeoff/noslop/issues/79))
+  ([9ed7438](https://github.com/zgeoff/noslop/commit/9ed743830087f368c7ad8c236645eaa66eb34308))
+
 ## [0.4.9](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.8...@noslop/cli@0.4.9) (2026-10-20)
 
 ### Features
