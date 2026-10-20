@@ -1,5 +1,6 @@
 import type { StoreQueryFilters, StoreQueryName } from '@noslop/sqlite';
 import { STORE_QUERY_NAMES, loadStore, runStoreQuery } from '@noslop/sqlite';
+import cliPackage from '../package.json' with { type: 'json' };
 import type { CLIContext } from './cli-context';
 import { getStorePath } from './get-store-path';
 import { loadRepoConfig } from './load-repo-config';
@@ -32,7 +33,10 @@ export async function runStoreQueryCommand(
 
   const repoDir = await resolveRepoDir(ctx);
   const loaded = await loadRepoConfig(ctx, repoDir);
-  const store = await loadStore(getStorePath(loaded.config, ctx));
+
+  const store = await loadStore(getStorePath(loaded.config, ctx), {
+    version: cliPackage.version,
+  });
 
   try {
     const rows = await runStoreQuery(store, query, filters);

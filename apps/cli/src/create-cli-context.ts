@@ -8,6 +8,7 @@ import { createGitHubReporter } from '@noslop/github';
 import { createRunner } from '@noslop/runner';
 import { createSQLiteReporter } from '@noslop/sqlite';
 import { createWebhookReporter } from '@noslop/webhook';
+import cliPackage from '../package.json' with { type: 'json' };
 import type { CLIContext } from './cli-context';
 import { createGitHubConnectionLoader } from './create-github-connection-loader';
 import { createJSONReporter } from './create-json-reporter';
@@ -33,7 +34,8 @@ export function createCLIContext(env: Readonly<Record<string, string | undefined
   // file the config never asked for
   const reporters: Record<string, (storePath: string | null) => Reporter> = {
     json: () => createJSONReporter(writeStdout),
-    sqlite: () => createSQLiteReporter(join(dataDir, 'store.sqlite')),
+    sqlite: () =>
+      createSQLiteReporter(join(dataDir, 'store.sqlite'), { version: cliPackage.version }),
     github: (storePath) =>
       createGitHubReporter({
         loadConnection: loadGitHubConnection,

@@ -1,6 +1,7 @@
 import type { PullRequestRef } from '@noslop/contract';
 import { createGitHubDispositionSource } from '@noslop/github';
 import { loadStore, writeDispositions } from '@noslop/sqlite';
+import cliPackage from '../package.json' with { type: 'json' };
 import { checkPullRequest } from './check-pull-request';
 import type { CLIContext } from './cli-context';
 import { getStorePath } from './get-store-path';
@@ -64,7 +65,9 @@ async function writePullRequestDispositions(
     { logger: ctx.logger, options: {}, failedReporters: [] },
   );
 
-  const store = await loadStore(getStorePath(loaded.config, ctx));
+  const store = await loadStore(getStorePath(loaded.config, ctx), {
+    version: cliPackage.version,
+  });
 
   try {
     await writeDispositions(

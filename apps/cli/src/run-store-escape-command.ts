@@ -1,4 +1,5 @@
 import { loadStore, writeEscape } from '@noslop/sqlite';
+import cliPackage from '../package.json' with { type: 'json' };
 import type { CLIContext } from './cli-context';
 import { getStorePath } from './get-store-path';
 import { loadRepoConfig } from './load-repo-config';
@@ -37,7 +38,10 @@ export async function runStoreEscapeCommand(
 
   const repoDir = await resolveRepoDir(ctx);
   const loaded = await loadRepoConfig(ctx, repoDir);
-  const store = await loadStore(getStorePath(loaded.config, ctx));
+
+  const store = await loadStore(getStorePath(loaded.config, ctx), {
+    version: cliPackage.version,
+  });
 
   try {
     const escapeID = await writeEscape(store, {
