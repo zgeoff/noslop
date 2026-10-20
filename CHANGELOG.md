@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.4.11](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.10...@noslop/cli@0.4.11) (2026-10-20)
+
+
+### Features
+
+* **geo-1579:** flag a new script that nothing runs again ([#78](https://github.com/zgeoff/noslop/issues/78)) ([6be9df4](https://github.com/zgeoff/noslop/commit/6be9df4b93ae7072d5e9278d96cba79813a28e6a))
+
+
+### Bug Fixes
+
+* **geo-1588:** judge a fixed answer on its commit's whole patch ([#81](https://github.com/zgeoff/noslop/issues/81)) ([e98bdb0](https://github.com/zgeoff/noslop/commit/e98bdb01cb33cf979024aa08d440b44442129d80))
+
 ## [0.4.10](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.9...@noslop/cli@0.4.10) (2026-10-20)
 
 ### Features
