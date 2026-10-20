@@ -471,6 +471,43 @@ test('it serves the commit a branch points at and answers an unknown branch with
   expect(unknown.status).toBe(404);
 });
 
+test('it serves the base commit of a pull request for its base branch when the branch has no record', async () => {
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    baseRef: 'release/1',
+    baseSha: 'b'.repeat(40),
+  });
+
+  const response = await fetch(`${GITHUB_API_URL}/repos/example/app/branches/release/1`);
+  const branch: unknown = await response.json();
+
+  expect(branch).toStrictEqual({ name: 'release/1', commit: { sha: 'b'.repeat(40) } });
+});
+
+test('it serves the record of a branch over the base commit of a pull request that merges into it', async () => {
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    baseRef: 'main',
+    baseSha: 'b'.repeat(40),
+  });
+
+  await githubCollections.branches.create({
+    owner: 'example',
+    repo: 'app',
+    name: 'main',
+    sha: 'c'.repeat(40),
+  });
+
+  const response = await fetch(`${GITHUB_API_URL}/repos/example/app/branches/main`);
+  const branch: unknown = await response.json();
+
+  expect(branch).toStrictEqual({ name: 'main', commit: { sha: 'c'.repeat(40) } });
+});
+
 test('it lists the issues of a repo with their authors, the App for an issue it opened', async () => {
   await githubCollections.issues.create({
     owner: 'example',

@@ -67,8 +67,10 @@ its last commit.
 
 With `--pr`, the CLI reads the pull request from GitHub and takes its title, body, head and base
 from there, so it refuses `--base` and `--head`. The repo comes from `--repo`, or from the origin
-remote's URL. The base is the merge-base of the pull request's base and head. One exception: a
-re-review starts from the reviewed head of the last fully completed review, under the rule in
+remote's URL. The config comes from the tip of the pull request's base branch, under
+[resolution](../config/review-config.md#resolution). The base is the merge-base of the pull
+request's base and head. One exception: a re-review starts from the reviewed head of the last fully
+completed review, under the rule in
 [re-review and fix confirmation](./github-app.md#re-review-and-fix-confirmation). `--full` keeps the
 merge-base as the base, so the review covers the whole pull request again, such as to confirm a fix
 whose commit an earlier delta left out. The CLI refuses a review of a head that a lens review with

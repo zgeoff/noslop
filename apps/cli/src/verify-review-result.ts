@@ -4,7 +4,7 @@ import { loadConfig } from '@noslop/config';
 import type { PullRequestRef, ReviewResult } from '@noslop/contract';
 import { reviewResultSchema } from '@noslop/contract';
 import type { GitHubConnection } from '@noslop/github';
-import { createGitHubFileReader, readPullRequestState } from '@noslop/github';
+import { createGitHubFileReader, readBranchHead, readPullRequestState } from '@noslop/github';
 
 // parses a review result and checks it against its pull request on GitHub: it must review the head,
 // under a config whose hash matches the config on the base branch, so a relay posts only a review the
@@ -57,20 +57,6 @@ export async function verifyReviewResult(
   }
 
   return result;
-}
-
-async function readBranchHead(
-  connection: GitHubConnection,
-  pr: PullRequestRef,
-  branch: string,
-): Promise<string> {
-  const response = await connection.client.request('GET /repos/{owner}/{repo}/branches/{branch}', {
-    owner: pr.owner,
-    repo: pr.repo,
-    branch,
-  });
-
-  return response.data.commit.sha;
 }
 
 // the folder the base branch's files stand at while its config loads with no checkout; the hash
