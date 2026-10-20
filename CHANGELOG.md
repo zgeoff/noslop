@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.4.6](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.5...@noslop/cli@0.4.6) (2026-10-20)
+
+### Features
+
+- **geo-1438:** narrow the naming lens to promises lint cannot check
+  ([#57](https://github.com/zgeoff/noslop/issues/57))
+  ([5acac9f](https://github.com/zgeoff/noslop/commit/5acac9f4b145329512876e5a2f1c33183d416ac1))
+
+### Bug Fixes
+
+- **geo-1500:** refuse a fixes-only run with no fixed answer to check
+  ([#58](https://github.com/zgeoff/noslop/issues/58))
+  ([3238eca](https://github.com/zgeoff/noslop/commit/3238eca35247368e85144f0d698c326d0f0b42da))
+
 ## [0.4.5](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.4...@noslop/cli@0.4.5) (2026-10-20)
 
 ### Features
