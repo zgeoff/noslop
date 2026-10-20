@@ -445,7 +445,7 @@ test('it checks a hand edit in a merge that git merged on its own', async () => 
   expect(stub.requests[0]?.prompt).toInclude('     1 + export const maxPages = 80;');
 });
 
-test('it drops a resolution finding that matches one answered not-a-defect', async () => {
+test('it drops a resolution finding that matches one answered not-a-defect and judges a verdict resting only on it sound', async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
@@ -537,6 +537,10 @@ test('it drops a resolution finding that matches one answered not-a-defect', asy
       ruleQuote: null,
       answeredID: '2222222222222222',
     },
+  ]);
+
+  expect(run.checks).toStrictEqual([
+    { merge, sound: true, reason: 'Three retries can stack past the timeout.' },
   ]);
 });
 

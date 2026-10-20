@@ -67,7 +67,8 @@ finding that matches one answered `not-a-defect` drops, as in a review. The repo
 finding at the pull request's head, so the run moves its anchor from the merge's lines to the same
 lines at the head. A finding whose lines a later commit rewrote keeps its anchor at the merge and
 goes to an issue comment that names the merge and those lines. A resolution with a finding is not
-sound, whatever the call answers. A merge of more than 2 parents is not sound with no call, because
+sound, whatever the call answers. A not-sound answer that rests only on findings the author answered
+`not-a-defect` holds. A merge of more than 2 parents is not sound with no call, because
 `git merge-tree` rebuilds a merge of 2 parents only.
 
 The result lists each verdict in its resolution checks, and the summary shows each one with its
