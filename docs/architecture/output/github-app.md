@@ -133,8 +133,9 @@ developer's review runs as a delta, drops a finding answered `not-a-defect`, and
 the App's review does. A review of a pull request loads that config from the base branch before it
 reads any comment, so a pull request cannot name its own App. With the App's keys present, the CLI
 refuses a `github.app` slug that names another App, since the App's own comments would then hold no
-state. A connection without the App's keys never posts: the GitHub reporter and `post` refuse it,
-because a comment under the token's login holds no state for a later review.
+state. For the same reason, `verify` and `post` refuse a result when the base branch's slug names
+another App than the keys. A connection without the App's keys never posts: the GitHub reporter and
+`post` refuse it, because a comment under the token's login holds no state for a later review.
 
 ## Dispositions
 
