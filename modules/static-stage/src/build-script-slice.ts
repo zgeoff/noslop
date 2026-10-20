@@ -1,6 +1,7 @@
 import type { ReviewConfig } from '@noslop/contract';
 import type { AnalyzedFile, PackageManifest } from './analyzed-file';
 import { isGlobMatch } from './is-glob-match';
+import { isInPackage } from './is-in-package';
 
 export interface ScriptSliceInputs {
   files: readonly AnalyzedFile[];
@@ -28,7 +29,7 @@ export function buildScriptSlice(inputs: ScriptSliceInputs): string[] {
 
 function isScriptRun(path: string, inputs: ScriptSliceInputs): boolean {
   const owners = inputs.manifests
-    .filter((manifest) => manifest.directory === '.' || path.startsWith(`${manifest.directory}/`))
+    .filter((manifest) => isInPackage(manifest, path))
     .map((manifest) => ({
       manifest,
       relative: manifest.directory === '.' ? path : path.slice(manifest.directory.length + 1),
