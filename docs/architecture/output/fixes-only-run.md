@@ -28,7 +28,9 @@ cases:
 A `fixed` reply posted after an earlier fixes-only run passed its commit gets a call too, so the
 next run, at the same head or a later one, checks it. Its diff starts from the newer of the head
 that posted the finding and the head of the newest review that ran its lenses, because that review
-judged every fix before it. A fix the summary already holds as confirmed gets no call.
+judged every fix before it. A rebase that took either head off the branch changes where the diff
+starts, as the mapping after a rebase describes. A fix the summary already holds as confirmed gets
+no call.
 
 The result lists each verdict in its fix checks, so the `github` reporter reads the same verdicts
 whether the CLI or `noslop post` sends it. A yes confirms the fix under
@@ -77,8 +79,13 @@ The run refuses, and gives the reason, in five cases:
 - The repo holds no commit of the reviewed head.
 
 A `fixed` answer that names a fix commit the rebase rewrote counts the branch commit with the same
-change, as the check counts it, and the run judges that commit. A `fixed` reply posted after an
-earlier fixes-only run gets no call when the head its diff would start from is off the branch, since
+change, as the check counts it, and the run judges that commit.
+
+A `fixed` reply posted after an earlier fixes-only run needs a head its diff can start from. The run
+maps the head that posted the finding onto the branch, by the same patch match. A lens review whose
+head a rebase took off the branch judged each fix before it by the sha that fix had then, and the
+check counts no rewritten sha as judged, so that lens head bounds no diff and the run judges the fix
+again. A fix gets no call when the head that posted its finding has no match on the branch, since
 the run cannot tell whether the fix came after that head.
 
 ## The resolution check
