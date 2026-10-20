@@ -12,16 +12,16 @@ export interface FixCheckPromptInput {
 }
 
 // the prompt of one fix check, which reads the finding as posted, the code it anchored to, the fix
-// commit's whole patch and the diff since then of its file and the fix commit's files, and answers
-// whether the fix commit fixes it; it raises no other defect
+// commit's whole patch and the diff from the fix commit to the head, and answers whether the fix
+// commit fixes it and the fix holds at the head; it raises no other defect
 export function buildFixCheckPrompt(input: FixCheckPromptInput): string {
   return [
     'A reviewer posted the finding below on a pull request, and the author answered that a later commit fixes it.',
-    "Judge from the finding, the code it anchored to, the fix commit's patch and the diff since then whether the fix commit fixes the finding. Read no files.",
+    "Judge from the finding, the code it anchored to, the fix commit's patch and the diff from the fix commit to the head whether the fix commit fixes the finding and the fix holds at the head. Read no files.",
     '',
-    "1. Answer `fixed: true` only when the fix commit's patch removes the defect the finding describes. The fix may be in another file, such as a new test that the finding asks for.",
-    '2. Answer `fixed: false` when the patch leaves the defect in place, moves it elsewhere, or changes only code the finding does not describe, or when the diff since then puts the defect back.',
-    '3. A later commit may move the code or the test of the fix to a file the diff since then leaves out. Count a line of the fix that the diff since then deletes as moved, not undone, unless that diff puts the defect back.',
+    "1. Answer `fixed: true` only when the fix commit's patch removes the defect the finding describes and the fix holds at the head. The fix may be in another file, such as a new test that the finding asks for.",
+    '2. Answer `fixed: false` when the patch leaves the defect in place, moves it elsewhere, or changes only code the finding does not describe, or when the diff from the fix commit to the head undoes the fix.',
+    '3. A later commit may move the code or the test of the fix to another file. Count a line of the fix that the diff from the fix commit to the head deletes as moved only when that diff adds the same line in another file. Otherwise count the fix undone.',
     '4. Give the reason in one line.',
     '5. Report no other defect, however the patch or the diff looks.',
     '',
@@ -43,10 +43,10 @@ export function buildFixCheckPrompt(input: FixCheckPromptInput): string {
     input.patch === '' ? '(the commit changes no file)' : input.patch,
     '```',
     '',
-    `## The diff since then of \`${input.path}\` and of each file the fix commit changes`,
+    '## The diff from the fix commit to the head',
     '',
     '```diff',
-    input.diff === '' ? '(no change to these files)' : input.diff,
+    input.diff === '' ? '(no commit after the fix commit)' : input.diff,
     '```',
   ].join('\n');
 }

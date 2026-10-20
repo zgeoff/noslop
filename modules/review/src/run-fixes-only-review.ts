@@ -435,22 +435,19 @@ async function runFixCheck(
     return { check };
   }
 
-  const paths = [...new Set([fix.path, ...commitFiles])];
-
   const code = await readAnchoredCode(input, fix, base);
 
-  // a path is a file's own name, never a glob
+  // every file, since a later commit can move the fix's code or its test to a file the fix commit
+  // never changed, and only the line it adds there tells a move from a deletion
   const diff = await readGitText(input, [
-    '--literal-pathspecs',
     'diff',
-    base,
+    '--no-color',
+    '--no-ext-diff',
+    '--no-renames',
+    target.base.commit,
     input.head,
-    '--',
-    ...paths,
   ]);
 
-  // the commit's own patch, since a later commit can move its code or its test to a file the diff to
-  // the head leaves out
   const patch = await readGitText(input, [
     'diff-tree',
     '-p',

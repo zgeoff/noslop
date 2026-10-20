@@ -9,12 +9,13 @@ disposition is `fixed` with a commit among the new commits, it makes one small c
 the static stage gets [its static check](#static-findings) in place of the call.
 
 The fix call reads the finding, the code around the line it anchored to at that head, the whole
-patch of the fix commit, and the diff since that head of the finding's file and of each file the fix
-commit changes. It answers whether the fix commit fixes the finding, with a one-line reason. A fix
-such as a new test in another file therefore gets judged on that test. The patch shows the fix even
-when a later commit moves its code or its test to a file the diff since that head leaves out, and
-that diff shows a later commit that puts the defect back. A fix whose code, patch or diff passes the
-config's file limit gets no call and no verdict, because a cut diff can hide the fix, and the
+patch of the fix commit, and the diff of every file from the fix commit to the head. It answers
+whether the fix commit fixes the finding and the fix holds at the head, with a one-line reason. A
+fix such as a new test in another file therefore gets judged on that test. The later diff covers
+every file because a later commit can move the fix's code or its test to a file the fix commit never
+changed. A line of the fix that the later diff deletes counts as moved only when that diff adds it
+in another file, so a deleted test leaves the fix not fixed. A fix whose code, patch or diff passes
+the config's file limit gets no call and no verdict, because a cut diff can hide the fix, and the
 summary says why the fix stays unconfirmed. A fix commit that changes no file of the pull request's
 diff gets no call either, and the run judges it not fixed, by the same rule the
 [check](./github-app.md#re-review-and-fix-confirmation) applies.
