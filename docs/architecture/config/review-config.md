@@ -45,12 +45,15 @@ inside the same repo and ref. The CLI reads a remote file through GitHub, read-o
 A cycle in the chain fails the load, and so does a parent that does not exist. The repo's own file
 is the only one that may be missing.
 
-A review reads the repo's files of the chain and its rules from the commit its change starts from: a
-pull request's base, or a local change's base. It never reads them from the change itself, because a
-pull request must not weaken its own review. A pull request that edits `review.json` or a rules file
-is reviewed under the config it would replace, and the edit applies to the reviews after it merges.
-A remote parent and a rules repo outside the reviewed repo read as at any other load.
-`noslop config` reads the working tree, so a config change can be tried out before it lands.
+A review of a pull request reads the repo's files of the chain and its rules from the tip of the
+pull request's base branch, the commit `noslop verify` checks a result against. The tip can be ahead
+of GitHub's base commit of the pull request, so a pull request opened before a stricter rule landed
+is reviewed under the rule. A review without `--pr` reads them from its own base. A review never
+reads them from the change itself, because a pull request must not weaken its own review. A pull
+request that edits `review.json` or a rules file is reviewed under the config it would replace, and
+the edit applies to the reviews after it merges. A remote parent and a rules repo outside the
+reviewed repo read as at any other load. `noslop config` reads the working tree, so a config change
+can be tried out before it lands.
 
 The merged config is validated once, after the merge, because a single file is only a partial
 config. A key the schema does not know fails the load, with the dotted path of the key, so a typo

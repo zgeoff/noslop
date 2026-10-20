@@ -466,11 +466,20 @@ export const githubHandlers = [
         query.where({ owner: info.params.owner, repo: info.params.repo, name }),
       );
 
-      if (branch === undefined) {
+      if (branch !== undefined) {
+        return HttpResponse.json({ name: branch.name, commit: { sha: branch.sha } });
+      }
+
+      // GitHub holds each pull request's base branch, so one with no record is at the base commit
+      const pull = githubCollections.pullRequests.findFirst((query) =>
+        query.where({ owner: info.params.owner, repo: info.params.repo, baseRef: name }),
+      );
+
+      if (pull === undefined) {
         return buildNotFound();
       }
 
-      return HttpResponse.json({ name: branch.name, commit: { sha: branch.sha } });
+      return HttpResponse.json({ name, commit: { sha: pull.baseSha } });
     },
   ),
 

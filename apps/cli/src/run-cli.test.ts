@@ -5327,12 +5327,23 @@ test('it refuses a result when the config on the base branch changed after the r
   );
 });
 
-test('it refuses a result that matches the config at the pull request base when the base branch moved on to a new config', async () => {
+test('it reviews a pull request under the config at the tip of its base branch when the base commit of the pull request lags it', async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
-    { message: 'base', files: { 'review.json': '{}\n', 'src/a.ts': 'export const a = 1;\n' } },
+    {
+      message: 'base',
+      files: {
+        'review.json': '{ "lenses": { "correctness": { "model": "base-model" } } }\n',
+        'src/a.ts': 'export const a = 1;\n',
+      },
+    },
     { message: 'Change a', files: { 'src/a.ts': 'export const a = 2;\n' } },
+    {
+      message: 'Use a stricter model',
+      parent: 0,
+      files: { 'review.json': '{ "lenses": { "correctness": { "model": "stricter-model" } } }\n' },
+    },
   ]);
 
   await githubCollections.pullRequests.create({
@@ -5347,7 +5358,43 @@ test('it refuses a result that matches the config at the pull request base when 
     owner: 'example',
     repo: 'app',
     name: 'main',
-    sha: 'e'.repeat(40),
+    sha: repo.commits[2] ?? '',
+  });
+
+  const stub = buildStubAdapter({ light: [{ findings: { correctness: [] } }] });
+
+  await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'json', '--json'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  expect(stub.requests.map((request) => request.model)).toStrictEqual(['stricter-model']);
+});
+
+test('it verifies the result of a review whose pull request has a base commit behind the tip of its base branch, with a config change between them', async () => {
+  const ctx = await setupTest();
+
+  const stricter = '{ "lenses": { "correctness": { "model": "stricter-model" } } }\n';
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'review.json': '{}\n', 'src/a.ts': 'export const a = 1;\n' } },
+    { message: 'Change a', files: { 'src/a.ts': 'export const a = 2;\n' } },
+    { message: 'Use a stricter model', parent: 0, files: { 'review.json': stricter } },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[1] ?? '',
+  });
+
+  await githubCollections.branches.create({
+    owner: 'example',
+    repo: 'app',
+    name: 'main',
+    sha: repo.commits[2] ?? '',
   });
 
   await githubCollections.files.create({
@@ -5361,9 +5408,9 @@ test('it refuses a result that matches the config at the pull request base when 
   await githubCollections.files.create({
     owner: 'example',
     repo: 'app',
-    ref: 'e'.repeat(40),
+    ref: repo.commits[2] ?? '',
     path: 'review.json',
-    content: '{ "lenses": { "correctness": { "model": "stricter-model" } } }\n',
+    content: stricter,
   });
 
   const stub = buildStubAdapter({ light: [{ findings: { correctness: [] } }] });
@@ -5380,11 +5427,134 @@ test('it refuses a result that matches the config at the pull request base when 
     ctx.buildContext(repo.path, stub.adapter),
   );
 
+  expect({ code, stderr: ctx.stderr.join('') }).toStrictEqual({ code: 0, stderr: '' });
+});
+
+test('it refuses a result when a config change lands on the base branch after the review', async () => {
+  const ctx = await setupTest();
+
+  const stricter = '{ "lenses": { "correctness": { "model": "stricter-model" } } }\n';
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'review.json': '{}\n', 'src/a.ts': 'export const a = 1;\n' } },
+    { message: 'Change a', files: { 'src/a.ts': 'export const a = 2;\n' } },
+    { message: 'Use a stricter model', parent: 0, files: { 'review.json': stricter } },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[1] ?? '',
+  });
+
+  await githubCollections.branches.create({
+    owner: 'example',
+    repo: 'app',
+    name: 'main',
+    sha: repo.commits[0] ?? '',
+  });
+
+  await githubCollections.files.create({
+    owner: 'example',
+    repo: 'app',
+    ref: repo.commits[2] ?? '',
+    path: 'review.json',
+    content: stricter,
+  });
+
+  const stub = buildStubAdapter({ light: [{ findings: { correctness: [] } }] });
+
+  await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'json', '--json'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  await Bun.write(join(ctx.directory, 'result.json'), ctx.stdout.splice(0).join(''));
+
+  await githubCollections.branches.update((query) => query.where({ name: 'main' }), {
+    data(record) {
+      record.sha = repo.commits[2] ?? '';
+    },
+  });
+
+  const code = await runCLI(
+    ['verify', join(ctx.directory, 'result.json')],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
   expect(code).toBe(1);
 
   expect(ctx.stderr.join('')).toMatch(
     /^noslop: the result does not verify: its config hash [0-9a-f]{16} differs from [0-9a-f]{16}, the hash of the config on main\n$/u,
   );
+});
+
+test('it verifies a new review after a config change lands on the base branch', async () => {
+  const ctx = await setupTest();
+
+  const stricter = '{ "lenses": { "correctness": { "model": "stricter-model" } } }\n';
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'review.json': '{}\n', 'src/a.ts': 'export const a = 1;\n' } },
+    { message: 'Change a', files: { 'src/a.ts': 'export const a = 2;\n' } },
+    { message: 'Use a stricter model', parent: 0, files: { 'review.json': stricter } },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[1] ?? '',
+  });
+
+  await githubCollections.branches.create({
+    owner: 'example',
+    repo: 'app',
+    name: 'main',
+    sha: repo.commits[0] ?? '',
+  });
+
+  await githubCollections.files.create({
+    owner: 'example',
+    repo: 'app',
+    ref: repo.commits[2] ?? '',
+    path: 'review.json',
+    content: stricter,
+  });
+
+  const stub = buildStubAdapter({
+    light: [{ findings: { correctness: [] } }, { findings: { correctness: [] } }],
+  });
+
+  await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'json', '--json'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  await githubCollections.branches.update((query) => query.where({ name: 'main' }), {
+    data(record) {
+      record.sha = repo.commits[2] ?? '';
+    },
+  });
+
+  ctx.stdout.splice(0);
+
+  await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'json', '--json'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  await Bun.write(join(ctx.directory, 'result.json'), ctx.stdout.splice(0).join(''));
+
+  const code = await runCLI(
+    ['verify', join(ctx.directory, 'result.json')],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  expect({ code, stderr: ctx.stderr.join('') }).toStrictEqual({ code: 0, stderr: '' });
 });
 
 test('it refuses a result when the parent config the base branch extends changed after the review', async () => {
@@ -5479,7 +5649,7 @@ test('it verifies a result against the config of the base branch the pull reques
     owner: 'example',
     repo: 'app',
     name: 'release',
-    sha: 'e'.repeat(40),
+    sha: repo.commits[0] ?? '',
   });
 
   await githubCollections.branches.create({
@@ -5492,7 +5662,7 @@ test('it verifies a result against the config of the base branch the pull reques
   await githubCollections.files.create({
     owner: 'example',
     repo: 'app',
-    ref: 'e'.repeat(40),
+    ref: repo.commits[0] ?? '',
     path: 'review.json',
     content: release,
   });

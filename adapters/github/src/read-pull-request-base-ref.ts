@@ -1,9 +1,9 @@
 import type { PullRequestRef } from '@noslop/contract';
 import type { GitHubConnection } from './create-github-connection';
 
-// the commit at the tip of the branch the pull request merges into, which a review loads its config
-// from before it reads the comments that config decides whether to trust
-export async function readPullRequestBase(
+// the name of the branch the pull request merges into, whose tip a review loads its config from before
+// it reads the comments that config decides whether to trust
+export async function readPullRequestBaseRef(
   connection: GitHubConnection,
   pr: PullRequestRef,
 ): Promise<string> {
@@ -13,5 +13,5 @@ export async function readPullRequestBase(
     pull_number: pr.number,
   });
 
-  return pull.data.base.sha;
+  return pull.data.base.ref;
 }
