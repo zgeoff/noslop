@@ -12,6 +12,7 @@ export * from './read-linked-issue';
 export * from './read-pull-request-base-ref';
 export * from './read-pull-request-state';
 export * from './read-thread-dispositions';
+export * from './read-github-check';
 export * from './run-github-check';
 export type { CheckOutcome } from './build-check-outcome';
 export type { SummaryMarker } from './summary-marker';

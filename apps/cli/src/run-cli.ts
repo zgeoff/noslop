@@ -215,11 +215,21 @@ export async function runCLI(argv: readonly string[], ctx: CLIContext): Promise<
       pr: { type: 'string', description: 'The pull request number', required: true },
       repo: { type: 'string', description: 'The repo as owner/name', required: true },
       json: JSON_ARG,
+      'read-only': {
+        type: 'boolean',
+        description:
+          'Read the outcome with any token and write nothing to GitHub; exits 1 unless the check passes',
+      },
     },
     run: (command) =>
       run(() =>
         runCheckCommand(
-          { pr: command.values.pr, repo: command.values.repo, json: command.values.json === true },
+          {
+            pr: command.values.pr,
+            repo: command.values.repo,
+            json: command.values.json === true,
+            readOnly: command.values['read-only'] === true,
+          },
           ctx,
         ),
       ),

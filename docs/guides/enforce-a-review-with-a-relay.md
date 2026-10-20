@@ -2,20 +2,21 @@
 
 Each developer runs the noslop review on their own machine, under their own model seat, and a relay
 that your org writes posts the result on the pull request as your GitHub App. CI then runs
-`noslop check`, which reads what the App posted and makes no model call, so a pull request cannot
-merge until a review of its head is posted and every finding holds an answer. noslop decides whether
-a result is valid; your relay owns the transport, the identity, the hosting and any policy on top.
+`noslop check --read-only` with the job's own token. The check reads what the App posted, makes no
+model call and writes nothing to GitHub, so a pull request cannot merge until a review of its head
+is posted and every finding holds an answer. noslop decides whether a result is valid; your relay
+owns the transport, the identity, the hosting and any policy on top.
 
 ```mermaid
 flowchart LR
   dev[developer machine] -->|noslop review --report webhook| relay[your relay]
   relay -->|verify, then post as the App| github[GitHub]
-  ci[CI job] -->|noslop check| github
+  ci[CI job] -->|noslop check --read-only| github
 ```
 
 You need a GitHub App installed on the repo, as [set up a repo](./set-up-a-repo.md) describes, and a
-place to host the relay. The relay and the CI job hold the App's keys; a developer's machine never
-does. Without the App's keys, a review reads the pull request through GitHub's API with the
+place to host the relay. Only the relay holds the App's keys; a developer's machine and the CI job
+never do. Without the App's keys, a review reads the pull request through GitHub's API with the
 developer's `GH_TOKEN`, or `GITHUB_TOKEN` when `GH_TOKEN` is unset. On a public repo, a review with
 neither token reads the pull request anonymously. Your org issues the token: noslop stores none and
 runs no login.
@@ -104,20 +105,39 @@ post one review at once can each file the same follow-up issue.
 
 ## Gate the merge in CI
 
-1. Give the CI job the App's three keys as secrets.
+The relay's `post` sets the `noslop` check run when it posts a review, and a required CI job gates
+the merge. The job runs a read-only check with its own `GITHUB_TOKEN`, so CI never holds the App's
+keys. A branch that edits the workflow can read every secret the job holds, and with the App's keys
+it could post a review as the App.
+
+1. Give the job's token read access to the pull request:
+
+   ```yaml
+   permissions:
+     contents: read
+     pull-requests: read
+     issues: read
+   ```
+
 2. Run the check on each pull request, and on each comment on one, so an answer to a finding re-runs
    it:
 
    ```bash
-   noslop check --pr <number> --repo <owner/name>
+   noslop check --read-only --pr <number> --repo <owner/name>
    ```
+
+   Set `GITHUB_TOKEN` in the step's environment to `${{ github.token }}`.
 
 3. Make the job required in the branch rules.
 
-Before a review of the head is posted, the job prints `noslop: no noslop review for this commit` and
-exits 1. Once a review is posted, the job sets the `noslop` check run and exits 0. The check run
+The check trusts only the comments of the App that `github.app` names in the config on the base
+branch, so it refuses to run while that config names no App. Before a review of the head is posted,
+the job prints `noslop: no noslop review for this commit` and exits 1. Once a review is posted, the
+job prints the outcome and each open finding, and exits 0 only when the check passes. The check
 passes once the review of the head ran with no failed call and every finding holds a valid answer,
-as [answer a finding](./answer-a-finding.md) describes. A review with a failed call fails the check
-run while the job exits 0, and the check run stays failed until a review of the head runs with no
-failed call. Require the `noslop` check run too, so a pull request with an open finding cannot
-merge.
+as [answer a finding](./answer-a-finding.md) describes.
+
+Leave the `noslop` check run out of the branch rules. The relay sets it only when it posts, and an
+answer to a finding sets nothing, so the check run shows the state at post time. Require it only
+when your relay also runs `noslop check` with the App's keys on each comment webhook, as
+[the GitHub App](../architecture/output/github-app.md) does.
