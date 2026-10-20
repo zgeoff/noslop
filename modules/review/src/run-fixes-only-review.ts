@@ -68,9 +68,6 @@ export interface FixesOnlyReviewInput {
   title: string;
   configHash: string;
   fixes: readonly AnsweredFix[];
-
-  // the config's file limit: a fix whose code, patch or diff passes it gets no call and stays
-  // unconfirmed
   maxFileChars: number;
   adapter: ReviewAdapter;
   tempDir: string;
