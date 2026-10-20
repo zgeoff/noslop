@@ -23,8 +23,8 @@ export interface DismissedFindingsSplit {
 }
 
 // splits off each finding that matches one the author answered `not-a-defect`: the same ID, or the
-// same file, criterion and rule with an anchor nearby or the same code; an answered finding whose
-// marker holds no criterion matches by its ID alone
+// same file, criterion and rule with an anchor nearby or the same code; a P1 or security finding, and
+// an answered finding whose marker holds no criterion, match by the ID alone
 export function splitDismissedFindings(input: DismissedFindingsInput): DismissedFindingsSplit {
   const kept: Finding[] = [];
   const dismissed: DismissedFindingsSplit['dismissed'] = [];
@@ -54,6 +54,10 @@ function isAnsweredBy(
     return true;
   }
 
+  if (needsOwnAnswer(finding)) {
+    return false;
+  }
+
   const isSameRule =
     finding.anchor.path === earlier.path &&
     finding.criterion === earlier.criterion &&
@@ -64,6 +68,12 @@ function isAnsweredBy(
   }
 
   return isNearby(finding, earlier, maxLines) || hasSameCode(item.code, answered.code);
+}
+
+// a P1 or security finding near an answered one may be a second, real defect, so only an answer to its
+// own ID drops it
+function needsOwnAnswer(finding: Finding): boolean {
+  return finding.severity === 'P1' || finding.criterion === 'security-defect';
 }
 
 function isNearby(finding: Finding, earlier: DismissedFinding, maxLines: number): boolean {
