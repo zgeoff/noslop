@@ -2,10 +2,11 @@
 
 ## [0.4.4](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.3...@noslop/cli@0.4.4) (2026-10-20)
 
-
 ### Features
 
-* **geo-1490:** map a rebased reviewed head for a fixes-only run ([#52](https://github.com/zgeoff/noslop/issues/52)) ([4071fd4](https://github.com/zgeoff/noslop/commit/4071fd441ca341eebcec6ad57b1b7174a0a0c174))
+- **geo-1490:** map a rebased reviewed head for a fixes-only run
+  ([#52](https://github.com/zgeoff/noslop/issues/52))
+  ([4071fd4](https://github.com/zgeoff/noslop/commit/4071fd441ca341eebcec6ad57b1b7174a0a0c174))
 
 ## [0.4.3](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.2...@noslop/cli@0.4.3) (2026-10-20)
 
