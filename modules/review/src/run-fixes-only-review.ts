@@ -29,7 +29,7 @@ export interface AnsweredFix {
   // the finding as posted: its title, body, fix, lens, criterion and rule
   comment: string;
 
-  // the sha the answer names
+  // the sha the answer names, or the branch commit with its change when a rebase rewrote it
   commit: string;
 
   // the head of the review that posted the finding, which a marker posted before the field lacks
@@ -183,6 +183,13 @@ async function readFixBase(
     return null;
   }
 
+  // a head a rebase left off the branch bounds no diff of it, and the fix must still come after it
+  const held = await Promise.all(floors.map((head) => readBranchContainment(input, head)));
+
+  if (held.includes(false)) {
+    return null;
+  }
+
   const newer = second === undefined ? first : await readNewerHead(input, first, second);
 
   const late = await input.runner.run(['git', 'rev-list', `${newer}..${input.head}`], {
@@ -200,6 +207,21 @@ function findOneCommit(range: readonly string[], sha: string): string | null {
   const matches = range.filter((commit) => commit.startsWith(sha));
 
   return matches.length === 1 ? (matches[0] ?? null) : null;
+}
+
+// reads from git whether the pull request's head holds the commit
+async function readBranchContainment(
+  input: FixesOnlyReviewInput,
+  commit: string,
+): Promise<boolean> {
+  const result = await input.runner.run(
+    ['git', 'merge-base', '--is-ancestor', commit, input.head],
+    {
+      cwd: input.repoDir,
+    },
+  );
+
+  return result.exitCode === 0;
 }
 
 // the head of the two that descends from the other, or the first when neither does

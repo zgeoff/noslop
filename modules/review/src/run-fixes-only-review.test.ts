@@ -544,6 +544,57 @@ test('it asks about a fixed reply whose commit came before the run, from the hea
   ]);
 });
 
+test('it asks nothing about a late fixed reply when a rebase left the head that posted the finding off the branch', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const separator = "";\n' } },
+    { message: 'Describe the app', files: { 'README.md': '# app\n' } },
+    {
+      message: 'Reject an empty separator',
+      parent: 0,
+      files: { 'src/scan.ts': 'export const separator = ":";\n' },
+    },
+    { message: 'Add a tab', files: { 'src/tab.ts': 'export const tab = "\\t";\n' } },
+  ]);
+
+  const stub = buildStubAdapter({
+    'fix-1111111111111111': [{ fixed: true, reason: 'The separator is a colon now.' }],
+  });
+
+  const result = await runFixesOnlyReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/app',
+    pullRequest: { owner: 'example', repo: 'app', number: 9 },
+    base: repo.commits[2] ?? '',
+    head: repo.commits[3] ?? '',
+    mergeBase: repo.commits[0] ?? '',
+    lensHead: repo.commits[0] ?? '',
+    title: 'Scan the header line',
+    configHash: 'hash',
+    fixes: [
+      {
+        id: '1111111111111111',
+        title: 'Reject an empty separator',
+        lens: 'correctness',
+        path: 'src/scan.ts',
+        line: 1,
+        comment: 'An empty separator splits the line into single characters.',
+        commit: (repo.commits[2] ?? '').slice(0, 7),
+        postedHead: repo.commits[1] ?? '',
+      },
+    ],
+    maxFileChars: 10_000,
+    adapter: stub.adapter,
+    tempDir: ctx.directory,
+    logger: ctx.logger,
+  });
+
+  expect(stub.requests).toStrictEqual([]);
+  expect(result.fixChecks).toStrictEqual([]);
+});
+
 test('it starts the diff of a late fixed reply at the lens head when the lens head is newer than the head that posted the finding', async () => {
   const ctx = await setupTest();
 
