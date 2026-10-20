@@ -4048,6 +4048,130 @@ test('it rejects a fixed reply to a static finding under --fixes-only when the s
   });
 });
 
+test('it rejects a fixed reply to a static finding under --fixes-only when a rebase moved the unasserted test down', async () => {
+  const ctx = await setupTest();
+
+  const header =
+    "import { test } from 'bun:test';\nimport { split } from './scan';\n\nconst sample = 'a:b';\n";
+
+  const notes = Array.from({ length: 10 }, (_, index) => `// note ${index + 1}\n`).join('');
+  const unasserted = "\ntest('it splits on the separator', () => {\n  split('a:b');\n});\n";
+  const longer = "\ntest('it splits on the separator', () => {\n  split('a:b:c');\n});\n";
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/scan.ts': 'export const split = (line: string) => line;\n',
+        'src/scan.test.ts': header,
+      },
+    },
+    { message: 'Note the scanner tests', parent: 0, files: { 'src/scan.test.ts': notes + header } },
+    { message: 'Test the scanner', parent: 0, files: { 'src/scan.test.ts': header + unasserted } },
+    {
+      message: 'Test the scanner',
+      parent: 1,
+      files: { 'src/scan.test.ts': notes + header + unasserted },
+    },
+    { message: 'Split a longer line', files: { 'src/scan.test.ts': notes + header + longer } },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    title: 'Test the scanner',
+    body: 'Tests the scanner.',
+    baseSha: repo.commits[1] ?? '',
+    headSha: repo.commits[4] ?? '',
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[2] ?? '',
+    files: ['src/scan.test.ts'],
+    isOnBranch: false,
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[3] ?? '',
+    files: ['src/scan.test.ts'],
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[4] ?? '',
+    files: ['src/scan.test.ts'],
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/scan.test.ts',
+    lines: [15, 16, 17, 18, 19],
+  });
+
+  // the finding sits on the test's line at the head that posted it, before the rebase
+  const thread = await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/scan.test.ts',
+    line: 6,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:finding {"id":"f3a135d185244d40","title":"Test \\"it splits on the separator\\" asserts nothing","path":"src/scan.test.ts","lens":"static","severity":"P2","riskClass":null,"writtenByChange":true,"head":"${repo.commits[2] ?? ''}"} -->`,
+  });
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    body: `fixed ${repo.commits[4] ?? ''}`,
+    authorLogin: 'dev',
+    inReplyToID: thread.id,
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${repo.commits[2] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":1,"reported":["f3a135d185244d40"],"failedCalls":0} -->`,
+  });
+
+  const stub = buildStubAdapter({});
+
+  await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--fixes-only', '--report', 'github'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  const summary = githubCollections.issueComments
+    .all()
+    .findLast((comment) => comment.body.includes('<!-- noslop:summary'));
+
+  expect(summary?.body).toInclude(
+    `❌ Test "it splits on the separator" asserts nothing: not fixed in \`${(repo.commits[4] ?? '').slice(0, 7)}\` (the static check still reports it at the head)`,
+  );
+
+  expect(summary?.body).toInclude('"confirmed":[]');
+
+  expect(githubCollections.checkRuns.all().at(-1)).toMatchObject({
+    headSha: repo.commits[4] ?? '',
+    conclusion: 'failure',
+  });
+});
+
 test('it rejects a fixed reply to a format-only finding under --fixes-only by the linked issue, when the fix leaves the hunk', async () => {
   const ctx = await setupTest();
 

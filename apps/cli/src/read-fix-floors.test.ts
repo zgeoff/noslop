@@ -14,7 +14,7 @@ async function setupTest() {
   return { directory, runner: createRunner() };
 }
 
-test('it maps a posting head a rebase rewrote onto its branch commit, and keeps a held lens head', async () => {
+test('it gives a posting head a rebase rewrote its branch commit beside it, and keeps a held lens head', async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
@@ -86,7 +86,8 @@ test('it maps a posting head a rebase rewrote onto its branch commit, and keeps 
         line: 2,
         comment: 'Reject an empty separator.',
         commit: repo.commits[4] ?? '',
-        postedHead: repo.commits[3] ?? '',
+        postedHead: repo.commits[2] ?? '',
+        postedBranchHead: repo.commits[3] ?? '',
       },
       {
         id: '2222222222222222',

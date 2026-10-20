@@ -21,7 +21,7 @@ export interface FixFloors {
 
 // a lens review judged the fixes before it by their shas then, and the check reads no rewritten sha
 // as judged, so a lens head that a rebase left off the branch bounds no late fix, while the head that
-// posted a finding stands as the branch commit the rebase made of it
+// posted a finding gets the branch commit the rebase made of it beside it
 export async function readFixFloors(runner: Runner, input: FixFloorsInput): Promise<FixFloors> {
   const reads = new Map<string, Promise<string>>();
 
@@ -47,7 +47,14 @@ export async function readFixFloors(runner: Runner, input: FixFloorsInput): Prom
   const fixes: AnsweredFix[] = [];
 
   for (const [index, fix] of input.fixes.entries()) {
-    fixes.push({ ...fix, postedHead: postedHeads[index] ?? null });
+    const branchHead = postedHeads[index] ?? null;
+
+    const placed =
+      branchHead === null || branchHead === fix.postedHead
+        ? fix
+        : { ...fix, postedBranchHead: branchHead };
+
+    fixes.push(placed);
   }
 
   return { lensHead: isLensHeadHeld ? input.lensHead : null, fixes };
