@@ -2323,6 +2323,59 @@ test('it leaves out a new script that an unchanged workflow names', async () => 
   expect(result.slices.scripts).toStrictEqual([]);
 });
 
+test('it leaves out a new script that a workflow names from its package folder', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'packages/web/package.json': '{\n  "name": "web"\n}\n',
+        '.github/workflows/release.yml': [
+          'on: push',
+          'jobs:',
+          '  release:',
+          '    runs-on: ubuntu-latest',
+          '    steps:',
+          '      - run: bun scripts/publish.ts',
+          '        working-directory: packages/web',
+          '',
+        ].join('\n'),
+      },
+    },
+    {
+      message: 'head',
+      files: {
+        'packages/web/scripts/publish.ts': 'console.log("publish");\n',
+      },
+    },
+  ]);
+
+  const config = BUILT_IN_DEFAULTS;
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config,
+    title: 'feat: publish the web package',
+    body: '',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(result.slices.scripts).toStrictEqual([]);
+});
+
 test('it lists a new script that a package script names only inside a longer path', async () => {
   const ctx = await setupTest();
 
