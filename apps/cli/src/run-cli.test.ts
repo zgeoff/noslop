@@ -7,9 +7,10 @@ import type { ReviewAdapter } from '@noslop/contract';
 import { reviewResultSchema } from '@noslop/contract';
 import { createGitHubConnection, createGitHubReporter } from '@noslop/github';
 import { createRunner } from '@noslop/runner';
-import { createSQLiteReporter, loadStore } from '@noslop/sqlite';
+import { createSQLiteReporter, loadStore, writeReview } from '@noslop/sqlite';
 import {
   STUB_APP_LOGIN,
+  buildMockFinding,
   buildMockReviewResult,
   buildStubAdapter,
   buildStubAppKey,
@@ -454,6 +455,91 @@ test.each([
 
   expect(code).toBe(1);
   expect(ctx.stderr.join('')).toStartWith(message);
+});
+
+test('it lists the findings of the repo, pull request and time the flags name, from a time with an offset', async () => {
+  const ctx = await setupTest();
+  const store = await loadStore(join(ctx.directory, 'data', 'store.sqlite'));
+
+  onTestFinished(() => store.destroy());
+
+  await writeReview(
+    store,
+    buildMockReviewResult({
+      reviewID: 'review-early',
+      pullRequest: { owner: 'example', repo: 'app', number: 7 },
+      endedAt: '2026-10-17T11:59:00.000Z',
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+  );
+
+  await writeReview(
+    store,
+    buildMockReviewResult({
+      reviewID: 'review-late',
+      pullRequest: { owner: 'example', repo: 'app', number: 7 },
+      endedAt: '2026-10-17T12:01:00.000Z',
+      findings: [buildMockFinding({ id: '2222222222222222' })],
+    }),
+  );
+
+  await writeReview(
+    store,
+    buildMockReviewResult({
+      reviewID: 'review-other-pr',
+      pullRequest: { owner: 'example', repo: 'app', number: 8 },
+      endedAt: '2026-10-17T12:01:00.000Z',
+      findings: [buildMockFinding({ id: '3333333333333333' })],
+    }),
+  );
+
+  await writeReview(
+    store,
+    buildMockReviewResult({
+      reviewID: 'review-other-repo',
+      repo: 'example/other',
+      pullRequest: { owner: 'example', repo: 'other', number: 7 },
+      endedAt: '2026-10-17T12:01:00.000Z',
+      findings: [buildMockFinding({ id: '4444444444444444' })],
+    }),
+  );
+
+  const code = await runCLI(
+    [
+      'store',
+      'query',
+      'findings-by-pr',
+      '--repo',
+      'example/app',
+      '--pr',
+      '7',
+      '--since',
+      '2026-10-17T14:00:00+02:00',
+      '--json',
+    ],
+    ctx.buildContext(ctx.directory, buildStubAdapter({}).adapter),
+  );
+
+  const rows: unknown = JSON.parse(ctx.stdout.join(''));
+
+  expect(code).toBe(0);
+
+  expect(rows).toStrictEqual([
+    {
+      repo: 'example/app',
+      pullRequest: 7,
+      head: 'b'.repeat(40),
+      id: '2222222222222222',
+      path: 'src/a.ts',
+      startLine: 1,
+      severity: 'P2',
+      lens: 'correctness',
+      rule: null,
+      title: 'Return the total of every item',
+      dispositionKind: null,
+      dispositionValue: null,
+    },
+  ]);
 });
 
 test('it reviews a pull request from GitHub and posts its findings and the check', async () => {
