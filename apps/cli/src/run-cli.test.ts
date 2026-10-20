@@ -4048,6 +4048,130 @@ test('it rejects a fixed reply to a static finding under --fixes-only when the s
   });
 });
 
+test('it rejects a fixed reply to a static finding under --fixes-only when a rebase moved the unasserted test down', async () => {
+  const ctx = await setupTest();
+
+  const header =
+    "import { test } from 'bun:test';\nimport { split } from './scan';\n\nconst sample = 'a:b';\n";
+
+  const notes = Array.from({ length: 10 }, (_, index) => `// note ${index + 1}\n`).join('');
+  const unasserted = "\ntest('it splits on the separator', () => {\n  split('a:b');\n});\n";
+  const longer = "\ntest('it splits on the separator', () => {\n  split('a:b:c');\n});\n";
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/scan.ts': 'export const split = (line: string) => line;\n',
+        'src/scan.test.ts': header,
+      },
+    },
+    { message: 'Note the scanner tests', parent: 0, files: { 'src/scan.test.ts': notes + header } },
+    { message: 'Test the scanner', parent: 0, files: { 'src/scan.test.ts': header + unasserted } },
+    {
+      message: 'Test the scanner',
+      parent: 1,
+      files: { 'src/scan.test.ts': notes + header + unasserted },
+    },
+    { message: 'Split a longer line', files: { 'src/scan.test.ts': notes + header + longer } },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    title: 'Test the scanner',
+    body: 'Tests the scanner.',
+    baseSha: repo.commits[1] ?? '',
+    headSha: repo.commits[4] ?? '',
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[2] ?? '',
+    files: ['src/scan.test.ts'],
+    isOnBranch: false,
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[3] ?? '',
+    files: ['src/scan.test.ts'],
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[4] ?? '',
+    files: ['src/scan.test.ts'],
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/scan.test.ts',
+    lines: [15, 16, 17, 18, 19],
+  });
+
+  // the finding sits on the test's line at the head that posted it, before the rebase
+  const thread = await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/scan.test.ts',
+    line: 6,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:finding {"id":"f3a135d185244d40","title":"Test \\"it splits on the separator\\" asserts nothing","path":"src/scan.test.ts","lens":"static","severity":"P2","riskClass":null,"writtenByChange":true,"head":"${repo.commits[2] ?? ''}"} -->`,
+  });
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    body: `fixed ${repo.commits[4] ?? ''}`,
+    authorLogin: 'dev',
+    inReplyToID: thread.id,
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${repo.commits[2] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":1,"reported":["f3a135d185244d40"],"failedCalls":0} -->`,
+  });
+
+  const stub = buildStubAdapter({});
+
+  await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--fixes-only', '--report', 'github'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  const summary = githubCollections.issueComments
+    .all()
+    .findLast((comment) => comment.body.includes('<!-- noslop:summary'));
+
+  expect(summary?.body).toInclude(
+    `❌ Test "it splits on the separator" asserts nothing: not fixed in \`${(repo.commits[4] ?? '').slice(0, 7)}\` (the static check still reports it at the head)`,
+  );
+
+  expect(summary?.body).toInclude('"confirmed":[]');
+
+  expect(githubCollections.checkRuns.all().at(-1)).toMatchObject({
+    headSha: repo.commits[4] ?? '',
+    conclusion: 'failure',
+  });
+});
+
 test('it rejects a fixed reply to a format-only finding under --fixes-only by the linked issue, when the fix leaves the hunk', async () => {
   const ctx = await setupTest();
 
@@ -4764,6 +4888,760 @@ test('it refuses --fixes-only with no fixed answer to check, so the summary stay
       title: `No noslop review for this commit, ${(repo.commits[3] ?? '').slice(0, 12)}.`,
     },
   ]);
+});
+
+test('it confirms a fixed reply posted after a --fixes-only run that found no fixed answer, so the check passes', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
+    {
+      message: 'Add the scanner',
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = "";\n' },
+    },
+    {
+      message: 'Reject an empty separator',
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = ":";\n' },
+    },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    title: 'Scan the header line',
+    body: 'Scans the header line.',
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[2] ?? '',
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[1] ?? '',
+    files: ['src/scan.ts'],
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[2] ?? '',
+    files: ['src/scan.ts'],
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/scan.ts',
+    lines: [2],
+  });
+
+  const thread = await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/scan.ts',
+    line: 2,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:finding {"id":"1111111111111111","title":"Reject an empty separator","path":"src/scan.ts","lens":"correctness","severity":"P2","riskClass":null,"writtenByChange":true,"head":"${repo.commits[1] ?? ''}"} -->`,
+  });
+
+  // the summary of the round that posted the finding
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":1,"reported":["1111111111111111"],"failedCalls":0} -->`,
+  });
+
+  const stub = buildStubAdapter({
+    'fix-1111111111111111': [{ fixed: true, reason: 'The separator is a colon now.' }],
+  });
+
+  const context = ctx.buildContext(repo.path, stub.adapter);
+
+  await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--fixes-only', '--report', 'github'],
+    context,
+  );
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    body: `fixed ${(repo.commits[2] ?? '').slice(0, 7)}`,
+    authorLogin: 'dev',
+    inReplyToID: thread.id,
+  });
+
+  const code = await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--fixes-only', '--report', 'github'],
+    context,
+  );
+
+  expect(code).toBe(0);
+
+  expect(githubCollections.checkRuns.all().at(-1)).toMatchObject({
+    headSha: repo.commits[2] ?? '',
+    conclusion: 'success',
+  });
+});
+
+test('it confirms a fixed reply posted after a --fixes-only run carried the review onto a rebase', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
+    { message: 'Describe the app', parent: 0, files: { 'README.md': '# app\n' } },
+    {
+      message: 'Add the scanner',
+      parent: 0,
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = "";\n' },
+    },
+    {
+      message: 'Reject an empty separator',
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = ":";\n' },
+    },
+    {
+      message: 'Add the scanner',
+      parent: 1,
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = "";\n' },
+    },
+    {
+      message: 'Reject an empty separator',
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = ":";\n' },
+    },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    title: 'Scan the header line',
+    body: 'Scans the header line.',
+    baseSha: repo.commits[1] ?? '',
+    headSha: repo.commits[5] ?? '',
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[2] ?? '',
+    files: ['src/scan.ts'],
+    isOnBranch: false,
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[3] ?? '',
+    files: ['src/scan.ts'],
+    patches: {
+      'src/scan.ts':
+        '@@ -2,1 +2,1 @@\n-export const separator = "";\n+export const separator = ":";',
+    },
+    isOnBranch: false,
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[4] ?? '',
+    files: ['src/scan.ts'],
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[5] ?? '',
+    files: ['src/scan.ts'],
+    patches: {
+      'src/scan.ts':
+        '@@ -2,1 +2,1 @@\n-export const separator = "";\n+export const separator = ":";',
+    },
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/scan.ts',
+    lines: [1, 2],
+  });
+
+  const confirmed = await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/scan.ts',
+    line: 2,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:finding {"id":"1111111111111111","title":"Reject an empty separator","path":"src/scan.ts","lens":"correctness","severity":"P2","riskClass":null,"writtenByChange":true,"head":"${repo.commits[2] ?? ''}"} -->`,
+  });
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    body: `fixed ${repo.commits[3] ?? ''}`,
+    authorLogin: 'dev',
+    inReplyToID: confirmed.id,
+  });
+
+  const late = await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/scan.ts',
+    line: 2,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:finding {"id":"2222222222222222","title":"Name the separator","path":"src/scan.ts","lens":"design","severity":"P2","riskClass":null,"writtenByChange":true,"head":"${repo.commits[2] ?? ''}"} -->`,
+  });
+
+  // the summary of a fixes-only run that confirmed the first fix before the rebase
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${repo.commits[3] ?? ''}","base":"${repo.commits[2] ?? ''}","notReviewed":[],"checked":["1111111111111111"],"earlier":[{"base":"${repo.commits[0] ?? ''}","head":"${repo.commits[2] ?? ''}","reported":["1111111111111111","2222222222222222"],"notReviewed":[]}],"reviews":1,"reported":[],"failedCalls":0,"confirmed":["1111111111111111:${repo.commits[3] ?? ''}"]} -->`,
+  });
+
+  const stub = buildStubAdapter({
+    'fix-2222222222222222': [{ fixed: true, reason: 'The separator has a name now.' }],
+  });
+
+  const context = ctx.buildContext(repo.path, stub.adapter);
+
+  await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--fixes-only', '--report', 'github'],
+    context,
+  );
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    body: `fixed ${(repo.commits[5] ?? '').slice(0, 7)}`,
+    authorLogin: 'dev',
+    inReplyToID: late.id,
+  });
+
+  const code = await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--fixes-only', '--report', 'github'],
+    context,
+  );
+
+  expect({ code, stderr: ctx.stderr.join('') }).toStrictEqual({ code: 0, stderr: '' });
+
+  expect(githubCollections.checkRuns.all().at(-1)).toMatchObject({
+    headSha: repo.commits[5] ?? '',
+    conclusion: 'success',
+  });
+});
+
+test('it confirms a fixed reply at a rewritten sha under --fixes-only when a lens round before the rebase read the fix', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/plan.ts': 'export const lanes = [];\n' } },
+    { message: 'Describe the app', parent: 0, files: { 'README.md': '# app\n' } },
+    {
+      message: 'Split the plan into profiles',
+      parent: 0,
+      files: { 'src/plan.ts': 'export const lanes = [];\nexport const profile = "public";\n' },
+    },
+    { message: 'Test the public lanes', files: { 'src/plan.test.ts': 'test("lanes");\n' } },
+    {
+      message: 'Split the plan into profiles',
+      parent: 1,
+      files: { 'src/plan.ts': 'export const lanes = [];\nexport const profile = "public";\n' },
+    },
+    { message: 'Test the public lanes', files: { 'src/plan.test.ts': 'test("lanes");\n' } },
+    {
+      message: 'Name the private profile',
+      files: {
+        'src/plan.ts':
+          'export const lanes = [];\nexport const profile = "public";\nexport const hidden = "private";\n',
+      },
+    },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    title: 'Split the plan into profiles',
+    body: 'Splits the plan into a public and a private profile.',
+    baseSha: repo.commits[1] ?? '',
+    headSha: repo.commits[6] ?? '',
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[2] ?? '',
+    files: ['src/plan.ts'],
+    isOnBranch: false,
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[3] ?? '',
+    files: ['src/plan.test.ts'],
+    isOnBranch: false,
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[4] ?? '',
+    files: ['src/plan.ts'],
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[5] ?? '',
+    files: ['src/plan.test.ts'],
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[6] ?? '',
+    files: ['src/plan.ts'],
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/plan.ts',
+    lines: [2, 3],
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/plan.test.ts',
+    lines: [1],
+  });
+
+  // the reply that named the fix before the rebase is gone, and this one names the rewritten commit
+  const tested = await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/plan.ts',
+    line: 2,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:finding {"id":"3333333333333333","title":"Test the public lanes","path":"src/plan.ts","lens":"tests","severity":"P2","riskClass":null,"writtenByChange":true,"head":"${repo.commits[2] ?? ''}"} -->`,
+  });
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    body: `fixed ${repo.commits[5] ?? ''}`,
+    authorLogin: 'dev',
+    inReplyToID: tested.id,
+  });
+
+  const named = await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/plan.ts',
+    line: 2,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:finding {"id":"4444444444444444","title":"Name the private profile","path":"src/plan.ts","lens":"design","severity":"P2","riskClass":null,"writtenByChange":true,"head":"${repo.commits[2] ?? ''}"} -->`,
+  });
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    body: `fixed ${repo.commits[6] ?? ''}`,
+    authorLogin: 'dev',
+    inReplyToID: named.id,
+  });
+
+  // newest first: a fixes-only run after the rebase, the second lens round, a fixes-only run that
+  // read the first fix before the rebase, and the first lens round
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${repo.commits[6] ?? ''}","base":"${repo.commits[5] ?? ''}","notReviewed":[],"checked":["4444444444444444"],"earlier":[{"base":"${repo.commits[0] ?? ''}","head":"${repo.commits[3] ?? ''}","reported":["4444444444444444"],"notReviewed":[]},{"base":"${repo.commits[2] ?? ''}","head":"${repo.commits[3] ?? ''}","reported":["4444444444444444"],"notReviewed":[],"checked":["3333333333333333"]},{"base":"${repo.commits[0] ?? ''}","head":"${repo.commits[2] ?? ''}","reported":["3333333333333333","4444444444444444"],"notReviewed":[]}],"reviews":2,"reported":[],"failedCalls":0,"confirmed":["4444444444444444:${repo.commits[6] ?? ''}"]} -->`,
+  });
+
+  const stub = buildStubAdapter({
+    'fix-3333333333333333': [{ fixed: true, reason: 'A test reads the public lanes now.' }],
+  });
+
+  const context = ctx.buildContext(repo.path, stub.adapter);
+
+  const code = await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--fixes-only', '--report', 'github'],
+    context,
+  );
+
+  expect({ code, stderr: ctx.stderr.join('') }).toStrictEqual({ code: 0, stderr: '' });
+  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['fix-3333333333333333']);
+
+  expect(githubCollections.checkRuns.all().at(-1)).toMatchObject({
+    headSha: repo.commits[6] ?? '',
+    conclusion: 'success',
+  });
+});
+
+test('it confirms a fixed reply at a rewritten sha under --fixes-only after 2 rebases and a carry', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/cache.ts': 'export const key = "lock";\n' } },
+    { message: 'Describe the app', parent: 0, files: { 'README.md': '# app\n' } },
+    { message: 'Describe the checks', files: { 'README.md': '# app\n\nChecks.\n' } },
+    {
+      message: 'Cache the install',
+      parent: 0,
+      files: { 'src/cache.ts': 'export const key = "lock";\nexport const fallback = "";\n' },
+    },
+    {
+      message: 'Cache the install',
+      parent: 1,
+      files: { 'src/cache.ts': 'export const key = "lock";\nexport const fallback = "";\n' },
+    },
+    { message: 'Test the cache fallback', files: { 'src/cache.test.ts': 'test("fallback");\n' } },
+    {
+      message: 'Cache the install',
+      parent: 2,
+      files: { 'src/cache.ts': 'export const key = "lock";\nexport const fallback = "";\n' },
+    },
+    { message: 'Test the cache fallback', files: { 'src/cache.test.ts': 'test("fallback");\n' } },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    title: 'Cache the install',
+    body: 'Caches the install between runs.',
+    baseSha: repo.commits[2] ?? '',
+    headSha: repo.commits[7] ?? '',
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[3] ?? '',
+    files: ['src/cache.ts'],
+    isOnBranch: false,
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[4] ?? '',
+    files: ['src/cache.ts'],
+    isOnBranch: false,
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[5] ?? '',
+    files: ['src/cache.test.ts'],
+    isOnBranch: false,
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[6] ?? '',
+    files: ['src/cache.ts'],
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[7] ?? '',
+    files: ['src/cache.test.ts'],
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/cache.ts',
+    lines: [2],
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/cache.test.ts',
+    lines: [1],
+  });
+
+  // the reply that named the fix before the second rebase is gone, and this one names its rewrite
+  const thread = await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/cache.ts',
+    line: 2,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:finding {"id":"5555555555555555","title":"Test the cache fallback","path":"src/cache.ts","lens":"tests","severity":"P2","riskClass":null,"writtenByChange":true,"head":"${repo.commits[3] ?? ''}"} -->`,
+  });
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    body: `fixed ${repo.commits[7] ?? ''}`,
+    authorLogin: 'dev',
+    inReplyToID: thread.id,
+  });
+
+  // newest first: a fixes-only run that carried the review onto the second rebase, a fixes-only run
+  // that read the fix after the first rebase, and the lens round
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${repo.commits[7] ?? ''}","base":"${repo.commits[7] ?? ''}","notReviewed":[],"checked":[],"earlier":[{"base":"${repo.commits[4] ?? ''}","head":"${repo.commits[5] ?? ''}","reported":[],"notReviewed":[],"checked":["5555555555555555"]},{"base":"${repo.commits[0] ?? ''}","head":"${repo.commits[3] ?? ''}","reported":["5555555555555555"],"notReviewed":[]}],"reviews":1,"reported":[],"failedCalls":0,"confirmed":[]} -->`,
+  });
+
+  const stub = buildStubAdapter({
+    'fix-5555555555555555': [{ fixed: true, reason: 'A test reads the cache fallback now.' }],
+  });
+
+  const context = ctx.buildContext(repo.path, stub.adapter);
+
+  const code = await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--fixes-only', '--report', 'github'],
+    context,
+  );
+
+  expect({ code, stderr: ctx.stderr.join('') }).toStrictEqual({ code: 0, stderr: '' });
+  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['fix-5555555555555555']);
+
+  expect(githubCollections.checkRuns.all().at(-1)).toMatchObject({
+    headSha: repo.commits[7] ?? '',
+    conclusion: 'success',
+  });
+});
+
+test('it confirms a fixed reply at a rewritten sha under --fixes-only after 2 carries, beside a dismissed static finding', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/gate.ts': 'export const paths = [];\n' } },
+    { message: 'Describe the app', parent: 0, files: { 'README.md': '# app\n' } },
+    { message: 'Describe the gate', files: { 'README.md': '# app\n\nGate.\n' } },
+    {
+      message: 'Add the path gate',
+      parent: 0,
+      files: { 'src/gate.ts': 'export const paths = [];\nexport const changed = false;\n' },
+    },
+    { message: 'Test the changed output', files: { 'src/gate.test.ts': 'test("changed");\n' } },
+    {
+      message: 'Add the path gate',
+      parent: 1,
+      files: { 'src/gate.ts': 'export const paths = [];\nexport const changed = false;\n' },
+    },
+    { message: 'Test the changed output', files: { 'src/gate.test.ts': 'test("changed");\n' } },
+    {
+      message: 'Add the path gate',
+      parent: 2,
+      files: { 'src/gate.ts': 'export const paths = [];\nexport const changed = false;\n' },
+    },
+    { message: 'Test the changed output', files: { 'src/gate.test.ts': 'test("changed");\n' } },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    title: 'Add the path gate',
+    body: 'Adds a gate on the changed paths.',
+    baseSha: repo.commits[2] ?? '',
+    headSha: repo.commits[8] ?? '',
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[3] ?? '',
+    files: ['src/gate.ts'],
+    isOnBranch: false,
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[4] ?? '',
+    files: ['src/gate.test.ts'],
+    isOnBranch: false,
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[5] ?? '',
+    files: ['src/gate.ts'],
+    isOnBranch: false,
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[6] ?? '',
+    files: ['src/gate.test.ts'],
+    isOnBranch: false,
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[7] ?? '',
+    files: ['src/gate.ts'],
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[8] ?? '',
+    files: ['src/gate.test.ts'],
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/gate.ts',
+    lines: [2],
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/gate.test.ts',
+    lines: [1],
+  });
+
+  const dismissed = await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/gate.ts',
+    line: 2,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:finding {"id":"6666666666666666","title":"The pull request names a test file the change lacks","path":"src/gate.ts","lens":"static","severity":"P2","riskClass":null,"writtenByChange":true,"head":"${repo.commits[3] ?? ''}"} -->`,
+  });
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    body: 'not-a-defect the change adds the test file',
+    authorLogin: 'dev',
+    inReplyToID: dismissed.id,
+  });
+
+  // the reply that named the fix before the second rebase is gone, and this one names its rewrite
+  const thread = await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/gate.ts',
+    line: 2,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:finding {"id":"7777777777777777","title":"Test the changed output","path":"src/gate.ts","lens":"tests","severity":"P2","riskClass":null,"writtenByChange":true,"head":"${repo.commits[3] ?? ''}"} -->`,
+  });
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    body: `fixed ${repo.commits[8] ?? ''}`,
+    authorLogin: 'dev',
+    inReplyToID: thread.id,
+  });
+
+  // newest first: 2 fixes-only runs that each carried the review onto a rebase, a fixes-only run that
+  // read the fix before the rebases, and the lens round
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${repo.commits[8] ?? ''}","base":"${repo.commits[8] ?? ''}","notReviewed":[],"checked":[],"earlier":[{"base":"${repo.commits[6] ?? ''}","head":"${repo.commits[6] ?? ''}","reported":[],"notReviewed":[],"checked":[]},{"base":"${repo.commits[3] ?? ''}","head":"${repo.commits[4] ?? ''}","reported":[],"notReviewed":[],"checked":["7777777777777777"]},{"base":"${repo.commits[0] ?? ''}","head":"${repo.commits[3] ?? ''}","reported":["6666666666666666","7777777777777777"],"notReviewed":[]}],"reviews":1,"reported":[],"failedCalls":0,"confirmed":[]} -->`,
+  });
+
+  const stub = buildStubAdapter({
+    'fix-7777777777777777': [{ fixed: true, reason: 'A test reads the changed output now.' }],
+  });
+
+  const context = ctx.buildContext(repo.path, stub.adapter);
+
+  const code = await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--fixes-only', '--report', 'github'],
+    context,
+  );
+
+  expect({ code, stderr: ctx.stderr.join('') }).toStrictEqual({ code: 0, stderr: '' });
+  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['fix-7777777777777777']);
+
+  expect(githubCollections.checkRuns.all().at(-1)).toMatchObject({
+    headSha: repo.commits[8] ?? '',
+    conclusion: 'success',
+  });
 });
 
 test('it bases a --fixes-only review on the last head with no failed call after a fix check failed', async () => {

@@ -40,6 +40,10 @@ export interface AnsweredFix {
 
   // the head of the review that posted the finding, which a marker posted before the field lacks
   postedHead: string | null;
+
+  // the branch commit a rebase made of the posting head, which a late fix must come after; the posted
+  // line keeps the posting head's coordinates
+  postedBranchHead?: string;
 }
 
 export interface FixesOnlyReviewInput {
@@ -223,7 +227,10 @@ async function readFixBase(
     return { base: input.base, commit };
   }
 
-  const floors = [fix.postedHead, input.lensHead].filter((head) => head !== null);
+  const floors = [fix.postedBranchHead ?? fix.postedHead, input.lensHead].filter(
+    (head) => head !== null,
+  );
+
   const [first, second] = floors;
 
   if (first === undefined) {

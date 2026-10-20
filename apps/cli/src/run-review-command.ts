@@ -24,6 +24,7 @@ import type { CLIContext } from './cli-context';
 import { formatReviewSummary } from './format-review-summary';
 import { getStorePath } from './get-store-path';
 import { loadRepoConfig } from './load-repo-config';
+import { readFixFloors } from './read-fix-floors';
 import { readRebasedHead } from './read-rebased-head';
 import { readTrustedPullRequest } from './read-trusted-pull-request';
 import { runReporters } from './run-reporters';
@@ -435,9 +436,19 @@ async function resolvePullRequestChange(
     throw new Error(`${refusal}: ${rebased.failure ?? ''}`);
   }
 
-  // a lens head that a rebase left off the branch bounds no late fix, unless it is the reviewed head
-  const lensHead = findLensHead(summary) === reviewed ? rebased.head : findLensHead(summary);
-  const fixes = values.fixesOnly ? await readAnsweredFixes(connection, pullRequest, state) : [];
+  // the heads a late fix must come after, each as it stands on the branch after a rebase
+  const floors = values.fixesOnly
+    ? await readFixFloors(ctx.runner, {
+        repoDir,
+        base: state.baseSha,
+        head: state.headSha,
+        lensHead: findLensHead(summary),
+        fixes: await readAnsweredFixes(connection, pullRequest, state),
+      })
+    : { lensHead: findLensHead(summary), fixes: [] };
+
+  const lensHead = floors.lensHead;
+  const fixes = floors.fixes;
 
   // a fixes-only run reads the linked issue only to run the static stage again for a static fix,
   // since a static check compares the change against the issue
