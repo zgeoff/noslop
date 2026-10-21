@@ -585,9 +585,16 @@ test('it restores the comment of a confirmed fix once a later review reports the
       base: 'b'.repeat(40),
       head: 'c'.repeat(40),
       findings: [],
+      fixChecks: [
+        { findingID: '1111111111111111', fixed: true, reason: 'The total counts every item.' },
+      ],
     }),
     { logger: ctx.logger, options: {}, failedReporters: [] },
   );
+
+  const struck = githubCollections.reviewComments.findFirst((query) =>
+    query.where({ id: thread?.id ?? -1 }),
+  )?.body;
 
   await ctx.reporter.report(
     buildMockReviewResult({
@@ -603,6 +610,7 @@ test('it restores the comment of a confirmed fix once a later review reports the
     query.where({ id: thread?.id ?? -1 }),
   );
 
+  expect(struck).toStartWith('~~**P2 · Correctness** · Return the total of every item~~');
   expect(restored?.body).toBe(posted);
 });
 
