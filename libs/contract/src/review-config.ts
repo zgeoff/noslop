@@ -280,6 +280,11 @@ export const reviewConfigSchema = z.strictObject({
   synced: z
     .array(z.string().min(1))
     .describe('Path globs of copies that another repo syncs in, which a change must not edit'),
+  syncAuthors: z
+    .array(z.string().min(1))
+    .describe(
+      'GitHub logins of the accounts that open sync pull requests, such as <slug>[bot]; the synced-copy check skips a pull request one of them opened',
+    ),
   breakingMarkers: z
     .array(z.string().min(1))
     .describe('Text in the pull request title or body that marks a breaking change'),

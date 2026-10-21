@@ -417,6 +417,109 @@ test('it treats a change to synced copies alone as a sync and reports no synced 
   expect([result.isSync, result.findings]).toStrictEqual([true, []]);
 });
 
+test('it reports no synced edit in a pull request a sync author opened beside other files', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'vendor/shared.ts': 'export const shared = 1;\n',
+        'src/a.ts': 'export const a = 1;\n',
+      },
+    },
+    {
+      message: 'head',
+      files: {
+        'vendor/shared.ts': 'export const shared = 2;\n',
+        'src/a.ts': 'export const a = 2;\n',
+      },
+    },
+  ]);
+
+  const config = {
+    ...BUILT_IN_DEFAULTS,
+    synced: ['vendor/**'],
+    syncAuthors: ['mirror-bot[bot]'],
+  };
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config,
+    title: 'chore: sync',
+    body: '',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+    author: 'mirror-bot[bot]',
+  });
+
+  expect(result.isSync).toBe(false);
+  expect(result.findings.map((finding) => finding.title)).toStrictEqual([]);
+});
+
+test('it reports the synced edit in a pull request an author outside the sync authors opened', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'vendor/shared.ts': 'export const shared = 1;\n',
+        'src/a.ts': 'export const a = 1;\n',
+      },
+    },
+    {
+      message: 'head',
+      files: {
+        'vendor/shared.ts': 'export const shared = 2;\n',
+        'src/a.ts': 'export const a = 2;\n',
+      },
+    },
+  ]);
+
+  const config = {
+    ...BUILT_IN_DEFAULTS,
+    synced: ['vendor/**'],
+    syncAuthors: ['mirror-bot[bot]'],
+  };
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config,
+    title: 'fix: a',
+    body: '',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+    author: 'feature-author',
+  });
+
+  expect(result.findings.map((finding) => finding.title)).toStrictEqual([
+    'Edit to the synced copy shared.ts',
+  ]);
+});
+
 test('it reports no synced edit when a synced caller only moves the ref of its workflow call', async () => {
   const ctx = await setupTest();
 

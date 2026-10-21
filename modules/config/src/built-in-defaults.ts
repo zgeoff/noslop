@@ -141,6 +141,7 @@ export const BUILT_IN_DEFAULTS: ReviewConfig = {
   ],
   scripts: ['**/scripts/**', '**/*codemod*/**', '**/*codemod*'],
   synced: [],
+  syncAuthors: [],
   breakingMarkers: ['!:', 'BREAKING CHANGE'],
   limits: {},
   versionBump: [],

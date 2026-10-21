@@ -35,6 +35,7 @@ export interface RunStaticStageOptions {
   cacheDir: string | null;
   pastEscapes: readonly string[];
   readConsumerFile?: (repo: string, path: string) => Promise<string | null>;
+  author?: string;
 }
 
 export interface StaticStageResult {
@@ -202,6 +203,8 @@ export async function runStaticStage(options: RunStaticStageOptions): Promise<St
       config: options.config,
       linkedIssue: options.linkedIssue,
       isSync,
+      isSyncAuthor:
+        options.author !== undefined && options.config.syncAuthors.includes(options.author),
     }),
   ];
 

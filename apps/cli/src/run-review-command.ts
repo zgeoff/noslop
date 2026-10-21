@@ -1,5 +1,5 @@
 import { mkdir, mkdtemp, rm } from 'node:fs/promises';
-import { basename, join, resolve } from 'node:path';
+import { basename, join } from 'node:path';
 import type { LoadedConfig } from '@noslop/config';
 import type {
   DismissedFinding,
@@ -24,6 +24,7 @@ import type { CLIContext } from './cli-context';
 import { formatReviewSummary } from './format-review-summary';
 import { getStorePath } from './get-store-path';
 import { loadRepoConfig } from './load-repo-config';
+import { readIssueFile } from './read-issue-file';
 import { readTrustedPullRequest } from './read-trusted-pull-request';
 import { readUncheckedRebase } from './read-unchecked-rebase';
 import { runReporters } from './run-reporters';
@@ -69,7 +70,7 @@ export async function runReviewCommand(values: ReviewValues, ctx: CLIContext): P
   }
 
   const issueText =
-    values.issueFile === undefined ? null : await readIssueFile(ctx, values.issueFile);
+    values.issueFile === undefined ? null : await readIssueFile(ctx.cwd, values.issueFile);
 
   const change =
     values.pr === undefined
@@ -125,6 +126,7 @@ export async function runReviewCommand(values: ReviewValues, ctx: CLIContext): P
           body: change.body,
           linkedIssue: issueText ?? change.linkedIssue,
           cacheDir: join(ctx.cacheDir, 'index'),
+          ...(change.author === undefined ? {} : { author: change.author }),
         },
         ...(ctx.now === undefined ? {} : { now: ctx.now }),
       });
@@ -166,6 +168,7 @@ export async function runReviewCommand(values: ReviewValues, ctx: CLIContext): P
         dismissedFindings: change.dismissedFindings,
         isPush: values.push,
         pastEscapes,
+        ...(change.author === undefined ? {} : { author: change.author }),
         ...(ctx.now === undefined ? {} : { now: ctx.now }),
       });
 
@@ -202,21 +205,6 @@ async function readGitText(ctx: CLIContext, cwd: string, args: readonly string[]
   return result.stdout.trim();
 }
 
-// a relative path resolves against the working directory, as the shell that passed it does
-async function readIssueFile(ctx: CLIContext, path: string): Promise<string> {
-  const file = Bun.file(resolve(ctx.cwd, path));
-
-  const exists = await file.exists();
-
-  if (!exists) {
-    throw new Error(`--issue-file names no file: ${path}`);
-  }
-
-  const text = await file.text();
-
-  return text.trim();
-}
-
 interface ResolvedChange {
   repo: string;
   base: string;
@@ -227,6 +215,7 @@ interface ResolvedChange {
   config: LoadedConfig;
   title: string;
   body: string;
+  author?: string;
 
   // the issue a pull request body closes, for the intent lens; a local change links none
   linkedIssue: string | null;
@@ -459,6 +448,7 @@ async function resolvePullRequestChange(
     config,
     title: state.title,
     body: state.body,
+    author: state.author,
     linkedIssue,
     pullRequest,
     isIncremental: isDelta,

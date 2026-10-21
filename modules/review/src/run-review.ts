@@ -67,6 +67,7 @@ export interface RunReviewOptions {
   isPush: boolean;
   pastEscapes: readonly string[];
   readConsumerFile?: (repo: string, path: string) => Promise<string | null>;
+  author?: string;
   now?: () => Date;
 
   // the model of the merge pass; with none, the pass runs on the adapter's own model
