@@ -4,17 +4,17 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { loadStore, writeReview } from '@noslop/sqlite';
 import { buildMockReviewResult } from '@noslop/testing';
-import { readStoredReviewBase } from './read-stored-review-base';
+import { readStoredReviews } from './read-stored-reviews';
 
 async function setupTest() {
-  const directory = await mkdtemp(join(tmpdir(), 'noslop-stored-review-base-'));
+  const directory = await mkdtemp(join(tmpdir(), 'noslop-stored-reviews-'));
 
   onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
   return { directory, path: join(directory, 'store.sqlite') };
 }
 
-test('it reads the base of the first review of the pull request from the store', async () => {
+test('it reads the reviews of the pull request from the store', async () => {
   const ctx = await setupTest();
   const store = await loadStore(ctx.path);
 
@@ -25,19 +25,22 @@ test('it reads the base of the first review of the pull request from the store',
     buildMockReviewResult({
       pullRequest: { owner: 'example', repo: 'app', number: 9 },
       base: 'c'.repeat(40),
+      head: 'd'.repeat(40),
     }),
   );
 
-  const base = await readStoredReviewBase(ctx.path, 'example/app', 9);
+  const reviews = await readStoredReviews(ctx.path, 'example/app', 9);
 
-  expect(base).toBe('c'.repeat(40));
+  expect(reviews).toStrictEqual([
+    { base: 'c'.repeat(40), head: 'd'.repeat(40), isLensReview: true },
+  ]);
 });
 
-test('it reads no base and makes no store when the user has none', async () => {
+test('it reads no review and makes no store when the user has none', async () => {
   const ctx = await setupTest();
-  const base = await readStoredReviewBase(ctx.path, 'example/app', 9);
+  const reviews = await readStoredReviews(ctx.path, 'example/app', 9);
   const entries = await readdir(ctx.directory);
 
-  expect(base).toBeNull();
+  expect(reviews).toStrictEqual([]);
   expect(entries).toStrictEqual([]);
 });

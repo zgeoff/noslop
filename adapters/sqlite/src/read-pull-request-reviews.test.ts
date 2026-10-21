@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { buildMockReviewResult } from '@noslop/testing';
 import { loadStore } from './load-store';
-import { readFirstReviewBase } from './read-first-review-base';
+import { readPullRequestReviews } from './read-pull-request-reviews';
 import { writeReview } from './write-review';
 
 async function setupTest() {
@@ -19,53 +19,46 @@ async function setupTest() {
   return { store };
 }
 
-test('it reads the base of the earliest review of the pull request', async () => {
+test('it reads the reviews of the pull request newest first, and marks a run with no lens', async () => {
   const ctx = await setupTest();
 
   for (const review of [
     {
-      reviewID: 'review-later',
-      base: 'c'.repeat(40),
-      startedAt: '2026-10-17T11:00:00.000Z',
+      reviewID: 'review-lens',
+      base: 'a'.repeat(40),
+      head: 'b'.repeat(40),
+      startedAt: '2026-10-17T10:00:00.000Z',
       pullRequest: { owner: 'example', repo: 'app', number: 7 },
     },
     {
-      reviewID: 'review-first',
-      base: 'a'.repeat(40),
-      startedAt: '2026-10-17T10:00:00.000Z',
+      reviewID: 'review-fixes-only',
+      base: 'b'.repeat(40),
+      head: 'c'.repeat(40),
+      lenses: [],
+      startedAt: '2026-10-17T11:00:00.000Z',
       pullRequest: { owner: 'example', repo: 'app', number: 7 },
     },
     {
       reviewID: 'review-other-pull-request',
       base: 'd'.repeat(40),
-      startedAt: '2026-10-17T09:00:00.000Z',
+      startedAt: '2026-10-17T12:00:00.000Z',
       pullRequest: { owner: 'example', repo: 'app', number: 8 },
     },
     {
       reviewID: 'review-other-repo',
       repo: 'example/web',
       base: 'e'.repeat(40),
-      startedAt: '2026-10-17T09:00:00.000Z',
+      startedAt: '2026-10-17T12:00:00.000Z',
       pullRequest: { owner: 'example', repo: 'web', number: 7 },
     },
   ]) {
     await writeReview(ctx.store, buildMockReviewResult(review));
   }
 
-  const base = await readFirstReviewBase(ctx.store, 'example/app', 7);
+  const reviews = await readPullRequestReviews(ctx.store, 'example/app', 7);
 
-  expect(base).toBe('a'.repeat(40));
-});
-
-test('it reads no base for a pull request the store holds no review of', async () => {
-  const ctx = await setupTest();
-
-  await writeReview(
-    ctx.store,
-    buildMockReviewResult({ pullRequest: { owner: 'example', repo: 'app', number: 8 } }),
-  );
-
-  const base = await readFirstReviewBase(ctx.store, 'example/app', 7);
-
-  expect(base).toBeNull();
+  expect(reviews).toStrictEqual([
+    { base: 'b'.repeat(40), head: 'c'.repeat(40), isLensReview: false },
+    { base: 'a'.repeat(40), head: 'b'.repeat(40), isLensReview: true },
+  ]);
 });
