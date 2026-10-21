@@ -1,4 +1,6 @@
 import type { Runner } from '@noslop/runner';
+import type { BaseBranchFixReads } from './is-base-branch-fix';
+import { isBaseBranchFix } from './is-base-branch-fix';
 import { readAncestry } from './read-ancestry';
 
 export interface FixBaseInput {
@@ -97,45 +99,31 @@ async function readNewerHead(input: FixBaseInput, first: string, second: string)
   return isFirstOlder ? second : first;
 }
 
-// a fix that landed on the base branch, such as the layer below in a stack: the pull request's base
-// holds it, the head that posted the finding and the last lens head do not, and it was written after
-// the head that posted the finding
+// a fix that landed on the base branch, such as the layer below in a stack, judged from what git
+// shows of it
 async function readBaseBranchFixBase(input: FixBaseInput, fix: FixAnswer): Promise<FixBase | null> {
-  const posted = fix.postedHead;
-
-  if (posted === null) {
-    return null;
-  }
-
   const commit = await readCommitSha(input, fix.commit);
 
   const parent = commit === null ? null : await readCommitSha(input, `${commit}^`);
-  const isPostedRead = (await readCommitSha(input, posted)) !== null;
+  const posted = fix.postedHead === null ? null : await readCommitSha(input, fix.postedHead);
 
-  if (commit === null || parent === null || !isPostedRead) {
-    return null;
-  }
+  // the ancestry and the dates are reads of resolved commits, so a name git cannot resolve leaves
+  // them unread
+  const reads =
+    commit === null || parent === null || posted === null
+      ? null
+      : await readBaseBranchFixReads(input, commit, posted);
 
-  const lensHead = input.lensHead;
+  const isFix = isBaseBranchFix({
+    isCommitRead: commit !== null,
+    isParentRead: parent !== null,
+    isPostedRead: posted !== null,
+    reads,
+  });
 
-  const [isInBase, isBeforePosted, isBeforeLensHead] = await Promise.all([
-    readAncestry(input, commit, input.mergeBase),
-    readAncestry(input, commit, posted),
-    lensHead === null ? false : readAncestry(input, commit, lensHead),
-  ]);
-
-  if (!isInBase || isBeforePosted || isBeforeLensHead) {
-    return null;
-  }
-
-  // a rebase gives each commit it moves a new committer date and keeps its author date, so only the
-  // author date tells a fix written after the finding from an older commit a restack moved
-  const [authored, postedCommitted] = await Promise.all([
-    readCommitTime(input, '%at', commit),
-    readCommitTime(input, '%ct', posted),
-  ]);
-
-  return authored < postedCommitted ? null : { base: parent, anchor: posted, commit };
+  return isFix && commit !== null && parent !== null && posted !== null
+    ? { base: parent, anchor: posted, commit }
+    : null;
 }
 
 // the full sha of the one commit a name gives, or null for a name that gives none or more than one
@@ -146,6 +134,26 @@ async function readCommitSha(input: FixBaseInput, name: string): Promise<string 
   );
 
   return result.exitCode === 0 ? result.stdout.trim() : null;
+}
+
+async function readBaseBranchFixReads(
+  input: FixBaseInput,
+  commit: string,
+  posted: string,
+): Promise<BaseBranchFixReads> {
+  const lensHead = input.lensHead;
+
+  const [isInBase, isInPostedHead, isInLensHead, authoredAt, postedCommittedAt] = await Promise.all(
+    [
+      readAncestry(input, commit, input.mergeBase),
+      readAncestry(input, commit, posted),
+      lensHead === null ? false : readAncestry(input, commit, lensHead),
+      readCommitTime(input, '%at', commit),
+      readCommitTime(input, '%ct', posted),
+    ],
+  );
+
+  return { isInBase, isInPostedHead, isInLensHead, authoredAt, postedCommittedAt };
 }
 
 // the commit's author or committer time, in seconds since the epoch, by the format git gives it
