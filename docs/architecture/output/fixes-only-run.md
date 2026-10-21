@@ -76,6 +76,13 @@ and the run starts from the branch commit that matches the reviewed head. Each f
 still covers only the commits after the review. A reviewed commit whose patch the base already holds
 belongs to the base, as in a stack whose base branch rebased too, so the mapping leaves it out.
 
+A squash merge of a lower stack layer holds no single commit's patch, so the base matches none of
+that layer's commits by patch. The mapping leaves out every reviewed commit below the base that the
+pull request's first review read, as the store records it, because the lower layer's own review read
+those commits. With no review of the pull request in the store, the mapping counts every reviewed
+commit past the pull request's base. A branch that carries a lower layer's commit as its own fails
+the match, since the reviewed commits do not open the branch.
+
 The run refuses, and gives the reason, in five cases:
 
 - The rebase changed a reviewed commit's patch, such as by a conflict resolution.

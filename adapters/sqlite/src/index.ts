@@ -1,6 +1,7 @@
 export * from './create-sqlite-reporter';
 export * from './load-store';
 export * from './read-escape-paths';
+export * from './read-first-review-base';
 export * from './run-store-query';
 export type * from './store-tables';
 export * from './update-comment-urls';

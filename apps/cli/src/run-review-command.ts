@@ -26,6 +26,7 @@ import { getStorePath } from './get-store-path';
 import { loadRepoConfig } from './load-repo-config';
 import { readFixFloors } from './read-fix-floors';
 import { readRebasedHead } from './read-rebased-head';
+import { readStoredReviewBase } from './read-stored-review-base';
 import { readTrustedPullRequest } from './read-trusted-pull-request';
 import { runReporters } from './run-reporters';
 
@@ -420,6 +421,10 @@ async function resolvePullRequestChange(
     throw new Error(refusal);
   }
 
+  const reviewBase = values.fixesOnly
+    ? await readStoredReviewBase(getStorePath(config.config, ctx), repo, number)
+    : null;
+
   // a rebase after the review leaves its head off the branch, so the run starts from the branch
   // commit with the same patches, and each fix diff still covers only the commits after the review
   const rebased =
@@ -429,6 +434,7 @@ async function resolvePullRequestChange(
           reviewed,
           base: state.baseSha,
           head: state.headSha,
+          reviewBase,
         })
       : { head: reviewed, failure: null };
 
@@ -442,6 +448,7 @@ async function resolvePullRequestChange(
         repoDir,
         base: state.baseSha,
         head: state.headSha,
+        reviewBase,
         lensHead: findLensHead(summary),
         fixes: await readAnsweredFixes(connection, pullRequest, state),
       })

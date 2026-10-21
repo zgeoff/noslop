@@ -9,6 +9,9 @@ export interface FixFloorsInput {
   base: string;
   head: string;
 
+  // the base the pull request's first review read, as the store keeps it
+  reviewBase: string | null;
+
   // the head of the newest lens review, as the summary marker keeps it
   lensHead: string | null;
   fixes: readonly AnsweredFix[];
@@ -78,6 +81,7 @@ async function readBranchHead(
     reviewed: commit,
     base: input.base,
     head: input.head,
+    reviewBase: input.reviewBase,
   });
 
   return rebased.head ?? commit;
