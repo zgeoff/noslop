@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.16](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.15...@noslop/cli@0.4.16) (2026-10-21)
+
+
+### Bug Fixes
+
+* **github:** list a finding as open when the check refuses its answer ([#118](https://github.com/zgeoff/noslop/issues/118)) ([ad9cd79](https://github.com/zgeoff/noslop/commit/ad9cd79609a80538bb0444a3ad7c48ea35e7ed22))
+
 ## [0.4.15](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.14...@noslop/cli@0.4.15) (2026-10-21)
 
 ### Features
