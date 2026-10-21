@@ -4,7 +4,6 @@ import type { GitHubConnection } from './create-github-connection';
 import type { PullRequestState } from './read-pull-request-state';
 import { readThreadDispositions } from './read-thread-dispositions';
 
-// the finding list of a pull request from what GitHub holds, with no write
 export async function readFindingList(
   connection: GitHubConnection,
   pr: PullRequestRef,
