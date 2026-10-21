@@ -131,11 +131,13 @@ it could post a review as the App.
 3. Make the job required in the branch rules.
 
 The check trusts only the comments of the App that `github.app` names in the config on the base
-branch, so it refuses to run while that config names no App. Before a review of the head is posted,
-the job prints `noslop: no noslop review for this commit` and exits 1. Once a review is posted, the
-job prints the outcome and each open finding, and exits 0 only when the check passes. The check
-passes once the review of the head ran with no failed call and every finding holds a valid answer,
-as [answer a finding](./answer-a-finding.md) describes.
+branch, so it refuses to run while that config names no App. Until a review covers the pull
+request's net change at the head, the job prints `noslop: no noslop review for this commit` and
+exits 1. A review of an earlier head covers it when a clean rebase or a merge of the base left each
+file's patch as the review read it. Once a review covers it, the job prints the outcome and each
+open finding, and exits 0 only when the check passes. The check passes once that review ran with no
+failed call and every finding holds a valid answer, as [answer a finding](./answer-a-finding.md)
+describes.
 
 Leave the `noslop` check run out of the branch rules. The relay sets it only when it posts, and an
 answer to a finding sets nothing, so the check run shows the state at post time. Require it only

@@ -270,9 +270,9 @@ disposition and the reason. The `github` reporter sets the check after each revi
 review. The command exits 0 whatever else the check concludes, because a failing check is an answer,
 not an error. One exception: when no noslop review covers the net change at the current head, it
 prints `no noslop review for this commit` and exits 1, so a CI job that runs it fails until a review
-of the head is posted. Under `--read-only` it sets no check run and exits 1 unless the check passes,
-as [checking read-only](./cli.md#checking-read-only) describes. A reporter failure lives only in the
-run that saw it, so a later `noslop check` judges the pull request without it.
+covers that net change. Under `--read-only` it sets no check run and exits 1 unless the check
+passes, as [checking read-only](./cli.md#checking-read-only) describes. A reporter failure lives
+only in the run that saw it, so a later `noslop check` judges the pull request without it.
 
 ### The net-change key
 
