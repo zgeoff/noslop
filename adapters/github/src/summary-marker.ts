@@ -1,10 +1,15 @@
 import { z } from 'zod';
+import { netChangeKeySchema } from './net-change-key';
 
 // the latest review as the summary marker keeps it; `followUps` stops a later review filing an issue
 // twice, `confirmed` holds each `<finding id>:<commit>` fix a re-review read, so a later delta keeps
 // it, and `reviewIDs` holds every review counted, so a repost of any of them adds no review
 export const summaryMarkerSchema = z.strictObject({
   head: buildShaSchema(),
+
+  // the net change the reviews read, which a later head with the same net change keeps; a marker with
+  // none counts only for its own head
+  key: netChangeKeySchema.optional(),
 
   // the range the review covered and the files it left out, so an answer after it counts its read
   base: buildShaSchema().optional(),

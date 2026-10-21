@@ -10,9 +10,7 @@ import {
 import type { GitHubConnectionLoader } from './create-github-connection-loader';
 import { loadCommitConfig } from './load-commit-config';
 
-export interface PullRequestCheck extends CheckOutcome {
-  reviewed: boolean;
-}
+export type PullRequestCheck = CheckOutcome;
 
 export interface CheckPullRequestOptions {
   // true reads the outcome and writes nothing to GitHub, so a CI job checks with its own token
@@ -30,12 +28,10 @@ export async function checkPullRequest(
   if (options.readOnly) {
     const trusted = await readTrustedState(pr, loader);
 
-    const outcome = await readGitHubCheck(trusted.connection, pr, {
+    return readGitHubCheck(trusted.connection, pr, {
       failedReporters: [],
       state: trusted.state,
     });
-
-    return { ...outcome, reviewed: isReviewed(trusted.state) };
   }
 
   const connection = await loader.load();
@@ -47,9 +43,8 @@ export async function checkPullRequest(
   }
 
   const state = await readPullRequestState(connection, pr);
-  const outcome = await runGitHubCheck(connection, pr, { failedReporters: [], state });
 
-  return { ...outcome, reviewed: isReviewed(state) };
+  return runGitHubCheck(connection, pr, { failedReporters: [], state });
 }
 
 interface TrustedState {
@@ -88,8 +83,4 @@ async function readTrustedState(
   }
 
   return { connection, state };
-}
-
-function isReviewed(state: PullRequestState): boolean {
-  return state.summary?.marker.head === state.headSha;
 }

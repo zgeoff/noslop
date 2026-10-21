@@ -130,29 +130,6 @@ export const githubHandlers = [
     },
   ),
 
-  http.get<PullParams>(`${GITHUB_API_URL}/repos/:owner/:repo/pulls/:number`, (info) => {
-    const pull = githubCollections.pullRequests.findFirst((query) =>
-      query.where({
-        owner: info.params.owner,
-        repo: info.params.repo,
-        number: Number(info.params.number),
-      }),
-    );
-
-    if (pull === undefined) {
-      return buildNotFound();
-    }
-
-    return HttpResponse.json({
-      number: pull.number,
-      title: pull.title,
-      body: pull.body,
-      base: { ref: pull.baseRef, sha: pull.baseSha },
-      head: { sha: pull.headSha },
-      user: { login: pull.authorLogin },
-    });
-  }),
-
   http.get<PullParams>(`${GITHUB_API_URL}/repos/:owner/:repo/pulls/:number/commits`, (info) => {
     const commits = githubCollections.pullCommits.findMany((query) =>
       query.where({
