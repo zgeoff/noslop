@@ -11,8 +11,6 @@ export interface FindingsValues {
   json: boolean;
 }
 
-// prints each finding posted on a pull request with its state and the author of its answer, and
-// writes nothing to GitHub
 export async function runFindingsCommand(values: FindingsValues, ctx: CLIContext): Promise<number> {
   const number = Number(values.pr);
 
@@ -52,7 +50,6 @@ export async function runFindingsCommand(values: FindingsValues, ctx: CLIContext
   return 0;
 }
 
-// the repo --repo names, or the one the origin remote of the working directory's repo names
 async function resolveRepo(ctx: CLIContext, repo: string | undefined): Promise<string> {
   if (repo !== undefined) {
     return repo;
