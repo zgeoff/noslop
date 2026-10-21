@@ -11,6 +11,7 @@ test("it asks whether the head still holds the defect from the finding, its code
       code: '1: export const separator = ":";',
       isTraced: true,
       diff: '-export const separator = "";\n+export const separator = ":";',
+      isWholeDiff: true,
     }),
   ).toMatchInlineSnapshot(`
     "A reviewer posted the finding below on a pull request, and the author answered that the pull request fixes it.
@@ -52,6 +53,7 @@ test('it names the whole file when the trace failed', () => {
     code: '1: export const separator = ":";',
     isTraced: false,
     diff: '+export const separator = ":";',
+    isWholeDiff: true,
   });
 
   expect(prompt).toInclude(
@@ -68,8 +70,28 @@ test('it names an empty diff and absent code, so the call reads no blank block',
     code: '',
     isTraced: false,
     diff: '',
+    isWholeDiff: true,
   });
 
   expect(prompt).toInclude('(the file is empty or absent at the head)');
   expect(prompt).toInclude('(the pull request changes no file)');
+});
+
+test("it names the finding file's diff alone when the whole diff is too large to read", () => {
+  const prompt = buildFixCheckPrompt({
+    title: 'Reject an empty separator',
+    lens: 'correctness',
+    comment: '',
+    path: 'src/scan.ts',
+    code: '1: export const separator = ":";',
+    isTraced: true,
+    diff: '',
+    isWholeDiff: false,
+  });
+
+  expect(prompt).toInclude(
+    "## The pull request's diff of `src/scan.ts` alone, since its whole diff is too large to read",
+  );
+
+  expect(prompt).toInclude('(the pull request leaves this file alone)');
 });

@@ -167,7 +167,24 @@ async function runFixCheck(input: FixChecksInput, target: FixTarget): Promise<Fi
 
   const code = await readHeadCode(input, fix);
 
-  if (code.text.length > input.maxFileChars || target.diff.length > input.maxFileChars) {
+  // a pull request's net diff passes one file's limit long before its own files do, so the call then
+  // reads the diff of the finding's file alone
+  const isWholeDiff = target.diff.length <= input.maxFileChars;
+
+  const diff = isWholeDiff
+    ? target.diff
+    : await readGitText(input, [
+        'diff',
+        '--no-color',
+        '--no-ext-diff',
+        '--no-renames',
+        input.mergeBase,
+        input.head,
+        '--',
+        fix.path,
+      ]);
+
+  if (code.text.length > input.maxFileChars || diff.length > input.maxFileChars) {
     input.logger.warn(
       'the fix of {id} passes the file limit, so no call reads it cut and it stays unjudged',
       {
@@ -202,7 +219,8 @@ async function runFixCheck(input: FixChecksInput, target: FixTarget): Promise<Fi
     path: fix.path,
     code: code.text,
     isTraced: code.isTraced,
-    diff: target.diff,
+    diff,
+    isWholeDiff,
   });
 
   try {

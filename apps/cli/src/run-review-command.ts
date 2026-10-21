@@ -31,7 +31,7 @@ export interface ReviewValues {
   full: boolean;
 
   // a run after the last review round that runs no lens: it asks of each `fixed` answer whether the
-  // commits since the last reviewed head fix the finding, and raises no finding
+  // head still holds the finding, and raises no finding
   fixesOnly: boolean;
   repo: string | undefined;
   report: string | undefined;
