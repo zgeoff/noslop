@@ -18,7 +18,6 @@ export interface BaseBranchFixEvidence {
   reads: BaseBranchFixReads | null;
 }
 
-// a fix the base branch brought in after the finding, which no lens review read
 export function isBaseBranchFix(evidence: BaseBranchFixEvidence): boolean {
   const reads = evidence.reads;
 
