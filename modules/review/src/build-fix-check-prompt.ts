@@ -3,9 +3,6 @@ export interface FixCheckPromptInput {
   lens: string;
   comment: string;
   path: string;
-
-  // the numbered code at the head: the finding's lines traced there with the code around them, or the
-  // whole file when the trace failed
   code: string;
   isTraced: boolean;
 
