@@ -178,6 +178,10 @@ const CLAIMED_EDIT =
 // code spans, quoted test titles and paths hold words such as "write" that are no verb of the sentence
 const NON_PROSE = /`[^`]*`|"[^"]*"/gu;
 
+// Markdown wraps a sentence over several lines, so a line ends a sentence only before a blank line, a
+// list item, a heading, a quote, a table row or a code fence
+const SENTENCE_BREAK = /(?<=[.!?])\s+|\n(?=[ \t]*(?:\n|$|[-*+>#|]|\d+[.)]|```))/mu;
+
 function collectNamedMissingTests(
   files: readonly AnalyzedFile[],
   claims: NamedTestClaims,
@@ -205,7 +209,7 @@ function collectNamedMissingTests(
     return [];
   }
 
-  const sentences = claims.body.split(/\n|(?<=[.!?])\s+/u);
+  const sentences = claims.body.split(SENTENCE_BREAK);
 
   // a test file that exists at the head and that the body only mentions, as one a rerun passed, is no
   // claim of a new test; the body claims one only where a sentence naming it adds or edits it
