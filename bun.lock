@@ -98,7 +98,7 @@
     },
     "apps/cli": {
       "name": "@noslop/cli",
-      "version": "0.4.12",
+      "version": "0.4.13",
       "bin": {
         "noslop": "./src/cli.ts",
       },
