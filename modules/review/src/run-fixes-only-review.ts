@@ -43,10 +43,6 @@ export interface AnsweredFix {
 
   // the head of the review that posted the finding, which a marker posted before the field lacks
   postedHead: string | null;
-
-  // the branch commit a rebase made of the posting head, which a late fix must come after; the posted
-  // line keeps the posting head's coordinates
-  postedBranchHead?: string;
 }
 
 export interface FixesOnlyReviewInput {
@@ -64,10 +60,6 @@ export interface FixesOnlyReviewInput {
 
   // the head of the newest review that ran its lenses, which judged every fix before it
   lensHead: string | null;
-
-  // the reviewed head that a rebase took off the branch, when the base is the branch commit with its
-  // patches; a run with no new commit past that base then carries the review onto the head
-  rebasedFrom?: string;
   title: string;
   configHash: string;
   fixes: readonly AnsweredFix[];
@@ -209,19 +201,13 @@ async function readGitText(input: FixesOnlyReviewInput, args: readonly string[])
 }
 
 // throws unless each of the branch's own commits in the range is a merge whose other parents the
-// pull request's base holds, and the range holds a commit or the base stands for a rebased head; a merge with a conflict resolution still gets its
-// resolution check
+// pull request's base holds, and the range holds a commit; a merge with a conflict resolution still
+// gets its resolution check
 async function requireMergesOfBase(
   input: FixesOnlyReviewInput,
   range: readonly string[],
 ): Promise<void> {
   const refusal = '--fixes-only has no `fixed` answer to check';
-
-  // a rebase that kept each reviewed patch leaves the review true of the head, so with no commit past
-  // the base the run has nothing that no lens read
-  if (range.length === 0 && input.rebasedFrom !== undefined) {
-    return;
-  }
 
   if (range.length === 0) {
     throw new Error(`${refusal}, and no commit came after the last review`);

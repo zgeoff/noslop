@@ -54,6 +54,7 @@ test('it passes when the review ran on the head and every finding holds a valid 
     confirmed: ['1111111111111111:abc1234'],
     fixFailures: new Map(),
     currentHead: 'f'.repeat(40),
+    currentKey: { head: 'f'.repeat(40) },
     commits: ['abc1234'.padEnd(40, '0'), 'f'.repeat(40)],
     ambiguous: [],
     rewritten: new Map(),
@@ -67,6 +68,7 @@ test('it passes when the review ran on the head and every finding holds a valid 
     title: 'Every finding holds a valid disposition (2)',
     summary: '',
     open: [],
+    reviewed: true,
   });
 });
 
@@ -168,6 +170,7 @@ test('it lists each finding whose disposition is not valid, with the reason', ()
     confirmed: [],
     fixFailures: new Map(),
     currentHead: 'f'.repeat(40),
+    currentKey: { head: 'f'.repeat(40) },
     commits: ['f'.repeat(40)],
     ambiguous: [],
     rewritten: new Map(),
@@ -273,6 +276,7 @@ test('it fails a fixed finding that is still found or that no re-review read', (
     confirmed: [],
     fixFailures: new Map(),
     currentHead: 'f'.repeat(40),
+    currentKey: { head: 'f'.repeat(40) },
     commits: ['abc1234'.padEnd(40, '0'), 'f'.repeat(40)],
     ambiguous: [],
     rewritten: new Map(),
@@ -325,6 +329,7 @@ test('it names why GitHub could not show a fixed finding whole', () => {
       ['1111111111111111', 'GitHub could not list the files of the fix commit (HTTP 502)'],
     ]),
     currentHead: 'f'.repeat(40),
+    currentKey: { head: 'f'.repeat(40) },
     commits: ['abc1234'.padEnd(40, '0'), 'f'.repeat(40)],
     ambiguous: [],
     rewritten: new Map(),
@@ -373,6 +378,7 @@ test('it fails a fixed finding whose sha matches 2 commits on the branch', () =>
     confirmed: ['1111111111111111:abc1234'],
     fixFailures: new Map(),
     currentHead: 'f'.repeat(40),
+    currentKey: { head: 'f'.repeat(40) },
     commits: ['abc1234'.padEnd(40, 'a'), 'abc1234'.padEnd(40, 'c'), 'f'.repeat(40)],
     ambiguous: [],
     rewritten: new Map(),
@@ -425,6 +431,7 @@ test('it passes a fixed finding whose sha a rebase rewrote into a commit on the 
     confirmed: ['1111111111111111:abc1234'],
     fixFailures: new Map(),
     currentHead: 'f'.repeat(40),
+    currentKey: { head: 'f'.repeat(40) },
     commits: ['d'.repeat(40), 'f'.repeat(40)],
     ambiguous: [],
     rewritten: new Map([['1111111111111111:abc1234', 'd'.repeat(40)]]),
@@ -471,6 +478,7 @@ test('it fails a fixed finding whose sha a rebase rewrote only for another findi
     confirmed: ['1111111111111111:abc1234'],
     fixFailures: new Map(),
     currentHead: 'f'.repeat(40),
+    currentKey: { head: 'f'.repeat(40) },
     commits: ['d'.repeat(40), 'f'.repeat(40)],
     ambiguous: [],
     rewritten: new Map([['2222222222222222:abc1234', 'd'.repeat(40)]]),
@@ -503,6 +511,7 @@ test('it fails when a finding comment holds a marker noslop cannot read', () => 
     confirmed: [],
     fixFailures: new Map(),
     currentHead: 'f'.repeat(40),
+    currentKey: { head: 'f'.repeat(40) },
     commits: ['f'.repeat(40)],
     ambiguous: [],
     rewritten: new Map(),
@@ -516,6 +525,7 @@ test('it fails when a finding comment holds a marker noslop cannot read', () => 
     title: '2 finding comments hold a marker noslop cannot read.',
     summary: '2 finding comments hold a marker noslop cannot read.',
     open: [],
+    reviewed: true,
   });
 });
 
@@ -534,6 +544,7 @@ test('it fails when no review ran on the current head, a call failed or a report
     confirmed: [],
     fixFailures: new Map(),
     currentHead: 'f'.repeat(40),
+    currentKey: { head: 'f'.repeat(40) },
     commits: [],
     ambiguous: [],
     rewritten: new Map(),
@@ -551,7 +562,140 @@ test('it fails when no review ran on the current head, a call failed or a report
       'These reporters failed: sqlite.',
     ].join('\n'),
     open: [],
+    reviewed: false,
   });
+});
+
+test('it passes at a new head whose net change holds the same patch id for each file as the review', () => {
+  const outcome = buildCheckOutcome({
+    findings: [],
+    dispositions: [],
+    summary: {
+      head: 'e'.repeat(40),
+      key: { files: { 'src/a.ts': '0123456789abcdef', 'src/b.ts': 'fedcba9876543210' } },
+      reviews: 1,
+      reported: [],
+      failedCalls: 0,
+      followUps: [],
+      confirmed: [],
+    },
+    confirmed: [],
+    fixFailures: new Map(),
+    currentHead: 'f'.repeat(40),
+    currentKey: { files: { 'src/a.ts': '0123456789abcdef', 'src/b.ts': 'fedcba9876543210' } },
+    commits: ['f'.repeat(40)],
+    ambiguous: [],
+    rewritten: new Map(),
+    existingIssues: new Set(),
+    failedReporters: [],
+    unreadable: 0,
+  });
+
+  expect(outcome).toStrictEqual({
+    conclusion: 'success',
+    title: 'Every finding holds a valid disposition (0)',
+    summary: '',
+    open: [],
+    reviewed: true,
+  });
+});
+
+test('it fails at a new head and names each file whose patch id changed, came or went since the review', () => {
+  const outcome = buildCheckOutcome({
+    findings: [],
+    dispositions: [],
+    summary: {
+      head: 'e'.repeat(40),
+      key: {
+        files: {
+          'src/a.ts': '0123456789abcdef',
+          'src/b.ts': 'fedcba9876543210',
+          'src/c.ts': '1111111111111111',
+        },
+      },
+      reviews: 1,
+      reported: [],
+      failedCalls: 0,
+      followUps: [],
+      confirmed: [],
+    },
+    confirmed: [],
+    fixFailures: new Map(),
+    currentHead: 'f'.repeat(40),
+    currentKey: {
+      files: {
+        'src/a.ts': '0123456789abcdef',
+        'src/b.ts': '2222222222222222',
+        'src/d.ts': '3333333333333333',
+      },
+    },
+    commits: ['f'.repeat(40)],
+    ambiguous: [],
+    rewritten: new Map(),
+    existingIssues: new Set(),
+    failedReporters: [],
+    unreadable: 0,
+  });
+
+  expect(outcome.title).toBe(
+    'No noslop review of this change to src/b.ts, src/c.ts, src/d.ts: the patch changed since the review of eeeeeeeeeeee.',
+  );
+});
+
+test('it fails at a new head when GitHub gives no whole file list, though the review keyed each file', () => {
+  const outcome = buildCheckOutcome({
+    findings: [],
+    dispositions: [],
+    summary: {
+      head: 'e'.repeat(40),
+      key: { files: { 'src/a.ts': '0123456789abcdef' } },
+      reviews: 1,
+      reported: [],
+      failedCalls: 0,
+      followUps: [],
+      confirmed: [],
+    },
+    confirmed: [],
+    fixFailures: new Map(),
+    currentHead: 'f'.repeat(40),
+    currentKey: { head: 'f'.repeat(40) },
+    commits: ['f'.repeat(40)],
+    ambiguous: [],
+    rewritten: new Map(),
+    existingIssues: new Set(),
+    failedReporters: [],
+    unreadable: 0,
+  });
+
+  expect(outcome.title).toBe('No noslop review for this commit, ffffffffffff.');
+});
+
+test('it passes a review keyed on its head only at that head', () => {
+  const outcome = buildCheckOutcome({
+    findings: [],
+    dispositions: [],
+    summary: {
+      head: 'f'.repeat(40),
+      key: { head: 'f'.repeat(40) },
+      reviews: 1,
+      reported: [],
+      failedCalls: 0,
+      followUps: [],
+      confirmed: [],
+    },
+    confirmed: [],
+    fixFailures: new Map(),
+    currentHead: 'f'.repeat(40),
+    currentKey: { head: 'f'.repeat(40) },
+    commits: ['f'.repeat(40)],
+    ambiguous: [],
+    rewritten: new Map(),
+    existingIssues: new Set(),
+    failedReporters: [],
+    unreadable: 0,
+  });
+
+  expect(outcome.conclusion).toBe('success');
 });
 
 test('it judges a finding by its latest disposition', () => {
@@ -598,6 +742,7 @@ test('it judges a finding by its latest disposition', () => {
     confirmed: [],
     fixFailures: new Map(),
     currentHead: 'f'.repeat(40),
+    currentKey: { head: 'f'.repeat(40) },
     commits: ['f'.repeat(40)],
     ambiguous: [],
     rewritten: new Map(),

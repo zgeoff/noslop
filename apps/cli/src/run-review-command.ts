@@ -21,15 +21,11 @@ import { loadStore, readEscapePaths } from '@noslop/sqlite';
 import cliPackage from '../package.json' with { type: 'json' };
 import { buildConfiguredAdapter } from './build-configured-adapter';
 import type { CLIContext } from './cli-context';
-import { cliStoreAccess } from './cli-store-access';
-import { findReviewBase } from './find-review-base';
 import { formatReviewSummary } from './format-review-summary';
 import { getStorePath } from './get-store-path';
 import { loadRepoConfig } from './load-repo-config';
-import { readFixFloors } from './read-fix-floors';
-import { readMappedReview } from './read-mapped-review';
-import { readStoredReviews } from './read-stored-reviews';
 import { readTrustedPullRequest } from './read-trusted-pull-request';
+import { readUncheckedRebase } from './read-unchecked-rebase';
 import { runReporters } from './run-reporters';
 
 export interface ReviewValues {
@@ -119,7 +115,6 @@ export async function runReviewCommand(values: ReviewValues, ctx: CLIContext): P
         configHash: loaded.hash,
         fixes: change.fixes,
         lensHead: change.lensHead,
-        ...(change.rebasedFrom === null ? {} : { rebasedFrom: change.rebasedFrom }),
         maxFileChars: loaded.config.thresholds.maxFileChars,
         adapter,
         tempDir,
@@ -262,10 +257,6 @@ interface ResolvedChange {
 
   // the head of the newest lens review of a pull request, which a fixes-only run reads past
   lensHead: string | null;
-
-  // the reviewed head that a rebase took off the branch, when the base is the branch commit with its
-  // patches
-  rebasedFrom: string | null;
 }
 
 async function resolveLocalChange(
@@ -310,7 +301,6 @@ async function resolveLocalChange(
     dismissedFindings: [],
     fixes: [],
     lensHead: null,
-    rebasedFrom: null,
   };
 }
 
@@ -413,56 +403,44 @@ async function resolvePullRequestChange(
     { cwd: repoDir },
   );
 
-  const isDelta = reviewed !== null && reviewed !== state.headSha && ancestry.exitCode === 0;
-
-  const refusal =
-    '--fixes-only needs an earlier review with no failed call whose head the branch still holds';
+  const isHeld = reviewed !== null && ancestry.exitCode === 0;
+  const isDelta = isHeld && reviewed !== state.headSha;
 
   // a fixes-only run may run again at the same head, for a `fixed` reply posted after the last run
   if (values.fixesOnly && reviewed === null) {
-    throw new Error(refusal);
+    throw new Error('--fixes-only needs an earlier review with no failed call');
   }
 
   const lastLensHead = findLensHead(summary);
 
-  const storedReviews = values.fixesOnly
-    ? await readStoredReviews(cliStoreAccess, getStorePath(config.config, ctx), repo, number)
-    : [];
+  // a lens review judged the fixes before it by their shas then, so a lens head a rebase left off the
+  // branch bounds no late fix
+  const isLensHeadHeld =
+    values.fixesOnly && lastLensHead !== null
+      ? await probeAncestry(ctx, repoDir, lastLensHead, state.headSha)
+      : true;
 
-  const reviewBase = lastLensHead === null ? null : findReviewBase(storedReviews, lastLensHead);
+  const lensHead = isLensHeadHeld ? lastLensHead : null;
+  const fixes = values.fixesOnly ? await readAnsweredFixes(connection, pullRequest, state) : [];
 
-  // a rebase after the review leaves its head off the branch, so the run starts from the branch
-  // commit with the same patches, and each fix diff still covers only the commits after the review
-  const rebased =
-    values.fixesOnly && reviewed !== null && ancestry.exitCode !== 0
-      ? await readMappedReview(ctx.runner, {
+  const unchecked =
+    values.fixesOnly && !isHeld
+      ? await readUncheckedRebase(ctx.runner, {
+          connection,
+          pullRequest,
           repoDir,
-          reviewed,
-          lensHead: lastLensHead,
-          base: state.baseSha,
+          stored: summary?.key,
+          mergeBase: start,
           head: state.headSha,
-          reviewBase,
+          fixes,
         })
-      : { from: reviewed, head: reviewed, failure: null };
+      : null;
 
-  if (values.fixesOnly && rebased.head === null) {
-    throw new Error(`${refusal}: ${rebased.failure ?? ''}`);
+  if (unchecked !== null) {
+    throw new Error(
+      `--fixes-only cannot pass the rebase of ${(reviewed ?? '').slice(0, 12)}: ${unchecked}; run a review without --fixes-only`,
+    );
   }
-
-  // the heads a late fix must come after, each as it stands on the branch after a rebase
-  const floors = values.fixesOnly
-    ? await readFixFloors(ctx.runner, {
-        repoDir,
-        base: state.baseSha,
-        head: state.headSha,
-        reviewBase,
-        lensHead: lastLensHead,
-        fixes: await readAnsweredFixes(connection, pullRequest, state),
-      })
-    : { lensHead: lastLensHead, fixes: [] };
-
-  const lensHead = floors.lensHead;
-  const fixes = floors.fixes;
 
   // a fixes-only run reads the linked issue only to run the static stage again for a static fix,
   // since a static check compares the change against the issue
@@ -473,10 +451,11 @@ async function resolvePullRequestChange(
 
   return {
     repo,
-    base: (values.fixesOnly || isDelta) && rebased.head !== null ? rebased.head : start,
+
+    // a head a rebase took off the branch bounds nothing, so the run reads from the merge base
+    base: (values.fixesOnly || isDelta) && isHeld && reviewed !== null ? reviewed : start,
     head: state.headSha,
     lensHead,
-    rebasedFrom: rebased.head === rebased.from ? null : rebased.from,
     config,
     title: state.title,
     body: state.body,
@@ -530,6 +509,19 @@ function findLensHead(summary: SummaryMarker | undefined): string | null {
   );
 
   return range?.head ?? null;
+}
+
+async function probeAncestry(
+  ctx: CLIContext,
+  repoDir: string,
+  commit: string,
+  descendant: string,
+): Promise<boolean> {
+  const result = await ctx.runner.run(['git', 'merge-base', '--is-ancestor', commit, descendant], {
+    cwd: repoDir,
+  });
+
+  return result.exitCode === 0;
 }
 
 // each finding whose latest disposition is `fixed` with a fix the summary does not hold confirmed, as

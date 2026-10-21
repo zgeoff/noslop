@@ -62,10 +62,12 @@
         "@noslop/contract": "workspace:*",
         "@octokit/app": "catalog:",
         "@octokit/core": "catalog:",
+        "ts-pattern": "catalog:",
         "zod": "catalog:",
       },
       "devDependencies": {
         "@logtape/logtape": "catalog:",
+        "@noslop/runner": "workspace:*",
         "@noslop/testing": "workspace:*",
         "msw": "catalog:",
       },

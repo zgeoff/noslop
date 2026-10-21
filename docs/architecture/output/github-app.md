@@ -243,6 +243,13 @@ posting head. A commit that GitHub no longer serves, a file GitHub gives no patc
 with none or several commits leaves the fix unconfirmed. The matched commit then stands in for the
 named sha under every rule of this section.
 
+A review range that the summary marker keeps from before a clean rebase holds the commits as they
+were then, so the check finds the fix among them by the same patch match in the other direction. The
+range holds a fix when it holds the branch commit, the commit the answer names, or the one commit of
+its own that the branch no longer holds and whose patch matches the branch commit's patch. A `fixed`
+reply after the rebase therefore counts the review that read the fix before it, whichever of the two
+shas the reply names.
+
 The re-check is the second review of a pull request. From the third review on, the reporter sends
 each new finding in code the change did not write to a follow-up issue. A security finding, and any
 finding in code the change wrote, goes on the pull request at every review.
@@ -256,7 +263,8 @@ and raises a finding only on a merge resolution, under [the fixes-only run](./fi
 
 The check passes when all of these hold, and fails otherwise:
 
-- The summary marker's head is the current head of the pull request.
+- The summary marker's [net-change key](#the-net-change-key) matches the pull request at its current
+  head.
 - No call of that review failed.
 - No reporter that ran before the `github` reporter failed.
 - The summary marker holds no merge whose resolution a fixes-only run rejected with no finding.
@@ -267,8 +275,31 @@ The check's title states the first problem, and its text lists each finding with
 disposition and the reason. The `github` reporter sets the check after each review, and
 `noslop check --pr <number> --repo <owner/name>` sets it again from what GitHub holds, with no new
 review. The command exits 0 whatever else the check concludes, because a failing check is an answer,
-not an error. One exception: when no noslop review covers the current head, it prints
-`no noslop review for this commit` and exits 1, so a CI job that runs it fails until a review of the
-head is posted. Under `--read-only` it sets no check run and exits 1 unless the check passes, as
-[checking read-only](./cli.md#checking-read-only) describes. A reporter failure lives only in the
-run that saw it, so a later `noslop check` judges the pull request without it.
+not an error. One exception: when no noslop review covers the net change at the current head, it
+prints `no noslop review for this commit` and exits 1, so a CI job that runs it fails until a review
+covers that net change. Under `--read-only` it sets no check run and exits 1 unless the check
+passes, as [checking read-only](./cli.md#checking-read-only) describes. A reporter failure lives
+only in the run that saw it, so a later `noslop check` judges the pull request without it.
+
+### The net-change key
+
+The summary marker keeps the key of the pull request's net change, the diff from its merge base to
+its head, as the review read it. The key holds one patch id per changed file. The `github` reporter
+and the check each build it the same way, from the patches GitHub lists for the pull request's
+files. Each hunk header loses its line numbers, because a change of the base above a hunk moves
+them, and keeps the heading of the code the hunk sits in, so 2 like edits in 2 functions get 2 ids.
+The id hashes the file's status, its earlier path and that patch. A binary or large file, of which
+GitHub gives no patch, keys on its blob.
+
+A clean rebase and a merge of the base that touches no line near the pull request's hunks leave
+every patch id where it was, so the review holds at the new head with no run. A push that changes a
+file's patch moves that file's id. The check's title names the first few files whose id moved, came
+or went, and counts the rest. Three cases key on the head itself, and that key counts only at that
+head:
+
+- GitHub lists fewer files than the pull request changes, past its file-list cap.
+- The patch ids pass the marker's character budget.
+- The pull request's head moved on before the reporter read its files.
+
+A summary marker that holds no key, as one an older release wrote, counts only at its own head. The
+next review or fixes-only run writes the key.

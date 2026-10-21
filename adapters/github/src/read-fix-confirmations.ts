@@ -3,7 +3,10 @@ import { buildFixFileEvidence } from '@noslop/contract';
 import { buildFixConfirmation } from './build-fix-confirmation';
 import type { GitHubClient } from './create-github-connection';
 import type { FixConfirmation } from './format-summary-comment';
+import type { CommitChange } from './make-commit-change-reader';
+import { makeCommitChangeReader } from './make-commit-change-reader';
 import type { FixState } from './pick-next-fix-state';
+import { pickRangeFix } from './pick-range-fix';
 import type { CommitFiles } from './read-commit-files';
 import { readCommitFiles } from './read-commit-files';
 import type { FixCommits } from './read-fix-commits';
@@ -74,6 +77,8 @@ export async function readFixConfirmations(
     return commits;
   };
 
+  const readChange = makeCommitChangeReader(client, pr);
+
   const fileReads = new Map<string, Promise<CommitFiles>>();
 
   const readFiles = (commit: string): Promise<CommitFiles> => {
@@ -101,15 +106,27 @@ export async function readFixConfirmations(
     // rewrite passed that check on the commits before the rebase
     const isAfterChecked = posted === undefined || rewrite !== undefined;
     const after = isAfterChecked ? range : await readSincePosted(posted);
-    const isInRange = match !== null && range.includes(match) && after.includes(match);
+
+    const rangeFix =
+      match === null
+        ? null
+        : await readRangeFix({
+            range,
+            match,
+            named: commit,
+            fixCommits: input.fixCommits,
+            readChange,
+          });
+
+    const isInRange = rangeFix !== null && after.includes(rangeFix);
     const skipped = collectLensSkipped(notReviewed, review.notReviewedByLens, thread.marker.lens);
     const isUnchecked = review.checked !== undefined && !review.checked.includes(thread.marker.id);
     const isFileSkipped = isUnchecked || skipped.has(thread.marker.path);
 
     const read =
-      isInRange && match !== null && !isFileSkipped && skipped.size > 0
+      isInRange && rangeFix !== null && !isFileSkipped && skipped.size > 0
         ? await readFixCoverage(client, pr, {
-            commit: match,
+            commit: rangeFix,
             head: review.head,
             skipped,
             findingPath: thread.marker.path,
@@ -160,6 +177,38 @@ function findOneCommit(fixCommits: FixCommits, sha: string): string | null {
   const matches = fixCommits.commits.filter((commit) => commit.startsWith(sha));
 
   return matches.length === 1 ? (matches[0] ?? null) : null;
+}
+
+interface RangeFixReadInput {
+  range: readonly string[];
+  match: string;
+  named: string;
+  fixCommits: FixCommits;
+  readChange: (ref: string) => Promise<CommitChange | null>;
+}
+
+// the commit of a review's range that is the fix, reading the patches only when the picker needs
+// them
+async function readRangeFix(input: RangeFixReadInput): Promise<string | null> {
+  const pickInput = {
+    range: input.range,
+    match: input.match,
+    named: input.named,
+    branchCommits: input.fixCommits.commits,
+  };
+
+  const first = pickRangeFix({ ...pickInput, changes: null });
+
+  if (first.kind !== 'read') {
+    return first.kind === 'found' ? first.commit : null;
+  }
+
+  const fix = await input.readChange(input.match);
+  const candidates = await Promise.all(first.candidates.map((commit) => input.readChange(commit)));
+
+  const picked = pickRangeFix({ ...pickInput, changes: { fix, candidates } });
+
+  return picked.kind === 'found' ? picked.commit : null;
 }
 
 // the files a review left out for one lens: every file no call read, and each file the call of that
