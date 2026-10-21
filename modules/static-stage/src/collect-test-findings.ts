@@ -206,8 +206,6 @@ function collectNamedMissingTests(
 
   const sentences = claims.body.split(SENTENCE_BREAK);
 
-  // a test file that exists at the head and that the body only mentions, as one a rerun passed, is no
-  // claim of a new test; the body claims one only where a sentence naming it adds or edits it
   return named
     .filter((name) => !isPathListed(name, changed))
     .filter(
