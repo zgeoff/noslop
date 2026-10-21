@@ -1766,6 +1766,63 @@ test('it keeps the failed calls of a lens review through a fixes-only run that j
   expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('failure');
 });
 
+test('it drops the failed fix call of an earlier fixes-only run when a later one judges no fix after a clean lens review', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'b'.repeat(40),
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      reviewID: 'review-a',
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'b'.repeat(40),
+      findings: [],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      reviewID: 'review-b',
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'b'.repeat(40),
+      lenses: [],
+      findings: [],
+      fixesOnly: true,
+      fixChecks: [],
+      failedCalls: [
+        { id: 'fix-1111111111111111', lenses: ['correctness'], reason: 'the model timed out' },
+      ],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      reviewID: 'review-c',
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'b'.repeat(40),
+      lenses: [],
+      findings: [],
+      fixesOnly: true,
+      fixChecks: [],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const summary = githubCollections.issueComments
+    .all()
+    .findLast((comment) => comment.body.includes('<!-- noslop:summary'));
+
+  expect(summary?.body).toInclude('"failedCalls":0,');
+  expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('success');
+});
+
 test('it vouches for the merge base alone after a fixes-only run that judged no fix on a pull request no review covered', async () => {
   const ctx = setupTest();
 

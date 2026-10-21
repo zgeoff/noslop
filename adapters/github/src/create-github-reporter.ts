@@ -447,7 +447,10 @@ async function readReviewedChange(
     return { head: result.base, failedCalls };
   }
 
-  const kept = { head: previous.head, failedCalls: previous.failedCalls + failedCalls };
+  // with no clean lens review, the latest lens review failed, and its failures stay until one passes;
+  // otherwise an earlier failure was a fix call's, which this run asked again or no longer needs
+  const carried = findLensHead(previous) === null ? previous.failedCalls : 0;
+  const kept = { head: previous.head, failedCalls: carried + failedCalls };
 
   return previous.key === undefined ? kept : { ...kept, key: previous.key };
 }
