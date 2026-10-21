@@ -407,9 +407,6 @@ async function resolvePullRequestChange(
   };
 }
 
-// the files whose patch changed since the last lens review, which read every file its key holds; a
-// review whose call failed left a file unread, and a key that cannot be matched file by file names
-// no file, so either reads the whole change again
 async function readChangedPaths(
   connection: GitHubConnection,
   pullRequest: PullRequestRef,
