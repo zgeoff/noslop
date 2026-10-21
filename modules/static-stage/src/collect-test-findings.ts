@@ -184,7 +184,10 @@ function hasChangedBody(
   );
 
   const fact = headChecks.find(
-    (item) => item.line === check.location.startLine && item.endLine === check.location.endLine,
+    (item) =>
+      item.line === check.location.startLine &&
+      item.endLine === check.location.endLine &&
+      item.detail === check.detail,
   );
 
   const baseBodies = baseChecks.get(check.location.path);

@@ -542,6 +542,56 @@ test('it reports no missing table for a deny guard when only the line above it c
   expect(result.findings).toStrictEqual([]);
 });
 
+test('it reports the changed one of 2 access checks that share a line', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/access.ts':
+          'export const canView = () => true; export const canShare = (role: string) => role === "owner";\n',
+      },
+    },
+    {
+      message: 'head',
+      files: {
+        'src/access.ts':
+          'export const canView = () => true; export const canShare = (role: string) => role !== "guest";\n',
+      },
+    },
+  ]);
+
+  const config = BUILT_IN_DEFAULTS;
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config,
+    title: 'feat: let members share',
+    body: '',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(result.findings.map((finding) => [finding.title, finding.body])).toStrictEqual([
+    [
+      'New allow-or-deny check has no table of hostile inputs',
+      'canShare decides access, and no test of this file runs a test.each table over the inputs the check must refuse.',
+    ],
+  ]);
+});
+
 test('it reports an access check whose body changes only in the spaces of a string', async () => {
   const ctx = await setupTest();
 
