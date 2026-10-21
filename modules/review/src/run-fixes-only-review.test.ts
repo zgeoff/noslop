@@ -877,7 +877,6 @@ test('it judges a late fixed reply from the merge base when a rebase left every 
 
   expect(stub.requests.map((request) => request.callID)).toStrictEqual(['fix-1111111111111111']);
 
-  // the fix's parent holds the zero constant, which the merge base lacks
   expect(stub.requests[0]?.prompt).toInclude(
     '1: export const zero = 0;\n2: export const separator = "";',
   );
