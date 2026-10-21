@@ -755,7 +755,7 @@ test('it asks about a fixed reply whose commit came before the run, from the hea
   ]);
 });
 
-test('it asks nothing about a late fixed reply when a rebase left the head that posted the finding off the branch', async () => {
+test('it judges a late fixed reply from the lens head when a rebase left the head that posted the finding off the branch', async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
@@ -813,10 +813,70 @@ test('it asks nothing about a late fixed reply when a rebase left the head that 
     logger: ctx.logger,
   });
 
-  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['fix-2222222222222222']);
+  expect(stub.requests.map((request) => request.callID)).toIncludeSameMembers([
+    'fix-1111111111111111',
+    'fix-2222222222222222',
+  ]);
+
+  expect(result.fixChecks).toIncludeSameMembers([
+    { findingID: '1111111111111111', fixed: true, reason: 'The separator is a colon now.' },
+    { findingID: '2222222222222222', fixed: true, reason: 'The tab is defined now.' },
+  ]);
+});
+
+test('it judges a late fixed reply from the merge base when a rebase left every earlier head off the branch', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const separator = "";\n' } },
+    { message: 'Describe the app', files: { 'README.md': '# app\n' } },
+    {
+      message: 'Reject an empty separator',
+      parent: 0,
+      files: { 'src/scan.ts': 'export const separator = ":";\n' },
+    },
+    { message: 'Add a tab', files: { 'src/tab.ts': 'export const tab = "\\t";\n' } },
+  ]);
+
+  const stub = buildStubAdapter({
+    'fix-1111111111111111': [{ fixed: true, reason: 'The separator is a colon now.' }],
+  });
+
+  const result = await runFixesOnlyReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/app',
+    pullRequest: { owner: 'example', repo: 'app', number: 9 },
+    base: repo.commits[3] ?? '',
+    head: repo.commits[3] ?? '',
+    mergeBase: repo.commits[0] ?? '',
+    lensHead: null,
+    title: 'Scan the header line',
+    configHash: 'hash',
+    fixes: [
+      {
+        id: '1111111111111111',
+        title: 'Reject an empty separator',
+        lens: 'correctness',
+        path: 'src/scan.ts',
+        line: 1,
+        comment: 'An empty separator splits the line into single characters.',
+        commit: (repo.commits[2] ?? '').slice(0, 7),
+        postedHead: repo.commits[1] ?? '',
+      },
+    ],
+    maxFileChars: 10_000,
+    adapter: stub.adapter,
+    tempDir: ctx.directory,
+    logger: ctx.logger,
+  });
+
+  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['fix-1111111111111111']);
+  expect(stub.requests[0]?.prompt).toInclude('1: export const separator = "";');
+  expect(result.base).toBe(repo.commits[0] ?? '');
 
   expect(result.fixChecks).toStrictEqual([
-    { findingID: '2222222222222222', fixed: true, reason: 'The tab is defined now.' },
+    { findingID: '1111111111111111', fixed: true, reason: 'The separator is a colon now.' },
   ]);
 });
 
@@ -1765,55 +1825,6 @@ test('it refuses a run with no fixed answer to check and no commit since the las
   );
 });
 
-test('it runs with no fixed answer to check when a rebase made the head of the reviewed head and no commit came after', async () => {
-  const ctx = await setupTest();
-
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
-    { message: 'base', files: { 'src/scan.ts': 'export const separator = "";\n' } },
-    { message: 'Describe the app', files: { 'README.md': '# app\n' } },
-    {
-      message: 'Reject an empty separator',
-      files: { 'src/scan.ts': 'export const separator = ":";\n' },
-      parent: 0,
-    },
-    {
-      message: 'Reject an empty separator',
-      files: { 'src/scan.ts': 'export const separator = ":";\n' },
-      parent: 1,
-    },
-  ]);
-
-  const stub = buildStubAdapter({});
-
-  const result = await runFixesOnlyReview({
-    runner: ctx.runner,
-    repoDir: repo.path,
-    repo: 'example/app',
-    pullRequest: { owner: 'example', repo: 'app', number: 9 },
-    base: repo.commits[3] ?? '',
-    head: repo.commits[3] ?? '',
-    mergeBase: repo.commits[1] ?? '',
-    lensHead: repo.commits[3] ?? '',
-    rebasedFrom: repo.commits[2] ?? '',
-    title: 'Scan the header line',
-    configHash: 'hash',
-    fixes: [],
-    maxFileChars: 10_000,
-    adapter: stub.adapter,
-    tempDir: ctx.directory,
-    logger: ctx.logger,
-  });
-
-  expect(stub.requests).toStrictEqual([]);
-
-  expect(result).toMatchObject({
-    base: repo.commits[3] ?? '',
-    head: repo.commits[3] ?? '',
-    fixChecks: [],
-    failedCalls: [],
-  });
-});
-
 test('it refuses a run with no fixed answer to check over a commit that came after the branch commit a rebase made of the reviewed head', async () => {
   const ctx = await setupTest();
 
@@ -1845,7 +1856,6 @@ test('it refuses a run with no fixed answer to check over a commit that came aft
       head: repo.commits[4] ?? '',
       mergeBase: repo.commits[1] ?? '',
       lensHead: repo.commits[3] ?? '',
-      rebasedFrom: repo.commits[2] ?? '',
       title: 'Scan the header line',
       configHash: 'hash',
       fixes: [],

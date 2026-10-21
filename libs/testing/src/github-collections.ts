@@ -50,7 +50,8 @@ export const githubCollections = {
     }),
   }),
 
-  // the lines of a pull request's diff that take a review comment, on the head side
+  // the files of a pull request's diff: the lines that take a review comment, on the head side, and
+  // the entry GitHub lists for the file; a file with no patch, such as a binary one, gets none
   pullFiles: new Collection({
     schema: z.object({
       owner: z.string().default('example'),
@@ -58,6 +59,12 @@ export const githubCollections = {
       number: z.int().default(1),
       path: z.string().default(buildFilePath),
       lines: lineNumbersSchema.default(buildFirstLine),
+      status: z
+        .enum(['added', 'removed', 'modified', 'renamed', 'copied', 'changed', 'unchanged'])
+        .default('modified'),
+      previousPath: z.string().nullable().default(null),
+      patch: z.string().nullable().default(null),
+      blobSha: z.string().default(buildSha),
     }),
   }),
 

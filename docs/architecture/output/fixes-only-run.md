@@ -2,8 +2,8 @@
 
 A fixes-only run lets a fix that lands after the last review round pass the check without a new
 review round. It starts from the head of the newest run with no failed call that the summary marker
-keeps, and the branch must hold that head or a commit that a rebase made of it. It runs no lens over
-the diff, and it raises a finding only on what a merge commit wrote, under
+keeps, or from the pull request's merge base when a rebase took that head off the branch. It runs no
+lens over the diff, and it raises a finding only on what a merge commit wrote, under
 [the resolution check](#the-resolution-check). For each finding of a model lens whose latest
 disposition is `fixed` with a commit among the new commits, it makes one small call. A commit that
 the base branch brought in after the finding, such as a fix in the layer below a stacked pull
@@ -25,22 +25,18 @@ the run judges it not fixed, by the same rule the
 [check](./github-app.md#re-review-and-fix-confirmation) applies.
 
 A run with no `fixed` answer to judge refuses and gives the reason. It writes no summary, so the
-check stays on the head it was on and passes no commit that no lens read. The run goes ahead in two
-cases:
-
-- Each of the branch's own new commits is a merge whose other parents the pull request's base holds.
-  Such a merge brings in only code the base holds, and the [resolution check](#the-resolution-check)
-  judges each one that is not clean.
-- A clean rebase made the head of the reviewed head, and no commit follows it. The
-  [mapping after a rebase](#after-a-rebase) matched each reviewed commit by its patch, so the review
-  still holds for the head, and the run carries it onto the head with the count of reviews kept.
+check stays on the net change it was on and passes no commit that no lens read. The run goes ahead
+when each of the branch's own new commits is a merge whose other parents the pull request's base
+holds. Such a merge brings in only code the base holds, and the
+[resolution check](#the-resolution-check) judges each one that is not clean. A clean rebase needs no
+run, because it leaves the [net-change key](./github-app.md#the-net-change-key) where it was.
 
 A `fixed` reply posted after an earlier fixes-only run passed its commit gets a call too, so the
 next run, at the same head or a later one, checks it. Its diff starts from the newer of the head
 that posted the finding and the head of the newest review that ran its lenses, because that review
-judged every fix before it. A rebase that took either head off the branch changes where the diff
-starts, as the mapping after a rebase describes. A fix the summary already holds as confirmed gets
-no call.
+judged every fix before it. A head that a rebase took off the branch bounds no diff, as
+[after a rebase](#after-a-rebase) describes. A fix the summary already holds as confirmed gets no
+call.
 
 A `fixed` answer can name a commit of the pull request's base, such as a fix in the layer below a
 stacked pull request that a rebase onto that layer brought in. That commit gets a call when the base
@@ -83,44 +79,16 @@ its linked issue, so the run reads the linked issue when it judges a static fix.
 
 ## After a rebase
 
-A rebase after the last review takes its head off the branch, so the run maps that head onto the
-branch before it starts. The reviewed commits past the pull request's base must open the branch in
-the same order, each with the same patch by git's patch id, which ignores whitespace and file order,
-and the run starts from the branch commit that matches the reviewed head. Each fix diff therefore
-still covers only the commits after the review. A reviewed commit whose patch the base already holds
-belongs to the base, as in a stack whose base branch rebased too, so the mapping leaves it out.
+A rebase after the last review takes its head off the branch, so the run starts from the pull
+request's merge base, and its range holds every commit of the pull request. A `fixed` answer that
+names a fix commit the rebase rewrote counts the branch commit with the same change, as the check
+counts it, and the run judges that commit.
 
-A squash merge of a lower stack layer holds no single commit's patch, so the base matches none of
-that layer's commits by patch. The mapping leaves out every reviewed commit below the base that the
-last lens review read, as the store records it, because the lower layer's own review read those
-commits. A delta review's stored base is the head of the review before it, so the run follows each
-such head back to the base of the review that read it. With no lens review of that head in the
-store, the mapping counts every reviewed commit past the pull request's base. A branch that carries
-a lower layer's commit as its own fails the match, since the reviewed commits do not open the
-branch.
-
-A fixes-only run stores its own head as its base. When a lower layer rebased under such a run, the
-commits below the run's head match neither the base nor the lens review's base. When the reviewed
-head maps to no branch commit, the run maps the last lens review's head instead, and each fix commit
-after it takes the fix path.
-
-The run refuses, and gives the reason, in five cases:
-
-- The rebase changed a reviewed commit's patch, such as by a conflict resolution.
-- The reviewed range, or the branch commits it maps onto, holds a merge, which has no patch id.
-- A reviewed commit is empty, so it has no patch to match.
-- The branch holds fewer commits past the base than the reviewed range.
-- The repo holds no commit of the reviewed head.
-
-A `fixed` answer that names a fix commit the rebase rewrote counts the branch commit with the same
-change, as the check counts it, and the run judges that commit.
-
-A `fixed` reply posted after an earlier fixes-only run needs a head its diff can start from. The run
-maps the head that posted the finding onto the branch, by the same patch match. A lens review whose
-head a rebase took off the branch judged each fix before it by the sha that fix had then, and the
-check counts no rewritten sha as judged, so that lens head bounds no diff and the run judges the fix
-again. A fix gets no call when the head that posted its finding has no match on the branch, since
-the run cannot tell whether the fix came after that head.
+A lens review whose head a rebase took off the branch judged each fix before it by the sha that fix
+had then, and the check counts no rewritten sha as judged, so that lens head bounds no diff. The
+head that posted a finding bounds no diff once a rebase took it off the branch either. A late
+`fixed` reply whose heads are all off the branch gets its call from the merge base, and the call
+reads the code that the fix commit's parent holds around the finding's line.
 
 ## The resolution check
 

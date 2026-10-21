@@ -22,6 +22,7 @@ import { readFixCommits } from './read-fix-commits';
 import type { ReviewedRange } from './read-fix-confirmations';
 import { readFixConfirmations } from './read-fix-confirmations';
 import { readHeldFixes } from './read-held-fixes';
+import { readNetChangeKey } from './read-net-change-key';
 import type { FindingThread, PullRequestState } from './read-pull-request-state';
 import { readPullRequestState } from './read-pull-request-state';
 import { readThreadDispositions } from './read-thread-dispositions';
@@ -192,6 +193,7 @@ async function runReviewPost(
       .filter((item) => item.fixed)
       .map((item) => `${item.id}:${item.commit}`),
     startedAt: result.startedAt,
+    key: await readNetChangeKey(client, pr, result.head),
   };
 
   await writeSummaryComment(

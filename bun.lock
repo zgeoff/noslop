@@ -62,6 +62,7 @@
         "@noslop/contract": "workspace:*",
         "@octokit/app": "catalog:",
         "@octokit/core": "catalog:",
+        "ts-pattern": "catalog:",
         "zod": "catalog:",
       },
       "devDependencies": {

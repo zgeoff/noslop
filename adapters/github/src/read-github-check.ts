@@ -5,6 +5,7 @@ import type { GitHubClient, GitHubConnection } from './create-github-connection'
 import type { FixCommits } from './read-fix-commits';
 import { readFixCommits } from './read-fix-commits';
 import { readHeldFixes } from './read-held-fixes';
+import { readNetChangeKey } from './read-net-change-key';
 import type { PullRequestState } from './read-pull-request-state';
 import { readThreadDispositions } from './read-thread-dispositions';
 
@@ -37,6 +38,11 @@ export async function readGitHubCheck(
 
   const fixes = await readCheckFixes(client, pr, { state, dispositions, fixCommits });
 
+  const currentKey =
+    summary?.key === undefined
+      ? { head: state.headSha }
+      : await readNetChangeKey(client, pr, state.headSha);
+
   return buildCheckOutcome({
     findings: state.threads.map((thread) => thread.marker),
     dispositions,
@@ -44,6 +50,7 @@ export async function readGitHubCheck(
     confirmed: fixes.confirmed,
     fixFailures: fixes.failures,
     currentHead: state.headSha,
+    currentKey,
     commits: fixCommits.commits,
     ambiguous: fixCommits.ambiguous,
     rewritten: toRewrittenCommits(fixCommits),

@@ -16,12 +16,10 @@ export interface FixBaseInput {
   lensHead: string | null;
 }
 
-// the answer a fix base is read for: the sha it names, and the head that posted its finding with
-// the branch commit a rebase made of that head
+// the answer a fix base is read for: the sha it names, and the head that posted its finding
 export interface FixAnswer {
   commit: string;
   postedHead: string | null;
-  postedBranchHead?: string;
 }
 
 // the commit a fix's range starts from, the commit whose code around the anchored line the call
@@ -63,21 +61,21 @@ function findOneCommit(range: readonly string[], sha: string): string | null {
 }
 
 async function readLateFixBase(input: FixBaseInput, fix: FixAnswer): Promise<FixBase | null> {
-  const floors = [fix.postedBranchHead ?? fix.postedHead, input.lensHead].filter(
-    (head) => head !== null,
-  );
-
-  const [first, second] = floors;
-
-  if (first === undefined) {
+  if (fix.postedHead === null) {
     return null;
   }
 
-  // a head a rebase left off the branch bounds no diff of it, and the fix must still come after it
-  const held = await Promise.all(floors.map((head) => readAncestry(input, head, input.head)));
+  const heads = [fix.postedHead, input.lensHead].filter((head) => head !== null);
 
-  if (held.includes(false)) {
-    return null;
+  // a head a rebase left off the branch bounds no diff of it, so the fix may be any commit past the
+  // merge base, and the call reads the code its parent held
+  const held = await Promise.all(heads.map((head) => readAncestry(input, head, input.head)));
+
+  const floors = heads.filter((_, index) => held[index] === true);
+  const [first, second] = floors;
+
+  if (first === undefined) {
+    return readRebasedFixBase(input, fix);
   }
 
   const newer = second === undefined ? first : await readNewerHead(input, first, second);
@@ -90,6 +88,30 @@ async function readLateFixBase(input: FixBaseInput, fix: FixAnswer): Promise<Fix
   const lateCommit = findOneCommit(commits, fix.commit);
 
   return lateCommit === null ? null : { base: newer, anchor: newer, commit: lateCommit };
+}
+
+async function readRebasedFixBase(input: FixBaseInput, fix: FixAnswer): Promise<FixBase | null> {
+  const listed = await input.runner.run(['git', 'rev-list', `${input.mergeBase}..${input.head}`], {
+    cwd: input.repoDir,
+  });
+
+  const commits = listed.exitCode === 0 ? listed.stdout.trim().split('\n') : [];
+  const commit = findOneCommit(commits, fix.commit);
+  const parent = commit === null ? null : await readCommitSha(input, `${commit}^`);
+
+  return commit === null || parent === null
+    ? null
+    : { base: input.mergeBase, anchor: parent, commit };
+}
+
+// the full sha of the one commit a name gives, or null for a name that gives none or more than one
+async function readCommitSha(input: FixBaseInput, name: string): Promise<string | null> {
+  const result = await input.runner.run(
+    ['git', 'rev-parse', '--verify', '--quiet', `${name}^{commit}`],
+    { cwd: input.repoDir },
+  );
+
+  return result.exitCode === 0 ? result.stdout.trim() : null;
 }
 
 // the head of the two that descends from the other, or the first when neither does
@@ -122,16 +144,6 @@ async function readBaseBranchFixBase(input: FixBaseInput, fix: FixAnswer): Promi
   return isFix && commit !== null && parent !== null && posted !== null
     ? { base: parent, anchor: posted, commit }
     : null;
-}
-
-// the full sha of the one commit a name gives, or null for a name that gives none or more than one
-async function readCommitSha(input: FixBaseInput, name: string): Promise<string | null> {
-  const result = await input.runner.run(
-    ['git', 'rev-parse', '--verify', '--quiet', `${name}^{commit}`],
-    { cwd: input.repoDir },
-  );
-
-  return result.exitCode === 0 ? result.stdout.trim() : null;
 }
 
 async function readBaseBranchFixReads(

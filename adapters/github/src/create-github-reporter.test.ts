@@ -5922,6 +5922,234 @@ test('it posts a finding whose lines a later commit rewrote as an issue comment 
   expect(comments[0]).toInclude(`"head":"${'e'.repeat(40)}"`);
 });
 
+test('it passes the check at a rebased head whose files hold the reviewed patches at moved lines', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    baseSha: 'a'.repeat(40),
+    headSha: 'b'.repeat(40),
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/a.ts',
+    patch: '@@ -1,3 +1,3 @@\n const zero = 0;\n-const one = 2;\n+const one = 1;\n const two = 2;',
+    blobSha: '1'.repeat(40),
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'assets/logo.png',
+    status: 'added',
+    blobSha: '2'.repeat(40),
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      base: 'a'.repeat(40),
+      head: 'b'.repeat(40),
+      findings: [],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  await githubCollections.pullRequests.update((query) => query.where({ number: 5 }), {
+    data(record) {
+      record.baseSha = 'd'.repeat(40);
+      record.headSha = 'c'.repeat(40);
+    },
+  });
+
+  await githubCollections.pullFiles.update((query) => query.where({ path: 'src/a.ts' }), {
+    data(record) {
+      record.patch =
+        '@@ -8,3 +8,3 @@ // values\n const zero = 0;\n-const one = 2;\n+const one = 1;\n const two = 2;';
+
+      record.blobSha = '3'.repeat(40);
+    },
+  });
+
+  const connection = await createGitHubConnection({
+    appID: 1,
+    privateKey: buildStubAppKey(),
+    installationID: 7,
+  });
+
+  const outcome = await runGitHubCheck(
+    connection,
+    { owner: 'example', repo: 'app', number: 5 },
+    { failedReporters: [] },
+  );
+
+  expect(outcome.conclusion).toBe('success');
+});
+
+test('it fails the check at a new head whose file holds a changed patch, and names the file', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    baseSha: 'a'.repeat(40),
+    headSha: 'b'.repeat(40),
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/a.ts',
+    patch: '@@ -1,3 +1,3 @@\n const zero = 0;\n-const one = 2;\n+const one = 1;\n const two = 2;',
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/b.ts',
+    patch: '@@ -1 +1 @@\n-const name = "a";\n+const name = "b";',
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      base: 'a'.repeat(40),
+      head: 'b'.repeat(40),
+      findings: [],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  await githubCollections.pullRequests.update((query) => query.where({ number: 5 }), {
+    data(record) {
+      record.headSha = 'c'.repeat(40);
+    },
+  });
+
+  await githubCollections.pullFiles.update((query) => query.where({ path: 'src/a.ts' }), {
+    data(record) {
+      record.patch =
+        '@@ -1,3 +1,3 @@\n const zero = 0;\n-const one = 2;\n+const one = 3;\n const two = 2;';
+    },
+  });
+
+  const connection = await createGitHubConnection({
+    appID: 1,
+    privateKey: buildStubAppKey(),
+    installationID: 7,
+  });
+
+  const outcome = await runGitHubCheck(
+    connection,
+    { owner: 'example', repo: 'app', number: 5 },
+    { failedReporters: [] },
+  );
+
+  expect(outcome.title).toBe(
+    'No noslop review of this change to src/a.ts: the patch changed since the review of bbbbbbbbbbbb.',
+  );
+});
+
+test('it keys a review on its head when the pull request moved on before the summary', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    baseSha: 'a'.repeat(40),
+    headSha: 'c'.repeat(40),
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/a.ts',
+    patch: '@@ -1 +1 @@\n-const one = 2;\n+const one = 1;',
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      base: 'a'.repeat(40),
+      head: 'b'.repeat(40),
+      findings: [],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const connection = await createGitHubConnection({
+    appID: 1,
+    privateKey: buildStubAppKey(),
+    installationID: 7,
+  });
+
+  const state = await readPullRequestState(connection, {
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+  });
+
+  expect(state.summary?.marker.key).toStrictEqual({ head: 'b'.repeat(40) });
+});
+
+test('it keys a review on its head when the pull request changes more files than GitHub lists', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    baseSha: 'a'.repeat(40),
+    headSha: 'b'.repeat(40),
+  });
+
+  await Promise.all(
+    Array.from({ length: 3001 }, (_, index) =>
+      githubCollections.pullFiles.create({
+        owner: 'example',
+        repo: 'app',
+        number: 5,
+        path: `src/file-${index}.ts`,
+      }),
+    ),
+  );
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      base: 'a'.repeat(40),
+      head: 'b'.repeat(40),
+      findings: [],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const connection = await createGitHubConnection({
+    appID: 1,
+    privateKey: buildStubAppKey(),
+    installationID: 7,
+  });
+
+  const state = await readPullRequestState(connection, {
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+  });
+
+  expect(state.summary?.marker.key).toStrictEqual({ head: 'b'.repeat(40) });
+});
+
 test('it refuses to post under a token, whose comments no later review trusts', async () => {
   const reporter = createGitHubReporter({
     loadConnection: () => createGitHubConnection(null, 'ghp_reader'),

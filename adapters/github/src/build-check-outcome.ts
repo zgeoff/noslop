@@ -1,5 +1,7 @@
 import type { Disposition } from '@noslop/contract';
+import { P, match } from 'ts-pattern';
 import type { FindingMarker } from './finding-marker';
+import type { NetChangeKey } from './net-change-key';
 import type { SummaryMarker } from './summary-marker';
 
 export interface CheckOutcomeInput {
@@ -16,6 +18,9 @@ export interface CheckOutcomeInput {
   // why GitHub could not show a fix whole, by finding id, so the check names it
   fixFailures: ReadonlyMap<string, string>;
   currentHead: string;
+
+  // the key of the pull request's net change at the current head
+  currentKey: NetChangeKey;
 
   // the commits a `fixed` answer can name, a commit that a merge from the base branch brought in
   // among them
@@ -47,10 +52,14 @@ export interface CheckOutcome {
   title: string;
   summary: string;
   open: OpenFinding[];
+
+  // whether the reviews read the net change at the current head
+  reviewed: boolean;
 }
 
-// the noslop check passes when a review ran on the current head, no call or reporter failed, the
-// summary holds no rejected merge resolution, and every posted finding holds a valid disposition
+// the noslop check passes when the reviews read the net change at the current head, no call or
+// reporter failed, the summary holds no rejected merge resolution, and every posted finding holds a
+// valid disposition
 export function buildCheckOutcome(input: CheckOutcomeInput): CheckOutcome {
   const latest = new Map(input.dispositions.map((item) => [item.findingID, item]));
 
@@ -61,9 +70,10 @@ export function buildCheckOutcome(input: CheckOutcomeInput): CheckOutcome {
   });
 
   const problems: string[] = [];
+  const unreviewed = findUnreviewedReason(input);
 
-  if (input.summary?.head !== input.currentHead) {
-    problems.push(`No noslop review for this commit, ${input.currentHead.slice(0, 12)}.`);
+  if (unreviewed !== null) {
+    problems.push(unreviewed);
   }
 
   if ((input.summary?.failedCalls ?? 0) > 0) {
@@ -98,6 +108,7 @@ export function buildCheckOutcome(input: CheckOutcomeInput): CheckOutcome {
       ...open.map((item) => `- \`${item.id}\` ${item.title}: ${item.reason}`),
     ].join('\n'),
     open,
+    reviewed: unreviewed === null,
   };
 }
 
@@ -175,4 +186,50 @@ function findDeferredReason(
   }
 
   return input.existingIssues.has(issue) ? null : `the issue ${issue} does not exist`;
+}
+
+// the most changed files the check names
+const NAMED_FILES = 5;
+
+// a marker with a key counts for each head with the same net change; a key on the head, or none, as
+// a marker written before the key has, counts only for that head
+function findUnreviewedReason(input: CheckOutcomeInput): string | null {
+  const summary = input.summary;
+  const missing = `No noslop review for this commit, ${input.currentHead.slice(0, 12)}.`;
+
+  if (summary === null) {
+    return missing;
+  }
+
+  const stored = summary.key ?? { head: summary.head };
+
+  const changed = match([stored, input.currentKey])
+    .with([{ files: P.select('before') }, { files: P.select('after') }], (keys) =>
+      collectChangedFiles(keys.before, keys.after),
+    )
+    .with([{ head: P.string }, P._], [P._, { head: P.string }], () => null)
+    .exhaustive();
+
+  if (changed === null) {
+    return summary.head === input.currentHead ? null : missing;
+  }
+
+  if (changed.length === 0) {
+    return null;
+  }
+
+  const named = changed.slice(0, NAMED_FILES).join(', ');
+  const more = changed.length > NAMED_FILES ? ` and ${changed.length - NAMED_FILES} more` : '';
+
+  return `No noslop review of this change to ${named}${more}: the patch changed since the review of ${summary.head.slice(0, 12)}.`;
+}
+
+// the paths whose patch id differs between 2 keys, a file only one of them holds among them
+function collectChangedFiles(
+  before: Readonly<Record<string, string>>,
+  after: Readonly<Record<string, string>>,
+): string[] {
+  const paths = new Set([...Object.keys(before), ...Object.keys(after)]);
+
+  return [...paths].filter((path) => before[path] !== after[path]).toSorted();
 }
