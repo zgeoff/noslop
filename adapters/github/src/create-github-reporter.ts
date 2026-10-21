@@ -7,6 +7,7 @@ import type {
 } from '@noslop/contract';
 import { buildFixConfirmations } from './build-fix-confirmations';
 import { buildMergeLists } from './build-merge-lists';
+import { buildReviewedChange } from './build-reviewed-change';
 import type { GitHubClient, GitHubConnection } from './create-github-connection';
 import { findLensHead } from './find-lens-head';
 import { followUpMarkerSchema } from './follow-up-marker';
@@ -173,7 +174,7 @@ async function runReviewPost(
 
   const merges = buildMergeLists(before.summary?.marker ?? null, result);
 
-  const reviewed = await readReviewedChange(client, pr, result, before.summary?.marker ?? null);
+  const reviewed = await readSummaryChange(client, pr, result, before.summary?.marker ?? null);
 
   const marker = {
     head: reviewed.head,
@@ -418,41 +419,31 @@ function toCommentURL(pr: PullRequestRef, thread: FindingThread): string {
   return `https://github.com/${pr.owner}/${pr.repo}/pull/${pr.number}#${anchor}`;
 }
 
-interface ReviewedChange {
+interface SummaryChange {
   head: string;
   key?: NetChangeKey;
   failedCalls: number;
 }
 
-// a fixes-only run vouches for its head only when a fix call judged a fix on top of a lens review with
-// no failed call, since its calls read the net diff but no lens did; any other such run keeps what
-// the summary before it held, so the check passes no commit that no call read
-async function readReviewedChange(
+async function readSummaryChange(
   client: GitHubClient,
   pr: PullRequestRef,
   result: ReviewResult,
   previous: SummaryMarker | null,
-): Promise<ReviewedChange> {
-  const failedCalls = result.failedCalls.length;
+): Promise<SummaryChange> {
+  const reviewed = buildReviewedChange(result, previous);
 
-  const isVouched =
-    result.fixesOnly !== true ||
-    ((result.fixChecks ?? []).length > 0 && findLensHead(previous) !== null);
-
-  if (isVouched) {
-    return { head: result.head, key: await readNetChangeKey(client, pr, result.head), failedCalls };
+  if (reviewed.kind === 'kept') {
+    return reviewed.key === undefined
+      ? { head: reviewed.head, failedCalls: reviewed.failedCalls }
+      : { head: reviewed.head, key: reviewed.key, failedCalls: reviewed.failedCalls };
   }
 
-  if (previous === null) {
-    return { head: result.base, failedCalls };
-  }
-
-  // with no clean lens review, the latest lens review failed, and its failures stay until one passes;
-  // otherwise an earlier failure was a fix call's, which this run asked again or no longer needs
-  const carried = findLensHead(previous) === null ? previous.failedCalls : 0;
-  const kept = { head: previous.head, failedCalls: carried + failedCalls };
-
-  return previous.key === undefined ? kept : { ...kept, key: previous.key };
+  return {
+    head: result.head,
+    key: await readNetChangeKey(client, pr, result.head),
+    failedCalls: reviewed.failedCalls,
+  };
 }
 
 interface RunFields {
