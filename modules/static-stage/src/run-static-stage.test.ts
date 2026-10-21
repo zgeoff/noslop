@@ -278,6 +278,551 @@ test('it reports a new access check whose tests hold no table of refused inputs'
   expect(result.signals.riskClasses).toStrictEqual(['auth']);
 });
 
+test('it reports an access check whose body changes when its tests hold no table of refused inputs', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/access.ts': 'export function canEdit(role: string) {\n  return role === "admin";\n}\n',
+        'src/access.test.ts': [
+          "import { expect, test } from 'bun:test';",
+          "import { canEdit } from './access';",
+          '',
+          "test('it lets an admin edit', () => {",
+          "  expect(canEdit('admin')).toBe(true);",
+          '});',
+          '',
+        ].join('\n'),
+      },
+    },
+    {
+      message: 'head',
+      files: {
+        'src/access.ts':
+          'export function canEdit(role: string) {\n  return role === "admin" || role === "owner";\n}\n',
+      },
+    },
+  ]);
+
+  const config = BUILT_IN_DEFAULTS;
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config,
+    title: 'feat: owners edit',
+    body: '',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(
+    result.findings.map((finding) => [
+      finding.anchor.path,
+      finding.anchor.startLine,
+      finding.title,
+    ]),
+  ).toStrictEqual([['src/access.ts', 1, 'New allow-or-deny check has no table of hostile inputs']]);
+});
+
+test('it reports no missing table for a renamed access check whose body stays the same', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/access.ts': 'export function canEdit(role: string) {\n  return role === "admin";\n}\n',
+      },
+    },
+    {
+      message: 'head',
+      files: {
+        'src/access.ts':
+          'export function canModify(role: string) {\n  return role === "admin";\n}\n',
+      },
+    },
+  ]);
+
+  const config = BUILT_IN_DEFAULTS;
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config,
+    title: 'refactor: rename the edit check',
+    body: '',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(result.findings).toStrictEqual([]);
+});
+
+test('it reports no missing table for a renamed one-line access check whose body stays the same', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/access.ts': 'export const canPublish = (role: string) => role === "editor";\n',
+      },
+    },
+    {
+      message: 'head',
+      files: {
+        'src/access.ts': 'export const canRelease = (role: string) => role === "editor";\n',
+      },
+    },
+  ]);
+
+  const config = BUILT_IN_DEFAULTS;
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config,
+    title: 'refactor: rename the publish check',
+    body: '',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(result.findings).toStrictEqual([]);
+});
+
+test('it reports no missing table for an access check when only the line above it changes', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/access.ts': [
+          'export const retryLimit = 3;',
+          'export function canArchive(role: string) {',
+          '  return role === "keeper";',
+          '}',
+          '',
+        ].join('\n'),
+      },
+    },
+    {
+      message: 'head',
+      files: {
+        'src/access.ts': [
+          'export function canArchive(role: string) {',
+          '  return role === "keeper";',
+          '}',
+          '',
+        ].join('\n'),
+      },
+    },
+  ]);
+
+  const config = BUILT_IN_DEFAULTS;
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config,
+    title: 'refactor: drop the retry limit',
+    body: '',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(result.slices.security.map((entry) => entry.location)).toStrictEqual([
+    { path: 'src/access.ts', startLine: 1, endLine: 3 },
+  ]);
+
+  expect(result.findings).toStrictEqual([]);
+});
+
+test('it reports no missing table for a deny guard when only the line above it changes', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/archive.ts': [
+          'export function archiveBoard(member: { admin: boolean }) {',
+          "  console.info('archiving');",
+          "  if (!member.admin) throw new Error('forbidden');",
+          '  return true;',
+          '}',
+          '',
+        ].join('\n'),
+      },
+    },
+    {
+      message: 'head',
+      files: {
+        'src/archive.ts': [
+          'export function archiveBoard(member: { admin: boolean }) {',
+          "  if (!member.admin) throw new Error('forbidden');",
+          '  return true;',
+          '}',
+          '',
+        ].join('\n'),
+      },
+    },
+  ]);
+
+  const config = BUILT_IN_DEFAULTS;
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config,
+    title: 'chore: drop the archive log line',
+    body: '',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(result.slices.security.map((entry) => [entry.part, entry.location])).toStrictEqual([
+    ['allow-deny-check', { path: 'src/archive.ts', startLine: 2, endLine: 2 }],
+  ]);
+
+  expect(result.findings).toStrictEqual([]);
+});
+
+test('it reports the changed one of 2 access checks that share a line', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/access.ts':
+          'export const canView = () => true; export const canShare = (role: string) => role === "owner";\n',
+      },
+    },
+    {
+      message: 'head',
+      files: {
+        'src/access.ts':
+          'export const canView = () => true; export const canShare = (role: string) => role !== "guest";\n',
+      },
+    },
+  ]);
+
+  const config = BUILT_IN_DEFAULTS;
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config,
+    title: 'feat: let members share',
+    body: '',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(result.findings.map((finding) => [finding.title, finding.body])).toStrictEqual([
+    [
+      'New allow-or-deny check has no table of hostile inputs',
+      'canShare decides access, and no test of this file runs a test.each table over the inputs the check must refuse.',
+    ],
+  ]);
+});
+
+test('it reports the changed one of 2 deny guards on a line that test one condition', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/archive.ts': [
+          'export function closeBoard(member: { admin: boolean }) {',
+          "  if (!member.admin) throw new Error('forbidden to close'); if (!member.admin) throw new Error('forbidden to lock');",
+          '  return true;',
+          '}',
+          '',
+        ].join('\n'),
+      },
+    },
+    {
+      message: 'head',
+      files: {
+        'src/archive.ts': [
+          'export function closeBoard(member: { admin: boolean }) {',
+          "  if (!member.admin) throw new Error('forbidden to close'); if (!member.admin) throw new Error('forbidden to seal');",
+          '  return true;',
+          '}',
+          '',
+        ].join('\n'),
+      },
+    },
+  ]);
+
+  const config = BUILT_IN_DEFAULTS;
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config,
+    title: 'fix: say why a board stays open',
+    body: '',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(
+    result.findings.map((finding) => [
+      finding.anchor.path,
+      finding.anchor.startLine,
+      finding.title,
+    ]),
+  ).toStrictEqual([
+    ['src/archive.ts', 2, 'New allow-or-deny check has no table of hostile inputs'],
+  ]);
+});
+
+test('it reports an access check whose body changes only in the spaces of a string', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/access.ts':
+          'export function canAudit(role: string) {\n  return role === "site lead";\n}\n',
+      },
+    },
+    {
+      message: 'head',
+      files: {
+        'src/access.ts':
+          'export function canAudit(role: string) {\n  return role === "sitelead";\n}\n',
+      },
+    },
+  ]);
+
+  const config = BUILT_IN_DEFAULTS;
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config,
+    title: 'fix: match the audit role',
+    body: '',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(
+    result.findings.map((finding) => [
+      finding.anchor.path,
+      finding.anchor.startLine,
+      finding.title,
+    ]),
+  ).toStrictEqual([['src/access.ts', 1, 'New allow-or-deny check has no table of hostile inputs']]);
+});
+
+test('it reports a new access check whose body repeats an existing function that decides nothing', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/access.ts':
+          'export function isDraft(state: string) {\n  return state === "open";\n}\n',
+      },
+    },
+    {
+      message: 'head',
+      files: {
+        'src/access.ts': [
+          'export function isDraft(state: string) {',
+          '  return state === "open";',
+          '}',
+          '',
+          'export function canComment(state: string) {',
+          '  return state === "open";',
+          '}',
+          '',
+        ].join('\n'),
+      },
+    },
+  ]);
+
+  const config = BUILT_IN_DEFAULTS;
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config,
+    title: 'feat: let open threads take comments',
+    body: '',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(
+    result.findings.map((finding) => [
+      finding.anchor.path,
+      finding.anchor.startLine,
+      finding.title,
+    ]),
+  ).toStrictEqual([['src/access.ts', 5, 'New allow-or-deny check has no table of hostile inputs']]);
+});
+
+test('it reports a copy of an existing access check under a new name', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/access.ts': 'export function canPin(role: string) {\n  return role === "mod";\n}\n',
+      },
+    },
+    {
+      message: 'head',
+      files: {
+        'src/access.ts': [
+          'export function canPin(role: string) {',
+          '  return role === "mod";',
+          '}',
+          '',
+          'export function canLock(role: string) {',
+          '  return role === "mod";',
+          '}',
+          '',
+        ].join('\n'),
+      },
+    },
+  ]);
+
+  const config = BUILT_IN_DEFAULTS;
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config,
+    title: 'feat: let mods lock threads',
+    body: '',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(
+    result.findings.map((finding) => [
+      finding.anchor.path,
+      finding.anchor.startLine,
+      finding.title,
+    ]),
+  ).toStrictEqual([['src/access.ts', 5, 'New allow-or-deny check has no table of hostile inputs']]);
+});
+
 test('it reports a repeated rule and vague wording in an instruction file', async () => {
   const ctx = await setupTest();
 

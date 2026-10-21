@@ -67,8 +67,9 @@ export interface SourceAnalysis {
   guards: GuardFacts[];
   throws: ThrowFacts[];
 
-  // a security fact spans its whole declaration, so a change inside an access check keeps it
-  security: { line: number; endLine: number; part: SecurityPart; detail: string }[];
+  // a security fact spans its whole declaration, so a change inside an access check keeps it; an
+  // access check also holds its body's text, which a rename of the check leaves alone
+  security: { line: number; endLine: number; part: SecurityPart; detail: string; body?: string }[];
   imports: { source: string; names: string[]; line: number }[];
   exports: { name: string; line: number; endLine: number }[];
   types: TypeDeclaration[];

@@ -11,18 +11,19 @@ export interface NamedTestClaims {
 }
 
 // the direct findings about tests: a new test with no assertion, 2 tests with one body, a type test
-// on a key its type lacks, a new allow-or-deny check whose tests hold no table of hostile inputs, and
-// a test file the pull request body claims that the whole pull request does not add
+// on a key its type lacks, an allow-or-deny check whose body changed and whose tests hold no table of
+// hostile inputs, and a test file the pull request body claims that the whole pull request does not add
 export function collectTestFindings(
   files: readonly AnalyzedFile[],
   security: readonly SecurityEntry[],
+  baseChecks: ReadonlyMap<string, readonly string[]>,
   claims: NamedTestClaims,
 ): ModelFinding[] {
   return [
     ...collectUnassertedTests(files),
     ...collectDuplicateTests(files),
     ...collectMissingTypeKeys(files),
-    ...collectUntabledChecks(files, security),
+    ...collectUntabledChecks(files, security, baseChecks),
     ...collectNamedMissingTests(files, claims),
   ];
 }
@@ -132,8 +133,18 @@ function collectMissingTypeKeys(files: readonly AnalyzedFile[]): ModelFinding[] 
 function collectUntabledChecks(
   files: readonly AnalyzedFile[],
   security: readonly SecurityEntry[],
+  baseChecks: ReadonlyMap<string, readonly string[]>,
 ): ModelFinding[] {
-  const checks = security.filter((item) => item.part === 'allow-deny-check');
+  const checks = security.filter(
+    (item, index) =>
+      item.part === 'allow-deny-check' &&
+      hasChangedBody(
+        item,
+        security.slice(0, index).filter((earlier) => isSameCheckPlace(earlier, item)).length,
+        files,
+        baseChecks,
+      ),
+  );
 
   return checks.flatMap((check) => {
     const stem = basename(check.location.path).replace(/\.[cm]?[jt]sx?$/u, '');
@@ -163,6 +174,49 @@ function collectUntabledChecks(
       }),
     ];
   });
+}
+
+// the slice keeps the walk's order, so the ordinal among the checks with one place and detail picks
+// the check's own fact, and a copy of a base check's body counts as new once it outnumbers the base
+function hasChangedBody(
+  check: SecurityEntry,
+  ordinal: number,
+  files: readonly AnalyzedFile[],
+  baseChecks: ReadonlyMap<string, readonly string[]>,
+): boolean {
+  const entry = files.find((item) => !item.isContext && item.file.path === check.location.path);
+
+  const headChecks = (entry?.analysis?.security ?? []).filter(
+    (item) => item.part === 'allow-deny-check',
+  );
+
+  const fact = headChecks.filter(
+    (item) =>
+      item.line === check.location.startLine &&
+      item.endLine === check.location.endLine &&
+      item.detail === check.detail,
+  )[ordinal];
+
+  const baseBodies = baseChecks.get(check.location.path);
+
+  if (fact?.body === undefined || baseBodies === undefined) {
+    return true;
+  }
+
+  const headCount = headChecks.filter((item) => item.body === fact.body).length;
+  const baseCount = baseBodies.filter((body) => body === fact.body).length;
+
+  return headCount > baseCount;
+}
+
+function isSameCheckPlace(left: SecurityEntry, right: SecurityEntry): boolean {
+  return (
+    left.part === right.part &&
+    left.detail === right.detail &&
+    left.location.path === right.location.path &&
+    left.location.startLine === right.location.startLine &&
+    left.location.endLine === right.location.endLine
+  );
 }
 
 // a name starts where its path starts and holds the glob characters of a pattern, so a pattern such as
