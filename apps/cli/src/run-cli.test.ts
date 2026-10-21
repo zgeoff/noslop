@@ -4380,6 +4380,121 @@ test('it confirms a fixed reply to a static finding under --fixes-only when its 
   expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('success');
 });
 
+test('it confirms a fixed reply to a synced-copy finding under --fixes-only on a pull request that a sync author opened', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'review.json': '{ "synced": ["vendor/**"], "syncAuthors": ["mirror-bot[bot]"] }\n',
+        'vendor/shared.ts': 'export const shared = 1;\n',
+        'src/a.ts': 'export const a = 1;\n',
+      },
+    },
+    {
+      message: 'Sync the shared files',
+      files: {
+        'vendor/shared.ts': 'export const shared = 2;\n',
+        'src/a.ts': 'export const a = 2;\n',
+      },
+    },
+    {
+      message: 'Sync the shared files again',
+      files: { 'vendor/shared.ts': 'export const shared = 3;\n' },
+    },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    title: 'Sync the shared files',
+    body: 'Brings the shared files up to date.',
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[2] ?? '',
+    authorLogin: 'mirror-bot[bot]',
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[1] ?? '',
+    files: ['vendor/shared.ts', 'src/a.ts'],
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[2] ?? '',
+    files: ['vendor/shared.ts'],
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'vendor/shared.ts',
+    lines: [1],
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/a.ts',
+    lines: [1],
+  });
+
+  const thread = await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'vendor/shared.ts',
+    line: 1,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:finding {"id":"5c0d1e2f3a4b5c6d","title":"Edit to the synced copy shared.ts","path":"vendor/shared.ts","lens":"static","severity":"P2","riskClass":null,"writtenByChange":true,"head":"${repo.commits[1] ?? ''}"} -->`,
+  });
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    body: `fixed ${(repo.commits[2] ?? '').slice(0, 7)}`,
+    authorLogin: 'feature-author',
+    inReplyToID: thread.id,
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":1,"reported":["5c0d1e2f3a4b5c6d"],"failedCalls":0} -->`,
+  });
+
+  const stub = buildStubAdapter({});
+
+  await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--fixes-only', '--report', 'github'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  const summary = githubCollections.issueComments
+    .all()
+    .findLast((comment) => comment.body.includes('<!-- noslop:summary'));
+
+  expect(summary?.body).toInclude(
+    `"confirmed":["5c0d1e2f3a4b5c6d:${(repo.commits[2] ?? '').slice(0, 7)}"]`,
+  );
+
+  expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('success');
+});
+
 test('it rejects a fixed reply to a static finding under --fixes-only when the static check still reports it, and fails the check', async () => {
   const ctx = await setupTest();
 
