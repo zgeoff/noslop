@@ -2601,6 +2601,62 @@ test('it refuses to post under a token, whose comments no later review trusts', 
   );
 });
 
+test('it writes the net-change key of a lens review with no failed call as the lens review key', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'c'.repeat(40),
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/a.ts',
+    lines: [1],
+    patch: '@@ -1 +1 @@\n-export const a = 0;\n+export const a = 2;',
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'c'.repeat(40),
+      findings: [],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const connection = await createGitHubConnection({
+    appID: 1,
+    privateKey: buildStubAppKey(),
+    installationID: 7,
+  });
+
+  const state = await readPullRequestState(connection, {
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+  });
+
+  expect(state.summary?.marker.lensKey).toStrictEqual(
+    buildNetChangeKey({
+      head: 'c'.repeat(40),
+      isWhole: true,
+      files: [
+        {
+          filename: 'src/a.ts',
+          status: 'modified',
+          sha: null,
+          patch: '@@ -1 +1 @@\n-export const a = 0;\n+export const a = 2;',
+        },
+      ],
+    }),
+  );
+});
+
 test('it keeps the key of the last lens review and drops its head when a later lens review has a failed call', async () => {
   const ctx = setupTest();
 
