@@ -68,9 +68,6 @@ export interface RunReviewOptions {
   // the merge base of an incremental review's pull request, so the review keeps to the files the pull
   // request changes and never reviews what a merge from the base branch brought in
   mergeBase?: string;
-
-  // the only files the review reads, those whose patch changed since the last review of the pull
-  // request; a review without them reads every changed file
   paths?: readonly string[];
   isPush: boolean;
   pastEscapes: readonly string[];
