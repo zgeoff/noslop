@@ -43,8 +43,6 @@ export interface FixChecksInput {
 
   // the merge base of the pull request, where its net diff starts
   mergeBase: string;
-
-  // the pull request's title and body now, which the static stage and each fix call read
   title: string;
   body: string;
   fixes: readonly AnsweredFix[];

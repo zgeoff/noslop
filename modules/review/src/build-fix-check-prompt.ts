@@ -10,9 +10,6 @@ export interface FixCheckPromptInput {
   // when the whole diff passes the file limit
   diff: string;
   isWholeDiff: boolean;
-
-  // the pull request's title and body as they stand now, so a finding about the description gets
-  // judged on the edited text
   pullRequestTitle: string;
   body: string;
 }
