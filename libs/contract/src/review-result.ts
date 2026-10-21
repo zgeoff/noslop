@@ -75,8 +75,6 @@ export const fixCheckSchema = z.strictObject({
 
 export type FixCheck = z.infer<typeof fixCheckSchema>;
 
-// a `fixed` answer that a run asked about and no call judged, with why: its fix call failed, or its
-// code or diff passes the file limit
 export const unjudgedFixSchema = z.strictObject({
   findingID: z.string().regex(/^[0-9a-f]{16}$/u),
   reason: z.string().min(1),
@@ -125,9 +123,6 @@ export const reviewResultSchema = z.strictObject({
   // the verdict of each fix call: a fixes-only run's, or a review's for each `fixed` answer whose
   // finding it no longer reported; only a verdict confirms a fix, never a finding's absence
   fixChecks: z.array(fixCheckSchema).optional(),
-
-  // each `fixed` answer the run asked about with no verdict, which stays unconfirmed and is never
-  // judged not fixed
   unjudgedFixes: z.array(unjudgedFixSchema).optional(),
 
   // set only on a fixes-only run that judged a merge in its range; a clean merge gets no check
