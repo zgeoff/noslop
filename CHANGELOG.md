@@ -2,15 +2,17 @@
 
 ## [0.4.14](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.13...@noslop/cli@0.4.14) (2026-10-21)
 
-
 ### Features
 
-* **review:** confirm a fix only through a fix call's verdict ([#104](https://github.com/zgeoff/noslop/issues/104)) ([ba51b48](https://github.com/zgeoff/noslop/commit/ba51b48648297c597317214fd8781b365728b6d9))
-
+- **review:** confirm a fix only through a fix call's verdict
+  ([#104](https://github.com/zgeoff/noslop/issues/104))
+  ([ba51b48](https://github.com/zgeoff/noslop/commit/ba51b48648297c597317214fd8781b365728b6d9))
 
 ### Bug Fixes
 
-* **static-stage:** stop false findings on test files the body names ([#101](https://github.com/zgeoff/noslop/issues/101)) ([64467dc](https://github.com/zgeoff/noslop/commit/64467dc8663c8e208497eeffee18dc1f98a5d185))
+- **static-stage:** stop false findings on test files the body names
+  ([#101](https://github.com/zgeoff/noslop/issues/101))
+  ([64467dc](https://github.com/zgeoff/noslop/commit/64467dc8663c8e208497eeffee18dc1f98a5d185))
 
 ## [0.4.13](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.12...@noslop/cli@0.4.13) (2026-10-21)
 
