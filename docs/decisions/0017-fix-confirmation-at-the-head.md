@@ -1,17 +1,17 @@
 # 0017: Fix confirmation at the head
 
 - Date: 2026-10-21
-- Status: pending, with each decision taken in a walk
+- Status: decided
 - Evidence at: noslop `122ffe5`
 
 This record sets the rules by which noslop confirms a fix and carries a review onto a new head. Its
 aim is one invariant: no rebase, squash, merge from the base, or moved fix needs a special case in
-noslop or in a relay that gates merges on it. Three choices in the current rules break that
-invariant, and each new history shape has taken its own patch: a clean rebase, a late reply after a
-rebase, a rebase that rewrote a fixed commit, a merge resolution, a lower layer's squash under a
-stacked pull request, and a fix in that lower layer. Six decisions follow, each with its evidence,
-its options, the history shapes each option removes, the code each deletes, and a recommendation.
-Every decision is pending until the owner takes it.
+noslop or in the relay, the system that gates merges on noslop's check. Three choices in the current
+rules break that invariant, and each new history shape has taken its own patch: a clean rebase, a
+late reply after a rebase, a rebase that rewrote a fixed commit, a merge resolution, a lower layer's
+squash under a stacked pull request, and a fix in that lower layer. Six decisions follow, each with
+its evidence, its options, the history shapes each option removes, the code each deletes, and the
+option taken.
 
 ## The three causes
 
@@ -31,8 +31,8 @@ while `docs/architecture/output/github-app.md:218-223` counts the kept ranges.
 
 The check passes only on a review of the exact head (`docs/architecture/output/github-app.md:259`,
 `adapters/github/src/build-check-outcome.ts:65`). Every carry-over is a special case: a clean
-rebase, a merge of the base, a fixes-only run. A relay that gates merges repeats the same mapping in
-its own code. A branch that holds a merge of the base and a rebase refuses `--fixes-only` with
+rebase, a merge of the base, a fixes-only run. The relay repeats the same mapping in its own code. A
+branch that holds a merge of the base and a rebase refuses `--fixes-only` with
 `the merge <sha> takes a full review` (`apps/cli/src/pick-rebased-head.ts:38-42`). Past the relay's
 round cap, that leaves the author no path but a new pull request.
 
@@ -56,11 +56,11 @@ diff from its merge base to the head. It returns fixed or not fixed with a one-l
 at the head is the evidence, so a fix that a lower layer brought in through the base counts, though
 the pull request's diff no longer holds it.
 
-**Open: the anchor at the head.** A finding anchors to lines at the head that posted it, and later
-commits move those lines. The static fix check follows a line through the diff from the posting head
-to the head (`docs/architecture/output/fixes-only-run.md:71-73`). The call can take the lines found
-that way, or the whole file at the head. The recommendation is to follow the line, and to send the
-whole file when the follow fails.
+**The anchor at the head.** A finding anchors to lines at the head that posted it, and later commits
+move those lines. The fix call takes the finding's lines at the head by following each line through
+the diff from the posting head to the head, as the static fix check follows it
+(`docs/architecture/output/fixes-only-run.md:71-73`). When that trace fails, the call takes the
+whole file at the head.
 
 **Deletes under B or C.** The rewrite reader (186 lines, test 397),
 `adapters/github/src/read-fix-commits.ts` (186), the base-branch fix test (35, test 113), the fix
@@ -68,10 +68,11 @@ base (171), the fix floors (101, test 241), and the rule that a fix commit must 
 posting head (`docs/architecture/output/github-app.md:201-203`). The fix-call prompt loses its rule
 on moved code (`build-fix-check-prompt.ts:19`).
 
-**Recommendation.** B. The sha costs nothing when it resolves and helps the call find a fix in
-another file, such as a new test. Under B the parser accepts a bare `fixed`.
-
-Pending: decided in a walk.
+**Decision.** B. A `fixed` answer means the finding no longer holds at the current head. One fix
+call judges the finding at the head from the finding, its anchored code and the pull request's diff.
+A sha that resolves adds its patch to the call as a hint, and a sha that fails to resolve is
+ignored. The parser accepts a bare `fixed`. The sha costs nothing when it resolves and helps the
+call find a fix in another file, such as a new test.
 
 ## 2. Positive evidence
 
@@ -101,9 +102,10 @@ lifecycle (`pick-next-fix-state.ts`, 24, test 35), the held fixes (`build-held-f
 `read-fix-confirmations.ts` (207), and the summary marker's `earlier` ranges
 (`adapters/github/src/summary-marker.ts:12-14`).
 
-**Recommendation.** B. A re-report is positive evidence that the fix failed, so it needs no call.
-
-Pending: decided in a walk.
+**Decision.** B. Only a fix call confirms a fix, and only for a finding the re-review dropped. A
+finding the re-review reports again stays open with no call, because the re-report is positive
+evidence that the fix failed. The cost is one call per open `fixed` answer that the re-review
+dropped.
 
 ## 3. The net-change key
 
@@ -133,19 +135,18 @@ the scope of the delta review. The review reads each such file's net diff at the
 resolution or a hand edit in a merge changes the net diff of the files it touches, so the delta
 review reads it.
 
-**Open: the resolution check.** A fixes-only run checks each merge's resolution with its own call
+**The resolution check.** A fixes-only run checks each merge's resolution with its own call
 (`modules/review/src/run-resolution-checks.ts`, 461 lines, test 1,020). Under B the delta review
-reads what a resolution wrote. The options are to delete the resolution check, or to keep it as the
-delta review's call for a file that only a merge changed. The recommendation is to delete it, with
-the summary marker's `checkedMerges` and `rejectedMerges`.
+reads what a resolution wrote, so the resolution check is deleted. The summary marker loses
+`checkedMerges` and `rejectedMerges`, and the relay's parse of the marker goes with them.
 
-**Open: who computes the key.** `noslop check` reads only GitHub
-(`docs/architecture/output/github-app.md:266-269`), while a review has a clone. The key can come
-from git in both, which makes the check fetch the repo. It can also come from the patches GitHub
-lists for the pull request's files, with each hunk header's line numbers cut, as the rewrite reader
-cuts them (`make-rewritten-fix-reader.ts:136`). GitHub gives no patch of a binary or large file, so
-that file keys on its blob. The recommendation is GitHub's patches for both, so the review and the
-check hash one input. A pull request past GitHub's file list keys on its head, as under A.
+**Who computes the key.** `noslop check` reads only GitHub
+(`docs/architecture/output/github-app.md:266-269`), while a review has a clone. Git in both would
+make the check fetch the repo. Instead, the review and the check both compute the key from the
+patches GitHub lists for the pull request's files, with each hunk header's line numbers cut, as the
+rewrite reader cuts them (`make-rewritten-fix-reader.ts:136`). Both then hash one input. GitHub
+gives no patch of a binary or large file, so that file keys on its blob. A pull request past
+GitHub's limit on its file list keys on its head sha, as under A.
 
 **Deletes under B.** The rebased-head mapping (`pick-rebased-head.ts` 74 and `read-rebased-head.ts`
 126, tests 491), the mapped review (`read-mapped-review.ts`, 82, test 255), the review base lookup
@@ -153,14 +154,16 @@ check hash one input. A pull request past GitHub's file list keys on its head, a
 fixes-only run (`modules/review/src/run-fixes-only-review.ts:214-253`), and the rebase sections of
 `docs/architecture/output/fixes-only-run.md`.
 
-**Recommendation.** B, keyed from GitHub's patches.
-
-Pending: decided in a walk.
+**Decision.** B. "Reviewed" is keyed on a patch id per file: the hash of each changed file's net
+diff from the merge base to the head, with line numbers left out. The key holds across a clean
+rebase, a conflict-free merge of the base, a lower layer's squash and a restack. The files whose
+patch id changed are the scope of the delta review. The resolution check is deleted, and the key
+comes from GitHub's patches in both the review and the check.
 
 ## 4. The relay, the round cap and the fixes-only run
 
-**Evidence.** A relay that caps review rounds sends `--fixes-only` past its cap, so the fixes-only
-run carries most fixes in that setup. Such a relay repeats noslop's rebase mapping by patch id, its
+**Evidence.** The relay caps review rounds and sends `--fixes-only` past its cap, so the fixes-only
+run carries most fixes in that setup. The relay repeats noslop's rebase mapping by patch id, its
 rewrite of `fixed` shas, its clean-merge test with `git merge-tree`, and a parse of the summary
 marker's merge verdicts. It also passes a merge noslop's check refused, when the only problem is
 `No noslop review for this commit` and a merge of the base sits on the reviewed head.
@@ -177,10 +180,11 @@ review that ran lenses on a moved key. A carry-over moves no key, so it is no ro
 A trusts the fix calls to read every file the key moved on, as the fixes-only run trusts them under
 the current rules. B costs a lens review per push past the cap.
 
-**Recommendation.** A. It keeps the cheap path the cap relies on and loses every history refusal
-(`apps/cli/src/run-review-command.ts:418-450`).
-
-Pending: decided in a walk.
+**Decision.** A. A fixes-only run makes one decision-1 fix call per open `fixed` answer and writes
+the key. It refuses only when the pull request holds no answer to judge, and it loses every history
+refusal (`apps/cli/src/run-review-command.ts:418-450`). Past the cap, the fix calls read the delta.
+A round counts only a review that ran lenses on a moved key, and a carry-over is no round. A keeps
+the cheap path that the cap relies on.
 
 ## 5. The migration
 
@@ -188,39 +192,38 @@ The change moves three things, and each has a rule for the state that exists bef
 
 - **Stored answers.** A `fixed <sha>` reply stays valid, and its sha becomes the hint. An open
   `fixed` answer gets a fix call at the next review or fixes-only run. A fix the summary marker
-  holds in `confirmed` stays confirmed until its file changes. The options are to keep it or to
-  judge it again once. The recommendation is to keep it.
+  holds in `confirmed` stays confirmed until its file changes, with no second judgement.
 - **Open pull requests.** A summary marker with no key passes the check only on its exact head, as
   under the current rules. The next review or fixes-only run writes the key. A pull request that a
   merge refusal holds at the cap needs one fixes-only run after the release.
 - **The GitHub App.** The App runs the CLI it ships with, so it gains the fix calls with no change
-  of its own. It makes one more call per open `fixed` answer that a re-review drops. A relay deletes
-  its own mapping only after its repos run the release that writes the key, since an older CLI
-  writes none.
+  of its own. It makes one more call per open `fixed` answer that a re-review drops. The relay
+  deletes its own mapping only after its repos run the release that writes the key, since an older
+  CLI writes none.
 
-Pending: decided in a walk.
+**Decision.** Each of the three rules above applies as stated.
 
 ## 6. The required check
 
 **Evidence.** [0009](0009-the-merge-loop.md) calls the check required, but no ruleset requires the
 `noslop` check, so the relay's gate is the one thing between a pull request and a merge it refuses.
 That gate passed a merge of the base on a reviewed head while the check failed, which was right
-under the current rules. Under decision 3, the check passes on a carry-over by itself, so the gate's
-pass is no longer needed.
+under the current rules. Under decision 3, the check passes on a carry-over by itself, so the gate
+needs no pass of its own.
 
 | Option                    | Who stops a merge         | Owner override                                             |
 | ------------------------- | ------------------------- | ---------------------------------------------------------- |
 | A. Required in every repo | GitHub, on a failed check | Moves into noslop, as an owner answer at the head, or goes |
-| B. The relay's gate       | The relay (current)       | Stays in the relay                                         |
+| B. The relay's gate, kept | The relay (current)       | Stays in the relay                                         |
 | C. Per repo               | Each repo's ruleset       | Differs by repo                                            |
 
-A pull request that merges outside the relay, such as by hand, passes no gate under B. A makes the
-check the one rule, and it needs no bypass.
+A pull request that merges outside the relay, such as by hand, passes no gate under B. A would make
+the check the one rule, with no bypass, but a failure in noslop would then block every merge.
 
-**Recommendation.** A, once decisions 1 to 3 have landed and a carry-over has passed the check on
-live pull requests.
-
-Pending: decided in a walk.
+**Decision.** B. The relay's gate stops a merge, with its owner override, and no repo requires the
+`noslop` check. A failure in noslop must not block work. The relay deletes its pass on
+`No noslop review for this commit` and trusts noslop's check alone. The owner override covers any
+refusal.
 
 ## Out of scope
 
@@ -230,15 +233,27 @@ and stored finding IDs in place of the hash of the lens, path, rule and title
 
 ## Delivery issues
 
-Each issue follows a decision the walk takes. None exists yet.
+Each issue delivers the decisions it names. None exists yet.
 
-| Issue                                     | Decision | Deletes                                                                                                 |
-| ----------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------- |
-| Judge a fix at the head                   | 1        | The rewrite reader, `read-fix-commits.ts`, the base-branch fix test, the fix base, the fix floors       |
-| Confirm a fix only through the fix call   | 2        | The fix confirmation and lifecycle, the held fixes, the kept ranges, the fix coverage                   |
-| Key the review on the net change          | 3        | The rebased-head mapping, the mapped review, the review base lookup, the exact-head rule                |
-| Scope a delta review by changed patch ids | 3        | The merge filter of a re-review, and the resolution check if the walk drops it                          |
-| Cut the fixes-only run to fix calls       | 4        | The fixes-only refusals and the merge-of-base gate                                                      |
-| Drop the relay's own history rules        | 4        | The relay's mapping, fix rewrite, merge test, marker parse and pass on a refused check                  |
-| Rewrite the fix docs                      | 1 to 5   | The rebase sections of the fixes-only doc, and the late-reply rules in the GitHub App doc and the guide |
-| Require the check in every repo           | 6        | Nothing in noslop. Each repo's ruleset gains the check                                                  |
+- **Judge a fix at the head** (decision 1). Deletes the rewrite reader, `read-fix-commits.ts`, the
+  base-branch fix test, the fix base and the fix floors. The parser accepts a bare `fixed`, and the
+  fix call takes the finding's lines by a line trace, with the whole file as the fallback.
+- **Confirm a fix only through the fix call** (decision 2). Deletes the fix confirmation and its
+  lifecycle, the held fixes, the kept ranges, the fix coverage, `read-fix-confirmations.ts`, and the
+  summary marker's `earlier` ranges.
+- **Key the review on the net change** (decision 3). Deletes the rebased-head mapping, the mapped
+  review, the review base lookup and the exact-head rule. The key comes from GitHub's patches, from
+  the blob for a binary or large file, and from the head sha past GitHub's limit on the file list.
+- **Scope a delta review by changed patch ids** (decision 3). Deletes the merge filter of a
+  re-review, the resolution check (`run-resolution-checks.ts`), and the summary marker's
+  `checkedMerges` and `rejectedMerges`.
+- **Cut the fixes-only run to fix calls** (decision 4). Deletes the fixes-only refusals and the
+  merge-of-base gate.
+- **Drop the relay's own history rules** (decisions 4, 5 and 6). Deletes the relay's mapping, its
+  fix rewrite, its clean-merge test, its marker parse, and its pass on
+  `No noslop review for this commit`. The relay keeps its gate and its owner override. This issue
+  lands after the relay's repos run the noslop release that writes the key.
+- **Rewrite the fix docs** (decisions 1 to 6). Rewrites the rebase sections of the fixes-only doc,
+  the late-reply rules in the GitHub App doc and the guide, and the claim in
+  [0009](0009-the-merge-loop.md) that the check is required, which becomes the relay's gate stopping
+  a merge.
