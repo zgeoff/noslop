@@ -38,14 +38,14 @@ form is no disposition. noslop answers it once with the accepted forms, and the 
 
 | Kind            | Value          | Means                                  | Valid when                                              |
 | --------------- | -------------- | -------------------------------------- | ------------------------------------------------------- |
-| `fixed`         | a sha, or none | the head no longer holds the defect    | a fix call or a re-review confirms it                   |
+| `fixed`         | a sha, or none | the head no longer holds the defect    | a fix call confirms it                                  |
 | `not-a-defect`  | a reason       | the finding is wrong                   | always                                                  |
 | `deferred`      | an issue       | real, but it waits for a tracked issue | the change did not write the code, and the issue exists |
 | `accepted-risk` | a reason       | real, and you accept it                | the author has admin permission on the repo             |
 
-A `fixed` reply may end at the word, or name a sha of 7 to 40 hex characters as a hint. A fixes-only
-run judges the finding at the head whatever the sha names, so after a rebase or a squash you need
-not reply again. The issue of a `deferred` reply is `#<number>` in the same repo,
+A `fixed` reply may end at the word, or name a sha of 7 to 40 hex characters as a hint. A fix call
+judges the finding at the head whatever the sha names, so after a rebase or a squash you need not
+reply again. The issue of a `deferred` reply is `#<number>` in the same repo,
 `<owner>/<repo>#<number>`, or an issue URL.
 
 ## Which kinds a finding can take
@@ -64,26 +64,27 @@ reason `only a repo owner gives accepted-risk`.
 
 ## Answer with a fix
 
-A `fixed` reply counts once a re-review whose range holds your commit no longer reports the finding.
-The re-review reads the replies present when it runs, so post the reply before the push that carries
-the fix:
+A `fixed` reply counts once a fix call judges the finding fixed at the pull request's head. A review
+makes that call for each `fixed` reply present when it runs, so post the reply before the push that
+carries the fix:
 
 1. Commit the fix on the branch.
-2. Reply `fixed <sha>` with that commit's sha.
-3. Push the branch. The App reviews the new commits.
-4. Expect the finding's comment to show its heading struck through, with the fix commit named, and
-   the check to stop listing the finding.
+2. Reply `fixed`, or `fixed <sha>` with that commit's sha as a hint.
+3. Push the branch. The App reviews the new commits and makes the fix call.
+4. Expect the finding's comment to show its heading struck through, and the check to stop listing
+   the finding.
 
-The fix commit may change any file of the pull request, such as a test beside the finding's file, so
-you never need to touch the finding's file only to name it. The commit must change at least one file
-of the pull request's diff, and it must come after the review that posted the finding.
+The fix may sit in any file of the pull request, such as a test beside the finding's file, so you
+never need to touch the finding's file only to name it. The fix call reads the pull request's title
+and body as they stand, so for a finding about the description, edit the description and reply
+`fixed`.
 
-When the check run gives the reason `no re-review has read the commit <sha> yet`, the re-review ran
-before your reply. A later review of only newer commits leaves that commit out of its range, so ask
-whoever runs the App to review the whole pull request again with the App's credentials in the
-environment: `noslop review --pr <number> --full --report github`. When the reason is
-`the re-review still finds it`, the fix did not remove the defect: fix it again, or answer with
-another kind.
+When the check run gives the reason `no re-review has read the fix yet`, or names your commit, no
+fix call has judged your reply, because the last review ran before it. Ask whoever runs the App to
+run the fix calls with the App's credentials in the environment:
+`noslop review --pr <number> --fixes-only --report github`. When the reason is
+`the re-review still finds it`, the review reported the finding again or the fix call judged it not
+fixed: fix it again, or answer with another kind.
 
 ## Read the check
 

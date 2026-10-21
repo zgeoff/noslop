@@ -93,9 +93,9 @@ it posts anything.
    issue it opened and files none twice. The reporter runs one post of a pull request at a time in a
    process, so 2 posts of one review cannot both miss the issue and both file it.
 4. It edits the comment of each finding whose fix the review confirms: it strikes the heading
-   through, names the fix commit, and collapses the comment as posted under them, with the marker
-   kept byte for byte. When a later review no longer confirms the fix, the reporter restores the
-   comment as posted.
+   through, names the commit the answer gives or the head for a bare `fixed`, and collapses the
+   comment as posted under them, with the marker kept byte for byte. When a later review no longer
+   confirms the fix, the reporter restores the comment as posted.
 5. It writes the summary comment, which it creates on the first review and edits in place after
    that. The summary opens with the count of the findings this review reports and a risk level: high
    with any P1 or risk-class finding, medium with any P2, and low otherwise. A review with a failed
@@ -156,9 +156,8 @@ A reply in any other form is no disposition. Each time noslop sets the check, it
 reply once with the accepted forms, and the forms marker stops a later run answering it again. Each
 kind is valid under its own rule:
 
-- `fixed`, or `fixed <commit>` with the sha as a hint, is valid once a fix call of a fixes-only run
-  judged the finding fixed at the head, or a re-review whose range holds the named commit no longer
-  reports the finding.
+- `fixed`, or `fixed <commit>` with the sha as a hint, is valid once a fix call judged the finding
+  fixed at the head, and no later review reports the finding again.
 - `not-a-defect <reason>` is valid with any reason.
 - `deferred <issue>` is valid when the change did not write the code, the finding is no P1, security
   or risk-class finding, and the issue exists. The issue is `#<number>` in the same repo,
@@ -184,8 +183,8 @@ request's work. The re-review therefore drops every file of the new commits that
 merge base to the head leaves out, before the static stage and the calls read the change. A file
 that both the pull request and the base branch change stays whole. A file that only the base branch
 changes stays among the files the review left out when it is a data file or its hunks pass the file
-limit, so a fix commit that reaches it confirms nothing, as it would if the change held the file. A
-smaller source file that only the base branch changes is left out of the review and of that list.
+limit. A smaller source file that only the base branch changes is left out of the review and of that
+list.
 
 A re-review leaves the pull request's description unjudged. Its title and body describe the whole
 pull request, while its diff holds only the new commits, so a file the body names can look missing
@@ -194,49 +193,23 @@ between the description and the diff, and a full review judges the description. 
 [fix call](./fixes-only-run.md) of a `fixed` answer reads the description as it stands, so it can
 confirm the fix of a finding about the description.
 
-A `fixed <commit>` disposition counts once a re-review whose range holds that commit no longer
-reports the finding. The commit may change any file of the pull request's diff, because a fix such
-as a missing test lands beside the finding's file. A commit that changes no file of that diff holds
-no fix, and the summary names that as the reason. For each confirmed fix, the summary shows whether
-its commit changes the finding's own file or only other files of the pull request. The commit must
-also come after the head of the review that posted the finding, which the finding's marker keeps, so
-a full review over the whole branch never confirms a fix through an older commit.
+Only a fix call's verdict confirms a fix. A re-review makes one [fix call](./fixes-only-run.md) for
+each open `fixed` answer whose finding it no longer reports, and the call judges the finding at the
+pull request's head, whatever commit the answer names. A finding that the re-review reports again
+stays open with no call, because the report is its verdict. A re-review that only stops reporting a
+finding therefore confirms nothing, since its lens may have left the fix out of every call. A bare
+`fixed`, or a sha that a rebase or a squash took off the branch, counts through the call all the
+same.
 
-A re-review read nothing of a fix when it left the finding's file, or a file the fix commit changes
-or renames, out of every call, so it confirms no such fix. Only the finding's own lens can show a
-fix by no longer reporting the finding. A file that the call of that lens left out therefore counts
-as left out for the finding, even when a call of another lens read it. A later commit that renames
-the fixed file into a left-out path counts the same way. A re-review with a failed call confirms no
-fix, because the call that failed may be the one that reports the finding, such as the design call
-for a design finding. When GitHub cannot list the files of the fix commit or of the pull request
-whole, the fix stays unconfirmed and the summary names the failure.
+The summary marker keeps each fix a fix call judged fixed, as the finding id and the commit its
+answer names. A confirmed fix holds across later reviews, with no new call, until a review reports
+the finding again. A later `fixed` answer that names another commit is a new answer, so it waits for
+a call of its own. A fix call that judges a finding not fixed, or that fails, leaves the answer
+open, and the summary shows the reason.
 
-The summary marker keeps each confirmed fix as the finding id and the commit, so a later delta
-without the commit keeps the confirmation. A fix that a re-review still reports stays unconfirmed,
-and a later delta without the commit leaves it unconfirmed.
-
-A `fixed` reply posted after the re-review of its commit counts on the next check, with no further
-review. The summary marker keeps the range of the latest review and the files it left out, and the
-ranges of a few reviews before it, so the check applies the same rule to each of those reviews as a
-review applies to itself. A reply that lands while a later review publishes, or after it, therefore
-still counts the review that read its commit. The next review applies the rule to the kept ranges as
-well, and keeps each fix it confirms in its own summary marker.
-
-A newer verdict on a finding replaces every older one. One transition table holds the fix lifecycle:
-each review's verdict moves a `fixed` answer between silent, confirmed, retained and rejected, and
-the marker keeps a fix only while it is confirmed or retained. The reviews count newest first, and
-the first review that read the fix or reported the finding again decides, so a review that reports
-the finding after an older one confirmed its fix leaves it open, whatever older ranges the marker
-keeps. A repost of the latest review keeps its range once, and another review of the same range with
-other verdicts keeps its own entry. A review with a failed call keeps its range in order, and that
-range rejects each finding the review reported but confirms no fix. The marker keeps only the ranges
-that fit under GitHub's comment limit, newest first, and a review whose own range does not fit keeps
-none, so such a reply waits for the next review.
-
-A fixes-only run's range keeps the findings its fix calls judged fixed at the head, and that range
-confirms each of them whatever commit the answer names. A bare `fixed`, or a sha that a rebase or a
-squash took off the branch, therefore counts through a fix call. A re-review that only stops
-reporting the finding confirms a fix only through a commit the pull request lists.
+A `fixed` reply posted after the last review gets no call from the check that the reply queues,
+because the check reads only what GitHub holds. The answer waits for the next run that makes fix
+calls: the review of a later push, or a fixes-only run.
 
 The re-check is the second review of a pull request. From the third review on, the reporter sends
 each new finding in code the change did not write to a follow-up issue. A security finding, and any
