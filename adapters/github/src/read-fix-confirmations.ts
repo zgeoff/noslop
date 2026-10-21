@@ -6,6 +6,7 @@ import type { FixConfirmation } from './format-summary-comment';
 import type { CommitChange } from './make-commit-change-reader';
 import { makeCommitChangeReader } from './make-commit-change-reader';
 import type { FixState } from './pick-next-fix-state';
+import { pickRangeFix } from './pick-range-fix';
 import type { CommitFiles } from './read-commit-files';
 import { readCommitFiles } from './read-commit-files';
 import type { FixCommits } from './read-fix-commits';
@@ -178,49 +179,36 @@ function findOneCommit(fixCommits: FixCommits, sha: string): string | null {
   return matches.length === 1 ? (matches[0] ?? null) : null;
 }
 
-interface RangeFixInput {
+interface RangeFixReadInput {
   range: readonly string[];
-
-  // the branch commit that holds the fix, and the sha the answer names
   match: string;
   named: string;
   fixCommits: FixCommits;
   readChange: (ref: string) => Promise<CommitChange | null>;
 }
 
-// the commit of a review's range that is the fix: the branch commit itself, the commit the answer
-// names, or, for a range a rebase left off the branch, the one commit off the branch with the same
-// patch as the fix, so a review that read the fix before the rebase still counts it
-async function readRangeFix(input: RangeFixInput): Promise<string | null> {
-  if (input.range.includes(input.match)) {
-    return input.match;
-  }
+// the commit of a review's range that is the fix, reading the patches only when the picker needs
+// them
+async function readRangeFix(input: RangeFixReadInput): Promise<string | null> {
+  const pickInput = {
+    range: input.range,
+    match: input.match,
+    named: input.named,
+    branchCommits: input.fixCommits.commits,
+  };
 
-  const named = input.range.filter((commit) => commit.startsWith(input.named));
+  const first = pickRangeFix({ ...pickInput, changes: null });
 
-  if (named.length === 1) {
-    return named[0] ?? null;
-  }
-
-  const candidates = input.range.filter((commit) => !input.fixCommits.commits.includes(commit));
-
-  if (candidates.length === 0) {
-    return null;
+  if (first.kind !== 'read') {
+    return first.kind === 'found' ? first.commit : null;
   }
 
   const fix = await input.readChange(input.match);
+  const candidates = await Promise.all(first.candidates.map((commit) => input.readChange(commit)));
 
-  if (fix === null || fix.fingerprint === null) {
-    return null;
-  }
+  const picked = pickRangeFix({ ...pickInput, changes: { fix, candidates } });
 
-  const changes = await Promise.all(candidates.map((commit) => input.readChange(commit)));
-
-  const matches = changes.flatMap((change) =>
-    change !== null && change.fingerprint === fix.fingerprint ? [change.sha] : [],
-  );
-
-  return matches.length === 1 ? (matches[0] ?? null) : null;
+  return picked.kind === 'found' ? picked.commit : null;
 }
 
 // the files a review left out for one lens: every file no call read, and each file the call of that
