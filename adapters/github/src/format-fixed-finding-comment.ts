@@ -33,7 +33,7 @@ export function formatFixedFindingComment(
 
   return [
     `~~${formatFindingHeading(marker.severity, marker.lens, marker.title)}~~`,
-    `✅ Fixed in \`${commit.slice(0, 7)}\``,
+    commit === '' ? '✅ Fixed at the head' : `✅ Fixed in \`${commit.slice(0, 7)}\``,
     '',
     ORIGINAL_OPEN.trimEnd(),
     '',

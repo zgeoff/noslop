@@ -6332,6 +6332,108 @@ test('it moves the summary head to the head a --fixes-only review read, so the c
   });
 });
 
+test('it judges a bare fixed reply under --fixes-only at the head, strikes the finding and passes the check', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
+    {
+      message: 'Add the scanner',
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = "";\n' },
+    },
+    {
+      message: 'Reject an empty separator',
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = ":";\n' },
+    },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    title: 'Scan the header line',
+    body: 'Scans the header line.',
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[2] ?? '',
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[1] ?? '',
+    files: ['src/scan.ts'],
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[2] ?? '',
+    files: ['src/scan.ts'],
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/scan.ts',
+    lines: [2],
+  });
+
+  const thread = await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/scan.ts',
+    line: 2,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `**P2 · Correctness** · Reject an empty separator\n\nAn empty separator splits the line into single characters.\n<!-- noslop:finding {"id":"1111111111111111","title":"Reject an empty separator","path":"src/scan.ts","lens":"correctness","severity":"P2","riskClass":null,"writtenByChange":true,"head":"${repo.commits[1] ?? ''}"} -->`,
+  });
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    body: 'fixed',
+    authorLogin: 'dev',
+    inReplyToID: thread.id,
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":2,"reported":["1111111111111111"],"failedCalls":0} -->`,
+  });
+
+  const stub = buildStubAdapter({
+    'fix-1111111111111111': [{ fixed: true, reason: 'The separator is a colon now.' }],
+  });
+
+  const code = await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--fixes-only', '--report', 'github'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  const summary = githubCollections.issueComments
+    .all()
+    .findLast((comment) => comment.body.includes('<!-- noslop:summary'));
+
+  expect(code).toBe(0);
+  expect(stub.requests).toHaveLength(1);
+  expect(summary?.body).toInclude('"confirmed":["1111111111111111:"]');
+
+  expect(githubCollections.reviewComments.all()[0]?.body).toStartWith(
+    '~~**P2 · Correctness** · Reject an empty separator~~\n✅ Fixed at the head\n',
+  );
+
+  expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('success');
+});
+
 test('it records an escape in the store and counts it in recall', async () => {
   const ctx = await setupTest();
 
