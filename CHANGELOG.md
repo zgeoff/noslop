@@ -2,10 +2,11 @@
 
 ## [0.4.17](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.16...@noslop/cli@0.4.17) (2026-10-21)
 
-
 ### Bug Fixes
 
-* **github:** keep a fixed answer whose fix the latest review never read ([#120](https://github.com/zgeoff/noslop/issues/120)) ([9aff06c](https://github.com/zgeoff/noslop/commit/9aff06ccfc817e0fd6baa72a5602c04aa186d700))
+- **github:** keep a fixed answer whose fix the latest review never read
+  ([#120](https://github.com/zgeoff/noslop/issues/120))
+  ([9aff06c](https://github.com/zgeoff/noslop/commit/9aff06ccfc817e0fd6baa72a5602c04aa186d700))
 
 ## [0.4.16](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.15...@noslop/cli@0.4.16) (2026-10-21)
 
