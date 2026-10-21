@@ -22,6 +22,9 @@ export interface TestCommit {
   // the author and committer date git records, in a form git reads, such as an ISO 8601 date; with
   // none, git records the time of the commit
   date?: string;
+
+  // the author date alone, in place of the date, such as the older author date a rebase keeps
+  authorDate?: string;
 }
 
 export interface TestRepo {
@@ -94,10 +97,12 @@ export async function createTestRepo(
 
     await $`git -C ${path} add -A`.quiet();
 
-    const dates =
-      commit.date === undefined
-        ? {}
-        : { GIT_AUTHOR_DATE: commit.date, GIT_COMMITTER_DATE: commit.date };
+    const authorDate = commit.authorDate ?? commit.date;
+
+    const dates = {
+      ...(authorDate === undefined ? {} : { GIT_AUTHOR_DATE: authorDate }),
+      ...(commit.date === undefined ? {} : { GIT_COMMITTER_DATE: commit.date }),
+    };
 
     await $`git -C ${path} -c user.email=test@example.com -c user.name=test commit -q --allow-empty -m ${commit.message}`
       .env({ ...env, ...dates })

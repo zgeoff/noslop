@@ -1129,7 +1129,8 @@ test('it refuses a run whose only fixed answer names a commit of the layer below
         'src/scan.ts': 'export const separator = ":";\n',
         'README.md': '# App, which scans\n',
       },
-      date: '2026-01-02T00:00:00Z',
+      date: '2026-01-03T12:00:00Z',
+      authorDate: '2026-01-02T00:00:00Z',
     },
     {
       message: 'Split each line on the separator',
