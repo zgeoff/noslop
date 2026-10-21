@@ -366,6 +366,49 @@ test('it lists no reason for a fixed finding that the latest review reports but 
   expect(outcome.open).toStrictEqual([]);
 });
 
+test('it lists no reason for a fixed finding that the latest review neither reports nor read the fix of', () => {
+  const outcome = buildCheckOutcome({
+    findings: [
+      {
+        id: '1111111111111111',
+        title: 'Await the write',
+        path: 'src/a.ts',
+        lens: 'correctness',
+        severity: 'P2',
+        riskClass: null,
+        writtenByChange: true,
+      },
+    ],
+    dispositions: [
+      {
+        findingID: '1111111111111111',
+        kind: 'fixed',
+        value: 'abc1234',
+        author: 'dev',
+        authorIsOwner: false,
+        source: 'github',
+        at: '2026-10-17T10:00:00.000Z',
+      },
+    ],
+    summary: {
+      head: 'e'.repeat(40),
+      reviews: 2,
+      reported: [],
+      failedCalls: 0,
+      followUps: [],
+      confirmed: [],
+    },
+    currentHead: 'f'.repeat(40),
+    currentKey: { head: 'f'.repeat(40) },
+    existingIssues: new Set(),
+    unread: new Set(['1111111111111111']),
+    failedReporters: [],
+    unreadable: 0,
+  });
+
+  expect(outcome.open).toStrictEqual([]);
+});
+
 test('it fails a bare fixed finding that no review confirmed and names the fix', () => {
   const outcome = buildCheckOutcome({
     findings: [
