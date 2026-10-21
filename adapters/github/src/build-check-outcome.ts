@@ -1,5 +1,6 @@
 import type { Disposition } from '@noslop/contract';
 import { P, match } from 'ts-pattern';
+import { collectChangedFiles } from './collect-changed-files';
 import type { FindingMarker } from './finding-marker';
 import type { NetChangeKey } from './net-change-key';
 import type { SummaryMarker } from './summary-marker';
@@ -222,14 +223,4 @@ function findUnreviewedReason(input: CheckOutcomeInput): string | null {
   const more = changed.length > NAMED_FILES ? ` and ${changed.length - NAMED_FILES} more` : '';
 
   return `No noslop review of this change to ${named}${more}: the patch changed since the review of ${summary.head.slice(0, 12)}.`;
-}
-
-// the paths whose patch id differs between 2 keys, a file only one of them holds among them
-function collectChangedFiles(
-  before: Readonly<Record<string, string>>,
-  after: Readonly<Record<string, string>>,
-): string[] {
-  const paths = new Set([...Object.keys(before), ...Object.keys(after)]);
-
-  return [...paths].filter((path) => before[path] !== after[path]).toSorted();
 }

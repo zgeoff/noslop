@@ -25,6 +25,7 @@ import { formatReviewSummary } from './format-review-summary';
 import { getStorePath } from './get-store-path';
 import { loadRepoConfig } from './load-repo-config';
 import { readTrustedPullRequest } from './read-trusted-pull-request';
+import { readUncheckedRebase } from './read-unchecked-rebase';
 import { runReporters } from './run-reporters';
 
 export interface ReviewValues {
@@ -421,6 +422,25 @@ async function resolvePullRequestChange(
 
   const lensHead = isLensHeadHeld ? lastLensHead : null;
   const fixes = values.fixesOnly ? await readAnsweredFixes(connection, pullRequest, state) : [];
+
+  const unchecked =
+    values.fixesOnly && !isHeld
+      ? await readUncheckedRebase(ctx, {
+          connection,
+          pullRequest,
+          repoDir,
+          stored: summary?.key,
+          mergeBase: start,
+          head: state.headSha,
+          fixes,
+        })
+      : null;
+
+  if (unchecked !== null) {
+    throw new Error(
+      `--fixes-only cannot pass the rebase of ${(reviewed ?? '').slice(0, 12)}: ${unchecked}; run a review without --fixes-only`,
+    );
+  }
 
   // a fixes-only run reads the linked issue only to run the static stage again for a static fix,
   // since a static check compares the change against the issue

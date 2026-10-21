@@ -84,6 +84,12 @@ request's merge base, and its range holds every commit of the pull request. A `f
 names a fix commit the rebase rewrote counts the branch commit with the same change, as the check
 counts it, and the run judges that commit.
 
+The fix calls read only the fixes, so the run refuses a rebase that changed anything else. It
+compares the [net-change key](./github-app.md#the-net-change-key) the summary marker holds with the
+key at the head, and each file whose patch id moved must be a file that a fix commit the run judges
+changes. The run refuses, and names the files, when one is not. It refuses too when the summary
+marker holds no key, or when GitHub gives no whole file list, since neither key can show what moved.
+
 A lens review whose head a rebase took off the branch judged each fix before it by the sha that fix
 had then, and the check counts no rewritten sha as judged, so that lens head bounds no diff. The
 head that posted a finding bounds no diff once a rebase took it off the branch either. A late

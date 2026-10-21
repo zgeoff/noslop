@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { configureSync, getLogger, resetSync } from '@logtape/logtape';
 import type { ReviewAdapter } from '@noslop/contract';
 import { reviewResultSchema } from '@noslop/contract';
-import { createGitHubReporter } from '@noslop/github';
+import { buildNetChangeKey, createGitHubReporter } from '@noslop/github';
 import { createRunner } from '@noslop/runner';
 import { createSQLiteReporter, loadStore, runStoreQuery, writeReview } from '@noslop/sqlite';
 import {
@@ -3223,6 +3223,7 @@ test('it confirms a fixed reply under --fixes-only from the merge base when a re
     number: 9,
     path: 'src/scan.ts',
     lines: [2],
+    blobSha: '1'.repeat(40),
   });
 
   const thread = await githubCollections.reviewComments.create({
@@ -3245,13 +3246,20 @@ test('it confirms a fixed reply under --fixes-only from the merge base when a re
     inReplyToID: thread.id,
   });
 
+  // the key the review wrote, of the same file GitHub lists after the rebase
+  const key = buildNetChangeKey({
+    head: repo.commits[2] ?? '',
+    isWhole: true,
+    files: [{ filename: 'src/scan.ts', status: 'modified', sha: '1'.repeat(40) }],
+  });
+
   await githubCollections.issueComments.create({
     owner: 'example',
     repo: 'app',
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[2] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":2,"reported":["1111111111111111"],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[2] ?? ''}","key":${JSON.stringify(key)},"base":"${repo.commits[0] ?? ''}","reviews":2,"reported":["1111111111111111"],"failedCalls":0} -->`,
   });
 
   const stub = buildStubAdapter({
@@ -3273,6 +3281,175 @@ test('it confirms a fixed reply under --fixes-only from the merge base when a re
 
   expect(summary?.body).toInclude(`"base":"${repo.commits[1] ?? ''}"`);
   expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('success');
+});
+
+test('it refuses --fixes-only when a rebase changed the patch of a file that no fix commit changes, and names the file', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
+    { message: 'Describe the app', parent: 0, files: { 'README.md': '# app\n' } },
+    {
+      message: 'Add the scanner',
+      parent: 0,
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = "";\n' },
+    },
+    {
+      message: 'Add the scanner and the parser',
+      parent: 1,
+      files: {
+        'src/scan.ts': 'export const zero = 0;\nexport const separator = "";\n',
+        'src/parse.ts': 'export const parse = 1;\n',
+      },
+    },
+    {
+      message: 'Reject an empty separator',
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = ":";\n' },
+    },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    baseSha: repo.commits[1] ?? '',
+    headSha: repo.commits[4] ?? '',
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[3] ?? '',
+    files: ['src/scan.ts', 'src/parse.ts'],
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[4] ?? '',
+    files: ['src/scan.ts'],
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/scan.ts',
+    lines: [2],
+    blobSha: '1'.repeat(40),
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/parse.ts',
+    status: 'added',
+    lines: [1],
+    blobSha: '2'.repeat(40),
+  });
+
+  const thread = await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/scan.ts',
+    line: 2,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:finding {"id":"1111111111111111","title":"Reject an empty separator","path":"src/scan.ts","lens":"correctness","severity":"P2","riskClass":null,"writtenByChange":true,"head":"${repo.commits[2] ?? ''}"} -->`,
+  });
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    body: `fixed ${(repo.commits[4] ?? '').slice(0, 7)}`,
+    authorLogin: 'dev',
+    inReplyToID: thread.id,
+  });
+
+  // the key the review wrote, before the rebase brought in the parser
+  const key = buildNetChangeKey({
+    head: repo.commits[2] ?? '',
+    isWhole: true,
+    files: [{ filename: 'src/scan.ts', status: 'modified', sha: '1'.repeat(40) }],
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${repo.commits[2] ?? ''}","key":${JSON.stringify(key)},"base":"${repo.commits[0] ?? ''}","reviews":2,"reported":["1111111111111111"],"failedCalls":0} -->`,
+  });
+
+  const stub = buildStubAdapter({});
+
+  const code = await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--fixes-only', '--report', 'github'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  expect({ code, stderr: ctx.stderr.join('') }).toStrictEqual({
+    code: 1,
+    stderr: `noslop: --fixes-only cannot pass the rebase of ${(repo.commits[2] ?? '').slice(0, 12)}: the patch of src/parse.ts changed since the review, and no fix commit changes it; run a review without --fixes-only\n`,
+  });
+
+  expect(stub.requests).toStrictEqual([]);
+});
+
+test('it refuses --fixes-only after a rebase when the summary holds no key', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
+    { message: 'Describe the app', parent: 0, files: { 'README.md': '# app\n' } },
+    {
+      message: 'Add the scanner',
+      parent: 0,
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = "";\n' },
+    },
+    {
+      message: 'Add the scanner',
+      parent: 1,
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = "";\n' },
+    },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    baseSha: repo.commits[1] ?? '',
+    headSha: repo.commits[3] ?? '',
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${repo.commits[2] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":1,"reported":[],"failedCalls":0} -->`,
+  });
+
+  const stub = buildStubAdapter({});
+
+  const code = await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--fixes-only', '--report', 'github'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  expect({ code, stderr: ctx.stderr.join('') }).toStrictEqual({
+    code: 1,
+    stderr: `noslop: --fixes-only cannot pass the rebase of ${(repo.commits[2] ?? '').slice(0, 12)}: the summary holds no key of the net change the reviews read; run a review without --fixes-only\n`,
+  });
+
+  expect(githubCollections.checkRuns.all()).toStrictEqual([]);
 });
 
 test('it confirms a fixed reply under --fixes-only that names a fix commit the rebase rewrote', async () => {
@@ -3359,6 +3536,7 @@ test('it confirms a fixed reply under --fixes-only that names a fix commit the r
     number: 9,
     path: 'src/scan.ts',
     lines: [2],
+    blobSha: '1'.repeat(40),
   });
 
   const thread = await githubCollections.reviewComments.create({
@@ -3381,13 +3559,20 @@ test('it confirms a fixed reply under --fixes-only that names a fix commit the r
     inReplyToID: thread.id,
   });
 
+  // the key the review wrote, of the same file GitHub lists after the rebase
+  const key = buildNetChangeKey({
+    head: repo.commits[2] ?? '',
+    isWhole: true,
+    files: [{ filename: 'src/scan.ts', status: 'modified', sha: '1'.repeat(40) }],
+  });
+
   await githubCollections.issueComments.create({
     owner: 'example',
     repo: 'app',
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[2] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":2,"reported":["1111111111111111"],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[2] ?? ''}","key":${JSON.stringify(key)},"base":"${repo.commits[0] ?? ''}","reviews":2,"reported":["1111111111111111"],"failedCalls":0} -->`,
   });
 
   const stub = buildStubAdapter({
@@ -4393,6 +4578,7 @@ test('it rejects a fixed reply to a static finding under --fixes-only when a reb
     number: 9,
     path: 'src/scan.test.ts',
     lines: [15, 16, 17, 18, 19],
+    blobSha: '1'.repeat(40),
   });
 
   // the finding sits on the test's line at the head that posted it, before the rebase
@@ -4416,13 +4602,20 @@ test('it rejects a fixed reply to a static finding under --fixes-only when a reb
     inReplyToID: thread.id,
   });
 
+  // the key the review wrote, of the same file GitHub lists after the rebase
+  const key = buildNetChangeKey({
+    head: repo.commits[2] ?? '',
+    isWhole: true,
+    files: [{ filename: 'src/scan.test.ts', status: 'modified', sha: '1'.repeat(40) }],
+  });
+
   await githubCollections.issueComments.create({
     owner: 'example',
     repo: 'app',
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[2] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":1,"reported":["f3a135d185244d40"],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[2] ?? ''}","key":${JSON.stringify(key)},"base":"${repo.commits[0] ?? ''}","reviews":1,"reported":["f3a135d185244d40"],"failedCalls":0} -->`,
   });
 
   const stub = buildStubAdapter({});
@@ -5353,6 +5546,7 @@ test('it confirms a fixed reply posted after a clean rebase under --fixes-only, 
     number: 9,
     path: 'src/scan.ts',
     lines: [1, 2],
+    blobSha: '1'.repeat(40),
   });
 
   const confirmed = await githubCollections.reviewComments.create({
@@ -5386,6 +5580,13 @@ test('it confirms a fixed reply posted after a clean rebase under --fixes-only, 
     body: `<!-- noslop:finding {"id":"2222222222222222","title":"Name the separator","path":"src/scan.ts","lens":"design","severity":"P2","riskClass":null,"writtenByChange":true,"head":"${repo.commits[2] ?? ''}"} -->`,
   });
 
+  // the key the run wrote, of the same file GitHub lists after the rebase
+  const key = buildNetChangeKey({
+    head: repo.commits[3] ?? '',
+    isWhole: true,
+    files: [{ filename: 'src/scan.ts', status: 'modified', sha: '1'.repeat(40) }],
+  });
+
   // the summary of a fixes-only run that confirmed the first fix before the rebase
   await githubCollections.issueComments.create({
     owner: 'example',
@@ -5393,7 +5594,7 @@ test('it confirms a fixed reply posted after a clean rebase under --fixes-only, 
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[3] ?? ''}","base":"${repo.commits[2] ?? ''}","notReviewed":[],"checked":["1111111111111111"],"earlier":[{"base":"${repo.commits[0] ?? ''}","head":"${repo.commits[2] ?? ''}","reported":["1111111111111111","2222222222222222"],"notReviewed":[]}],"reviews":1,"reported":[],"failedCalls":0,"confirmed":["1111111111111111:${repo.commits[3] ?? ''}"]} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[3] ?? ''}","key":${JSON.stringify(key)},"base":"${repo.commits[2] ?? ''}","notReviewed":[],"checked":["1111111111111111"],"earlier":[{"base":"${repo.commits[0] ?? ''}","head":"${repo.commits[2] ?? ''}","reported":["1111111111111111","2222222222222222"],"notReviewed":[]}],"reviews":1,"reported":[],"failedCalls":0,"confirmed":["1111111111111111:${repo.commits[3] ?? ''}"]} -->`,
   });
 
   const stub = buildStubAdapter({

@@ -5971,7 +5971,7 @@ test('it passes the check at a rebased head whose files hold the reviewed patche
   await githubCollections.pullFiles.update((query) => query.where({ path: 'src/a.ts' }), {
     data(record) {
       record.patch =
-        '@@ -8,3 +8,3 @@ // values\n const zero = 0;\n-const one = 2;\n+const one = 1;\n const two = 2;';
+        '@@ -8,3 +8,3 @@\n const zero = 0;\n-const one = 2;\n+const one = 1;\n const two = 2;';
 
       record.blobSha = '3'.repeat(40);
     },
