@@ -156,7 +156,7 @@ A reply in any other form is no disposition. Each time noslop sets the check, it
 reply once with the accepted forms, and the forms marker stops a later run answering it again. Each
 kind is valid under its own rule:
 
-- `fixed`, or `fixed <commit>` with the sha as a hint, is valid once a fix call judged the finding
+- `fixed`, or `fixed <commit>` with the sha as a hint, is valid once a fix check judged the finding
   fixed at the head, and no later review reports the finding again.
 - `not-a-defect <reason>` is valid with any reason.
 - `deferred <issue>` is valid when the change did not write the code, the finding is no P1, security
@@ -193,23 +193,25 @@ between the description and the diff, and a full review judges the description. 
 [fix call](./fixes-only-run.md) of a `fixed` answer reads the description as it stands, so it can
 confirm the fix of a finding about the description.
 
-Only a fix call's verdict confirms a fix. A re-review makes one [fix call](./fixes-only-run.md) for
-each open `fixed` answer whose finding it no longer reports, and the call judges the finding at the
-pull request's head, whatever commit the answer names. A finding that the re-review reports again
-stays open with no call, because the report is its verdict. A re-review that only stops reporting a
-finding therefore confirms nothing, since its lens may have left the fix out of every call. A bare
-`fixed`, or a sha that a rebase or a squash took off the branch, counts through the call all the
-same.
+Only a fix check's verdict confirms a fix. A re-review runs one fix check for each open `fixed`
+answer whose finding it no longer reports, and the check judges the finding at the pull request's
+head, whatever commit the answer names. The fix check of a model lens's finding is a
+[fix call](./fixes-only-run.md). The fix check of a static finding is
+[its static check](./fixes-only-run.md#static-findings), which runs the static stage again and makes
+no model call. A finding that the re-review reports again stays open with no check, because the
+report is its verdict. A re-review that only stops reporting a finding therefore confirms nothing,
+since its lens may have left the fix out of every call. A bare `fixed`, or a sha that a rebase or a
+squash took off the branch, counts through the check all the same.
 
-The summary marker keeps each fix a fix call judged fixed, as the finding id and the commit its
-answer names. A confirmed fix holds across later reviews, with no new call, until a review reports
+The summary marker keeps each fix a fix check judged fixed, as the finding id and the commit its
+answer names. A confirmed fix holds across later reviews, with no new check, until a review reports
 the finding again. A later `fixed` answer that names another commit is a new answer, so it waits for
-a call of its own. A fix call that judges a finding not fixed, or that fails, leaves the answer
+a check of its own. A fix check that judges a finding not fixed, or that fails, leaves the answer
 open, and the summary shows the reason.
 
-A `fixed` reply posted after the last review gets no call from the check that the reply queues,
-because the check reads only what GitHub holds. The answer waits for the next run that makes fix
-calls: the review of a later push, or a fixes-only run.
+A `fixed` reply posted after the last review gets no fix check from the check job that the reply
+queues, because that job reads only what GitHub holds. The answer waits for the next run that runs
+fix checks: the review of a later push, or a fixes-only run.
 
 The re-check is the second review of a pull request. From the third review on, the reporter sends
 each new finding in code the change did not write to a follow-up issue. A security finding, and any
