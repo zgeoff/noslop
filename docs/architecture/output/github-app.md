@@ -288,4 +288,5 @@ head:
 - The pull request's head moved on before the reporter read its files.
 
 A summary marker that holds no key, as one an older release wrote, counts only at its own head. The
-next review or fixes-only run writes the key.
+next lens review writes the key, and so does a fixes-only run that
+[vouches for its head](./fixes-only-run.md).

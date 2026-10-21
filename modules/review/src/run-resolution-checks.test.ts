@@ -575,7 +575,7 @@ test('it drops a resolution finding that matches one answered not-a-defect and j
   ]);
 });
 
-test('it makes no call for a resolution past the call limit, records it as failed and lists its files as too large', async () => {
+test('it makes no call for a resolution past the call limit and records it as failed', async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
@@ -628,8 +628,6 @@ test('it makes no call for a resolution past the call limit, records it as faile
       reason: 'the resolution passes the call limit, so no call read it',
     },
   ]);
-
-  expect(run.notReviewed).toStrictEqual([{ path: 'src/options.ts', reason: 'too-large' }]);
 });
 
 test('it keeps a not-sound verdict when Assemble drops a finding beside one answered not-a-defect', async () => {

@@ -80,7 +80,8 @@ whose commit an earlier delta left out. The CLI refuses a review of a head that 
 no failed call already covered, and exits 1 before any call runs, because a review of an unchanged
 head would cover the whole pull request again and raise its findings under new IDs. `--full` lifts
 that refusal, and a review whose call failed leaves its head open to another review. `--fixes-only`
-runs no lens over the whole change, under [the fixes-only run](./fixes-only-run.md).
+runs no lens over the whole change and never refuses on the pull request's history, under
+[the fixes-only run](./fixes-only-run.md).
 
 ## Output and reporters
 

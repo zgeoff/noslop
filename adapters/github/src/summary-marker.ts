@@ -17,7 +17,7 @@ export const summaryMarkerSchema = z.strictObject({
   earlier: z.unknown().optional(),
   notReviewed: z.unknown().optional(),
   notReviewedByLens: z.unknown().optional(),
-  reviews: z.int().positive(),
+  reviews: z.int().nonnegative(),
   reported: z.array(z.string()),
   failedCalls: z.int().nonnegative(),
   followUps: z.array(z.string()).default([]),

@@ -10,6 +10,7 @@ import {
   githubServer,
 } from '@noslop/testing';
 import { HttpResponse, http } from 'msw';
+import { buildNetChangeKey } from './build-net-change-key';
 import { createGitHubConnection } from './create-github-connection';
 import { createGitHubReporter } from './create-github-reporter';
 import { readPullRequestState } from './read-pull-request-state';
@@ -1484,7 +1485,7 @@ test('it leaves a fix in another file open while the re-review still reports the
   expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('failure');
 });
 
-test('it leaves a fix that a fixes-only run left unjudged as too large unconfirmed, says why, and reports no finding again', async () => {
+test('it shows a fix that a fixes-only run left unjudged as not judged, never as not fixed, says why, and reports no finding again', async () => {
   const ctx = setupTest();
 
   await githubCollections.pullRequests.create({
@@ -1543,6 +1544,12 @@ test('it leaves a fix that a fixes-only run left unjudged as too large unconfirm
       findings: [],
       fixesOnly: true,
       fixChecks: [],
+      unjudgedFixes: [
+        {
+          findingID: '1111111111111111',
+          reason: 'its code or diff passes the file limit, so no call read it whole',
+        },
+      ],
       notReviewed: [{ path: 'src/a.ts', reason: 'too-large' }],
     }),
     { logger: ctx.logger, options: {}, failedReporters: [] },
@@ -1553,10 +1560,336 @@ test('it leaves a fix that a fixes-only run left unjudged as too large unconfirm
     .findLast((comment) => comment.body.includes('<!-- noslop:summary'));
 
   expect(summary?.body).toInclude(
-    '(unjudged: its diff passes the file limit, so no call read it whole)',
+    ': not judged in `ccccccc` (its code or diff passes the file limit, so no call read it whole)',
   );
 
+  expect(summary?.body).not.toInclude('❌');
   expect(summary?.body).toInclude('"reported":[]');
+});
+
+test('it gives a fix whose call failed no file-limit reason when another call left its small file out as too large', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'c'.repeat(40),
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/a.ts',
+    lines: [1],
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'b'.repeat(40),
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const [thread] = githubCollections.reviewComments.all();
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    body: 'fixed',
+    authorLogin: 'dev',
+    inReplyToID: thread?.id ?? null,
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      base: 'b'.repeat(40),
+      head: 'c'.repeat(40),
+      lenses: [],
+      findings: [],
+      fixesOnly: true,
+      fixChecks: [],
+      failedCalls: [
+        { id: 'fix-1111111111111111', lenses: ['correctness'], reason: 'the model timed out' },
+      ],
+      unjudgedFixes: [{ findingID: '1111111111111111', reason: 'its fix call failed' }],
+      notReviewed: [{ path: 'src/a.ts', reason: 'too-large' }],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const summary = githubCollections.issueComments
+    .all()
+    .findLast((comment) => comment.body.includes('<!-- noslop:summary'));
+
+  expect(summary?.body).toInclude(': not judged at the head (its fix call failed)');
+  expect(summary?.body).not.toInclude('file limit');
+  expect(summary?.body).not.toInclude('❌');
+});
+
+test('it keeps the head and key of the summary before a fixes-only run that judged no fix, so the check names the change no call read', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'c'.repeat(40),
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/a.ts',
+    lines: [1],
+    blobSha: '1'.repeat(40),
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/b.ts',
+    status: 'added',
+    lines: [1],
+    blobSha: '2'.repeat(40),
+  });
+
+  const key = buildNetChangeKey({
+    head: 'b'.repeat(40),
+    isWhole: true,
+    files: [{ filename: 'src/a.ts', status: 'modified', sha: '1'.repeat(40) }],
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${'b'.repeat(40)}","key":${JSON.stringify(key)},"reviews":2,"reported":[],"failedCalls":0,"reviewIDs":["review-a","review-b"]} -->`,
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      reviewID: 'review-c',
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      base: 'a'.repeat(40),
+      head: 'c'.repeat(40),
+      lenses: [],
+      findings: [],
+      fixesOnly: true,
+      fixChecks: [],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const summary = githubCollections.issueComments
+    .all()
+    .findLast((comment) => comment.body.includes('<!-- noslop:summary'));
+
+  expect(summary?.body).toInclude(`<!-- noslop:summary {"head":"${'b'.repeat(40)}",`);
+  expect(summary?.body).toInclude(`"key":${JSON.stringify(key)}} -->`);
+
+  expect(githubCollections.checkRuns.all().at(-1)).toMatchObject({
+    conclusion: 'failure',
+    title: `No noslop review of this change to src/b.ts: the patch changed since the review of ${'b'.repeat(12)}.`,
+  });
+});
+
+test('it keeps the failed calls of a lens review through a fixes-only run that judged a fix with no clean lens review before it', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'c'.repeat(40),
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/a.ts',
+    lines: [1],
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'b'.repeat(40),
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+      failedCalls: [{ id: 'security', lenses: ['security'], reason: 'codex timed out' }],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const [thread] = githubCollections.reviewComments.all();
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    body: 'fixed',
+    authorLogin: 'dev',
+    inReplyToID: thread?.id ?? null,
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      base: 'a'.repeat(40),
+      head: 'c'.repeat(40),
+      lenses: [],
+      findings: [],
+      fixesOnly: true,
+      fixChecks: [
+        { findingID: '1111111111111111', fixed: true, reason: 'The total adds every item now.' },
+      ],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const summary = githubCollections.issueComments
+    .all()
+    .findLast((comment) => comment.body.includes('<!-- noslop:summary'));
+
+  expect(summary?.body).toInclude(`<!-- noslop:summary {"head":"${'b'.repeat(40)}",`);
+  expect(summary?.body).toInclude('"failedCalls":1,');
+  expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('failure');
+});
+
+test('it drops the failed fix call of an earlier fixes-only run when a later one judges no fix after a clean lens review', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'b'.repeat(40),
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      reviewID: 'review-a',
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'b'.repeat(40),
+      findings: [],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      reviewID: 'review-b',
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'b'.repeat(40),
+      lenses: [],
+      findings: [],
+      fixesOnly: true,
+      fixChecks: [],
+      failedCalls: [
+        { id: 'fix-1111111111111111', lenses: ['correctness'], reason: 'the model timed out' },
+      ],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      reviewID: 'review-c',
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'b'.repeat(40),
+      lenses: [],
+      findings: [],
+      fixesOnly: true,
+      fixChecks: [],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const summary = githubCollections.issueComments
+    .all()
+    .findLast((comment) => comment.body.includes('<!-- noslop:summary'));
+
+  expect(summary?.body).toInclude('"failedCalls":0,');
+  expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('success');
+});
+
+test('it updates the one summary of a fixes-only run before any lens review on a later fixes-only run', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'c'.repeat(40),
+  });
+
+  for (const reviewID of ['review-a', 'review-b']) {
+    await ctx.reporter.report(
+      buildMockReviewResult({
+        reviewID,
+        pullRequest: { owner: 'example', repo: 'app', number: 5 },
+        base: 'a'.repeat(40),
+        head: 'c'.repeat(40),
+        lenses: [],
+        findings: [],
+        fixesOnly: true,
+        fixChecks: [],
+      }),
+      { logger: ctx.logger, options: {}, failedReporters: [] },
+    );
+  }
+
+  const summaries = githubCollections.issueComments
+    .all()
+    .filter((comment) => comment.body.includes('<!-- noslop:summary'));
+
+  expect(summaries).toHaveLength(1);
+  expect(summaries[0]?.body).toInclude('"reviews":0,"reviewIDs":["review-a","review-b"]');
+});
+
+test('it vouches for the merge base alone after a fixes-only run that judged no fix on a pull request no review covered', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'c'.repeat(40),
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      base: 'a'.repeat(40),
+      head: 'c'.repeat(40),
+      lenses: [],
+      findings: [],
+      fixesOnly: true,
+      fixChecks: [],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const summary = githubCollections.issueComments
+    .all()
+    .findLast((comment) => comment.body.includes('<!-- noslop:summary'));
+
+  expect(summary?.body).toInclude(`<!-- noslop:summary {"head":"${'a'.repeat(40)}","checked":[]`);
+
+  expect(githubCollections.checkRuns.all().at(-1)).toMatchObject({
+    conclusion: 'failure',
+    title: `No noslop review for this commit, ${'c'.repeat(12)}.`,
+  });
 });
 
 test('it answers a free-text comment on a finding outside the diff once', async () => {
@@ -1741,7 +2074,7 @@ test('it keeps a merge judged not sound with no finding as rejected and fails th
     number: 5,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${'b'.repeat(40)}","base":"${'a'.repeat(40)}","reviews":2,"reported":[],"failedCalls":0,"reviewIDs":["review-a","review-b"]} -->`,
+    body: `<!-- noslop:summary {"head":"${'c'.repeat(40)}","base":"${'a'.repeat(40)}","reviews":2,"reported":[],"failedCalls":0,"reviewIDs":["review-a","review-b"]} -->`,
   });
 
   const result = buildMockReviewResult({
@@ -1800,7 +2133,7 @@ test('it passes the check once the finding of a not-sound resolution holds a val
     number: 5,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${'b'.repeat(40)}","base":"${'a'.repeat(40)}","reviews":2,"reported":[],"failedCalls":0,"reviewIDs":["review-a","review-b"]} -->`,
+    body: `<!-- noslop:summary {"head":"${'c'.repeat(40)}","base":"${'a'.repeat(40)}","reviews":2,"reported":[],"failedCalls":0,"reviewIDs":["review-a","review-b"]} -->`,
   });
 
   const result = buildMockReviewResult({
@@ -1866,7 +2199,7 @@ test('it removes a rejected merge and passes the check when a later run judges i
     number: 5,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${'b'.repeat(40)}","base":"${'a'.repeat(40)}","reviews":2,"reported":[],"failedCalls":0,"rejectedMerges":["${'e'.repeat(40)}"],"reviewIDs":["review-a","review-b"]} -->`,
+    body: `<!-- noslop:summary {"head":"${'c'.repeat(40)}","base":"${'a'.repeat(40)}","reviews":2,"reported":[],"failedCalls":0,"rejectedMerges":["${'e'.repeat(40)}"],"reviewIDs":["review-a","review-b"]} -->`,
   });
 
   const result = buildMockReviewResult({

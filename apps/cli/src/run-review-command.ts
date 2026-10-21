@@ -26,7 +26,6 @@ import { getStorePath } from './get-store-path';
 import { loadRepoConfig } from './load-repo-config';
 import { readIssueFile } from './read-issue-file';
 import { readTrustedPullRequest } from './read-trusted-pull-request';
-import { readUncheckedRebase } from './read-unchecked-rebase';
 import { runReporters } from './run-reporters';
 
 export interface ReviewValues {
@@ -35,8 +34,7 @@ export interface ReviewValues {
   pr: string | undefined;
   full: boolean;
 
-  // a run after the last review round that runs no lens: it asks of each `fixed` answer whether the
-  // head still holds the finding, and raises no finding
+  // a run that runs no lens: it asks of each `fixed` answer whether the head still holds the finding
   fixesOnly: boolean;
   repo: string | undefined;
   report: string | undefined;
@@ -64,9 +62,7 @@ export async function runReviewCommand(values: ReviewValues, ctx: CLIContext): P
   }
 
   if (values.fixesOnly && values.full) {
-    throw new Error(
-      '--fixes-only reviews only the commits since the last review; leave out --full',
-    );
+    throw new Error('--fixes-only runs only fix calls; leave out --full');
   }
 
   const issueText =
@@ -400,11 +396,6 @@ async function resolvePullRequestChange(
   const isHeld = reviewed !== null && ancestry.exitCode === 0;
   const isDelta = isHeld && reviewed !== state.headSha;
 
-  // a fixes-only run may run again at the same head, for a `fixed` reply posted after the last run
-  if (values.fixesOnly && reviewed === null) {
-    throw new Error('--fixes-only needs an earlier review with no failed call');
-  }
-
   const fixes = await readAnsweredFixes(connection, pullRequest, state);
 
   // the call traces each finding's line from the head that posted it, which a rebase may have left on
@@ -416,25 +407,6 @@ async function resolvePullRequestChange(
 
   for (const postedHead of postedHeads) {
     await ctx.runner.run(['git', 'fetch', '--quiet', 'origin', postedHead], { cwd: repoDir });
-  }
-
-  const unchecked =
-    values.fixesOnly && !isHeld
-      ? await readUncheckedRebase(ctx.runner, {
-          connection,
-          pullRequest,
-          repoDir,
-          stored: summary?.key,
-          mergeBase: start,
-          head: state.headSha,
-          fixes,
-        })
-      : null;
-
-  if (unchecked !== null) {
-    throw new Error(
-      `--fixes-only cannot pass the rebase of ${(reviewed ?? '').slice(0, 12)}: ${unchecked}; run a review without --fixes-only`,
-    );
   }
 
   // a fixes-only run reads the linked issue only to run the static stage again for a static fix,
@@ -505,7 +477,6 @@ async function readAnsweredFixes(
         path: thread.marker.path,
         line: thread.line,
         comment: thread.body.replace(/<!-- noslop:[\s\S]*?-->/u, '').trim(),
-        hint: disposition.value === '' ? null : disposition.value,
         postedHead: thread.marker.head ?? null,
       },
     ];

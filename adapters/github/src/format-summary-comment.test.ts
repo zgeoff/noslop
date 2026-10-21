@@ -86,10 +86,27 @@ test('it writes the severity mix, the failed calls and each fix of a re-review',
       },
       {
         confirmations: [
-          { id: '4444444444444444', title: 'Await the write', commit: 'abc1234def', fixed: true },
-          { id: '5555555555555555', title: 'Close the file', commit: 'def5678', fixed: false },
+          {
+            id: '4444444444444444',
+            title: 'Await the write',
+            commit: 'abc1234def',
+            status: 'fixed',
+          },
+          {
+            id: '5555555555555555',
+            title: 'Close the file',
+            commit: 'def5678',
+            status: 'not-fixed',
+          },
+          {
+            id: '6666666666666666',
+            title: 'Free the buffer',
+            commit: '',
+            status: 'unjudged',
+            failure: 'its fix call failed',
+          },
         ],
-        posted: 2,
+        posted: 3,
       },
       new Map(),
     ),
@@ -102,6 +119,7 @@ test('it writes the severity mix, the failed calls and each fix of a re-review',
 
     ✅ Await the write: fixed in \`abc1234\`
     ❌ Close the file: not fixed in \`def5678\`
+    ❔ Free the buffer: not judged at the head (its fix call failed)
 
     | | Finding | File |
     |---|---|---|
@@ -244,8 +262,8 @@ test('it heads a re-review with no findings whose every fix is confirmed as all 
       },
       {
         confirmations: [
-          { id: '4444444444444444', title: 'Await the write', commit: 'abc1234', fixed: true },
-          { id: '5555555555555555', title: 'Close the file', commit: 'def5678', fixed: true },
+          { id: '4444444444444444', title: 'Await the write', commit: 'abc1234', status: 'fixed' },
+          { id: '5555555555555555', title: 'Close the file', commit: 'def5678', status: 'fixed' },
         ],
         posted: 2,
       },
@@ -270,7 +288,7 @@ test('it names a fix that a bare fixed answer gives as fixed at the head', () =>
       },
       {
         confirmations: [
-          { id: '4444444444444444', title: 'Await the write', commit: '', fixed: true },
+          { id: '4444444444444444', title: 'Await the write', commit: '', status: 'fixed' },
         ],
         posted: 1,
       },
@@ -295,8 +313,8 @@ test('it heads a re-review with no new findings when an earlier finding has no c
       },
       {
         confirmations: [
-          { id: '4444444444444444', title: 'Await the write', commit: 'abc1234', fixed: true },
-          { id: '5555555555555555', title: 'Close the file', commit: 'def5678', fixed: true },
+          { id: '4444444444444444', title: 'Await the write', commit: 'abc1234', status: 'fixed' },
+          { id: '5555555555555555', title: 'Close the file', commit: 'def5678', status: 'fixed' },
         ],
         posted: 3,
       },

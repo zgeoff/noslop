@@ -75,6 +75,13 @@ export const fixCheckSchema = z.strictObject({
 
 export type FixCheck = z.infer<typeof fixCheckSchema>;
 
+export const unjudgedFixSchema = z.strictObject({
+  findingID: z.string().regex(/^[0-9a-f]{16}$/u),
+  reason: z.string().min(1),
+});
+
+export type UnjudgedFix = z.infer<typeof unjudgedFixSchema>;
+
 // a fixes-only run's word on one merge commit whose tree differs from the tree `git merge-tree` builds
 // from its parents: whether what the merge itself wrote, its conflict resolutions and hand edits,
 // keeps the change of each side and adds no defect, and the one-line reason
@@ -116,6 +123,7 @@ export const reviewResultSchema = z.strictObject({
   // the verdict of each fix call: a fixes-only run's, or a review's for each `fixed` answer whose
   // finding it no longer reported; only a verdict confirms a fix, never a finding's absence
   fixChecks: z.array(fixCheckSchema).optional(),
+  unjudgedFixes: z.array(unjudgedFixSchema).optional(),
 
   // set only on a fixes-only run that judged a merge in its range; a clean merge gets no check
   resolutionChecks: z.array(resolutionCheckSchema).optional(),

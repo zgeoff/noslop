@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test';
 import { buildMockReviewResult } from '@noslop/testing';
 import { buildFixConfirmations } from './build-fix-confirmations';
 
-test('it confirms no fix of a finding the review no longer reports without a fix call verdict', () => {
+test('it leaves unjudged a fix of a finding the review no longer reports without a fix call verdict', () => {
   expect(
     buildFixConfirmations({
       findings: [
@@ -32,7 +32,12 @@ test('it confirms no fix of a finding the review no longer reports without a fix
       result: buildMockReviewResult({ findings: [] }),
     }),
   ).toStrictEqual([
-    { id: '1111111111111111', title: 'Reject an empty separator', commit: 'abc1234', fixed: false },
+    {
+      id: '1111111111111111',
+      title: 'Reject an empty separator',
+      commit: 'abc1234',
+      status: 'unjudged',
+    },
   ]);
 });
 
@@ -70,7 +75,7 @@ test('it confirms a fix that a fix call judged fixed', () => {
       }),
     }),
   ).toStrictEqual([
-    { id: '1111111111111111', title: 'Reject an empty separator', commit: '', fixed: true },
+    { id: '1111111111111111', title: 'Reject an empty separator', commit: '', status: 'fixed' },
   ]);
 });
 
@@ -112,7 +117,7 @@ test("it leaves a fix open with the fix call's reason when the call judged it no
       id: '1111111111111111',
       title: 'Reject an empty separator',
       commit: 'abc1234',
-      fixed: false,
+      status: 'not-fixed',
       failure: 'The separator is still empty.',
     },
   ]);
@@ -148,7 +153,12 @@ test('it revokes a confirmed fix whose finding the review reports again', () => 
       result: buildMockReviewResult(),
     }),
   ).toStrictEqual([
-    { id: '1111111111111111', title: 'Reject an empty separator', commit: 'abc1234', fixed: false },
+    {
+      id: '1111111111111111',
+      title: 'Reject an empty separator',
+      commit: 'abc1234',
+      status: 'not-fixed',
+    },
   ]);
 });
 
@@ -182,11 +192,16 @@ test('it keeps a fix an earlier fix call confirmed when the review neither judge
       result: buildMockReviewResult(),
     }),
   ).toStrictEqual([
-    { id: '1111111111111111', title: 'Reject an empty separator', commit: 'abc1234', fixed: true },
+    {
+      id: '1111111111111111',
+      title: 'Reject an empty separator',
+      commit: 'abc1234',
+      status: 'fixed',
+    },
   ]);
 });
 
-test('it confirms no fix whose answer names another sha than the confirmed one', () => {
+test('it leaves unjudged a fix whose answer names another sha than the confirmed one', () => {
   expect(
     buildFixConfirmations({
       findings: [
@@ -216,11 +231,65 @@ test('it confirms no fix whose answer names another sha than the confirmed one',
       result: buildMockReviewResult(),
     }),
   ).toStrictEqual([
-    { id: '1111111111111111', title: 'Reject an empty separator', commit: 'def5678', fixed: false },
+    {
+      id: '1111111111111111',
+      title: 'Reject an empty separator',
+      commit: 'def5678',
+      status: 'unjudged',
+    },
   ]);
 });
 
-test('it says why no fix call judged a fix whose file passes the file limit', () => {
+test('it says why no fix call judged a fix the run lists as unjudged', () => {
+  expect(
+    buildFixConfirmations({
+      findings: [
+        {
+          id: '1111111111111111',
+          title: 'Reject an empty separator',
+          path: 'src/scan.ts',
+          lens: 'correctness',
+          severity: 'P2',
+          riskClass: null,
+          writtenByChange: true,
+        },
+      ],
+      dispositions: [
+        {
+          findingID: '1111111111111111',
+          kind: 'fixed',
+          value: 'abc1234',
+          author: 'dev',
+          authorIsOwner: false,
+          source: 'github',
+          at: '2026-10-17T10:00:00.000Z',
+        },
+      ],
+      confirmed: [],
+      reported: [],
+      result: buildMockReviewResult({
+        fixChecks: [],
+        unjudgedFixes: [
+          {
+            findingID: '1111111111111111',
+            reason: 'its code or diff passes the file limit, so no call read it whole',
+          },
+        ],
+        notReviewed: [{ path: 'src/scan.ts', reason: 'too-large' }],
+      }),
+    }),
+  ).toStrictEqual([
+    {
+      id: '1111111111111111',
+      title: 'Reject an empty separator',
+      commit: 'abc1234',
+      status: 'unjudged',
+      failure: 'its code or diff passes the file limit, so no call read it whole',
+    },
+  ]);
+});
+
+test('it gives a fix no file-limit reason when only another call left its file out as too large', () => {
   expect(
     buildFixConfirmations({
       findings: [
@@ -257,8 +326,7 @@ test('it says why no fix call judged a fix whose file passes the file limit', ()
       id: '1111111111111111',
       title: 'Reject an empty separator',
       commit: 'abc1234',
-      fixed: false,
-      failure: 'unjudged: its diff passes the file limit, so no call read it whole',
+      status: 'unjudged',
     },
   ]);
 });

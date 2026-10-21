@@ -5,8 +5,10 @@ import type {
   ReporterContext,
   ReviewResult,
 } from '@noslop/contract';
+import { match } from 'ts-pattern';
 import { buildFixConfirmations } from './build-fix-confirmations';
 import { buildMergeLists } from './build-merge-lists';
+import { buildReviewedChange } from './build-reviewed-change';
 import type { GitHubClient, GitHubConnection } from './create-github-connection';
 import { findLensHead } from './find-lens-head';
 import { followUpMarkerSchema } from './follow-up-marker';
@@ -16,6 +18,7 @@ import { formatMarker } from './format-marker';
 import { formatRewrittenComment } from './format-rewritten-comment';
 import type { FixConfirmation } from './format-summary-comment';
 import { formatSummaryComment } from './format-summary-comment';
+import type { NetChangeKey } from './net-change-key';
 import { parseMarker } from './parse-marker';
 import { planReviewPost } from './plan-review-post';
 import { readAllPages } from './read-all-pages';
@@ -172,20 +175,22 @@ async function runReviewPost(
 
   const merges = buildMergeLists(before.summary?.marker ?? null, result);
 
+  const reviewed = await readSummaryChange(client, pr, result, before.summary?.marker ?? null);
+
   const marker = {
-    head: result.head,
+    head: reviewed.head,
     ...buildRunFields(result, before.summary?.marker ?? null),
     ...merges,
     reviews: plan.reviews,
     reviewIDs: plan.reviewIDs,
     reported,
-    failedCalls: result.failedCalls.length,
+    failedCalls: reviewed.failedCalls,
     followUps: [...filed, ...followUps.map((finding) => finding.id)],
     confirmed: confirmations
-      .filter((item) => item.fixed)
+      .filter((item) => item.status === 'fixed')
       .map((item) => `${item.id}:${item.commit}`),
     startedAt: result.startedAt,
-    key: await readNetChangeKey(client, pr, result.head),
+    ...(reviewed.key === undefined ? {} : { key: reviewed.key }),
   };
 
   await writeSummaryComment(
@@ -387,7 +392,10 @@ async function updateFixedComments(
   confirmations: readonly FixConfirmation[],
 ): Promise<void> {
   for (const thread of threads) {
-    const confirmation = confirmations.find((item) => item.id === thread.marker.id && item.fixed);
+    const confirmation = confirmations.find(
+      (item) => item.id === thread.marker.id && item.status === 'fixed',
+    );
+
     const commit = confirmation?.commit ?? null;
     const body = formatFixedFindingComment(thread.body, thread.marker, commit);
 
@@ -410,6 +418,34 @@ function toCommentURL(pr: PullRequestRef, thread: FindingThread): string {
       : `issuecomment-${thread.commentID}`;
 
   return `https://github.com/${pr.owner}/${pr.repo}/pull/${pr.number}#${anchor}`;
+}
+
+interface SummaryChange {
+  head: string;
+  key?: NetChangeKey;
+  failedCalls: number;
+}
+
+function readSummaryChange(
+  client: GitHubClient,
+  pr: PullRequestRef,
+  result: ReviewResult,
+  previous: SummaryMarker | null,
+): Promise<SummaryChange> {
+  return match(buildReviewedChange(result, previous))
+    .with({ kind: 'own' }, async (own) => ({
+      head: result.head,
+      key: await readNetChangeKey(client, pr, result.head),
+      failedCalls: own.failedCalls,
+    }))
+    .with({ kind: 'kept' }, (kept) => Promise.resolve(toSummaryChange(kept)))
+    .exhaustive();
+}
+
+function toSummaryChange(kept: SummaryChange): SummaryChange {
+  return kept.key === undefined
+    ? { head: kept.head, failedCalls: kept.failedCalls }
+    : { head: kept.head, key: kept.key, failedCalls: kept.failedCalls };
 }
 
 interface RunFields {

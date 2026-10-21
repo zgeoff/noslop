@@ -49,7 +49,6 @@ test('it lists the verdict of each fix check and raises no finding', async () =>
         path: 'src/scan.ts',
         line: 1,
         comment: 'An empty separator splits the line into single characters.',
-        hint: (repo.commits[1] ?? '').slice(0, 7),
         postedHead: null,
       },
     ],
@@ -57,6 +56,7 @@ test('it lists the verdict of each fix check and raises no finding', async () =>
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
+    staticCheck: { config: BUILT_IN_DEFAULTS, body: '', linkedIssue: null, cacheDir: null },
   });
 
   expect(result.fixChecks).toStrictEqual([
@@ -108,7 +108,6 @@ test("it gives the call the whole numbered file at the head and the pull request
         path: 'src/scan.ts',
         line: 2,
         comment: 'An empty separator splits the line into single characters.',
-        hint: (repo.commits[2] ?? '').slice(0, 7),
         postedHead: null,
       },
     ],
@@ -116,6 +115,7 @@ test("it gives the call the whole numbered file at the head and the pull request
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
+    staticCheck: { config: BUILT_IN_DEFAULTS, body: '', linkedIssue: null, cacheDir: null },
   });
 
   expect(stub.requests[0]?.prompt).toInclude(
@@ -177,7 +177,6 @@ test('it judges a fixed answer whose commit a rebase left off the branch at the 
         path: 'src/scan.ts',
         line: 1,
         comment: 'An empty separator splits the line into single characters.',
-        hint: (repo.commits[3] ?? '').slice(0, 7),
         postedHead: repo.commits[2] ?? '',
       },
     ],
@@ -185,6 +184,7 @@ test('it judges a fixed answer whose commit a rebase left off the branch at the 
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
+    staticCheck: { config: BUILT_IN_DEFAULTS, body: '', linkedIssue: null, cacheDir: null },
   });
 
   expect(result.fixChecks).toStrictEqual([
@@ -249,7 +249,6 @@ test('it judges a fixed answer whose commit a squash of the layer below replaced
         path: 'src/split.ts',
         line: 2,
         comment: 'An empty separator splits the line into single characters.',
-        hint: (repo.commits[2] ?? '').slice(0, 7),
         postedHead: repo.commits[3] ?? '',
       },
     ],
@@ -257,6 +256,7 @@ test('it judges a fixed answer whose commit a squash of the layer below replaced
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
+    staticCheck: { config: BUILT_IN_DEFAULTS, body: '', linkedIssue: null, cacheDir: null },
   });
 
   expect(result.fixChecks).toStrictEqual([
@@ -301,7 +301,6 @@ test('it judges a bare fixed answer, which names no commit, at the head', async 
         path: 'src/scan.ts',
         line: 1,
         comment: 'An empty separator splits the line into single characters.',
-        hint: null,
         postedHead: repo.commits[0] ?? '',
       },
     ],
@@ -309,6 +308,7 @@ test('it judges a bare fixed answer, which names no commit, at the head', async 
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
+    staticCheck: { config: BUILT_IN_DEFAULTS, body: '', linkedIssue: null, cacheDir: null },
   });
 
   expect(result.fixChecks).toStrictEqual([
@@ -358,7 +358,6 @@ test("it traces the finding's line past the lines a later commit adds above it",
         path: 'src/scan.ts',
         line: 2,
         comment: 'An empty separator splits the line into single characters.',
-        hint: null,
         postedHead: repo.commits[1] ?? '',
       },
     ],
@@ -366,6 +365,7 @@ test("it traces the finding's line past the lines a later commit adds above it",
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
+    staticCheck: { config: BUILT_IN_DEFAULTS, body: '', linkedIssue: null, cacheDir: null },
   });
 
   expect(stub.requests[0]?.prompt).toInclude(
@@ -412,7 +412,6 @@ test('it gives the call the whole file at the head when a later commit rewrote t
         path: 'src/scan.ts',
         line: 2,
         comment: 'An empty separator splits the line into single characters.',
-        hint: null,
         postedHead: repo.commits[1] ?? '',
       },
     ],
@@ -420,6 +419,7 @@ test('it gives the call the whole file at the head when a later commit rewrote t
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
+    staticCheck: { config: BUILT_IN_DEFAULTS, body: '', linkedIssue: null, cacheDir: null },
   });
 
   expect(stub.requests[0]?.prompt).toInclude(
@@ -460,7 +460,6 @@ test('it gives the call the whole file at the head when the repo holds no commit
         path: 'src/scan.ts',
         line: 2,
         comment: 'An empty separator splits the line into single characters.',
-        hint: null,
         postedHead: 'e'.repeat(40),
       },
     ],
@@ -468,6 +467,7 @@ test('it gives the call the whole file at the head when the repo holds no commit
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
+    staticCheck: { config: BUILT_IN_DEFAULTS, body: '', linkedIssue: null, cacheDir: null },
   });
 
   expect(stub.requests[0]?.prompt).toInclude(
@@ -508,7 +508,6 @@ test("it judges a fix whose commit only adds a test in another file from that te
         path: 'src/scan.ts',
         line: 1,
         comment: 'No test covers the separator through the entry point.',
-        hint: (repo.commits[1] ?? '').slice(0, 7),
         postedHead: null,
       },
     ],
@@ -516,6 +515,7 @@ test("it judges a fix whose commit only adds a test in another file from that te
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
+    staticCheck: { config: BUILT_IN_DEFAULTS, body: '', linkedIssue: null, cacheDir: null },
   });
 
   expect(stub.requests[0]?.prompt).toInclude('+test("it splits on a colon", () => {});');
@@ -573,7 +573,6 @@ test('it gives the call the net diff where a later commit moved the code and the
         line: 1,
         comment:
           'An empty separator splits the line into single characters, and no test checks it.',
-        hint: (repo.commits[1] ?? '').slice(0, 7),
         postedHead: null,
       },
     ],
@@ -581,6 +580,7 @@ test('it gives the call the net diff where a later commit moved the code and the
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
+    staticCheck: { config: BUILT_IN_DEFAULTS, body: '', linkedIssue: null, cacheDir: null },
   });
 
   expect(stub.requests[0]?.prompt).toInclude(
@@ -632,7 +632,6 @@ test('it asks nothing about a fix whose file at the head passes the file limit, 
         path: 'src/scan.ts',
         line: 1,
         comment: 'An empty separator splits the line into single characters.',
-        hint: null,
         postedHead: null,
       },
     ],
@@ -640,11 +639,19 @@ test('it asks nothing about a fix whose file at the head passes the file limit, 
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
+    staticCheck: { config: BUILT_IN_DEFAULTS, body: '', linkedIssue: null, cacheDir: null },
   });
 
   expect(stub.requests).toStrictEqual([]);
   expect(result.fixChecks).toStrictEqual([]);
   expect(result.notReviewed).toStrictEqual([{ path: 'src/scan.ts', reason: 'too-large' }]);
+
+  expect(result.unjudgedFixes).toStrictEqual([
+    {
+      findingID: '1111111111111111',
+      reason: 'its code or diff passes the file limit, so no call read it whole',
+    },
+  ]);
 });
 
 test('it asks nothing about a fix whose diff passes the file limit and names the file as too large', async () => {
@@ -678,7 +685,6 @@ test('it asks nothing about a fix whose diff passes the file limit and names the
         path: 'src/scan.ts',
         line: 1,
         comment: 'An empty separator splits the line into single characters.',
-        hint: (repo.commits[1] ?? '').slice(0, 7),
         postedHead: null,
       },
     ],
@@ -686,6 +692,7 @@ test('it asks nothing about a fix whose diff passes the file limit and names the
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
+    staticCheck: { config: BUILT_IN_DEFAULTS, body: '', linkedIssue: null, cacheDir: null },
   });
 
   expect(stub.requests).toStrictEqual([]);
@@ -732,7 +739,6 @@ test("it reads the finding file's diff alone by its literal path, though the pat
         path: 'src/[a].ts',
         line: 1,
         comment: 'An empty separator splits the line into single characters.',
-        hint: null,
         postedHead: null,
       },
     ],
@@ -740,6 +746,7 @@ test("it reads the finding file's diff alone by its literal path, though the pat
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
+    staticCheck: { config: BUILT_IN_DEFAULTS, body: '', linkedIssue: null, cacheDir: null },
   });
 
   expect(result.fixChecks).toStrictEqual([
@@ -788,7 +795,6 @@ test("it gives the call the finding file's diff alone when the whole diff passes
         path: 'src/scan.ts',
         line: 1,
         comment: 'An empty separator splits the line into single characters.',
-        hint: null,
         postedHead: null,
       },
     ],
@@ -796,6 +802,7 @@ test("it gives the call the finding file's diff alone when the whole diff passes
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
+    staticCheck: { config: BUILT_IN_DEFAULTS, body: '', linkedIssue: null, cacheDir: null },
   });
 
   const prompt = stub.requests[0]?.prompt ?? '';
@@ -841,7 +848,6 @@ test('it gives the call the diff of a fix in a file whose name git quotes', asyn
         path: 'src/scan.ts',
         line: 1,
         comment: 'No test covers the separator in the café locale.',
-        hint: (repo.commits[1] ?? '').slice(0, 7),
         postedHead: null,
       },
     ],
@@ -849,6 +855,7 @@ test('it gives the call the diff of a fix in a file whose name git quotes', asyn
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
+    staticCheck: { config: BUILT_IN_DEFAULTS, body: '', linkedIssue: null, cacheDir: null },
   });
 
   expect(stub.requests[0]?.prompt).toInclude('+test("it splits on a colon", () => {});');
@@ -894,7 +901,6 @@ test("it traces a finding in a file whose name is a glob through that one file's
         path: 'src/[a].ts',
         line: 1,
         comment: 'An empty separator splits the line into single characters.',
-        hint: null,
         postedHead: repo.commits[1] ?? '',
       },
     ],
@@ -902,6 +908,7 @@ test("it traces a finding in a file whose name is a glob through that one file's
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
+    staticCheck: { config: BUILT_IN_DEFAULTS, body: '', linkedIssue: null, cacheDir: null },
   });
 
   expect(stub.requests[0]?.prompt).toInclude(
@@ -940,7 +947,6 @@ test('it lists no verdict and records the failed call when the call fails', asyn
         path: 'src/scan.ts',
         line: 1,
         comment: 'An empty separator splits the line into single characters.',
-        hint: (repo.commits[1] ?? '').slice(0, 7),
         postedHead: null,
       },
     ],
@@ -948,6 +954,7 @@ test('it lists no verdict and records the failed call when the call fails', asyn
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
+    staticCheck: { config: BUILT_IN_DEFAULTS, body: '', linkedIssue: null, cacheDir: null },
   });
 
   expect(result.fixChecks).toStrictEqual([]);
@@ -955,57 +962,9 @@ test('it lists no verdict and records the failed call when the call fails', asyn
   expect(result.failedCalls).toStrictEqual([
     { id: 'fix-1111111111111111', lenses: ['correctness'], reason: 'the model timed out' },
   ]);
-});
 
-test('it judges the fix of a static finding not fixed with no call when the run has no static check', async () => {
-  const ctx = await setupTest();
-
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
-    { message: 'base', files: { 'src/scan.ts': 'export const separator = "";\n' } },
-    {
-      message: 'Reject an empty separator',
-      files: { 'src/scan.ts': 'export const separator = ":";\n' },
-    },
-  ]);
-
-  const stub = buildStubAdapter({});
-
-  const result = await runFixesOnlyReview({
-    runner: ctx.runner,
-    repoDir: repo.path,
-    repo: 'example/app',
-    pullRequest: { owner: 'example', repo: 'app', number: 9 },
-    base: repo.commits[0] ?? '',
-    head: repo.commits[1] ?? '',
-    mergeBase: repo.commits[0] ?? '',
-    title: 'Scan the header line',
-    configHash: 'hash',
-    fixes: [
-      {
-        id: '1111111111111111',
-        title: 'Remove the debugger statement',
-        lens: 'static',
-        path: 'src/scan.ts',
-        line: 1,
-        comment: 'A debugger statement stops the program in a browser.',
-        hint: (repo.commits[1] ?? '').slice(0, 7),
-        postedHead: null,
-      },
-    ],
-    maxFileChars: 10_000,
-    adapter: stub.adapter,
-    tempDir: ctx.directory,
-    logger: ctx.logger,
-  });
-
-  expect(stub.requests).toStrictEqual([]);
-
-  expect(result.fixChecks).toStrictEqual([
-    {
-      findingID: '1111111111111111',
-      fixed: false,
-      reason: 'a static finding takes a full review to confirm its fix',
-    },
+  expect(result.unjudgedFixes).toStrictEqual([
+    { findingID: '1111111111111111', reason: 'its fix call failed' },
   ]);
 });
 
@@ -1051,7 +1010,6 @@ test('it confirms the fix of a static finding that the static stage no longer re
         path: 'src/scan.test.ts',
         line: 4,
         comment: 'The test body holds no assertion.',
-        hint: (repo.commits[2] ?? '').slice(0, 7),
         postedHead: null,
       },
     ],
@@ -1118,7 +1076,6 @@ test('it rejects the fix of a static finding that the static stage still reports
         path: 'src/scan.test.ts',
         line: 4,
         comment: 'The test body holds no assertion.',
-        hint: (repo.commits[2] ?? '').slice(0, 7),
         postedHead: null,
       },
     ],
@@ -1182,7 +1139,6 @@ test('it judges 2 static findings with one title by their places when a fix remo
         path: 'src/scan.test.ts',
         line: 4,
         comment: 'The test body holds no assertion.',
-        hint: (repo.commits[2] ?? '').slice(0, 7),
         postedHead: repo.commits[1] ?? '',
       },
       {
@@ -1192,7 +1148,6 @@ test('it judges 2 static findings with one title by their places when a fix remo
         path: 'src/scan.test.ts',
         line: 8,
         comment: 'The test body holds no assertion.',
-        hint: (repo.commits[2] ?? '').slice(0, 7),
         postedHead: repo.commits[1] ?? '',
       },
     ],
@@ -1259,7 +1214,6 @@ test('it rejects the fix of a static finding whose fix rewrites the anchored lin
         path: 'src/scan.test.ts',
         line: 4,
         comment: 'The test body holds no assertion.',
-        hint: (repo.commits[2] ?? '').slice(0, 7),
         postedHead: repo.commits[1] ?? '',
       },
     ],
@@ -1321,7 +1275,6 @@ test('it confirms the fix of a static finding whose fix deletes the test while a
         path: 'src/scan.test.ts',
         line: 4,
         comment: 'The test body holds no assertion.',
-        hint: (repo.commits[2] ?? '').slice(0, 7),
         postedHead: repo.commits[1] ?? '',
       },
     ],
@@ -1341,7 +1294,7 @@ test('it confirms the fix of a static finding whose fix deletes the test while a
   ]);
 });
 
-test('it refuses a run with no fixed answer to check over a commit that no lens read', async () => {
+test('it runs with no fixed answer to check over a commit that no lens read, and makes no call', async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
@@ -1355,30 +1308,36 @@ test('it refuses a run with no fixed answer to check over a commit that no lens 
 
   const stub = buildStubAdapter({});
 
-  expect(
-    runFixesOnlyReview({
-      runner: ctx.runner,
-      repoDir: repo.path,
-      repo: 'example/app',
-      pullRequest: { owner: 'example', repo: 'app', number: 9 },
-      base: repo.commits[1] ?? '',
-      head: repo.commits[2] ?? '',
-      mergeBase: repo.commits[0] ?? '',
-      title: 'Scan the header line',
-      configHash: 'hash',
-      fixes: [],
-      maxFileChars: 10_000,
-      adapter: stub.adapter,
-      tempDir: ctx.directory,
-      logger: ctx.logger,
-    }),
-  ).rejects.toThrowWithMessage(
-    Error,
-    `--fixes-only has no \`fixed\` answer to check, so it cannot pass ${(repo.commits[2] ?? '').slice(0, 12)}, which no lens read and which is no merge of the base; run a review without --fixes-only`,
-  );
+  const result = await runFixesOnlyReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/app',
+    pullRequest: { owner: 'example', repo: 'app', number: 9 },
+    base: repo.commits[1] ?? '',
+    head: repo.commits[2] ?? '',
+    mergeBase: repo.commits[0] ?? '',
+    title: 'Scan the header line',
+    configHash: 'hash',
+    fixes: [],
+    maxFileChars: 10_000,
+    adapter: stub.adapter,
+    tempDir: ctx.directory,
+    logger: ctx.logger,
+    staticCheck: { config: BUILT_IN_DEFAULTS, body: '', linkedIssue: null, cacheDir: null },
+  });
+
+  expect(stub.requests).toStrictEqual([]);
+
+  expect(result).toMatchObject({
+    base: repo.commits[0] ?? '',
+    head: repo.commits[2] ?? '',
+    fixesOnly: true,
+    fixChecks: [],
+    failedCalls: [],
+  });
 });
 
-test('it refuses a run with no fixed answer to check and no commit since the last review', async () => {
+test('it runs with no fixed answer to check and no commit since the last review', async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
@@ -1391,74 +1350,29 @@ test('it refuses a run with no fixed answer to check and no commit since the las
 
   const stub = buildStubAdapter({});
 
-  expect(
-    runFixesOnlyReview({
-      runner: ctx.runner,
-      repoDir: repo.path,
-      repo: 'example/app',
-      pullRequest: { owner: 'example', repo: 'app', number: 9 },
-      base: repo.commits[1] ?? '',
-      head: repo.commits[1] ?? '',
-      mergeBase: repo.commits[0] ?? '',
-      title: 'Scan the header line',
-      configHash: 'hash',
-      fixes: [],
-      maxFileChars: 10_000,
-      adapter: stub.adapter,
-      tempDir: ctx.directory,
-      logger: ctx.logger,
-    }),
-  ).rejects.toThrowWithMessage(
-    Error,
-    '--fixes-only has no `fixed` answer to check, and no commit came after the last review',
-  );
+  const result = await runFixesOnlyReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/app',
+    pullRequest: { owner: 'example', repo: 'app', number: 9 },
+    base: repo.commits[1] ?? '',
+    head: repo.commits[1] ?? '',
+    mergeBase: repo.commits[0] ?? '',
+    title: 'Scan the header line',
+    configHash: 'hash',
+    fixes: [],
+    maxFileChars: 10_000,
+    adapter: stub.adapter,
+    tempDir: ctx.directory,
+    logger: ctx.logger,
+    staticCheck: { config: BUILT_IN_DEFAULTS, body: '', linkedIssue: null, cacheDir: null },
+  });
+
+  expect(stub.requests).toStrictEqual([]);
+  expect(result.fixChecks).toStrictEqual([]);
 });
 
-test('it refuses a run with no fixed answer to check over a commit that came after the branch commit a rebase made of the reviewed head', async () => {
-  const ctx = await setupTest();
-
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
-    { message: 'base', files: { 'src/scan.ts': 'export const separator = "";\n' } },
-    { message: 'Describe the app', files: { 'README.md': '# app\n' } },
-    {
-      message: 'Reject an empty separator',
-      files: { 'src/scan.ts': 'export const separator = ":";\n' },
-      parent: 0,
-    },
-    {
-      message: 'Reject an empty separator',
-      files: { 'src/scan.ts': 'export const separator = ":";\n' },
-      parent: 1,
-    },
-    { message: 'Add a tab', files: { 'src/tab.ts': 'export const tab = "\\t";\n' } },
-  ]);
-
-  const stub = buildStubAdapter({});
-
-  expect(
-    runFixesOnlyReview({
-      runner: ctx.runner,
-      repoDir: repo.path,
-      repo: 'example/app',
-      pullRequest: { owner: 'example', repo: 'app', number: 9 },
-      base: repo.commits[3] ?? '',
-      head: repo.commits[4] ?? '',
-      mergeBase: repo.commits[1] ?? '',
-      title: 'Scan the header line',
-      configHash: 'hash',
-      fixes: [],
-      maxFileChars: 10_000,
-      adapter: stub.adapter,
-      tempDir: ctx.directory,
-      logger: ctx.logger,
-    }),
-  ).rejects.toThrowWithMessage(
-    Error,
-    `--fixes-only has no \`fixed\` answer to check, so it cannot pass ${(repo.commits[4] ?? '').slice(0, 12)}, which no lens read and which is no merge of the base; run a review without --fixes-only`,
-  );
-});
-
-test('it refuses a run with no fixed answer to check over a merge of a branch the base does not hold', async () => {
+test('it runs the fix call of a fixed answer over a merge of a branch the base does not hold', async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
@@ -1471,32 +1385,46 @@ test('it refuses a run with no fixed answer to check over a merge of a branch th
     { message: 'Merge the tab branch', files: {}, parent: 1, merged: 2 },
   ]);
 
-  const stub = buildStubAdapter({});
+  const stub = buildStubAdapter({
+    'fix-1111111111111111': [{ fixed: true, reason: 'The separator is a colon now.' }],
+  });
 
-  expect(
-    runFixesOnlyReview({
-      runner: ctx.runner,
-      repoDir: repo.path,
-      repo: 'example/app',
-      pullRequest: { owner: 'example', repo: 'app', number: 9 },
-      base: repo.commits[1] ?? '',
-      head: repo.commits[3] ?? '',
-      mergeBase: repo.commits[0] ?? '',
-      title: 'Scan the header line',
-      configHash: 'hash',
-      fixes: [],
-      maxFileChars: 10_000,
-      adapter: stub.adapter,
-      tempDir: ctx.directory,
-      logger: ctx.logger,
-    }),
-  ).rejects.toThrowWithMessage(
-    Error,
-    `--fixes-only has no \`fixed\` answer to check, so it cannot pass ${(repo.commits[3] ?? '').slice(0, 12)}, which no lens read and which is no merge of the base; run a review without --fixes-only`,
-  );
+  const result = await runFixesOnlyReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/app',
+    pullRequest: { owner: 'example', repo: 'app', number: 9 },
+    base: repo.commits[1] ?? '',
+    head: repo.commits[3] ?? '',
+    mergeBase: repo.commits[0] ?? '',
+    title: 'Scan the header line',
+    configHash: 'hash',
+    fixes: [
+      {
+        id: '1111111111111111',
+        title: 'Reject an empty separator',
+        lens: 'correctness',
+        path: 'src/scan.ts',
+        line: 1,
+        comment: 'An empty separator splits the line into single characters.',
+        postedHead: null,
+      },
+    ],
+    maxFileChars: 10_000,
+    adapter: stub.adapter,
+    tempDir: ctx.directory,
+    logger: ctx.logger,
+    staticCheck: { config: BUILT_IN_DEFAULTS, body: '', linkedIssue: null, cacheDir: null },
+  });
+
+  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['fix-1111111111111111']);
+
+  expect(result.fixChecks).toStrictEqual([
+    { findingID: '1111111111111111', fixed: true, reason: 'The separator is a colon now.' },
+  ]);
 });
 
-test('it runs with no fixed answer to check when each new commit is a merge of the base', async () => {
+test('it runs the fix call of a fixed answer when a merge of the base came after the review', async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
@@ -1509,7 +1437,9 @@ test('it runs with no fixed answer to check when each new commit is a merge of t
     { message: 'Merge main', files: {}, parent: 1, merged: 2 },
   ]);
 
-  const stub = buildStubAdapter({});
+  const stub = buildStubAdapter({
+    'fix-1111111111111111': [{ fixed: true, reason: 'The separator is a colon now.' }],
+  });
 
   const result = await runFixesOnlyReview({
     runner: ctx.runner,
@@ -1521,19 +1451,98 @@ test('it runs with no fixed answer to check when each new commit is a merge of t
     mergeBase: repo.commits[2] ?? '',
     title: 'Scan the header line',
     configHash: 'hash',
+    fixes: [
+      {
+        id: '1111111111111111',
+        title: 'Reject an empty separator',
+        lens: 'correctness',
+        path: 'src/scan.ts',
+        line: 1,
+        comment: 'An empty separator splits the line into single characters.',
+        postedHead: null,
+      },
+    ],
+    maxFileChars: 10_000,
+    adapter: stub.adapter,
+    tempDir: ctx.directory,
+    logger: ctx.logger,
+    staticCheck: { config: BUILT_IN_DEFAULTS, body: '', linkedIssue: null, cacheDir: null },
+  });
+
+  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['fix-1111111111111111']);
+
+  expect(result).toMatchObject({
+    base: repo.commits[2] ?? '',
+    head: repo.commits[3] ?? '',
+    fixChecks: [
+      { findingID: '1111111111111111', fixed: true, reason: 'The separator is a colon now.' },
+    ],
+    failedCalls: [],
+  });
+});
+
+test('it records a resolution past the call limit as a failed call and lists none of its files as too large', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: { 'src/options.ts': 'export const options = { retries: 1, timeoutMs: 1000 };\n' },
+    },
+    {
+      message: 'Retry 3 times',
+      files: { 'src/options.ts': 'export const options = { retries: 3, timeoutMs: 1000 };\n' },
+    },
+    {
+      message: 'Wait longer',
+      files: { 'src/options.ts': 'export const options = { retries: 1, timeoutMs: 5000 };\n' },
+      parent: 0,
+    },
+    {
+      message: 'Merge main',
+      files: { 'src/options.ts': 'export const options = { retries: 3, timeoutMs: 5000 };\n' },
+      parent: 1,
+      merged: 2,
+    },
+  ]);
+
+  const merge = repo.commits[3] ?? '';
+  const stub = buildStubAdapter({});
+
+  const result = await runFixesOnlyReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/app',
+    pullRequest: { owner: 'example', repo: 'app', number: 9 },
+    base: repo.commits[1] ?? '',
+    head: merge,
+    mergeBase: repo.commits[2] ?? '',
+    title: 'Retry a failed request',
+    configHash: 'hash',
     fixes: [],
     maxFileChars: 10_000,
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
+    resolution: {
+      config: {
+        ...BUILT_IN_DEFAULTS,
+        thresholds: { ...BUILT_IN_DEFAULTS.thresholds, maxCallChars: 100 },
+      },
+      dismissedFindings: [],
+    },
+    staticCheck: { config: BUILT_IN_DEFAULTS, body: '', linkedIssue: null, cacheDir: null },
   });
 
   expect(stub.requests).toStrictEqual([]);
 
-  expect(result).toMatchObject({
-    base: repo.commits[1] ?? '',
-    head: repo.commits[3] ?? '',
-    fixChecks: [],
-    failedCalls: [],
-  });
+  expect(result.failedCalls).toStrictEqual([
+    {
+      id: `resolution-${merge.slice(0, 12)}`,
+      lenses: ['correctness', 'security'],
+      reason: 'the resolution passes the call limit, so no call read it',
+    },
+  ]);
+
+  expect(result.notReviewed).toStrictEqual([]);
 });
