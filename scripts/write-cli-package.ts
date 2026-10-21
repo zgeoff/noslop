@@ -99,7 +99,7 @@ export async function writeCLIPackage(outDir: string): Promise<CLIPackageManifes
   return manifest;
 }
 
-// tsdown bundles each entry's declarations with TypeScript's own emit, inlining the workspace
+// tsdown bundles each entry's declarations with tsrs's emit, inlining the workspace
 // packages they reach, so the published types import nothing but zod; its tsconfig sits at the repo
 // root, because TypeScript writes a declaration outside the tsconfig's folder beside its source
 async function writeDeclarations(outDir: string, entryNames: readonly string[]): Promise<void> {
@@ -114,7 +114,11 @@ async function writeDeclarations(outDir: string, entryNames: readonly string[]):
     clean: false,
     logLevel: 'warn',
     tsconfig: join(REPO_DIR, 'tsconfig.cli-types.json'),
-    dts: { emitDtsOnly: true },
+    dts: {
+      emitDtsOnly: true,
+      generator: 'tsgo',
+      tsgo: { path: join(REPO_DIR, 'node_modules/.bin/tsrs') },
+    },
     deps: {
       alwaysBundle: [/^@noslop\//u],
       neverBundle: [...LIBRARY_EXTERNAL],
