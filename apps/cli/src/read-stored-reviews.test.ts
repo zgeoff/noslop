@@ -1,5 +1,5 @@
-import { expect, onTestFinished, test } from 'bun:test';
-import { mkdtemp, readdir, rm } from 'node:fs/promises';
+import { expect, mock, onTestFinished, test } from 'bun:test';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { loadStore, writeReview } from '@noslop/sqlite';
@@ -29,18 +29,30 @@ test('it reads the reviews of the pull request from the store', async () => {
     }),
   );
 
-  const reviews = await readStoredReviews(ctx.path, 'example/app', 9);
+  const reviews = await readStoredReviews(
+    { probeFile: () => Promise.resolve(true), loadStore: (path) => loadStore(path) },
+    ctx.path,
+    'example/app',
+    9,
+  );
 
   expect(reviews).toStrictEqual([
     { base: 'c'.repeat(40), head: 'd'.repeat(40), isLensReview: true },
   ]);
 });
 
-test('it reads no review and makes no store when the user has none', async () => {
+test('it reads no review and loads no store when the user has none', async () => {
   const ctx = await setupTest();
-  const reviews = await readStoredReviews(ctx.path, 'example/app', 9);
-  const entries = await readdir(ctx.directory);
+
+  const load = mock(loadStore);
+
+  const reviews = await readStoredReviews(
+    { probeFile: () => Promise.resolve(false), loadStore: load },
+    ctx.path,
+    'example/app',
+    9,
+  );
 
   expect(reviews).toStrictEqual([]);
-  expect(entries).toStrictEqual([]);
+  expect(load).not.toHaveBeenCalled();
 });

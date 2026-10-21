@@ -21,6 +21,7 @@ import { loadStore, readEscapePaths } from '@noslop/sqlite';
 import cliPackage from '../package.json' with { type: 'json' };
 import { buildConfiguredAdapter } from './build-configured-adapter';
 import type { CLIContext } from './cli-context';
+import { cliStoreAccess } from './cli-store-access';
 import { findReviewBase } from './find-review-base';
 import { formatReviewSummary } from './format-review-summary';
 import { getStorePath } from './get-store-path';
@@ -425,7 +426,7 @@ async function resolvePullRequestChange(
   const lastLensHead = findLensHead(summary);
 
   const storedReviews = values.fixesOnly
-    ? await readStoredReviews(getStorePath(config.config, ctx), repo, number)
+    ? await readStoredReviews(cliStoreAccess, getStorePath(config.config, ctx), repo, number)
     : [];
 
   const reviewBase = lastLensHead === null ? null : findReviewBase(storedReviews, lastLensHead);
