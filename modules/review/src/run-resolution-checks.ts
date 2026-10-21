@@ -7,7 +7,6 @@ import type {
   DroppedFinding,
   FailedCall,
   Finding,
-  NotReviewedFile,
   ResolutionCheck,
   ReviewAdapter,
   ReviewConfig,
@@ -52,7 +51,6 @@ export interface ResolutionChecksRun {
   dropped: DroppedFinding[];
   records: CallRecord[];
   failedCalls: FailedCall[];
-  notReviewed: NotReviewedFile[];
 }
 
 interface ResolutionOutcome {
@@ -61,7 +59,6 @@ interface ResolutionOutcome {
   dropped?: DroppedFinding[];
   record?: CallRecord;
   failedCall?: FailedCall;
-  notReviewed?: NotReviewedFile[];
 }
 
 // one call per merge of the range whose tree differs from the tree `git merge-tree` builds from its
@@ -98,7 +95,6 @@ export async function runResolutionChecks(
     dropped: outcomes.flatMap((outcome) => outcome.dropped ?? []),
     records: outcomes.flatMap((outcome) => outcome.record ?? []),
     failedCalls: outcomes.flatMap((outcome) => outcome.failedCall ?? []),
-    notReviewed: outcomes.flatMap((outcome) => outcome.notReviewed ?? []),
   };
 }
 
@@ -178,10 +174,6 @@ async function runResolutionCheck(
         lenses: [...RESOLUTION_LENSES],
         reason,
       },
-      notReviewed: change.files.map((file): NotReviewedFile => ({
-        path: file.path,
-        reason: 'too-large',
-      })),
     };
   }
 

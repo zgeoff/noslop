@@ -103,4 +103,5 @@ the merge as rejected, and the check fails while the marker holds a rejected mer
 fixes-only run keeps the list, and a lens review starts it again. A merge whose call failed, or
 whose diff passes the config's call limit, stays unchecked. The run counts it as a failed call, so
 the check fails, and the next fixes-only run starts from the head before this run and checks the
-merge again. The run lists the files of a resolution past the call limit as not reviewed.
+merge again. The failed call records the skipped resolution, so the run lists none of its files as
+not reviewed, and a small file of a large merge gets no too-large label.

@@ -92,7 +92,7 @@ export async function runFixesOnlyReview(input: FixesOnlyReviewInput): Promise<R
     findings: merges?.findings ?? [],
     dropped: merges?.dropped ?? [],
     failedCalls: [...fixChecks.failedCalls, ...(merges?.failedCalls ?? [])],
-    notReviewed: [...fixChecks.notReviewed, ...(merges?.notReviewed ?? [])],
+    notReviewed: fixChecks.notReviewed,
     notReviewedByLens: [],
     configHash: input.configHash,
     fixesOnly: true,
