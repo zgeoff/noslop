@@ -34,7 +34,18 @@ export async function readMappedReview(
   runner: Runner,
   input: MappedReviewInput,
 ): Promise<MappedReview> {
-  const mapped = await readRebasedHead(runner, input);
+  // a clone fetched at the reviewed head lacks the lens history a rebase left behind it
+  await Promise.all(
+    [input.lensHead, input.reviewBase].map((commit) => readCommit(runner, input.repoDir, commit)),
+  );
+
+  // a base that no fetch reached would fail the commit list, so the mapping counts from the base
+  const isBaseHeld =
+    input.reviewBase === null ? false : await probeCommit(runner, input.repoDir, input.reviewBase);
+
+  const held = { ...input, reviewBase: isBaseHeld ? input.reviewBase : null };
+
+  const mapped = await readRebasedHead(runner, held);
 
   if (mapped.head !== null || input.lensHead === null || input.lensHead === input.reviewed) {
     return { from: input.reviewed, ...mapped };
@@ -42,10 +53,30 @@ export async function readMappedReview(
 
   const lensHead = input.lensHead;
 
-  // a missing commit makes the whole fetch fail, so the lens head gets a fetch of its own
-  await runner.run(['git', 'fetch', '--quiet', 'origin', lensHead], { cwd: input.repoDir });
-
-  const lens = await readRebasedHead(runner, { ...input, reviewed: lensHead });
+  const lens = await readRebasedHead(runner, { ...held, reviewed: lensHead });
 
   return lens.head === null ? { from: input.reviewed, ...mapped } : { from: lensHead, ...lens };
+}
+
+// a missing commit makes the whole fetch fail, so each commit gets a fetch of its own
+async function readCommit(runner: Runner, repoDir: string, commit: string | null): Promise<void> {
+  if (commit === null) {
+    return;
+  }
+
+  const isHeld = await probeCommit(runner, repoDir, commit);
+
+  if (isHeld) {
+    return;
+  }
+
+  await runner.run(['git', 'fetch', '--quiet', 'origin', commit], { cwd: repoDir });
+}
+
+async function probeCommit(runner: Runner, repoDir: string, commit: string): Promise<boolean> {
+  const result = await runner.run(['git', 'cat-file', '-e', `${commit}^{commit}`], {
+    cwd: repoDir,
+  });
+
+  return result.exitCode === 0;
 }
