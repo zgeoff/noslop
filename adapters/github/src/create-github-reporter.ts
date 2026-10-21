@@ -5,6 +5,7 @@ import type {
   ReporterContext,
   ReviewResult,
 } from '@noslop/contract';
+import { match } from 'ts-pattern';
 import { buildFixConfirmations } from './build-fix-confirmations';
 import { buildMergeLists } from './build-merge-lists';
 import { buildReviewedChange } from './build-reviewed-change';
@@ -425,25 +426,26 @@ interface SummaryChange {
   failedCalls: number;
 }
 
-async function readSummaryChange(
+function readSummaryChange(
   client: GitHubClient,
   pr: PullRequestRef,
   result: ReviewResult,
   previous: SummaryMarker | null,
 ): Promise<SummaryChange> {
-  const reviewed = buildReviewedChange(result, previous);
+  return match(buildReviewedChange(result, previous))
+    .with({ kind: 'own' }, async (own) => ({
+      head: result.head,
+      key: await readNetChangeKey(client, pr, result.head),
+      failedCalls: own.failedCalls,
+    }))
+    .with({ kind: 'kept' }, (kept) => Promise.resolve(toSummaryChange(kept)))
+    .exhaustive();
+}
 
-  if (reviewed.kind === 'kept') {
-    return reviewed.key === undefined
-      ? { head: reviewed.head, failedCalls: reviewed.failedCalls }
-      : { head: reviewed.head, key: reviewed.key, failedCalls: reviewed.failedCalls };
-  }
-
-  return {
-    head: result.head,
-    key: await readNetChangeKey(client, pr, result.head),
-    failedCalls: reviewed.failedCalls,
-  };
+function toSummaryChange(kept: SummaryChange): SummaryChange {
+  return kept.key === undefined
+    ? { head: kept.head, failedCalls: kept.failedCalls }
+    : { head: kept.head, key: kept.key, failedCalls: kept.failedCalls };
 }
 
 interface RunFields {
