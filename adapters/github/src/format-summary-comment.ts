@@ -12,8 +12,6 @@ export interface FixConfirmation {
   // the sha the `fixed` disposition names, empty for a bare `fixed`
   commit: string;
 
-  // a fix call's verdict, or the review reporting the finding again, decides fixed or not fixed; a
-  // fix that neither decided stays unjudged, which never reads as not fixed
   status: 'fixed' | 'not-fixed' | 'unjudged';
 
   // the fix call's reason, or why no call judged the fix, on a fix the review leaves unconfirmed
