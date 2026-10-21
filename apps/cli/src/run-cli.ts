@@ -5,6 +5,7 @@ import type { CLIContext } from './cli-context';
 import { runCheckCommand } from './run-check-command';
 import { runConfigCommand } from './run-config-command';
 import { runEvalCommand } from './run-eval-command';
+import { runFindingsCommand } from './run-findings-command';
 import { runPostCommand } from './run-post-command';
 import { runReviewCommand } from './run-review-command';
 import { runStoreEscapeCommand } from './run-store-escape-command';
@@ -235,6 +236,26 @@ export async function runCLI(argv: readonly string[], ctx: CLIContext): Promise<
       ),
   });
 
+  const findings = define({
+    name: 'findings',
+    description: 'List the findings of a pull request with their states, and write nothing',
+    args: {
+      pr: { type: 'string', description: 'The pull request number', required: true },
+      repo: {
+        type: 'string',
+        description: 'The repo as owner/name; defaults to the origin remote',
+      },
+      json: JSON_ARG,
+    },
+    run: (command) =>
+      run(() =>
+        runFindingsCommand(
+          { pr: command.values.pr, repo: command.values.repo, json: command.values.json === true },
+          ctx,
+        ),
+      ),
+  });
+
   const verify = define({
     name: 'verify',
     description:
@@ -280,7 +301,7 @@ export async function runCLI(argv: readonly string[], ctx: CLIContext): Promise<
     run: () =>
       run(() =>
         Promise.reject(
-          new Error('name a command: review, verify, post, check, config, eval or store'),
+          new Error('name a command: review, findings, verify, post, check, config, eval or store'),
         ),
       ),
   });
@@ -294,7 +315,7 @@ export async function runCLI(argv: readonly string[], ctx: CLIContext): Promise<
       renderHeader: null,
       renderValidationErrors: null,
       strict: true,
-      subCommands: { review, verify, post, check, config, eval: evaluate, store },
+      subCommands: { review, findings, verify, post, check, config, eval: evaluate, store },
     });
   } catch (error) {
     ctx.writeStderr(`noslop: ${formatError(error)}\n`);

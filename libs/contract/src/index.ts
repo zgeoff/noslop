@@ -6,6 +6,7 @@ export * from './disposition';
 export * from './dropped-finding';
 export * from './effort';
 export * from './finding';
+export * from './finding-list';
 export * from './format-path-code';
 export * from './lens-id';
 export * from './merge-tokens';

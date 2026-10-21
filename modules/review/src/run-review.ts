@@ -4,13 +4,10 @@ import type { Logger } from '@logtape/logtape';
 import type {
   CallRecord,
   Change,
-  ChangedFile,
   Depth,
   DismissedFinding,
-  EarlierFinding,
   Finding,
   LensID,
-  LensNotReviewedFile,
   NotReviewedFile,
   PullRequestRef,
   ReviewAdapter,
@@ -25,7 +22,6 @@ import { renderHunks } from '@noslop/lenses';
 import type { PlannedCall, Route } from '@noslop/routing';
 import type { Runner } from '@noslop/runner';
 import type { StaticStageResult } from '@noslop/static-stage';
-import { readChange } from '@noslop/static-stage';
 import { buildDroppedFindings } from './build-dropped-findings';
 import { createReviewWorktree } from './create-review-worktree';
 import { planReview } from './plan-review';
@@ -65,13 +61,14 @@ export interface RunReviewOptions {
   linkedIssue: string | null;
   pullRequest: PullRequestRef | null;
 
-  // the base is the last reviewed head of the pull request, not its merge base; a review without it
-  // covers the whole change
+  // the review covers only part of the pull request, what changed since an earlier review of it; a
+  // review without it covers the whole change
   isIncremental?: boolean;
 
   // the merge base of an incremental review's pull request, so the review keeps to the files the pull
   // request changes and never reviews what a merge from the base branch brought in
   mergeBase?: string;
+  paths?: readonly string[];
   isPush: boolean;
   pastEscapes: readonly string[];
   readConsumerFile?: (repo: string, path: string) => Promise<string | null>;
@@ -84,10 +81,9 @@ export interface RunReviewOptions {
   // a depth that replaces the one the risk score picks, which the eval sets to compare depths
   depth?: Depth | null;
 
-  // which review of the pull request this is, from 1; from the second on, the design pass runs after
-  // the merge pass over the findings of this review and of the earlier ones
-  round?: number;
-  earlierFindings?: readonly EarlierFinding[];
+  // the first review of a pull request runs the design pass after the merge pass; a later review and a
+  // review of a local change run none
+  isFirstPullRequestReview?: boolean;
 
   // the findings of earlier reviews that the author answered `not-a-defect`; the review drops each new
   // finding that matches one, so an answered finding never comes back under a new ID
@@ -182,10 +178,7 @@ export async function runReview(options: RunReviewOptions): Promise<ReviewRun> {
         ...(fixChecks?.failedCalls ?? []),
       ],
       notReviewed: [...collectNotReviewed(ctx, batches), ...(fixChecks?.notReviewed ?? [])],
-      notReviewedByLens: [
-        ...batches.flatMap((batch) => batch.notReviewedByLens),
-        ...collectDesignNotReviewed(ctx, design),
-      ],
+      notReviewedByLens: batches.flatMap((batch) => batch.notReviewedByLens),
       configHash: options.configHash,
       ...(fixChecks === null ? {} : { fixChecks: fixChecks.checks }),
       ...(fixChecks === null || fixChecks.unjudged.length === 0
@@ -221,10 +214,11 @@ interface Passes {
 }
 
 // one call per fired lens group, at the effort of the route's depth, then Assemble, the merge pass
-// and, from the second review of a pull request on, the design pass; the worktree lives until the
-// design pass ends, and a review that runs neither a lens call nor the design pass needs none
+// and, on the first review of a pull request, the design pass; the worktree lives until the design
+// pass ends, and a review that runs neither a lens call nor the design pass needs none
 async function runPasses(ctx: PassContext): Promise<Passes> {
-  const isDesignDue = ctx.options.config.designPass.enabled && (ctx.options.round ?? 1) >= 2;
+  const isDesignDue =
+    ctx.options.config.designPass.enabled && ctx.options.isFirstPullRequestReview === true;
 
   if (ctx.route.calls.length === 0 && !isDesignDue) {
     return runFindingPasses(ctx, [], false);
@@ -280,10 +274,9 @@ async function runFindingPasses(
   const design = await runDesignPass({
     title: options.title,
     body: options.body,
-    latest: merged.findings,
-    earlier: options.earlierFindings ?? [],
-    files: await readPullRequestFiles(ctx),
-    base: options.mergeBase ?? ctx.change.base,
+    findings: merged.findings,
+    files: ctx.change.files,
+    base: ctx.change.base,
     head: ctx.change.head,
     riskClasses: ctx.stage.signals.riskClasses,
     config: options.config,
@@ -318,26 +311,6 @@ function pickPassID(ctx: PassContext, name: string): string {
       (id) => !taken.has(id),
     ) ?? name
   );
-}
-
-// an approach spans every review of the pull request, so the design pass reads the change since the
-// merge base even when this review covers only the commits since the last reviewed head
-async function readPullRequestFiles(ctx: PassContext): Promise<readonly ChangedFile[]> {
-  const mergeBase = ctx.options.mergeBase;
-
-  if (ctx.options.isIncremental !== true || mergeBase === undefined) {
-    return ctx.change.files;
-  }
-
-  const whole = await readChange({
-    runner: ctx.options.runner,
-    repoDir: ctx.options.repoDir,
-    base: mergeBase,
-    head: ctx.change.head,
-    config: ctx.options.config,
-  });
-
-  return whole.files;
 }
 
 function runBatch(ctx: PassContext, calls: readonly PlannedCall[]): Promise<CallBatch> {
@@ -432,24 +405,4 @@ function collectNotReviewed(ctx: PassContext, batches: readonly CallBatch[]): No
   });
 
   return [...listed, ...data, ...baseOnly];
-}
-
-// a later review that runs no design call, such as one whose config turns the pass off, read no design
-// fix, so it lists the file of each earlier design finding as not reviewed by the design lens, and a
-// reporter reads no silence there as a fix; a review that runs the call leaves no file out of it
-function collectDesignNotReviewed(
-  ctx: PassContext,
-  design: DesignPass | null,
-): LensNotReviewedFile[] {
-  if (design !== null) {
-    return [];
-  }
-
-  const paths = new Set(
-    (ctx.options.earlierFindings ?? [])
-      .filter((finding) => finding.lens === 'design')
-      .map((finding) => finding.path),
-  );
-
-  return [...paths].map((path) => ({ path, lenses: ['design'] }));
 }

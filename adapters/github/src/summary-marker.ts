@@ -29,6 +29,7 @@ export const summaryMarkerSchema = z.strictObject({
   // the head of the latest lens review with no failed call, which a fixes-only run carries and a
   // lens review with a failed call drops
   lensHead: buildShaSchema().optional(),
+  lensKey: netChangeKeySchema.optional(),
 
   // each merge commit whose resolution a fixes-only run judged sound, the ones earlier summaries held
   // among them, so a reader that counts the commits since the last lens review can count each such

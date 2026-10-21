@@ -169,27 +169,26 @@ because the pull request fixes the code it wrote rather than deferring it to a l
 
 ## Re-review and fix confirmation
 
-A re-review is a later review of a pull request, and it covers only the commits since the reviewed
-head of the last fully completed review. The CLI reads the summary marker, and when that review had
-no failed call, differs from the current head and is an ancestor of it, its head becomes the base.
-Otherwise the base is the merge base of the pull request, and the review covers the whole change. A
-review with a failed call therefore never narrows the next one, and a force push that drops the
-reviewed head brings a full review. A review of the head that a review with no failed call covered
-runs only under `--full`, under [the CLI](./cli.md).
+A re-review is a later review of a pull request, and it reads only the files whose patch changed
+since the last lens review. The summary marker keeps that lens review's
+[net-change key](#the-net-change-key) apart from its own key, because a fixes-only run moves its own
+key to the head it judged while no lens read the files. The CLI compares the lens review's key with
+the key of the pull request at its current head, and the review keeps each file whose patch id
+differs or that only one key holds. The diff still runs from the merge base, so the review reads
+each kept file's whole patch, and a merge from the base branch adds none of the base branch's own
+changes. A rebase or a merge of the base that leaves every patch alone therefore reads no file, runs
+no lens call, and refuses nothing. New findings of a re-review come only from the files it reads.
 
-A re-review keeps to the files the pull request changes since its merge base. A merge from the base
-branch brings the base branch's own changes into the new commits, and those changes are not the pull
-request's work. The re-review therefore drops every file of the new commits that the diff from the
-merge base to the head leaves out, before the static stage and the calls read the change. A file
-that both the pull request and the base branch change stays whole. A file that only the base branch
-changes stays among the files the review left out when it is a data file or its hunks pass the file
-limit. A smaller source file that only the base branch changes is left out of the review and of that
-list.
+A re-review never refuses a head. It reads the whole change when the keys cannot be matched file by
+file: when the last review had a failed call, when no lens review completed, or when either key is
+on a head and the heads differ. A review of the head that the last review covered reads no file.
+`--full` reads the whole change at any head, under [the CLI](./cli.md). The design pass runs only on
+the first review of a pull request, under [the design lens](../review/lenses.md#the-design-lens).
 
 A re-review leaves the pull request's description unjudged. Its title and body describe the whole
-pull request, while its diff holds only the new commits, so a file the body names can look missing
-from that diff. The prompt of each re-review call therefore asks the lenses to report no mismatch
-between the description and the diff, and a full review judges the description. The
+pull request, while its diff holds only the files whose patch changed, so a file the body names can
+look missing from that diff. The prompt of each re-review call therefore asks the lenses to report
+no mismatch between the description and the diff, and a full review judges the description. The
 [fix call](./fixes-only-run.md) of a `fixed` answer reads the description as it stands, so it can
 confirm the fix of a finding about the description.
 
@@ -213,9 +212,11 @@ A `fixed` reply posted after the last review gets no fix check from the check jo
 queues, because that job reads only what GitHub holds. The answer waits for the next run that runs
 fix checks: the review of a later push, or a fixes-only run.
 
-The re-check is the second review of a pull request. From the third review on, the reporter sends
-each new finding in code the change did not write to a follow-up issue. A security finding, and any
-finding in code the change wrote, goes on the pull request at every review.
+The re-check is the second review of a pull request. A review that runs no lens and raises no
+finding, such as one of a head whose every patch an earlier review read, counts as no review. From
+the third review on, the reporter sends each new finding in code the change did not write to a
+follow-up issue. A security finding, and any finding in code the change wrote, goes on the pull
+request at every review.
 
 ### The fixes-only run
 

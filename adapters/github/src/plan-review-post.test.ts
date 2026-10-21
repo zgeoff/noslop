@@ -78,6 +78,39 @@ test('it counts no new review for a fixes-only run', () => {
   });
 });
 
+test('it counts no new review for a review that ran no lens and raised no finding', () => {
+  const plan = planReviewPost(
+    {
+      summary: {
+        head: 'b'.repeat(40),
+        reviews: 2,
+        reported: [],
+        failedCalls: 0,
+        followUps: [],
+        confirmed: [],
+        reviewIDs: ['review-a', 'review-b'],
+        startedAt: '2026-10-17T10:05:00.000Z',
+      },
+      posted: new Set(),
+    },
+    buildMockReviewResult({
+      reviewID: 'review-c',
+      startedAt: '2026-10-17T10:10:00.000Z',
+      lenses: [],
+      calls: [],
+      findings: [],
+    }),
+  );
+
+  expect(plan).toStrictEqual({
+    writesSummary: true,
+    reviews: 2,
+    reviewIDs: ['review-a', 'review-b', 'review-c'],
+    inline: [],
+    followUps: [],
+  });
+});
+
 test('it counts a new review for a lens review that made fix calls', () => {
   const plan = planReviewPost(
     {

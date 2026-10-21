@@ -33,6 +33,7 @@ packages they reach, so the published types import nothing but zod.
 | `noslop review [--base <ref>] [--head <ref>]`                | Reviews the change between 2 commits of the current repo                   |
 | `noslop review --pr <number> [--full] [--repo <owner/name>]` | Reviews a pull request, from its base and head                             |
 | `noslop review --pr <number> --fixes-only`                   | Checks each `fixed` answer and each merge resolution since the last review |
+| `noslop findings --pr <number> [--repo <owner/name>]`        | Lists each finding of a pull request with its state, and writes nothing    |
 | `noslop verify <file>`                                       | Checks a review result against its pull request's head and base config     |
 | `noslop post <file> [--no-verify]`                           | Posts a verified review result to its pull request as the App              |
 | `noslop check --pr <number> --repo <owner/name>`             | Sets a pull request's check run from its dispositions, with no review      |
@@ -72,16 +73,11 @@ With `--pr`, the CLI reads the pull request from GitHub and takes its title, bod
 from there, so it refuses `--base` and `--head`. The repo comes from `--repo`, or from the origin
 remote's URL. The config comes from the tip of the pull request's base branch, under
 [resolution](../config/review-config.md#resolution). The base is the merge-base of the pull
-request's base and head. One exception: a re-review starts from the reviewed head of the last fully
-completed review, under the rule in
-[re-review and fix confirmation](./github-app.md#re-review-and-fix-confirmation). `--full` keeps the
-merge-base as the base, so the review covers the whole pull request again, such as to confirm a fix
-whose commit an earlier delta left out. The CLI refuses a review of a head that a lens review with
-no failed call already covered, and exits 1 before any call runs, because a review of an unchanged
-head would cover the whole pull request again and raise its findings under new IDs. `--full` lifts
-that refusal, and a review whose call failed leaves its head open to another review. `--fixes-only`
-runs no lens over the whole change and never refuses on the pull request's history, under
-[the fixes-only run](./fixes-only-run.md).
+request's base and head. A re-review reads only the files whose patch changed since the last review,
+under the rule in [re-review and fix confirmation](./github-app.md#re-review-and-fix-confirmation),
+so a review of a head whose patches the last review read reads no file and exits 0. `--full` reads
+every file of the pull request again. `--fixes-only` runs no lens over the whole change and never
+refuses on the pull request's history, under [the fixes-only run](./fixes-only-run.md).
 
 ## Output and reporters
 
@@ -122,6 +118,18 @@ first and posts nothing when the result fails, so a relay that posts with it pos
 the current head under the enforced config. `--no-verify` skips the verification, for a result the
 caller checked itself. `post` needs the App's keys in the environment, and refuses to run with a
 token or an anonymous GitHub connection.
+
+## Listing the findings
+
+`findings` prints each finding the App posted on a pull request, with its id, its file, its
+severity, its state and the login that wrote its latest answer. A gate outside noslop reads the list
+and decides whether the pull request may merge, so noslop judges no answer's author. The state is
+the kind of the latest answer, with one exception: a `fixed` answer counts as `fixed` only once a
+fix check confirmed it, and stays `open` until then. A finding with no answer is `open`. With
+`--json`, the list follows the finding list schema in the contract package. The command trusts the
+App's comments as [checking read-only](#checking-read-only) trusts them, and it writes nothing to
+GitHub. It exits 1 and lists nothing when a finding comment of the App holds a marker noslop cannot
+read, because a list without that finding would show the gate one open finding too few.
 
 ## Checking read-only
 

@@ -179,7 +179,7 @@ async function runReviewPost(
 
   const marker = {
     head: reviewed.head,
-    ...buildRunFields(result, before.summary?.marker ?? null),
+    ...buildRunFields(result, before.summary?.marker ?? null, reviewed.key),
     ...merges,
     reviews: plan.reviews,
     reviewIDs: plan.reviewIDs,
@@ -451,22 +451,35 @@ function toSummaryChange(kept: SummaryChange): SummaryChange {
 interface RunFields {
   checked?: string[];
   lensHead?: string;
+  lensKey?: NetChangeKey;
 }
 
-// a fixes-only run's marker lists the fixes its calls judged fixed, which marks it as no lens review,
-// and carries the head of the last lens review with no failed call; a lens review sets that head
-// only when none of its calls failed
-function buildRunFields(result: ReviewResult, previous: SummaryMarker | null): RunFields {
+function buildRunFields(
+  result: ReviewResult,
+  previous: SummaryMarker | null,
+  key: NetChangeKey | undefined,
+): RunFields {
+  const lensHead = findLensHead(previous);
+
+  // a marker written before the lens review's own key holds only the key of its own head
+  const lensKey =
+    previous?.lensKey ??
+    (lensHead !== null && lensHead === previous?.head ? previous.key : undefined);
+
+  const carried = lensKey === undefined ? {} : { lensKey };
+
   if (result.fixesOnly !== true) {
-    return result.failedCalls.length === 0 ? { lensHead: result.head } : {};
+    return result.failedCalls.length === 0
+      ? { lensHead: result.head, ...(key === undefined ? {} : { lensKey: key }) }
+      : carried;
   }
 
   const fixed = (result.fixChecks ?? []).filter((check) => check.fixed);
-  const lensHead = findLensHead(previous);
 
   return {
     checked: fixed.map((check) => check.findingID),
     ...(lensHead === null ? {} : { lensHead }),
+    ...carried,
   };
 }
 

@@ -7,7 +7,6 @@ import type {
   CallResult,
   ChangedFile,
   Depth,
-  EarlierFinding,
   FailedCall,
   Finding,
   ReviewAdapter,
@@ -21,8 +20,7 @@ import { buildDesignPrompt, renderHunks } from '@noslop/lenses';
 export interface DesignPassInput {
   title: string;
   body: string;
-  latest: readonly Finding[];
-  earlier: readonly EarlierFinding[];
+  findings: readonly Finding[];
 
   // the files of the whole pull request since its merge base, and the commits it runs between
   files: readonly ChangedFile[];
