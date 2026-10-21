@@ -1679,6 +1679,54 @@ test.each([
   },
 );
 
+test('it reports no missing test for a test file the pull request deletes', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/main.ts': 'export const main = 1;\n',
+        'src/obsolete.test.ts': [
+          "import { expect, test } from 'bun:test';",
+          "import { main } from './main';",
+          '',
+          "test('it exports a value', () => {",
+          '  expect(main).toBeNumber();',
+          '});',
+          '',
+        ].join('\n'),
+      },
+    },
+    {
+      message: 'Drop the obsolete test',
+      files: { 'src/main.ts': 'export const main = 2;\n', 'src/obsolete.test.ts': null },
+    },
+  ]);
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config: BUILT_IN_DEFAULTS,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config: BUILT_IN_DEFAULTS,
+    title: 'Drop the obsolete test',
+    body: 'Raises the value and removes src/obsolete.test.ts.',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(result.findings).toStrictEqual([]);
+});
+
 test('it reports no missing test that the pull request adds before a merge from the base branch', async () => {
   const ctx = await setupTest();
 
