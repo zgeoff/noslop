@@ -73,6 +73,23 @@ test('it follows the commit an entry names as its parent', async () => {
   expect(parents.trim()).toBe(repo.commits[0] ?? '');
 });
 
+test('it records the date an entry names as the author and committer date', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: { 'src/a.ts': 'export const a = 1;\n' },
+      date: '2026-03-04T05:06:07Z',
+    },
+  ]);
+
+  const dates =
+    await ctx.$`git -C ${repo.path} log -1 --format=%aI%n%cI ${repo.commits[0] ?? ''}`.text();
+
+  expect(dates.trim().split('\n')).toStrictEqual(['2026-03-04T05:06:07Z', '2026-03-04T05:06:07Z']);
+});
+
 test('it merges the commit an entry names into its parent, with both trees', async () => {
   const ctx = await setupTest();
 

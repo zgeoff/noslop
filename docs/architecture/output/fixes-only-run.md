@@ -13,11 +13,13 @@ patch of the fix commit, and the diff of every file from the fix commit to the h
 whether the fix commit fixes the finding and the fix holds at the head, with a one-line reason. A
 fix such as a new test in another file therefore gets judged on that test. The later diff covers
 every file because a later commit can move the fix's code or its test to a file the fix commit never
-changed. A line of the fix that the later diff deletes counts as moved only when that diff adds it
-in another file, so a deleted test leaves the fix not fixed. A fix whose code, patch or diff passes
-the config's file limit gets no call and no verdict, because a cut diff can hide the fix, and the
-summary says why the fix stays unconfirmed. A fix commit that changes no file of the pull request's
-diff gets no call either, and the run judges it not fixed, by the same rule the
+changed. Code of the fix that the patch or the later diff deletes counts as moved only when the same
+patch or diff adds code in another file that does what the deleted code did, even reshaped. A fix
+commit that moves an earlier commit's fix therefore holds, and a deleted test with nothing in its
+place leaves the fix not fixed. A fix whose code, patch or diff passes the config's file limit gets
+no call and no verdict, because a cut diff can hide the fix, and the summary says why the fix stays
+unconfirmed. A fix commit that changes no file of the pull request's diff gets no call either, and
+the run judges it not fixed, by the same rule the
 [check](./github-app.md#re-review-and-fix-confirmation) applies.
 
 A run with no `fixed` answer to judge refuses and gives the reason. It writes no summary, so the
@@ -37,6 +39,15 @@ that posted the finding and the head of the newest review that ran its lenses, b
 judged every fix before it. A rebase that took either head off the branch changes where the diff
 starts, as the mapping after a rebase describes. A fix the summary already holds as confirmed gets
 no call.
+
+A `fixed` answer can name a commit of the pull request's base, such as a fix in the layer below a
+stacked pull request that a rebase onto that layer brought in. That commit gets a call when the base
+holds it, the head that posted the finding does not, and its author date comes no earlier than that
+head's commit date. A rebase gives each commit it moves a new commit date and keeps its author date,
+so the author date tells a fix written after the finding from an older commit that a restack moved.
+The call reads the code at the head that posted the finding, whose lines the finding anchors to. The
+run's range starts at the fix commit's parent, so the check finds the fix commit in it. A repo that
+holds no commit of the head that posted the finding gets no call for such a fix.
 
 The result lists each verdict in its fix checks, so the `github` reporter reads the same verdicts
 whether the CLI or `noslop post` sends it. A yes confirms the fix under
