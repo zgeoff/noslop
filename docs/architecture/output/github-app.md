@@ -286,8 +286,9 @@ GitHub gives no patch, keys on its blob.
 
 A clean rebase and a merge of the base that touches no line near the pull request's hunks leave
 every patch id where it was, so the review holds at the new head with no run. A push that changes a
-file's patch moves that file's id, and the check names each file whose id moved, came or went. Three
-cases key on the head itself, and that key counts only at that head:
+file's patch moves that file's id. The check's title names the first few files whose id moved, came
+or went, and counts the rest. Three cases key on the head itself, and that key counts only at that
+head:
 
 - GitHub lists fewer files than the pull request changes, past its file-list cap.
 - The patch ids pass the marker's character budget.
