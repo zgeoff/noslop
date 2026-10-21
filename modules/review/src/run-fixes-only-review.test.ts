@@ -1045,6 +1045,80 @@ test.each([
   );
 });
 
+test('it refuses a run whose only fixed answer names a commit of the layer below that a lens review after the rebase already read', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'README.md': '# App\n' }, date: '2026-01-01T00:00:00Z' },
+    {
+      message: 'Add the scanner',
+      files: { 'src/scan.ts': 'export const separator = "";\n' },
+      date: '2026-01-01T01:00:00Z',
+    },
+    {
+      message: 'Split each line on the separator',
+      files: {
+        'src/split.ts': 'export const split = 1;\n',
+        'README.md': '# App\n\nSplits lines.\n',
+      },
+      date: '2026-01-02T00:00:00Z',
+    },
+    {
+      message: 'Reject an empty separator',
+      parent: 1,
+      files: {
+        'src/scan.ts': 'export const separator = ":";\n',
+        'README.md': '# App, which scans\n',
+      },
+      date: '2026-01-03T00:00:00Z',
+    },
+    {
+      message: 'Split each line on the separator',
+      files: {
+        'src/split.ts': 'export const split = 1;\n',
+        'README.md': '# App, which scans\n\nSplits lines.\n',
+      },
+      date: '2026-01-04T00:00:00Z',
+    },
+  ]);
+
+  const stub = buildStubAdapter({});
+
+  expect(
+    runFixesOnlyReview({
+      runner: ctx.runner,
+      repoDir: repo.path,
+      repo: 'example/app',
+      pullRequest: { owner: 'example', repo: 'app', number: 9 },
+      base: repo.commits[4] ?? '',
+      head: repo.commits[4] ?? '',
+      mergeBase: repo.commits[3] ?? '',
+      lensHead: repo.commits[4] ?? '',
+      title: 'Split the header line',
+      configHash: 'hash',
+      fixes: [
+        {
+          id: '1111111111111111',
+          title: 'Reject an empty separator',
+          lens: 'correctness',
+          path: 'src/split.ts',
+          line: 1,
+          comment: 'An empty separator splits the line into single characters.',
+          commit: (repo.commits[3] ?? '').slice(0, 7),
+          postedHead: repo.commits[2] ?? '',
+        },
+      ],
+      maxFileChars: 10_000,
+      adapter: stub.adapter,
+      tempDir: ctx.directory,
+      logger: ctx.logger,
+    }),
+  ).rejects.toThrowWithMessage(
+    Error,
+    '--fixes-only has no `fixed` answer to check, and no commit came after the last review',
+  );
+});
+
 test('it refuses a run whose only fixed answer names a commit of the layer below when the repo holds no commit of the head that posted the finding', async () => {
   const ctx = await setupTest();
 

@@ -45,11 +45,12 @@ no call.
 A `fixed` answer can name a commit of the pull request's base, such as a fix in the layer below a
 stacked pull request that a rebase onto that layer brought in. That commit gets a call when the base
 holds it, the head that posted the finding does not, and its author date comes no earlier than that
-head's commit date. A rebase gives each commit it moves a new commit date and keeps its author date,
-so the author date tells a fix written after the finding from an older commit that a restack moved.
-The call reads the code at the head that posted the finding, whose lines the finding anchors to. The
-run's range starts at the fix commit's parent, so the check finds the fix commit in it. A repo that
-holds no commit of the head that posted the finding gets no call for such a fix.
+head's commit date. The head of the newest review that ran its lenses must not hold it either, since
+that review judged it. A rebase gives each commit it moves a new commit date and keeps its author
+date, so the author date tells a fix written after the finding from an older commit that a restack
+moved. The call reads the code at the head that posted the finding, whose lines the finding anchors
+to. The run's range starts at the fix commit's parent, so the check finds the fix commit in it. A
+repo that holds no commit of the head that posted the finding gets no call for such a fix.
 
 The result lists each verdict in its fix checks, so the `github` reporter reads the same verdicts
 whether the CLI or `noslop post` sends it. A yes confirms the fix under

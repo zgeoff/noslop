@@ -98,7 +98,8 @@ async function readNewerHead(input: FixBaseInput, first: string, second: string)
 }
 
 // a fix that landed on the base branch, such as the layer below in a stack: the pull request's base
-// holds it, the head that posted the finding does not, and it was written after that head
+// holds it, the head that posted the finding and the last lens head do not, and it was written after
+// the head that posted the finding
 async function readBaseBranchFixBase(input: FixBaseInput, fix: FixAnswer): Promise<FixBase | null> {
   const posted = fix.postedHead;
 
@@ -115,12 +116,15 @@ async function readBaseBranchFixBase(input: FixBaseInput, fix: FixAnswer): Promi
     return null;
   }
 
-  const [isInBase, isBeforePosted] = await Promise.all([
+  const lensHead = input.lensHead;
+
+  const [isInBase, isBeforePosted, isBeforeLensHead] = await Promise.all([
     readAncestry(input, commit, input.mergeBase),
     readAncestry(input, commit, posted),
+    lensHead === null ? false : readAncestry(input, commit, lensHead),
   ]);
 
-  if (!isInBase || isBeforePosted) {
+  if (!isInBase || isBeforePosted || isBeforeLensHead) {
     return null;
   }
 
