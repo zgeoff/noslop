@@ -2,6 +2,7 @@ import type { Disposition, PullRequestRef } from '@noslop/contract';
 import type { CheckOutcome } from './build-check-outcome';
 import { buildCheckOutcome } from './build-check-outcome';
 import type { GitHubClient, GitHubConnection } from './create-github-connection';
+import { findUnreviewedReason } from './find-unreviewed-reason';
 import type { FixCommits } from './read-fix-commits';
 import { readFixCommits } from './read-fix-commits';
 import { readHeldFixes } from './read-held-fixes';
@@ -36,12 +37,15 @@ export async function readGitHubCheck(
 
   const summary = state.summary?.marker ?? null;
 
-  const fixes = await readCheckFixes(client, pr, { state, dispositions, fixCommits });
-
   const currentKey =
     summary?.key === undefined
       ? { head: state.headSha }
       : await readNetChangeKey(client, pr, state.headSha);
+
+  const isReviewed =
+    findUnreviewedReason({ summary, currentHead: state.headSha, currentKey }) === null;
+
+  const fixes = await readCheckFixes(client, pr, { state, dispositions, fixCommits, isReviewed });
 
   return buildCheckOutcome({
     findings: state.threads.map((thread) => thread.marker),
@@ -143,6 +147,9 @@ interface CheckFixesInput {
   state: PullRequestState;
   dispositions: readonly Disposition[];
   fixCommits: FixCommits;
+
+  // whether the summary's reviews read the net change at the current head
+  isReviewed: boolean;
 }
 
 interface CheckFixes {
@@ -152,8 +159,8 @@ interface CheckFixes {
   failures: Map<string, string>;
 }
 
-// the fixes the check counts: the ones the reviews of the head's summary hold, answers after a review
-// among them, so such an answer needs no further review
+// the fixes the check counts: the ones the reviews of the summary hold, answers after a review among
+// them while those reviews read the net change at the head, so such an answer needs no further review
 function readCheckFixes(
   client: GitHubClient,
   pr: PullRequestRef,
@@ -165,7 +172,7 @@ function readCheckFixes(
     return Promise.resolve({ confirmed: [], failures: new Map() });
   }
 
-  if (marker.head !== input.state.headSha) {
+  if (!input.isReviewed) {
     return Promise.resolve({ confirmed: marker.confirmed, failures: new Map() });
   }
 

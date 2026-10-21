@@ -6150,6 +6150,99 @@ test('it keys a review on its head when the pull request changes more files than
   expect(state.summary?.marker.key).toStrictEqual({ head: 'b'.repeat(40) });
 });
 
+test('it passes the check on a fix answered after a merge of the base that left the net change alone', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'c'.repeat(40),
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    sha: 'b'.repeat(40),
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    sha: 'c'.repeat(40),
+    files: ['src/a.ts'],
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/a.ts',
+    lines: [1],
+    patch: '@@ -1 +1 @@\n-const one = 2;\n+const one = 1;',
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'b'.repeat(40),
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      base: 'b'.repeat(40),
+      head: 'c'.repeat(40),
+      findings: [],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  // a merge of the base that touches none of the pull request's files
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    sha: 'd'.repeat(40),
+  });
+
+  await githubCollections.pullRequests.update((query) => query.where({ number: 5 }), {
+    data(record) {
+      record.headSha = 'd'.repeat(40);
+    },
+  });
+
+  const [thread] = githubCollections.reviewComments.all();
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    body: `fixed ${'c'.repeat(7)}`,
+    authorLogin: 'dev',
+    inReplyToID: thread?.id ?? null,
+  });
+
+  const connection = await createGitHubConnection({
+    appID: 1,
+    privateKey: buildStubAppKey(),
+    installationID: 7,
+  });
+
+  const outcome = await runGitHubCheck(
+    connection,
+    { owner: 'example', repo: 'app', number: 5 },
+    { failedReporters: [] },
+  );
+
+  expect(outcome).toMatchObject({ conclusion: 'success', open: [], reviewed: true });
+});
+
 test('it refuses to post under a token, whose comments no later review trusts', async () => {
   const reporter = createGitHubReporter({
     loadConnection: () => createGitHubConnection(null, 'ghp_reader'),
