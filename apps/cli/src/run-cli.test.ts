@@ -7598,19 +7598,94 @@ test('it lists each finding of a pull request with its state and the author of i
         author: 'dev',
       },
       { id: '4444444444444444', path: 'src/scan.ts', severity: 'P3', state: 'open', author: 'dev' },
-      {
-        id: '5555555555555555',
-        path: 'src/scan.ts',
-        severity: 'P3',
-        state: 'accepted-risk',
-        author: 'dev',
-      },
+      { id: '5555555555555555', path: 'src/scan.ts', severity: 'P3', state: 'open', author: 'dev' },
       { id: '6666666666666666', path: 'src/scan.ts', severity: 'P2', state: 'open', author: null },
     ],
   });
 
   expect(githubCollections.issueComments.all()).toHaveLength(1);
   expect(githubCollections.checkRuns.all()).toStrictEqual([]);
+});
+
+test('it lists an accepted-risk finding as open when its author has no admin permission', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[0] ?? '',
+  });
+
+  await githubCollections.collaborators.create({
+    owner: 'example',
+    repo: 'app',
+    login: 'maintainer',
+    permission: 'admin',
+  });
+
+  await githubCollections.collaborators.create({
+    owner: 'example',
+    repo: 'app',
+    login: 'dev',
+    permission: 'write',
+  });
+
+  const findings = [
+    ['1111111111111111', 'dev'],
+    ['2222222222222222', 'maintainer'],
+  ];
+
+  for (const [id, author] of findings) {
+    const thread = await githubCollections.reviewComments.create({
+      owner: 'example',
+      repo: 'app',
+      number: 9,
+      path: 'src/scan.ts',
+      line: 1,
+      authorLogin: STUB_APP_LOGIN,
+      authorType: 'Bot',
+      body: `<!-- noslop:finding {"id":"${id}","title":"Reject an empty separator","path":"src/scan.ts","lens":"correctness","severity":"P2","riskClass":null,"writtenByChange":true} -->`,
+    });
+
+    await githubCollections.reviewComments.create({
+      owner: 'example',
+      repo: 'app',
+      number: 9,
+      body: 'accepted-risk the scanner runs once per import',
+      authorLogin: author,
+      inReplyToID: thread.id,
+    });
+  }
+
+  const stub = buildStubAdapter({});
+
+  const code = await runCLI(
+    ['findings', '--pr', '9', '--repo', 'example/app', '--json'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  const list = findingListSchema.parse(JSON.parse(ctx.stdout.join('')));
+
+  expect(code).toBe(0);
+
+  expect(list).toStrictEqual({
+    findings: [
+      { id: '1111111111111111', path: 'src/scan.ts', severity: 'P2', state: 'open', author: 'dev' },
+      {
+        id: '2222222222222222',
+        path: 'src/scan.ts',
+        severity: 'P2',
+        state: 'accepted-risk',
+        author: 'maintainer',
+      },
+    ],
+  });
 });
 
 test('it lists a deferred finding as open while its issue does not exist', async () => {

@@ -12,8 +12,7 @@ export interface AnswerEvidence {
   existingIssues: ReadonlySet<string>;
 }
 
-// the reason a finding's latest answer leaves it open, whoever wrote the answer; null when the
-// answer holds
+// the reason a finding's latest answer leaves it open; null when the answer holds
 export function findInvalidAnswerReason(
   finding: FindingMarker,
   disposition: Disposition | undefined,
@@ -29,6 +28,10 @@ export function findInvalidAnswerReason(
 
   if (disposition.kind === 'deferred') {
     return findDeferredReason(finding, disposition.value, evidence);
+  }
+
+  if (disposition.kind === 'accepted-risk' && !disposition.authorIsOwner) {
+    return 'only a repo owner gives accepted-risk';
   }
 
   return null;

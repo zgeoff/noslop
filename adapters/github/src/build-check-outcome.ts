@@ -46,8 +46,14 @@ export interface CheckOutcome {
 export function buildCheckOutcome(input: CheckOutcomeInput): CheckOutcome {
   const latest = new Map(input.dispositions.map((item) => [item.findingID, item]));
 
+  const evidence = {
+    reported: input.summary?.reported ?? [],
+    confirmed: input.summary?.confirmed ?? [],
+    existingIssues: input.existingIssues,
+  };
+
   const open = input.findings.flatMap((finding) => {
-    const reason = findInvalidReason(finding, latest.get(finding.id), input);
+    const reason = findInvalidAnswerReason(finding, latest.get(finding.id), evidence);
 
     return reason === null ? [] : [{ id: finding.id, title: finding.title, reason }];
   });
@@ -93,20 +99,4 @@ export function buildCheckOutcome(input: CheckOutcomeInput): CheckOutcome {
     open,
     reviewed: unreviewed === null,
   };
-}
-
-function findInvalidReason(
-  finding: FindingMarker,
-  disposition: Disposition | undefined,
-  input: CheckOutcomeInput,
-): string | null {
-  if (disposition?.kind === 'accepted-risk' && !disposition.authorIsOwner) {
-    return 'only a repo owner gives accepted-risk';
-  }
-
-  return findInvalidAnswerReason(finding, disposition, {
-    reported: input.summary?.reported ?? [],
-    confirmed: input.summary?.confirmed ?? [],
-    existingIssues: input.existingIssues,
-  });
 }

@@ -132,14 +132,13 @@ check share one set of rules for an answer, under [dispositions](./github-app.md
 - A `deferred` answer is refused for a P1, security or risk-class finding.
 - A `fixed` answer holds once a fix check confirmed it, and stays `open` while the latest review
   still reports the finding.
+- An `accepted-risk` answer holds only when its author has admin permission on the repo.
 
-A finding with no answer is `open`. The list judges no answer's author, so an `accepted-risk` answer
-from an account without admin permission counts as `accepted-risk`, and the gate decides whose
-answer it trusts. With `--json`, the list follows the finding list schema in the contract package.
-The command trusts the App's comments as [checking read-only](#checking-read-only) trusts them, and
-it writes nothing to GitHub. It exits 1 and lists nothing when a finding comment of the App holds a
-marker noslop cannot read, because a list without that finding would show the gate one open finding
-too few.
+A finding with no answer is `open`. With `--json`, the list follows the finding list schema in the
+contract package. The command trusts the App's comments as [checking read-only](#checking-read-only)
+trusts them, and it writes nothing to GitHub. It exits 1 and lists nothing when a finding comment of
+the App holds a marker noslop cannot read, because a list without that finding would show the gate
+one open finding too few.
 
 ## Checking read-only
 
