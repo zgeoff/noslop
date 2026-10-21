@@ -1628,6 +1628,7 @@ test('it reports no missing test for a test file at the head that the body only 
 test.each([
   ['Raises the value. Adds a case for the new value to `src/main.test.ts`.'],
   ['Raises the value. Updated `src/main.test.ts` with a new case.'],
+  ['Raises the value. A new case was written in src/main.test.ts.'],
 ])(
   'it reports a missing test for a test file at the head that the body "%s" claims',
   async (body) => {
