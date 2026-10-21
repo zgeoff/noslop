@@ -30,8 +30,8 @@ export interface ChangeFindingInputs {
 }
 
 // the direct findings about the change as a whole: a version bump a consumer's range refuses, a schema
-// bound above a published limit, an edit to a synced copy outside a sync, a format-only hunk the linked issue does
-// not cover, and a change that needs a version bump the change lacks
+// bound above a published limit, an edit to a synced copy outside a sync, a format-only hunk the
+// linked issue does not cover, and a change that needs a version bump the change lacks
 export function collectChangeFindings(inputs: ChangeFindingInputs): ModelFinding[] {
   return [
     ...collectRefusedBumps(inputs),

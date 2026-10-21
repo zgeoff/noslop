@@ -38,8 +38,6 @@ export interface FindingThread {
 export interface PullRequestState {
   title: string;
   body: string;
-
-  // the login of the account that opened the pull request
   author: string;
 
   // the branch the pull request merges into

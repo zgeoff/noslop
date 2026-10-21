@@ -35,8 +35,6 @@ export interface RunStaticStageOptions {
   cacheDir: string | null;
   pastEscapes: readonly string[];
   readConsumerFile?: (repo: string, path: string) => Promise<string | null>;
-
-  // the GitHub login that opened the pull request; a local change has none
   author?: string;
 }
 
