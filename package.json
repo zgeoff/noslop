@@ -45,7 +45,7 @@
     "prepare": "command -v git > /dev/null 2>&1 && lefthook install --force || true",
     "prose": "test -f .claude/skills/docs-writing/scripts/check-prose.sh || { echo 'prose: skipped until repo-sync delivers the docs-writing skill'; exit 0; }; bash .claude/skills/docs-writing/scripts/check-length.sh --package README.md && bash .claude/skills/docs-writing/scripts/check-prose.sh AGENTS.md",
     "test": "bun test --pass-with-no-tests",
-    "typecheck": "tsc --noEmit && turbo run typecheck",
+    "typecheck": "tsrs --noEmit && turbo run typecheck",
     "files:branch": "bun scripts/read-branch-files.ts",
     "lint:files": "oxlint --no-error-on-unmatched-pattern",
     "test:related": "bun scripts/run-related-tests.ts",
@@ -71,6 +71,7 @@
     "oxlint": "1.86.0",
     "oxlint-tsgolint": "7.0.2003",
     "tsdown": "0.23.0",
+    "tsrs": "0.18.0-ts7.1.0-dev.20260929",
     "turbo": "2.11.7",
     "typescript": "7.0.2"
   },
