@@ -1045,6 +1045,65 @@ test.each([
   );
 });
 
+test('it refuses a run whose only fixed answer names a commit of the layer below when the repo holds no commit of the head that posted the finding', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'README.md': '# App\n' } },
+    { message: 'Add the scanner', files: { 'src/scan.ts': 'export const separator = "";\n' } },
+    {
+      message: 'Reject an empty separator',
+      files: {
+        'src/scan.ts': 'export const separator = ":";\n',
+        'README.md': '# App, which scans\n',
+      },
+    },
+    {
+      message: 'Split each line on the separator',
+      files: {
+        'src/split.ts': 'export const split = 1;\n',
+        'README.md': '# App, which scans\n\nSplits lines.\n',
+      },
+    },
+  ]);
+
+  const stub = buildStubAdapter({});
+
+  expect(
+    runFixesOnlyReview({
+      runner: ctx.runner,
+      repoDir: repo.path,
+      repo: 'example/app',
+      pullRequest: { owner: 'example', repo: 'app', number: 9 },
+      base: repo.commits[3] ?? '',
+      head: repo.commits[3] ?? '',
+      mergeBase: repo.commits[2] ?? '',
+      lensHead: null,
+      title: 'Split the header line',
+      configHash: 'hash',
+      fixes: [
+        {
+          id: '1111111111111111',
+          title: 'Reject an empty separator',
+          lens: 'correctness',
+          path: 'src/split.ts',
+          line: 1,
+          comment: 'An empty separator splits the line into single characters.',
+          commit: (repo.commits[2] ?? '').slice(0, 7),
+          postedHead: 'a'.repeat(40),
+        },
+      ],
+      maxFileChars: 10_000,
+      adapter: stub.adapter,
+      tempDir: ctx.directory,
+      logger: ctx.logger,
+    }),
+  ).rejects.toThrowWithMessage(
+    Error,
+    '--fixes-only has no `fixed` answer to check, and no commit came after the last review',
+  );
+});
+
 test('it refuses a run whose only fixed answer names a commit of the layer below written before the head that posted the finding, which a restack moved', async () => {
   const ctx = await setupTest();
 

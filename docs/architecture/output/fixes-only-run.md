@@ -5,8 +5,10 @@ review round. It starts from the head of the newest run with no failed call that
 keeps, and the branch must hold that head or a commit that a rebase made of it. It runs no lens over
 the diff, and it raises a finding only on what a merge commit wrote, under
 [the resolution check](#the-resolution-check). For each finding of a model lens whose latest
-disposition is `fixed` with a commit among the new commits, it makes one small call. A finding of
-the static stage gets [its static check](#static-findings) in place of the call.
+disposition is `fixed` with a commit among the new commits, it makes one small call. A commit that
+the base branch brought in after the finding, such as a fix in the layer below a stacked pull
+request, gets the call too. A finding of the static stage gets [its static check](#static-findings)
+in place of the call.
 
 The fix call reads the finding, the code around the line it anchored to at that head, the whole
 patch of the fix commit, and the diff of every file from the fix commit to the head. It answers
