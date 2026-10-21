@@ -54,8 +54,6 @@ export function buildFixConfirmation(evidence: FixEvidence): FixConfirmation {
   const state = pickNextFixState(evidence.held, pickReviewVerdict(evidence.isReported, isRead));
   const files = evidence.files;
 
-  // an answer that names no branch commit holds only through a fix call, so one an earlier review
-  // holds confirmed stays confirmed until a review reports the finding again
   const isCarried =
     (evidence.match !== null || !evidence.isNamed) && HELD_FIX_STATES.has(evidence.held);
 
