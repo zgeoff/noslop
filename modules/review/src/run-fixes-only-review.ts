@@ -17,6 +17,9 @@ import type { Runner } from '@noslop/runner';
 import { z } from 'zod';
 import { buildFixCheckPrompt } from './build-fix-check-prompt';
 import { checkStaticFix } from './check-static-fix';
+import { readAncestry } from './read-ancestry';
+import type { FixBase } from './read-fix-base';
+import { readFixBase } from './read-fix-base';
 import type { ResolutionCheckOptions } from './run-resolution-checks';
 import { runResolutionChecks } from './run-resolution-checks';
 import type { StaticRecheckOptions } from './run-static-recheck';
@@ -205,89 +208,6 @@ async function readGitText(input: FixesOnlyReviewInput, args: readonly string[])
   return result.stdout.trim();
 }
 
-// the commit a fix's diff starts from, and the full sha of the fix commit
-interface FixBase {
-  base: string;
-  commit: string;
-}
-
-// the commit a fix's diff starts from: the run's base for a fix among the new commits, or, for a
-// `fixed` reply posted after an earlier run passed its commit, the newer of the head that posted the
-// finding and the last head the lenses read; null for a fix no such range holds
-async function readFixBase(
-  input: FixesOnlyReviewInput,
-  fix: AnsweredFix,
-  range: readonly string[],
-): Promise<FixBase | null> {
-  const commit = findOneCommit(range, fix.commit);
-
-  if (commit !== null) {
-    return { base: input.base, commit };
-  }
-
-  const floors = [fix.postedBranchHead ?? fix.postedHead, input.lensHead].filter(
-    (head) => head !== null,
-  );
-
-  const [first, second] = floors;
-
-  if (first === undefined) {
-    return null;
-  }
-
-  // a head a rebase left off the branch bounds no diff of it, and the fix must still come after it
-  const held = await Promise.all(floors.map((head) => readAncestry(input, head, input.head)));
-
-  if (held.includes(false)) {
-    return null;
-  }
-
-  const newer = second === undefined ? first : await readNewerHead(input, first, second);
-
-  const late = await input.runner.run(['git', 'rev-list', `${newer}..${input.head}`], {
-    cwd: input.repoDir,
-  });
-
-  const commits = late.exitCode === 0 ? late.stdout.trim().split('\n') : [];
-  const lateCommit = findOneCommit(commits, fix.commit);
-
-  return lateCommit === null ? null : { base: newer, commit: lateCommit };
-}
-
-// the one commit of the range a `fixed` sha names; a prefix that 2 commits share names neither
-function findOneCommit(range: readonly string[], sha: string): string | null {
-  const matches = range.filter((commit) => commit.startsWith(sha));
-
-  return matches.length === 1 ? (matches[0] ?? null) : null;
-}
-
-// reads from git whether the descendant holds the commit
-async function readAncestry(
-  input: FixesOnlyReviewInput,
-  commit: string,
-  descendant: string,
-): Promise<boolean> {
-  const result = await input.runner.run(
-    ['git', 'merge-base', '--is-ancestor', commit, descendant],
-    { cwd: input.repoDir },
-  );
-
-  return result.exitCode === 0;
-}
-
-// the head of the two that descends from the other, or the first when neither does
-async function readNewerHead(
-  input: FixesOnlyReviewInput,
-  first: string,
-  second: string,
-): Promise<string> {
-  const result = await input.runner.run(['git', 'merge-base', '--is-ancestor', first, second], {
-    cwd: input.repoDir,
-  });
-
-  return result.exitCode === 0 ? second : first;
-}
-
 // throws unless each of the branch's own commits in the range is a merge whose other parents the
 // pull request's base holds, and the range holds a commit or the base stands for a rebased head; a merge with a conflict resolution still gets its
 // resolution check
@@ -378,8 +298,6 @@ async function runFixCheck(
     return {};
   }
 
-  const base = target.base.base;
-
   // a merge's files are its change against its first parent, as GitHub lists them
   const commitFiles = await readGitPaths(input, [
     'diff-tree',
@@ -427,7 +345,7 @@ async function runFixCheck(
     return { check };
   }
 
-  const code = await readAnchoredCode(input, fix, base);
+  const code = await readAnchoredCode(input, fix, target.base.anchor);
 
   // every file, since a later commit can move the fix's code or its test to a file the fix commit
   // never changed, and only the line it adds there tells a move from a deletion
@@ -539,14 +457,14 @@ const CONTEXT_LINES = 20;
 // the most lines of a file the call reads when the finding names no line
 const WHOLE_FILE_LINES = 200;
 
-// the code around the anchored line at the fix's base, with its line numbers; a file the base does
-// not hold reads as empty, so the call still judges the diff
+// the code around the anchored line at the anchor commit, with its line numbers; a file the anchor
+// does not hold reads as empty, so the call still judges the diff
 async function readAnchoredCode(
   input: FixesOnlyReviewInput,
   fix: AnsweredFix,
-  base: string,
+  anchor: string,
 ): Promise<string> {
-  const result = await input.runner.run(['git', 'show', `${base}:${fix.path}`], {
+  const result = await input.runner.run(['git', 'show', `${anchor}:${fix.path}`], {
     cwd: input.repoDir,
   });
 

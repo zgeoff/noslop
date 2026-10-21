@@ -18,6 +18,9 @@ export interface TestCommit {
   // the index of an earlier commit this one merges in as its second parent, or a list of them for an
   // octopus merge; the files apply on top of the merged tree, and they resolve a conflict the merge left
   merged?: number | readonly number[];
+
+  date?: string;
+  authorDate?: string;
 }
 
 export interface TestRepo {
@@ -33,7 +36,9 @@ export async function createTestRepo(
   commits: readonly TestCommit[],
 ): Promise<TestRepo> {
   // a shell of its own, since setting the env of Bun.$ changes it for every caller
-  const $ = new Bun.$.Shell().env(buildChildEnv(process.env));
+  const env = buildChildEnv(process.env);
+
+  const $ = new Bun.$.Shell().env(env);
 
   await mkdir(path, { recursive: true });
 
@@ -87,7 +92,17 @@ export async function createTestRepo(
     }
 
     await $`git -C ${path} add -A`.quiet();
-    await $`git -C ${path} -c user.email=test@example.com -c user.name=test commit -q --allow-empty -m ${commit.message}`.quiet();
+
+    const authorDate = commit.authorDate ?? commit.date;
+
+    const dates = {
+      ...(authorDate === undefined ? {} : { GIT_AUTHOR_DATE: authorDate }),
+      ...(commit.date === undefined ? {} : { GIT_COMMITTER_DATE: commit.date }),
+    };
+
+    await $`git -C ${path} -c user.email=test@example.com -c user.name=test commit -q --allow-empty -m ${commit.message}`
+      .env({ ...env, ...dates })
+      .quiet();
 
     const sha = await $`git -C ${path} rev-parse HEAD`.text();
 

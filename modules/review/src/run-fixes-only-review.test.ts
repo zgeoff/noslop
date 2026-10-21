@@ -875,6 +875,384 @@ test('it starts the diff of a late fixed reply at the lens head when the lens he
   expect(result.base).toBe(repo.commits[2] ?? '');
 });
 
+test("it judges a fix that landed in the layer below a stacked pull request on that commit's patch, after a rebase onto it", async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'README.md': '# App\n' }, date: '2026-01-01T00:00:00Z' },
+    {
+      message: 'Add the scanner',
+      files: { 'src/scan.ts': 'export const separator = "";\n' },
+      date: '2026-01-01T01:00:00Z',
+    },
+    {
+      message: 'Split each line on the separator',
+      files: {
+        'src/split.ts':
+          'import { separator } from "./scan";\nexport const split = (line: string) => line.split(separator);\n',
+        'README.md': '# App\n\nSplits lines.\n',
+      },
+      date: '2026-01-02T00:00:00Z',
+    },
+    {
+      message: 'Reject an empty separator',
+      parent: 1,
+      files: {
+        'src/scan.ts': 'export const separator = ":";\n',
+        'README.md': '# App, which scans\n',
+      },
+      date: '2026-01-03T00:00:00Z',
+    },
+    {
+      message: 'Split each line on the separator',
+      files: {
+        'src/split.ts':
+          'import { separator } from "./scan";\nexport const split = (line: string) => line.split(separator);\n',
+        'README.md': '# App, which scans\n\nSplits lines.\n',
+      },
+      date: '2026-01-04T00:00:00Z',
+    },
+  ]);
+
+  const stub = buildStubAdapter({
+    'fix-1111111111111111': [{ fixed: true, reason: 'The separator is a colon now.' }],
+  });
+
+  const result = await runFixesOnlyReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/app',
+    pullRequest: { owner: 'example', repo: 'app', number: 9 },
+    base: repo.commits[4] ?? '',
+    head: repo.commits[4] ?? '',
+    mergeBase: repo.commits[3] ?? '',
+    lensHead: null,
+    title: 'Split the header line',
+    configHash: 'hash',
+    fixes: [
+      {
+        id: '1111111111111111',
+        title: 'Reject an empty separator',
+        lens: 'correctness',
+        path: 'src/split.ts',
+        line: 2,
+        comment: 'An empty separator splits the line into single characters.',
+        commit: (repo.commits[3] ?? '').slice(0, 7),
+        postedHead: repo.commits[2] ?? '',
+      },
+    ],
+    maxFileChars: 10_000,
+    adapter: stub.adapter,
+    tempDir: ctx.directory,
+    logger: ctx.logger,
+  });
+
+  expect(result.fixChecks).toStrictEqual([
+    { findingID: '1111111111111111', fixed: true, reason: 'The separator is a colon now.' },
+  ]);
+
+  expect(result.base).toBe(repo.commits[1] ?? '');
+
+  expect(stub.requests[0]?.prompt).toInclude(
+    '-export const separator = "";\n+export const separator = ":";',
+  );
+
+  expect(stub.requests[0]?.prompt).toInclude(
+    '2: export const split = (line: string) => line.split(separator);',
+  );
+});
+
+test.each([
+  ['a commit that the head that posted the finding holds', 1],
+  ['a commit that the head does not hold', 5],
+])('it refuses a run whose only fixed answer names %s', async (_label, index) => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'README.md': '# App\n' }, date: '2026-01-01T00:00:00Z' },
+    {
+      message: 'Add the scanner',
+      files: {
+        'src/scan.ts': 'export const separator = "";\n',
+        'README.md': '# App, which scans\n',
+      },
+      date: '2026-01-02T00:00:00Z',
+    },
+    {
+      message: 'Split each line on the separator',
+      files: {
+        'src/split.ts': 'export const split = 1;\n',
+        'README.md': '# App\n\nSplits lines.\n',
+      },
+      date: '2026-01-02T00:00:00Z',
+    },
+    {
+      message: 'Describe the scanner',
+      parent: 1,
+      files: { 'docs/scan.md': '# Scan\n' },
+      date: '2026-01-03T00:00:00Z',
+    },
+    {
+      message: 'Split each line on the separator',
+      files: {
+        'src/split.ts': 'export const split = 1;\n',
+        'README.md': '# App\n\nSplits lines.\n',
+      },
+      date: '2026-01-04T00:00:00Z',
+    },
+    {
+      message: 'Reject an empty separator',
+      parent: 0,
+      files: { 'src/scan.ts': 'export const separator = ":";\n', 'README.md': '# Scans\n' },
+      date: '2026-01-05T00:00:00Z',
+    },
+  ]);
+
+  const stub = buildStubAdapter({});
+
+  expect(
+    runFixesOnlyReview({
+      runner: ctx.runner,
+      repoDir: repo.path,
+      repo: 'example/app',
+      pullRequest: { owner: 'example', repo: 'app', number: 9 },
+      base: repo.commits[4] ?? '',
+      head: repo.commits[4] ?? '',
+      mergeBase: repo.commits[3] ?? '',
+      lensHead: null,
+      title: 'Split the header line',
+      configHash: 'hash',
+      fixes: [
+        {
+          id: '1111111111111111',
+          title: 'Reject an empty separator',
+          lens: 'correctness',
+          path: 'src/split.ts',
+          line: 1,
+          comment: 'An empty separator splits the line into single characters.',
+          commit: (repo.commits[index] ?? '').slice(0, 7),
+          postedHead: repo.commits[2] ?? '',
+        },
+      ],
+      maxFileChars: 10_000,
+      adapter: stub.adapter,
+      tempDir: ctx.directory,
+      logger: ctx.logger,
+    }),
+  ).rejects.toThrowWithMessage(
+    Error,
+    '--fixes-only has no `fixed` answer to check, and no commit came after the last review',
+  );
+});
+
+test('it refuses a run whose only fixed answer names a commit of the layer below that a lens review after the rebase already read', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'README.md': '# App\n' }, date: '2026-01-01T00:00:00Z' },
+    {
+      message: 'Add the scanner',
+      files: { 'src/scan.ts': 'export const separator = "";\n' },
+      date: '2026-01-01T01:00:00Z',
+    },
+    {
+      message: 'Split each line on the separator',
+      files: {
+        'src/split.ts': 'export const split = 1;\n',
+        'README.md': '# App\n\nSplits lines.\n',
+      },
+      date: '2026-01-02T00:00:00Z',
+    },
+    {
+      message: 'Reject an empty separator',
+      parent: 1,
+      files: {
+        'src/scan.ts': 'export const separator = ":";\n',
+        'README.md': '# App, which scans\n',
+      },
+      date: '2026-01-03T00:00:00Z',
+    },
+    {
+      message: 'Split each line on the separator',
+      files: {
+        'src/split.ts': 'export const split = 1;\n',
+        'README.md': '# App, which scans\n\nSplits lines.\n',
+      },
+      date: '2026-01-04T00:00:00Z',
+    },
+  ]);
+
+  const stub = buildStubAdapter({});
+
+  expect(
+    runFixesOnlyReview({
+      runner: ctx.runner,
+      repoDir: repo.path,
+      repo: 'example/app',
+      pullRequest: { owner: 'example', repo: 'app', number: 9 },
+      base: repo.commits[4] ?? '',
+      head: repo.commits[4] ?? '',
+      mergeBase: repo.commits[3] ?? '',
+      lensHead: repo.commits[4] ?? '',
+      title: 'Split the header line',
+      configHash: 'hash',
+      fixes: [
+        {
+          id: '1111111111111111',
+          title: 'Reject an empty separator',
+          lens: 'correctness',
+          path: 'src/split.ts',
+          line: 1,
+          comment: 'An empty separator splits the line into single characters.',
+          commit: (repo.commits[3] ?? '').slice(0, 7),
+          postedHead: repo.commits[2] ?? '',
+        },
+      ],
+      maxFileChars: 10_000,
+      adapter: stub.adapter,
+      tempDir: ctx.directory,
+      logger: ctx.logger,
+    }),
+  ).rejects.toThrowWithMessage(
+    Error,
+    '--fixes-only has no `fixed` answer to check, and no commit came after the last review',
+  );
+});
+
+test('it refuses a run whose only fixed answer names a commit of the layer below when the repo holds no commit of the head that posted the finding', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'README.md': '# App\n' } },
+    { message: 'Add the scanner', files: { 'src/scan.ts': 'export const separator = "";\n' } },
+    {
+      message: 'Reject an empty separator',
+      files: {
+        'src/scan.ts': 'export const separator = ":";\n',
+        'README.md': '# App, which scans\n',
+      },
+    },
+    {
+      message: 'Split each line on the separator',
+      files: {
+        'src/split.ts': 'export const split = 1;\n',
+        'README.md': '# App, which scans\n\nSplits lines.\n',
+      },
+    },
+  ]);
+
+  const stub = buildStubAdapter({});
+
+  expect(
+    runFixesOnlyReview({
+      runner: ctx.runner,
+      repoDir: repo.path,
+      repo: 'example/app',
+      pullRequest: { owner: 'example', repo: 'app', number: 9 },
+      base: repo.commits[3] ?? '',
+      head: repo.commits[3] ?? '',
+      mergeBase: repo.commits[2] ?? '',
+      lensHead: null,
+      title: 'Split the header line',
+      configHash: 'hash',
+      fixes: [
+        {
+          id: '1111111111111111',
+          title: 'Reject an empty separator',
+          lens: 'correctness',
+          path: 'src/split.ts',
+          line: 1,
+          comment: 'An empty separator splits the line into single characters.',
+          commit: (repo.commits[2] ?? '').slice(0, 7),
+          postedHead: 'a'.repeat(40),
+        },
+      ],
+      maxFileChars: 10_000,
+      adapter: stub.adapter,
+      tempDir: ctx.directory,
+      logger: ctx.logger,
+    }),
+  ).rejects.toThrowWithMessage(
+    Error,
+    '--fixes-only has no `fixed` answer to check, and no commit came after the last review',
+  );
+});
+
+test('it refuses a run whose only fixed answer names a commit of the layer below written before the head that posted the finding, which a restack moved', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'README.md': '# App\n' }, date: '2026-01-01T00:00:00Z' },
+    {
+      message: 'Add the scanner',
+      files: { 'src/scan.ts': 'export const separator = "";\n' },
+      date: '2026-01-01T01:00:00Z',
+    },
+    {
+      message: 'Split each line on the separator',
+      files: {
+        'src/split.ts': 'export const split = 1;\n',
+        'README.md': '# App\n\nSplits lines.\n',
+      },
+      date: '2026-01-03T00:00:00Z',
+    },
+    {
+      message: 'Reject an empty separator',
+      parent: 1,
+      files: {
+        'src/scan.ts': 'export const separator = ":";\n',
+        'README.md': '# App, which scans\n',
+      },
+      date: '2026-01-03T12:00:00Z',
+      authorDate: '2026-01-02T00:00:00Z',
+    },
+    {
+      message: 'Split each line on the separator',
+      files: {
+        'src/split.ts': 'export const split = 1;\n',
+        'README.md': '# App, which scans\n\nSplits lines.\n',
+      },
+      date: '2026-01-04T00:00:00Z',
+    },
+  ]);
+
+  const stub = buildStubAdapter({});
+
+  expect(
+    runFixesOnlyReview({
+      runner: ctx.runner,
+      repoDir: repo.path,
+      repo: 'example/app',
+      pullRequest: { owner: 'example', repo: 'app', number: 9 },
+      base: repo.commits[4] ?? '',
+      head: repo.commits[4] ?? '',
+      mergeBase: repo.commits[3] ?? '',
+      lensHead: null,
+      title: 'Split the header line',
+      configHash: 'hash',
+      fixes: [
+        {
+          id: '1111111111111111',
+          title: 'Reject an empty separator',
+          lens: 'correctness',
+          path: 'src/split.ts',
+          line: 1,
+          comment: 'An empty separator splits the line into single characters.',
+          commit: (repo.commits[3] ?? '').slice(0, 7),
+          postedHead: repo.commits[2] ?? '',
+        },
+      ],
+      maxFileChars: 10_000,
+      adapter: stub.adapter,
+      tempDir: ctx.directory,
+      logger: ctx.logger,
+    }),
+  ).rejects.toThrowWithMessage(
+    Error,
+    '--fixes-only has no `fixed` answer to check, and no commit came after the last review',
+  );
+});
+
 test('it asks nothing about a fix whose diff passes the file limit and names the file as too large', async () => {
   const ctx = await setupTest();
 
