@@ -60,7 +60,7 @@
     "@stylistic/eslint-plugin": "5.10.0",
     "@tsconfig/strictest": "2.0.8",
     "@types/bun": "1.4.2",
-    "@zgeoff/bun-test-extended": "0.1.0",
+    "@zgeoff/bun-test-extended": "0.2.1",
     "@zgeoff/format-codemod": "0.1.0",
     "@zgeoff/oxlint-config": "0.5.2",
     "@zgeoff/skill-gate": "0.1.0",
