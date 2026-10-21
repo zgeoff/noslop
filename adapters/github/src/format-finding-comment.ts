@@ -4,7 +4,7 @@ import { formatFindingHeading } from './format-finding-heading';
 import { formatMarker } from './format-marker';
 
 export const DISPOSITION_FORMS =
-  'Reply with one of these as the first line: `fixed <sha>`, `not-a-defect <reason>`, `deferred <issue>` or `accepted-risk <reason>`.';
+  'Reply with one of these as the first line: `fixed` or `fixed <sha>`, `not-a-defect <reason>`, `deferred <issue>` or `accepted-risk <reason>`.';
 
 // the comment for one finding, written for a person: the heading, the body, a PLAUSIBLE finding's fact
 // and the fix, then the reply forms and the id, lens, criterion and rule collapsed, and last the
@@ -28,7 +28,7 @@ export function formatFindingComment(finding: Finding, head: string): string {
     '',
     '<details><summary>Reply options</summary>',
     '',
-    'Start your reply with one of: `fixed <sha>`, `not-a-defect <reason>`, `deferred <issue>`, `accepted-risk <reason>`.',
+    'Start your reply with one of: `fixed`, `fixed <sha>`, `not-a-defect <reason>`, `deferred <issue>`, `accepted-risk <reason>`.',
     '</details>',
     '<details><summary>Details</summary>',
     '',

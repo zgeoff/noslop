@@ -9,7 +9,6 @@ export * from './create-github-reporter';
 export * from './parse-github-app-env';
 export * from './parse-github-token-env';
 export * from './read-branch-head';
-export * from './read-fix-commits';
 export * from './read-linked-issue';
 export * from './read-net-change-key';
 export * from './read-pull-request-base-ref';

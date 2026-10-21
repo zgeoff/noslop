@@ -22,17 +22,6 @@ export interface CheckOutcomeInput {
   // the key of the pull request's net change at the current head
   currentKey: NetChangeKey;
 
-  // the commits a `fixed` answer can name, a commit that a merge from the base branch brought in
-  // among them
-  commits: readonly string[];
-
-  // the `fixed` shas that GitHub finds name more than one commit of the repo
-  ambiguous: readonly string[];
-
-  // the pull request commit that holds the change of each `<finding id>:<sha>` answer whose commit a
-  // rebase rewrote
-  rewritten: ReadonlyMap<string, string>;
-
   // the values of the `deferred` dispositions whose issue exists
   existingIssues: ReadonlySet<string>;
   failedReporters: readonly string[];
@@ -141,32 +130,20 @@ function findFixedReason(
   commit: string,
   input: CheckOutcomeInput,
 ): string | null {
-  const named = input.commits.filter((sha) => sha.startsWith(commit));
-
-  // a sha a rebase rewrote stands for the pull request commit that holds its change
-  const rewritten = input.rewritten.get(`${finding.id}:${commit}`) ?? null;
-  const matches = named.length === 0 && rewritten !== null ? [rewritten] : named;
-
-  if (matches.length === 0) {
-    return `the commit ${commit} is not on the branch`;
-  }
-
-  if (matches.length > 1 || input.ambiguous.includes(commit)) {
-    return `the sha ${commit} matches more than one commit on the branch, so give more of it`;
-  }
-
   if (input.summary?.reported.includes(finding.id) === true) {
     return 'the re-review still finds it';
   }
 
+  // the sha is only a hint, so one the branch no longer holds fails nothing here
+  const fix = commit === '' ? 'the fix' : `the commit ${commit}`;
   const failure = input.fixFailures.get(finding.id);
 
   if (failure !== undefined) {
-    return `the review could not read the commit ${commit}: ${failure}`;
+    return `the review could not read ${fix}: ${failure}`;
   }
 
   if (!input.confirmed.includes(`${finding.id}:${commit}`)) {
-    return `no re-review has read the commit ${commit} yet`;
+    return `no re-review has read ${fix} yet`;
   }
 
   return null;

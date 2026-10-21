@@ -24,7 +24,7 @@ test('it writes the heading, body, fact, fix, reply options, details and marker 
 
     <details><summary>Reply options</summary>
 
-    Start your reply with one of: \`fixed <sha>\`, \`not-a-defect <reason>\`, \`deferred <issue>\`, \`accepted-risk <reason>\`.
+    Start your reply with one of: \`fixed\`, \`fixed <sha>\`, \`not-a-defect <reason>\`, \`deferred <issue>\`, \`accepted-risk <reason>\`.
     </details>
     <details><summary>Details</summary>
 

@@ -55,9 +55,6 @@ test('it passes when the review ran on the head and every finding holds a valid 
     fixFailures: new Map(),
     currentHead: 'f'.repeat(40),
     currentKey: { head: 'f'.repeat(40) },
-    commits: ['abc1234'.padEnd(40, '0'), 'f'.repeat(40)],
-    ambiguous: [],
-    rewritten: new Map(),
     existingIssues: new Set(['#12']),
     failedReporters: [],
     unreadable: 0,
@@ -171,9 +168,6 @@ test('it lists each finding whose disposition is not valid, with the reason', ()
     fixFailures: new Map(),
     currentHead: 'f'.repeat(40),
     currentKey: { head: 'f'.repeat(40) },
-    commits: ['f'.repeat(40)],
-    ambiguous: [],
-    rewritten: new Map(),
     existingIssues: new Set(['#12']),
     failedReporters: [],
     unreadable: 0,
@@ -199,7 +193,7 @@ test('it lists each finding whose disposition is not valid, with the reason', ()
     {
       id: '4444444444444444',
       title: 'Lock the row',
-      reason: 'the commit abc1234 is not on the branch',
+      reason: 'no re-review has read the commit abc1234 yet',
     },
     { id: '5555555555555555', title: 'Close the file', reason: 'no disposition' },
   ]);
@@ -277,9 +271,6 @@ test('it fails a fixed finding that is still found or that no re-review read', (
     fixFailures: new Map(),
     currentHead: 'f'.repeat(40),
     currentKey: { head: 'f'.repeat(40) },
-    commits: ['abc1234'.padEnd(40, '0'), 'f'.repeat(40)],
-    ambiguous: [],
-    rewritten: new Map(),
     existingIssues: new Set(),
     failedReporters: [],
     unreadable: 0,
@@ -330,9 +321,6 @@ test('it names why GitHub could not show a fixed finding whole', () => {
     ]),
     currentHead: 'f'.repeat(40),
     currentKey: { head: 'f'.repeat(40) },
-    commits: ['abc1234'.padEnd(40, '0'), 'f'.repeat(40)],
-    ambiguous: [],
-    rewritten: new Map(),
     existingIssues: new Set(),
     failedReporters: [],
     unreadable: 0,
@@ -343,7 +331,7 @@ test('it names why GitHub could not show a fixed finding whole', () => {
   ]);
 });
 
-test('it fails a fixed finding whose sha matches 2 commits on the branch', () => {
+test('it passes a fixed finding whose sha the branch no longer holds once a review confirmed it', () => {
   const outcome = buildCheckOutcome({
     findings: [
       {
@@ -379,62 +367,6 @@ test('it fails a fixed finding whose sha matches 2 commits on the branch', () =>
     fixFailures: new Map(),
     currentHead: 'f'.repeat(40),
     currentKey: { head: 'f'.repeat(40) },
-    commits: ['abc1234'.padEnd(40, 'a'), 'abc1234'.padEnd(40, 'c'), 'f'.repeat(40)],
-    ambiguous: [],
-    rewritten: new Map(),
-    existingIssues: new Set(),
-    failedReporters: [],
-    unreadable: 0,
-  });
-
-  expect(outcome.open).toStrictEqual([
-    {
-      id: '1111111111111111',
-      title: 'Await the write',
-      reason: 'the sha abc1234 matches more than one commit on the branch, so give more of it',
-    },
-  ]);
-});
-
-test('it passes a fixed finding whose sha a rebase rewrote into a commit on the branch', () => {
-  const outcome = buildCheckOutcome({
-    findings: [
-      {
-        id: '1111111111111111',
-        title: 'Await the write',
-        path: 'src/a.ts',
-        lens: 'correctness',
-        severity: 'P2',
-        riskClass: null,
-        writtenByChange: true,
-      },
-    ],
-    dispositions: [
-      {
-        findingID: '1111111111111111',
-        kind: 'fixed',
-        value: 'abc1234',
-        author: 'dev',
-        authorIsOwner: false,
-        source: 'github',
-        at: '2026-10-17T10:00:00.000Z',
-      },
-    ],
-    summary: {
-      head: 'f'.repeat(40),
-      reviews: 2,
-      reported: [],
-      failedCalls: 0,
-      followUps: [],
-      confirmed: ['1111111111111111:abc1234'],
-    },
-    confirmed: ['1111111111111111:abc1234'],
-    fixFailures: new Map(),
-    currentHead: 'f'.repeat(40),
-    currentKey: { head: 'f'.repeat(40) },
-    commits: ['d'.repeat(40), 'f'.repeat(40)],
-    ambiguous: [],
-    rewritten: new Map([['1111111111111111:abc1234', 'd'.repeat(40)]]),
     existingIssues: new Set(),
     failedReporters: [],
     unreadable: 0,
@@ -443,7 +375,57 @@ test('it passes a fixed finding whose sha a rebase rewrote into a commit on the 
   expect(outcome.open).toStrictEqual([]);
 });
 
-test('it fails a fixed finding whose sha a rebase rewrote only for another finding', () => {
+test('it fails a bare fixed finding that no review confirmed and names the fix', () => {
+  const outcome = buildCheckOutcome({
+    findings: [
+      {
+        id: '1111111111111111',
+        title: 'Await the write',
+        path: 'src/a.ts',
+        lens: 'correctness',
+        severity: 'P2',
+        riskClass: null,
+        writtenByChange: true,
+      },
+    ],
+    dispositions: [
+      {
+        findingID: '1111111111111111',
+        kind: 'fixed',
+        value: '',
+        author: 'dev',
+        authorIsOwner: false,
+        source: 'github',
+        at: '2026-10-17T10:00:00.000Z',
+      },
+    ],
+    summary: {
+      head: 'f'.repeat(40),
+      reviews: 2,
+      reported: [],
+      failedCalls: 0,
+      followUps: [],
+      confirmed: [],
+    },
+    confirmed: [],
+    fixFailures: new Map(),
+    currentHead: 'f'.repeat(40),
+    currentKey: { head: 'f'.repeat(40) },
+    existingIssues: new Set(),
+    failedReporters: [],
+    unreadable: 0,
+  });
+
+  expect(outcome.open).toStrictEqual([
+    {
+      id: '1111111111111111',
+      title: 'Await the write',
+      reason: 'no re-review has read the fix yet',
+    },
+  ]);
+});
+
+test('it fails a fixed finding whose answer a review confirmed only for another finding', () => {
   const outcome = buildCheckOutcome({
     findings: [
       {
@@ -473,15 +455,12 @@ test('it fails a fixed finding whose sha a rebase rewrote only for another findi
       reported: [],
       failedCalls: 0,
       followUps: [],
-      confirmed: ['1111111111111111:abc1234'],
+      confirmed: ['2222222222222222:abc1234'],
     },
-    confirmed: ['1111111111111111:abc1234'],
+    confirmed: ['2222222222222222:abc1234'],
     fixFailures: new Map(),
     currentHead: 'f'.repeat(40),
     currentKey: { head: 'f'.repeat(40) },
-    commits: ['d'.repeat(40), 'f'.repeat(40)],
-    ambiguous: [],
-    rewritten: new Map([['2222222222222222:abc1234', 'd'.repeat(40)]]),
     existingIssues: new Set(),
     failedReporters: [],
     unreadable: 0,
@@ -491,7 +470,7 @@ test('it fails a fixed finding whose sha a rebase rewrote only for another findi
     {
       id: '1111111111111111',
       title: 'Await the write',
-      reason: 'the commit abc1234 is not on the branch',
+      reason: 'no re-review has read the commit abc1234 yet',
     },
   ]);
 });
@@ -512,9 +491,6 @@ test('it fails when a finding comment holds a marker noslop cannot read', () => 
     fixFailures: new Map(),
     currentHead: 'f'.repeat(40),
     currentKey: { head: 'f'.repeat(40) },
-    commits: ['f'.repeat(40)],
-    ambiguous: [],
-    rewritten: new Map(),
     existingIssues: new Set(),
     failedReporters: [],
     unreadable: 2,
@@ -545,9 +521,6 @@ test('it fails when no review ran on the current head, a call failed or a report
     fixFailures: new Map(),
     currentHead: 'f'.repeat(40),
     currentKey: { head: 'f'.repeat(40) },
-    commits: [],
-    ambiguous: [],
-    rewritten: new Map(),
     existingIssues: new Set(),
     failedReporters: ['sqlite'],
     unreadable: 0,
@@ -583,9 +556,6 @@ test('it passes at a new head whose net change holds the same patch id for each 
     fixFailures: new Map(),
     currentHead: 'f'.repeat(40),
     currentKey: { files: { 'src/a.ts': '0123456789abcdef', 'src/b.ts': 'fedcba9876543210' } },
-    commits: ['f'.repeat(40)],
-    ambiguous: [],
-    rewritten: new Map(),
     existingIssues: new Set(),
     failedReporters: [],
     unreadable: 0,
@@ -629,9 +599,6 @@ test('it fails at a new head and names each file whose patch id changed, came or
         'src/d.ts': '3333333333333333',
       },
     },
-    commits: ['f'.repeat(40)],
-    ambiguous: [],
-    rewritten: new Map(),
     existingIssues: new Set(),
     failedReporters: [],
     unreadable: 0,
@@ -659,9 +626,6 @@ test('it fails at a new head when GitHub gives no whole file list, though the re
     fixFailures: new Map(),
     currentHead: 'f'.repeat(40),
     currentKey: { head: 'f'.repeat(40) },
-    commits: ['f'.repeat(40)],
-    ambiguous: [],
-    rewritten: new Map(),
     existingIssues: new Set(),
     failedReporters: [],
     unreadable: 0,
@@ -687,9 +651,6 @@ test('it passes a review keyed on its head only at that head', () => {
     fixFailures: new Map(),
     currentHead: 'f'.repeat(40),
     currentKey: { head: 'f'.repeat(40) },
-    commits: ['f'.repeat(40)],
-    ambiguous: [],
-    rewritten: new Map(),
     existingIssues: new Set(),
     failedReporters: [],
     unreadable: 0,
@@ -743,9 +704,6 @@ test('it judges a finding by its latest disposition', () => {
     fixFailures: new Map(),
     currentHead: 'f'.repeat(40),
     currentKey: { head: 'f'.repeat(40) },
-    commits: ['f'.repeat(40)],
-    ambiguous: [],
-    rewritten: new Map(),
     existingIssues: new Set(),
     failedReporters: [],
     unreadable: 0,

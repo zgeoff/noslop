@@ -9,6 +9,7 @@ test('it confirms a fix the review read in its range and did not report again', 
       commit: 'abc1234',
       match: 'abc1234'.padEnd(40, '0'),
       isInRange: true,
+      isJudged: false,
       isFileSkipped: false,
       isPartial: false,
       coverage: { changesSkipped: false, failure: null },
@@ -33,6 +34,7 @@ test('it confirms a fix whose commit changes only another file of the pull reque
       commit: 'abc1234',
       match: 'abc1234'.padEnd(40, '0'),
       isInRange: true,
+      isJudged: false,
       isFileSkipped: false,
       isPartial: false,
       coverage: { changesSkipped: false, failure: null },
@@ -57,6 +59,7 @@ test('it confirms no fix whose commit changes no file of the pull request and sa
       commit: 'abc1234',
       match: 'abc1234'.padEnd(40, '0'),
       isInRange: true,
+      isJudged: false,
       isFileSkipped: false,
       isPartial: false,
       coverage: { changesSkipped: false, failure: null },
@@ -92,6 +95,7 @@ test.each([
       commit: 'abc1234',
       match: 'abc1234'.padEnd(40, '0'),
       isInRange: true,
+      isJudged: false,
       isFileSkipped: false,
       isPartial: false,
       coverage: { changesSkipped: false, failure: null },
@@ -111,6 +115,7 @@ test('it keeps a fix an earlier review confirmed outside the range of this one',
       commit: 'abc1234',
       match: 'abc1234'.padEnd(40, '0'),
       isInRange: false,
+      isJudged: false,
       isFileSkipped: false,
       isPartial: false,
       coverage: { changesSkipped: false, failure: null },
@@ -132,6 +137,7 @@ test.each([
       commit: 'abc1234',
       match: 'abc1234'.padEnd(40, '0'),
       isInRange: false,
+      isJudged: false,
       isFileSkipped: false,
       isPartial: false,
       coverage: { changesSkipped: false, failure: null },
@@ -150,6 +156,7 @@ test('it rejects a fix an earlier review confirmed once this review reports the 
       commit: 'abc1234',
       match: 'abc1234'.padEnd(40, '0'),
       isInRange: false,
+      isJudged: false,
       isFileSkipped: false,
       isPartial: false,
       coverage: { changesSkipped: false, failure: null },
@@ -168,6 +175,7 @@ test('it names why GitHub could not show an unconfirmed fix whole', () => {
       commit: 'abc1234',
       match: 'abc1234'.padEnd(40, '0'),
       isInRange: true,
+      isJudged: false,
       isFileSkipped: false,
       isPartial: false,
       coverage: {
@@ -185,4 +193,71 @@ test('it names why GitHub could not show an unconfirmed fix whole', () => {
     fixed: false,
     failure: 'the fix commit changes more files than GitHub lists',
   });
+});
+
+test('it confirms a fix that a fix call judged fixed at the head, whose sha names no commit of the branch', () => {
+  expect(
+    buildFixConfirmation({
+      id: '1111111111111111',
+      title: 'Await the write',
+      commit: 'abc1234',
+      match: null,
+      isInRange: false,
+      isJudged: true,
+      isFileSkipped: false,
+      isPartial: false,
+      coverage: { changesSkipped: false, failure: null },
+      held: 'silent',
+      isReported: false,
+      files: null,
+    }),
+  ).toStrictEqual({
+    id: '1111111111111111',
+    title: 'Await the write',
+    commit: 'abc1234',
+    fixed: true,
+  });
+});
+
+test('it confirms a bare fixed answer that a fix call judged fixed at the head', () => {
+  expect(
+    buildFixConfirmation({
+      id: '1111111111111111',
+      title: 'Await the write',
+      commit: '',
+      match: null,
+      isInRange: false,
+      isJudged: true,
+      isFileSkipped: false,
+      isPartial: false,
+      coverage: { changesSkipped: false, failure: null },
+      held: 'silent',
+      isReported: false,
+      files: null,
+    }),
+  ).toStrictEqual({
+    id: '1111111111111111',
+    title: 'Await the write',
+    commit: '',
+    fixed: true,
+  });
+});
+
+test('it rejects a fix that a fix call judged fixed once the review reports the finding again', () => {
+  expect(
+    buildFixConfirmation({
+      id: '1111111111111111',
+      title: 'Await the write',
+      commit: '',
+      match: null,
+      isInRange: false,
+      isJudged: true,
+      isFileSkipped: false,
+      isPartial: false,
+      coverage: { changesSkipped: false, failure: null },
+      held: 'silent',
+      isReported: true,
+      files: null,
+    }).fixed,
+  ).toBe(false);
 });

@@ -1,27 +1,26 @@
 import { expect, test } from 'bun:test';
 import { buildFixCheckPrompt } from './build-fix-check-prompt';
 
-test("it asks whether the fix commit fixes the finding from the finding, its code, the commit's patch and the diff alone", () => {
+test("it asks whether the head still holds the defect from the finding, its code at the head and the pull request's diff alone", () => {
   expect(
     buildFixCheckPrompt({
       title: 'Reject an empty separator',
       lens: 'correctness',
       comment: 'An empty separator splits the line into single characters.',
       path: 'src/scan.ts',
-      code: '1: export const separator = "";',
-      commit: 'abcdef0123456789abcdef0123456789abcdef01',
-      patch: '-export const separator = "";\n+export const separator = ":";',
+      code: '1: export const separator = ":";',
+      isTraced: true,
       diff: '-export const separator = "";\n+export const separator = ":";',
     }),
   ).toMatchInlineSnapshot(`
-    "A reviewer posted the finding below on a pull request, and the author answered that a later commit fixes it.
-    Judge from the finding, the code it anchored to, the fix commit's patch and the diff from the fix commit to the head whether the fix commit fixes the finding and the fix holds at the head. Read no files.
+    "A reviewer posted the finding below on a pull request, and the author answered that the pull request fixes it.
+    Judge from the finding, its code at the pull request's head and the pull request's diff whether the head still holds the defect. Read no files.
 
-    1. Answer \`fixed: true\` only when the fix commit's patch removes the defect the finding describes, or moves an earlier commit's fix of it, and the fix holds at the head. The fix may be in another file, such as a new test that the finding asks for.
-    2. Answer \`fixed: false\` when the patch leaves the defect in place, moves the defect elsewhere, or changes only code the finding does not describe, or when the diff from the fix commit to the head undoes the fix.
-    3. The fix commit, or a later commit, may move the code or the test of a fix to another file and reshape it there. Count code or a test that the patch or the diff deletes as moved when the same patch or diff adds code or a test in another file that does what the deleted lines did, in other lines or not. Count the fix undone when nothing it adds does that.
+    1. Answer \`fixed: true\` only when the code at the head no longer holds the defect the finding describes. The fix may be in another file, such as a new test that the finding asks for.
+    2. Answer \`fixed: false\` when the head still holds the defect, or the diff moves the defect elsewhere.
+    3. The pull request may move the code or the test of a fix to another file and reshape it there. Count code or a test that the diff deletes as moved when the diff adds code or a test in another file that does what the deleted lines did, in other lines or not.
     4. Give the reason in one line.
-    5. Report no other defect, however the patch or the diff looks.
+    5. Report no other defect, however the code or the diff looks.
 
     ## The finding: Reject an empty separator
 
@@ -29,20 +28,13 @@ test("it asks whether the fix commit fixes the finding from the finding, its cod
 
     An empty separator splits the line into single characters.
 
-    ## The code at \`src/scan.ts\` before the fix
+    ## The code at \`src/scan.ts\` at the head, around the finding's lines
 
     \`\`\`text
-    1: export const separator = "";
+    1: export const separator = ":";
     \`\`\`
 
-    ## The patch of the fix commit \`abcdef012345\`
-
-    \`\`\`diff
-    -export const separator = "";
-    +export const separator = ":";
-    \`\`\`
-
-    ## The diff from the fix commit to the head
+    ## The pull request's diff
 
     \`\`\`diff
     -export const separator = "";
@@ -51,19 +43,33 @@ test("it asks whether the fix commit fixes the finding from the finding, its cod
   `);
 });
 
-test('it names an empty patch, an empty diff and absent code, so the call reads no blank block', () => {
+test('it names the whole file when the trace failed', () => {
+  const prompt = buildFixCheckPrompt({
+    title: 'Reject an empty separator',
+    lens: 'correctness',
+    comment: '',
+    path: 'src/scan.ts',
+    code: '1: export const separator = ":";',
+    isTraced: false,
+    diff: '+export const separator = ":";',
+  });
+
+  expect(prompt).toInclude(
+    "## The whole file `src/scan.ts` at the head, since the finding's lines could not be traced there",
+  );
+});
+
+test('it names an empty diff and absent code, so the call reads no blank block', () => {
   const prompt = buildFixCheckPrompt({
     title: 'Reject an empty separator',
     lens: 'correctness',
     comment: '',
     path: 'src/scan.ts',
     code: '',
-    commit: 'abcdef0123456789abcdef0123456789abcdef01',
-    patch: '',
+    isTraced: false,
     diff: '',
   });
 
-  expect(prompt).toInclude('(the file is empty or absent at the reviewed head)');
-  expect(prompt).toInclude('(the commit changes no file)');
-  expect(prompt).toInclude('(no commit after the fix commit)');
+  expect(prompt).toInclude('(the file is empty or absent at the head)');
+  expect(prompt).toInclude('(the pull request changes no file)');
 });

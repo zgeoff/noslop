@@ -156,11 +156,9 @@ A reply in any other form is no disposition. Each time noslop sets the check, it
 reply once with the accepted forms, and the forms marker stops a later run answering it again. Each
 kind is valid under its own rule:
 
-- `fixed <commit>` is valid when the sha names exactly one commit on the branch, or a commit that a
-  rebase rewrote into one, and a re-review that read the commit no longer reports the finding. A
-  commit that a merge from the base branch brought in is on the branch, although GitHub's commit
-  list of the pull request leaves it out. Such a commit, or the merge itself, holds a fix only when
-  it changes a file of the pull request's diff.
+- `fixed`, or `fixed <commit>` with the sha as a hint, is valid once a fix call of a fixes-only run
+  judged the finding fixed at the head, or a re-review whose range holds the named commit no longer
+  reports the finding.
 - `not-a-defect <reason>` is valid with any reason.
 - `deferred <issue>` is valid when the change did not write the code, the finding is no P1, security
   or risk-class finding, and the issue exists. The issue is `#<number>` in the same repo,
@@ -233,22 +231,10 @@ range rejects each finding the review reported but confirms no fix. The marker k
 that fit under GitHub's comment limit, newest first, and a review whose own range does not fit keeps
 none, so such a reply waits for the next review.
 
-A rebase rewrites every commit of the branch, so a `fixed` sha can name a commit the branch no
-longer holds. GitHub still serves such a commit by its sha. The review and the check each take the
-one pull request commit whose patch to the same files matches the named commit's patch, with the
-line numbers of each hunk left out, because a rebase shifts them. The named commit must descend from
-the head that posted the finding, which GitHub's compare of the two commits from before the rebase
-shows. Each finding gets its own match, because each finding checks the named commit against its own
-posting head. A commit that GitHub no longer serves, a file GitHub gives no patch of, or a match
-with none or several commits leaves the fix unconfirmed. The matched commit then stands in for the
-named sha under every rule of this section.
-
-A review range that the summary marker keeps from before a clean rebase holds the commits as they
-were then, so the check finds the fix among them by the same patch match in the other direction. The
-range holds a fix when it holds the branch commit, the commit the answer names, or the one commit of
-its own that the branch no longer holds and whose patch matches the branch commit's patch. A `fixed`
-reply after the rebase therefore counts the review that read the fix before it, whichever of the two
-shas the reply names.
+A fixes-only run's range keeps the findings its fix calls judged fixed at the head, and that range
+confirms each of them whatever commit the answer names. A bare `fixed`, or a sha that a rebase or a
+squash took off the branch, therefore counts through a fix call. A re-review that only stops
+reporting the finding confirms a fix only through a commit the pull request lists.
 
 The re-check is the second review of a pull request. From the third review on, the reporter sends
 each new finding in code the change did not write to a follow-up issue. A security finding, and any

@@ -2,7 +2,6 @@ import type { Disposition, PullRequestRef } from '@noslop/contract';
 import type { HeldFixes } from './build-held-fixes';
 import { buildHeldFixes } from './build-held-fixes';
 import type { GitHubClient } from './create-github-connection';
-import type { FixCommits } from './read-fix-commits';
 import { readFixConfirmations } from './read-fix-confirmations';
 import type { FindingThread } from './read-pull-request-state';
 import type { SummaryMarker } from './summary-marker';
@@ -11,7 +10,8 @@ import { toReviewedRanges } from './to-reviewed-ranges';
 export interface HeldFixesInput {
   threads: readonly FindingThread[];
   dispositions: readonly Disposition[];
-  fixCommits: FixCommits;
+  commits: readonly string[];
+  pullRequestFiles: readonly string[] | null;
   marker: SummaryMarker;
 }
 
@@ -30,7 +30,8 @@ export async function readHeldFixes(
         : await readFixConfirmations(client, pr, {
             threads: input.threads,
             dispositions: input.dispositions,
-            fixCommits: input.fixCommits,
+            commits: input.commits,
+            pullRequestFiles: input.pullRequestFiles,
             review,
             held: new Map(),
           }),

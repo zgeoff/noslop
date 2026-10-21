@@ -5,24 +5,21 @@ review round. It starts from the head of the newest run with no failed call that
 keeps, or from the pull request's merge base when a rebase took that head off the branch. It runs no
 lens over the diff, and it raises a finding only on what a merge commit wrote, under
 [the resolution check](#the-resolution-check). For each finding of a model lens whose latest
-disposition is `fixed` with a commit among the new commits, it makes one small call. A commit that
-the base branch brought in after the finding, such as a fix in the layer below a stacked pull
-request, gets the call too. A finding of the static stage gets [its static check](#static-findings)
-in place of the call.
+disposition is `fixed`, it makes one small call that judges the finding at the pull request's head.
+A sha after `fixed` is only a hint, so a bare `fixed` gets the call too, and so does a sha that a
+rebase or a squash took off the branch. A finding of the static stage gets
+[its static check](#static-findings) in place of the call.
 
-The fix call reads the finding, the code around the line it anchored to at that head, the whole
-patch of the fix commit, and the diff of every file from the fix commit to the head. It answers
-whether the fix commit fixes the finding and the fix holds at the head, with a one-line reason. A
-fix such as a new test in another file therefore gets judged on that test. The later diff covers
-every file because a later commit can move the fix's code or its test to a file the fix commit never
-changed. Code of the fix that the patch or the later diff deletes counts as moved only when the same
-patch or diff adds code in another file that does what the deleted code did, even reshaped. A fix
-commit that moves an earlier commit's fix therefore holds, and a deleted test with nothing in its
-place leaves the fix not fixed. A fix whose code, patch or diff passes the config's file limit gets
-no call and no verdict, because a cut diff can hide the fix, and the summary says why the fix stays
-unconfirmed. A fix commit that changes no file of the pull request's diff gets no call either, and
-the run judges it not fixed, by the same rule the
-[check](./github-app.md#re-review-and-fix-confirmation) applies.
+The fix call reads the finding, its code at the head, and the pull request's net diff from its merge
+base to the head. It answers whether the head still holds the defect, with a one-line reason. A fix
+such as a new test in another file therefore gets judged on that test. The run traces the finding's
+line from the head that posted the finding through the diff to the head: a hunk above the line moves
+it. The call then reads the code around the traced line. When the trace fails, because a later
+commit rewrote the line, the finding names no line, or the repo holds no commit of the head that
+posted it, the call reads the whole file at the head. Code that the diff deletes counts as moved
+only when the diff adds code in another file that does what the deleted code did, even reshaped. A
+fix whose code or diff passes the config's file limit gets no call and no verdict, because a cut
+diff can hide the fix, and the summary says why the fix stays unconfirmed.
 
 A run with no `fixed` answer to judge refuses and gives the reason. It writes no summary, so the
 check stays on the net change it was on and passes no commit that no lens read. The run goes ahead
@@ -33,22 +30,9 @@ run when the summary marker keys each file, because it leaves that
 [net-change key](./github-app.md#the-net-change-key) where it was. A key on the head moves with any
 rebase, so such a pull request needs a new review after one.
 
-A `fixed` reply posted after an earlier fixes-only run passed its commit gets a call too, so the
-next run, at the same head or a later one, checks it. Its diff starts from the newer of the head
-that posted the finding and the head of the newest review that ran its lenses, because that review
-judged every fix before it. A head that a rebase took off the branch bounds no diff, as
-[after a rebase](#after-a-rebase) describes. A fix the summary already holds as confirmed gets no
-call.
-
-A `fixed` answer can name a commit of the pull request's base, such as a fix in the layer below a
-stacked pull request that a rebase onto that layer brought in. That commit gets a call when the base
-holds it, the head that posted the finding does not, and its author date comes no earlier than that
-head's commit date. The head of the newest review that ran its lenses must not hold it either, since
-that review judged it. A rebase gives each commit it moves a new commit date and keeps its author
-date, so the author date tells a fix written after the finding from an older commit that a restack
-moved. The call reads the code at the head that posted the finding, whose lines the finding anchors
-to. The run's range starts at the fix commit's parent, so the check finds the fix commit in it. A
-repo that holds no commit of the head that posted the finding gets no call for such a fix.
+A `fixed` reply posted after an earlier fixes-only run gets a call too, so the next run, at the same
+head or a later one, checks it. A fix the summary already holds as confirmed gets no call. The run's
+range starts at the merge base, because each call reads the whole net diff.
 
 The result lists each verdict in its fix checks, so the `github` reporter reads the same verdicts
 whether the CLI or `noslop post` sends it. A yes confirms the fix under
@@ -70,8 +54,7 @@ now, and holds otherwise. The run follows that line from the head that posted th
 the diff to the head: a hunk above it moves it, and a hunk that rewrites it hands over the lines it
 wrote. The place decides, not the ID, because Assemble numbers 2 findings with one title by their
 order, so a fix of the first hands its ID to the second. A finding the run cannot place, such as one
-outside the diff, fails while any finding with its file and title remains. A fix commit that changes
-no file of the pull request fails first, by the rule every fix follows.
+outside the diff, fails while any finding with its file and title remains.
 
 The stage reads the whole diff because its checks read the change as a whole. A test counts as new
 only on a line the change adds, so a diff of the fix commit alone sees no new test with no
@@ -82,21 +65,15 @@ its linked issue, so the run reads the linked issue when it judges a static fix.
 ## After a rebase
 
 A rebase after the last review takes its head off the branch, so the run starts from the pull
-request's merge base, and its range holds every commit of the pull request. A `fixed` answer that
-names a fix commit the rebase rewrote counts the branch commit with the same change, as the check
-counts it, and the run judges that commit.
+request's merge base. Each fix call judges the head, so a rebase changes nothing about what the call
+reads.
 
 The fix calls read only the fixes, so the run refuses a rebase that changed anything else. It
 compares the [net-change key](./github-app.md#the-net-change-key) the summary marker holds with the
-key at the head, and each file whose patch id moved must be a file that a fix commit the run judges
-changes. The run refuses, and names the files, when one is not. It refuses too when the summary
-marker holds no key, or when GitHub gives no whole file list, since neither key can show what moved.
-
-A lens review whose head a rebase took off the branch judged each fix before it by the sha that fix
-had then, and the check counts no rewritten sha as judged, so that lens head bounds no diff. The
-head that posted a finding bounds no diff once a rebase took it off the branch either. A late
-`fixed` reply whose heads are all off the branch gets its call from the merge base, and the call
-reads the code that the fix commit's parent holds around the finding's line.
+key at the head, and each file whose patch id moved must be a file that a branch commit a `fixed`
+answer names changes. The run refuses, and names the files, when one is not. It refuses too when the
+summary marker holds no key, or when GitHub gives no whole file list, since neither key can show
+what moved.
 
 ## The resolution check
 

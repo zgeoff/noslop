@@ -254,6 +254,31 @@ test('it heads a re-review with no findings whose every fix is confirmed as all 
   ).toStartWith('### noslop: all 2 findings fixed\n\n✅ Await the write: fixed in `abc1234`\n');
 });
 
+test('it names a fix that a bare fixed answer gives as fixed at the head', () => {
+  const result = buildMockReviewResult();
+
+  expect(
+    formatSummaryComment(
+      result,
+      {
+        head: 'b'.repeat(40),
+        reviews: 2,
+        reported: [],
+        failedCalls: 0,
+        followUps: [],
+        confirmed: [],
+      },
+      {
+        confirmations: [
+          { id: '4444444444444444', title: 'Await the write', commit: '', fixed: true },
+        ],
+        posted: 1,
+      },
+      new Map(),
+    ),
+  ).toStartWith('### noslop: 1 finding fixed\n\n✅ Await the write: fixed at the head\n');
+});
+
 test('it heads a re-review with no new findings when an earlier finding has no confirmed fix', () => {
   const result = buildMockReviewResult();
 

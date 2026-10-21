@@ -6116,7 +6116,7 @@ test('it confirms a fixed reply at a rewritten sha under --fixes-only after 2 ca
   });
 });
 
-test('it bases a --fixes-only review on the last head with no failed call after a fix check failed', async () => {
+test('it judges a --fixes-only fix from the merge base and passes the check after an earlier fix check failed', async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
@@ -6220,7 +6220,7 @@ test('it bases a --fixes-only review on the last head with no failed call after 
   expect(code).toBe(0);
 
   expect(summary?.body).toInclude(
-    `{"head":"${repo.commits[3] ?? ''}","base":"${repo.commits[1] ?? ''}"`,
+    `{"head":"${repo.commits[3] ?? ''}","base":"${repo.commits[0] ?? ''}"`,
   );
 
   expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('success');

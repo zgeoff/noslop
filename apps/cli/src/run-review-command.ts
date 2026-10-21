@@ -9,12 +9,7 @@ import type {
 } from '@noslop/contract';
 import { reviewResultSchema } from '@noslop/contract';
 import type { GitHubConnection, PullRequestState, SummaryMarker } from '@noslop/github';
-import {
-  collectDismissedFindings,
-  readFixCommits,
-  readLinkedIssue,
-  readThreadDispositions,
-} from '@noslop/github';
+import { collectDismissedFindings, readLinkedIssue, readThreadDispositions } from '@noslop/github';
 import type { AnsweredFix } from '@noslop/review';
 import { runFixesOnlyReview, runReview } from '@noslop/review';
 import { loadStore, readEscapePaths } from '@noslop/sqlite';
@@ -114,7 +109,6 @@ export async function runReviewCommand(values: ReviewValues, ctx: CLIContext): P
         title: change.title,
         configHash: loaded.hash,
         fixes: change.fixes,
-        lensHead: change.lensHead,
         maxFileChars: loaded.config.thresholds.maxFileChars,
         adapter,
         tempDir,
@@ -254,9 +248,6 @@ interface ResolvedChange {
 
   // the findings whose latest answer is `fixed`, which a fixes-only run checks; read only for one
   fixes: AnsweredFix[];
-
-  // the head of the newest lens review of a pull request, which a fixes-only run reads past
-  lensHead: string | null;
 }
 
 async function resolveLocalChange(
@@ -300,7 +291,6 @@ async function resolveLocalChange(
     earlierFindings: [],
     dismissedFindings: [],
     fixes: [],
-    lensHead: null,
   };
 }
 
@@ -411,17 +401,18 @@ async function resolvePullRequestChange(
     throw new Error('--fixes-only needs an earlier review with no failed call');
   }
 
-  const lastLensHead = findLensHead(summary);
-
-  // a lens review judged the fixes before it by their shas then, so a lens head a rebase left off the
-  // branch bounds no late fix
-  const isLensHeadHeld =
-    values.fixesOnly && lastLensHead !== null
-      ? await probeAncestry(ctx, repoDir, lastLensHead, state.headSha)
-      : true;
-
-  const lensHead = isLensHeadHeld ? lastLensHead : null;
   const fixes = values.fixesOnly ? await readAnsweredFixes(connection, pullRequest, state) : [];
+
+  // the call traces each finding's line from the head that posted it, which a rebase may have left on
+  // no branch; one fetch per head, since git fails a fetch whole on one sha it cannot get, and a head
+  // it cannot get leaves the call the whole file
+  const postedHeads = new Set(
+    fixes.flatMap((fix) => (fix.postedHead === null ? [] : [fix.postedHead])),
+  );
+
+  for (const postedHead of postedHeads) {
+    await ctx.runner.run(['git', 'fetch', '--quiet', 'origin', postedHead], { cwd: repoDir });
+  }
 
   const unchecked =
     values.fixesOnly && !isHeld
@@ -455,7 +446,6 @@ async function resolvePullRequestChange(
     // a head a rebase took off the branch bounds nothing, so the run reads from the merge base
     base: (values.fixesOnly || isDelta) && isHeld && reviewed !== null ? reviewed : start,
     head: state.headSha,
-    lensHead,
     config,
     title: state.title,
     body: state.body,
@@ -511,19 +501,6 @@ function findLensHead(summary: SummaryMarker | undefined): string | null {
   return range?.head ?? null;
 }
 
-async function probeAncestry(
-  ctx: CLIContext,
-  repoDir: string,
-  commit: string,
-  descendant: string,
-): Promise<boolean> {
-  const result = await ctx.runner.run(['git', 'merge-base', '--is-ancestor', commit, descendant], {
-    cwd: repoDir,
-  });
-
-  return result.exitCode === 0;
-}
-
 // each finding whose latest disposition is `fixed` with a fix the summary does not hold confirmed, as
 // its comment keeps it, with the marker left out
 async function readAnsweredFixes(
@@ -535,15 +512,6 @@ async function readAnsweredFixes(
 
   const latest = new Map(dispositions.map((item) => [item.findingID, item]));
   const confirmed = new Set(state.summary?.marker.confirmed);
-
-  // a rebase rewrites a fix commit an answer named, and the check counts the branch commit with its
-  // change in its place, so the run judges that commit
-  const fixCommits = await readFixCommits(connection.client, pullRequest, {
-    commits: state.commits,
-    dispositions,
-    head: state.headSha,
-    threads: state.threads,
-  });
 
   return state.threads.flatMap((thread): AnsweredFix[] => {
     const disposition = latest.get(thread.marker.id);
@@ -565,9 +533,7 @@ async function readAnsweredFixes(
         path: thread.marker.path,
         line: thread.line,
         comment: thread.body.replace(/<!-- noslop:[\s\S]*?-->/u, '').trim(),
-        commit:
-          fixCommits.rewritten.get(`${thread.marker.id}:${disposition.value}`)?.commit ??
-          disposition.value,
+        hint: disposition.value === '' ? null : disposition.value,
         postedHead: thread.marker.head ?? null,
       },
     ];
