@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.4.15](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.14...@noslop/cli@0.4.15) (2026-10-21)
+
+
+### Features
+
+* **review:** review only the files whose patch changed since a review ([#115](https://github.com/zgeoff/noslop/issues/115)) ([17b57d6](https://github.com/zgeoff/noslop/commit/17b57d65c1cb6cd4529544edf0134bdc5baae5b9))
+* **review:** run only fix calls under --fixes-only, with no refusals ([#107](https://github.com/zgeoff/noslop/issues/107)) ([29bdd08](https://github.com/zgeoff/noslop/commit/29bdd08622043cc549d42a2a262b6dac5b693a1c))
+
+
+### Bug Fixes
+
+* **review:** give the fix call the pull request's title and body ([#110](https://github.com/zgeoff/noslop/issues/110)) ([7d6bfde](https://github.com/zgeoff/noslop/commit/7d6bfdeaece8972cc65ecd757b890294126a5734))
+* **static-stage:** ask for hostile inputs only on a changed check body ([#106](https://github.com/zgeoff/noslop/issues/106)) ([4bc5221](https://github.com/zgeoff/noslop/commit/4bc522128c8c406edc54477c471f339e1a6bf9bf))
+* **static-stage:** count only claimed edits to a test file at the head ([#103](https://github.com/zgeoff/noslop/issues/103)) ([4823781](https://github.com/zgeoff/noslop/commit/48237813d2bb69cc858ce454ef8996001feb92ee))
+
 ## [0.4.14](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.13...@noslop/cli@0.4.14) (2026-10-21)
 
 ### Features
