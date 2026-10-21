@@ -43,7 +43,10 @@ export interface FixChecksInput {
 
   // the merge base of the pull request, where its net diff starts
   mergeBase: string;
+
+  // the pull request's title and body now, which the static stage and each fix call read
   title: string;
+  body: string;
   fixes: readonly AnsweredFix[];
   maxFileChars: number;
   adapter: ReviewAdapter;
@@ -80,6 +83,7 @@ export async function runFixChecks(input: FixChecksInput): Promise<FixChecksRun>
         mergeBase: input.mergeBase,
         head: input.head,
         title: input.title,
+        body: input.body,
       })
     : [];
 
@@ -218,6 +222,8 @@ async function runFixCheck(input: FixChecksInput, target: FixTarget): Promise<Fi
     isTraced: code.isTraced,
     diff,
     isWholeDiff,
+    pullRequestTitle: input.title,
+    body: input.body,
   });
 
   try {

@@ -1993,7 +1993,7 @@ test('it judges a fixed answer whose finding the review no longer reports with a
   ]);
 
   const stub = buildStubAdapter({
-    light: [{ findings: { correctness: [], 'naming-shape-and-comments': [], tests: [] } }],
+    light: [{ findings: { correctness: [] } }],
     'fix-1111111111111111': [{ fixed: true, reason: 'The separator is a colon now.' }],
   });
 
@@ -2041,6 +2041,75 @@ test('it judges a fixed answer whose finding the review no longer reports with a
   ]);
 
   expect(run.result.calls.map((call) => call.id)).toStrictEqual(['light', 'fix-1111111111111111']);
+});
+
+test("it gives the fix call the pull request's title and body as they stand now", async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
+    {
+      message: 'Add the separator',
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = "";\n' },
+    },
+    {
+      message: 'Reject an empty separator',
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = ":";\n' },
+    },
+  ]);
+
+  const stub = buildStubAdapter({
+    light: [{ findings: { correctness: [] } }],
+    'fix-1111111111111111': [{ fixed: true, reason: 'The body names the colon now.' }],
+  });
+
+  await Bun.write(join(ctx.directory, 'temp', '.keep'), '');
+
+  await runReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/scan',
+    base: repo.commits[1] ?? '',
+    head: repo.commits[2] ?? '',
+    config: BUILT_IN_DEFAULTS,
+    configHash: 'hash',
+    rules: null,
+    adapter: stub.adapter,
+    logger: ctx.logger,
+    tempDir: join(ctx.directory, 'temp'),
+    cacheDir: null,
+    title: 'Scan the header line',
+    body: 'Splits each header line on a colon.',
+    linkedIssue: null,
+    pullRequest: { owner: 'example', repo: 'scan', number: 4 },
+    isIncremental: true,
+    mergeBase: repo.commits[0] ?? '',
+    isPush: false,
+    pastEscapes: [],
+    fixes: {
+      answers: [
+        {
+          id: '1111111111111111',
+          title: 'Correct the separator the body names',
+          lens: 'intent',
+          path: 'src/scan.ts',
+          line: 2,
+          comment: 'The body says the scanner splits on a semicolon, but it splits on a colon.',
+          postedHead: repo.commits[1] ?? '',
+        },
+      ],
+      pullRequestBase: repo.commits[0] ?? '',
+    },
+  });
+
+  expect(stub.requests.map((request) => request.callID)).toStrictEqual([
+    'light',
+    'fix-1111111111111111',
+  ]);
+
+  expect(stub.requests[1]?.prompt).toEndWith(
+    "## The pull request's description now\n\nTitle: Scan the header line\n\nSplits each header line on a colon.",
+  );
 });
 
 test('it makes no fix call for a fixed answer whose finding the review reports again', async () => {

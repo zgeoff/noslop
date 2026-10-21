@@ -23,6 +23,7 @@ export interface FixesOnlyReviewInput {
   // the merge base of the pull request, where its net diff starts
   mergeBase: string;
   title: string;
+  body: string;
   configHash: string;
   fixes: readonly AnsweredFix[];
   maxFileChars: number;
@@ -52,6 +53,7 @@ export async function runFixesOnlyReview(input: FixesOnlyReviewInput): Promise<R
     head: input.head,
     mergeBase: input.mergeBase,
     title: input.title,
+    body: input.body,
     fixes: input.fixes,
     maxFileChars: input.maxFileChars,
     adapter: input.adapter,

@@ -190,7 +190,9 @@ smaller source file that only the base branch changes is left out of the review 
 A re-review leaves the pull request's description unjudged. Its title and body describe the whole
 pull request, while its diff holds only the new commits, so a file the body names can look missing
 from that diff. The prompt of each re-review call therefore asks the lenses to report no mismatch
-between the description and the diff, and a full review judges the description.
+between the description and the diff, and a full review judges the description. The
+[fix call](./fixes-only-run.md) of a `fixed` answer reads the description as it stands, so it can
+confirm the fix of a finding about the description.
 
 A `fixed <commit>` disposition counts once a re-review whose range holds that commit no longer
 reports the finding. The commit may change any file of the pull request's diff, because a fix such

@@ -109,6 +109,7 @@ export async function runReviewCommand(values: ReviewValues, ctx: CLIContext): P
         head: change.head,
         mergeBase: change.pullRequestBase,
         title: change.title,
+        body: change.body,
         configHash: loaded.hash,
         fixes: change.fixes,
         maxFileChars: loaded.config.thresholds.maxFileChars,
@@ -118,7 +119,6 @@ export async function runReviewCommand(values: ReviewValues, ctx: CLIContext): P
         resolution: { config: loaded.config, dismissedFindings: change.dismissedFindings },
         staticCheck: {
           config: loaded.config,
-          body: change.body,
           linkedIssue: issueText ?? change.linkedIssue,
           cacheDir: join(ctx.cacheDir, 'index'),
           ...(change.author === undefined ? {} : { author: change.author }),

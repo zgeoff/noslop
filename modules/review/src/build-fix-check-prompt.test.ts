@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test';
 import { buildFixCheckPrompt } from './build-fix-check-prompt';
 
-test("it asks whether the head still holds the defect from the finding, its code at the head and the pull request's diff alone", () => {
+test("it asks whether the pull request still holds the defect from the finding, its code at the head, the pull request's diff and its description alone", () => {
   expect(
     buildFixCheckPrompt({
       title: 'Reject an empty separator',
@@ -12,13 +12,15 @@ test("it asks whether the head still holds the defect from the finding, its code
       isTraced: true,
       diff: '-export const separator = "";\n+export const separator = ":";',
       isWholeDiff: true,
+      pullRequestTitle: 'Scan the header line',
+      body: 'Splits each header line on a colon.',
     }),
   ).toMatchInlineSnapshot(`
     "A reviewer posted the finding below on a pull request, and the author answered that the pull request fixes it.
-    Judge from the finding, its code at the pull request's head and the pull request's diff whether the head still holds the defect. Read no files.
+    Judge from the finding, its code at the pull request's head, the pull request's diff and its description now whether the pull request still holds the defect. Read no files.
 
-    1. Answer \`fixed: true\` only when the code at the head no longer holds the defect the finding describes. The fix may be in another file, such as a new test that the finding asks for.
-    2. Answer \`fixed: false\` when the head still holds the defect, or the diff moves the defect elsewhere.
+    1. Answer \`fixed: true\` only when the code at the head and the description no longer hold the defect the finding describes. The fix may be in another file, such as a new test that the finding asks for. The fix of a finding about the title or the body is an edit to the description, which the diff never shows.
+    2. Answer \`fixed: false\` when the code or the description still holds the defect, or the diff moves the defect elsewhere.
     3. The pull request may move the code or the test of a fix to another file and reshape it there. Count code or a test that the diff deletes as moved when the diff adds code or a test in another file that does what the deleted lines did, in other lines or not.
     4. Give the reason in one line.
     5. Report no other defect, however the code or the diff looks.
@@ -40,7 +42,13 @@ test("it asks whether the head still holds the defect from the finding, its code
     \`\`\`diff
     -export const separator = "";
     +export const separator = ":";
-    \`\`\`"
+    \`\`\`
+
+    ## The pull request's description now
+
+    Title: Scan the header line
+
+    Splits each header line on a colon."
   `);
 });
 
@@ -54,6 +62,8 @@ test('it names the whole file when the trace failed', () => {
     isTraced: false,
     diff: '+export const separator = ":";',
     isWholeDiff: true,
+    pullRequestTitle: 'Scan the header line',
+    body: '',
   });
 
   expect(prompt).toInclude(
@@ -71,10 +81,16 @@ test('it names an empty diff and absent code, so the call reads no blank block',
     isTraced: false,
     diff: '',
     isWholeDiff: true,
+    pullRequestTitle: 'Scan the header line',
+    body: '',
   });
 
   expect(prompt).toInclude('(the file is empty or absent at the head)');
   expect(prompt).toInclude('(the pull request changes no file)');
+
+  expect(prompt).toEndWith(
+    "## The pull request's description now\n\nTitle: Scan the header line\n\nThe body is empty.",
+  );
 });
 
 test("it names the finding file's diff alone when the whole diff is too large to read", () => {
@@ -87,6 +103,8 @@ test("it names the finding file's diff alone when the whole diff is too large to
     isTraced: true,
     diff: '',
     isWholeDiff: false,
+    pullRequestTitle: 'Scan the header line',
+    body: '',
   });
 
   expect(prompt).toInclude(

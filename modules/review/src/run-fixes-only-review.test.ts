@@ -56,7 +56,8 @@ test('it lists the verdict of each fix check and raises no finding', async () =>
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
-    staticCheck: { config: BUILT_IN_DEFAULTS, body: '', linkedIssue: null, cacheDir: null },
+    body: '',
+    staticCheck: { config: BUILT_IN_DEFAULTS, linkedIssue: null, cacheDir: null },
   });
 
   expect(result.fixChecks).toStrictEqual([
@@ -66,6 +67,112 @@ test('it lists the verdict of each fix check and raises no finding', async () =>
   expect(result.findings).toStrictEqual([]);
   expect(result.lenses).toStrictEqual([]);
   expect(result.failedCalls).toStrictEqual([]);
+});
+
+test('it confirms the fix of a finding about the body from the edited body, with no new commit', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
+    {
+      message: 'Split the header line',
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = ":";\n' },
+    },
+  ]);
+
+  const stub = buildStubAdapter({
+    'fix-1111111111111111': [{ fixed: true, reason: 'The body names the colon now.' }],
+  });
+
+  const result = await runFixesOnlyReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/app',
+    pullRequest: { owner: 'example', repo: 'app', number: 9 },
+    base: repo.commits[1] ?? '',
+    head: repo.commits[1] ?? '',
+    mergeBase: repo.commits[0] ?? '',
+    title: 'Scan the header line',
+    body: 'Splits each header line on a colon.',
+    configHash: 'hash',
+    fixes: [
+      {
+        id: '1111111111111111',
+        title: 'Correct the separator the body names',
+        lens: 'intent',
+        path: 'src/scan.ts',
+        line: 2,
+        comment: 'The body says the scanner splits on a semicolon, but it splits on a colon.',
+        postedHead: repo.commits[1] ?? '',
+      },
+    ],
+    maxFileChars: 10_000,
+    adapter: stub.adapter,
+    tempDir: ctx.directory,
+    logger: ctx.logger,
+    staticCheck: { config: BUILT_IN_DEFAULTS, linkedIssue: null, cacheDir: null },
+  });
+
+  expect(result.fixChecks).toStrictEqual([
+    { findingID: '1111111111111111', fixed: true, reason: 'The body names the colon now.' },
+  ]);
+
+  expect(stub.requests[0]?.prompt).toEndWith(
+    "## The pull request's description now\n\nTitle: Scan the header line\n\nSplits each header line on a colon.",
+  );
+});
+
+test('it keeps a finding about the body not fixed while the body still holds the claim', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
+    {
+      message: 'Split the header line',
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = ":";\n' },
+    },
+  ]);
+
+  const stub = buildStubAdapter({
+    'fix-1111111111111111': [{ fixed: false, reason: 'The body still names a semicolon.' }],
+  });
+
+  const result = await runFixesOnlyReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/app',
+    pullRequest: { owner: 'example', repo: 'app', number: 9 },
+    base: repo.commits[1] ?? '',
+    head: repo.commits[1] ?? '',
+    mergeBase: repo.commits[0] ?? '',
+    title: 'Scan the header line',
+    body: 'Splits each header line on a semicolon.',
+    configHash: 'hash',
+    fixes: [
+      {
+        id: '1111111111111111',
+        title: 'Correct the separator the body names',
+        lens: 'intent',
+        path: 'src/scan.ts',
+        line: 2,
+        comment: 'The body says the scanner splits on a semicolon, but it splits on a colon.',
+        postedHead: repo.commits[1] ?? '',
+      },
+    ],
+    maxFileChars: 10_000,
+    adapter: stub.adapter,
+    tempDir: ctx.directory,
+    logger: ctx.logger,
+    staticCheck: { config: BUILT_IN_DEFAULTS, linkedIssue: null, cacheDir: null },
+  });
+
+  expect(result.fixChecks).toStrictEqual([
+    { findingID: '1111111111111111', fixed: false, reason: 'The body still names a semicolon.' },
+  ]);
+
+  expect(stub.requests[0]?.prompt).toEndWith(
+    "## The pull request's description now\n\nTitle: Scan the header line\n\nSplits each header line on a semicolon.",
+  );
 });
 
 test("it gives the call the whole numbered file at the head and the pull request's net diff when the finding names no head", async () => {
@@ -115,7 +222,8 @@ test("it gives the call the whole numbered file at the head and the pull request
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
-    staticCheck: { config: BUILT_IN_DEFAULTS, body: '', linkedIssue: null, cacheDir: null },
+    body: '',
+    staticCheck: { config: BUILT_IN_DEFAULTS, linkedIssue: null, cacheDir: null },
   });
 
   expect(stub.requests[0]?.prompt).toInclude(
@@ -184,7 +292,8 @@ test('it judges a fixed answer whose commit a rebase left off the branch at the 
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
-    staticCheck: { config: BUILT_IN_DEFAULTS, body: '', linkedIssue: null, cacheDir: null },
+    body: '',
+    staticCheck: { config: BUILT_IN_DEFAULTS, linkedIssue: null, cacheDir: null },
   });
 
   expect(result.fixChecks).toStrictEqual([
@@ -256,7 +365,8 @@ test('it judges a fixed answer whose commit a squash of the layer below replaced
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
-    staticCheck: { config: BUILT_IN_DEFAULTS, body: '', linkedIssue: null, cacheDir: null },
+    body: '',
+    staticCheck: { config: BUILT_IN_DEFAULTS, linkedIssue: null, cacheDir: null },
   });
 
   expect(result.fixChecks).toStrictEqual([
@@ -308,7 +418,8 @@ test('it judges a bare fixed answer, which names no commit, at the head', async 
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
-    staticCheck: { config: BUILT_IN_DEFAULTS, body: '', linkedIssue: null, cacheDir: null },
+    body: '',
+    staticCheck: { config: BUILT_IN_DEFAULTS, linkedIssue: null, cacheDir: null },
   });
 
   expect(result.fixChecks).toStrictEqual([
@@ -365,7 +476,8 @@ test("it traces the finding's line past the lines a later commit adds above it",
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
-    staticCheck: { config: BUILT_IN_DEFAULTS, body: '', linkedIssue: null, cacheDir: null },
+    body: '',
+    staticCheck: { config: BUILT_IN_DEFAULTS, linkedIssue: null, cacheDir: null },
   });
 
   expect(stub.requests[0]?.prompt).toInclude(
@@ -419,7 +531,8 @@ test('it gives the call the whole file at the head when a later commit rewrote t
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
-    staticCheck: { config: BUILT_IN_DEFAULTS, body: '', linkedIssue: null, cacheDir: null },
+    body: '',
+    staticCheck: { config: BUILT_IN_DEFAULTS, linkedIssue: null, cacheDir: null },
   });
 
   expect(stub.requests[0]?.prompt).toInclude(
@@ -467,7 +580,8 @@ test('it gives the call the whole file at the head when the repo holds no commit
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
-    staticCheck: { config: BUILT_IN_DEFAULTS, body: '', linkedIssue: null, cacheDir: null },
+    body: '',
+    staticCheck: { config: BUILT_IN_DEFAULTS, linkedIssue: null, cacheDir: null },
   });
 
   expect(stub.requests[0]?.prompt).toInclude(
@@ -515,7 +629,8 @@ test("it judges a fix whose commit only adds a test in another file from that te
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
-    staticCheck: { config: BUILT_IN_DEFAULTS, body: '', linkedIssue: null, cacheDir: null },
+    body: '',
+    staticCheck: { config: BUILT_IN_DEFAULTS, linkedIssue: null, cacheDir: null },
   });
 
   expect(stub.requests[0]?.prompt).toInclude('+test("it splits on a colon", () => {});');
@@ -580,7 +695,8 @@ test('it gives the call the net diff where a later commit moved the code and the
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
-    staticCheck: { config: BUILT_IN_DEFAULTS, body: '', linkedIssue: null, cacheDir: null },
+    body: '',
+    staticCheck: { config: BUILT_IN_DEFAULTS, linkedIssue: null, cacheDir: null },
   });
 
   expect(stub.requests[0]?.prompt).toInclude(
@@ -639,7 +755,8 @@ test('it asks nothing about a fix whose file at the head passes the file limit, 
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
-    staticCheck: { config: BUILT_IN_DEFAULTS, body: '', linkedIssue: null, cacheDir: null },
+    body: '',
+    staticCheck: { config: BUILT_IN_DEFAULTS, linkedIssue: null, cacheDir: null },
   });
 
   expect(stub.requests).toStrictEqual([]);
@@ -692,7 +809,8 @@ test('it asks nothing about a fix whose diff passes the file limit and names the
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
-    staticCheck: { config: BUILT_IN_DEFAULTS, body: '', linkedIssue: null, cacheDir: null },
+    body: '',
+    staticCheck: { config: BUILT_IN_DEFAULTS, linkedIssue: null, cacheDir: null },
   });
 
   expect(stub.requests).toStrictEqual([]);
@@ -746,7 +864,8 @@ test("it reads the finding file's diff alone by its literal path, though the pat
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
-    staticCheck: { config: BUILT_IN_DEFAULTS, body: '', linkedIssue: null, cacheDir: null },
+    body: '',
+    staticCheck: { config: BUILT_IN_DEFAULTS, linkedIssue: null, cacheDir: null },
   });
 
   expect(result.fixChecks).toStrictEqual([
@@ -802,7 +921,8 @@ test("it gives the call the finding file's diff alone when the whole diff passes
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
-    staticCheck: { config: BUILT_IN_DEFAULTS, body: '', linkedIssue: null, cacheDir: null },
+    body: '',
+    staticCheck: { config: BUILT_IN_DEFAULTS, linkedIssue: null, cacheDir: null },
   });
 
   const prompt = stub.requests[0]?.prompt ?? '';
@@ -855,7 +975,8 @@ test('it gives the call the diff of a fix in a file whose name git quotes', asyn
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
-    staticCheck: { config: BUILT_IN_DEFAULTS, body: '', linkedIssue: null, cacheDir: null },
+    body: '',
+    staticCheck: { config: BUILT_IN_DEFAULTS, linkedIssue: null, cacheDir: null },
   });
 
   expect(stub.requests[0]?.prompt).toInclude('+test("it splits on a colon", () => {});');
@@ -908,7 +1029,8 @@ test("it traces a finding in a file whose name is a glob through that one file's
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
-    staticCheck: { config: BUILT_IN_DEFAULTS, body: '', linkedIssue: null, cacheDir: null },
+    body: '',
+    staticCheck: { config: BUILT_IN_DEFAULTS, linkedIssue: null, cacheDir: null },
   });
 
   expect(stub.requests[0]?.prompt).toInclude(
@@ -954,7 +1076,8 @@ test('it lists no verdict and records the failed call when the call fails', asyn
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
-    staticCheck: { config: BUILT_IN_DEFAULTS, body: '', linkedIssue: null, cacheDir: null },
+    body: '',
+    staticCheck: { config: BUILT_IN_DEFAULTS, linkedIssue: null, cacheDir: null },
   });
 
   expect(result.fixChecks).toStrictEqual([]);
@@ -1017,7 +1140,8 @@ test('it confirms the fix of a static finding that the static stage no longer re
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
-    staticCheck: { config: BUILT_IN_DEFAULTS, body: '', linkedIssue: null, cacheDir: null },
+    body: '',
+    staticCheck: { config: BUILT_IN_DEFAULTS, linkedIssue: null, cacheDir: null },
   });
 
   expect(stub.requests).toStrictEqual([]);
@@ -1083,7 +1207,8 @@ test('it rejects the fix of a static finding that the static stage still reports
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
-    staticCheck: { config: BUILT_IN_DEFAULTS, body: '', linkedIssue: null, cacheDir: null },
+    body: '',
+    staticCheck: { config: BUILT_IN_DEFAULTS, linkedIssue: null, cacheDir: null },
   });
 
   expect(stub.requests).toStrictEqual([]);
@@ -1155,7 +1280,8 @@ test('it judges 2 static findings with one title by their places when a fix remo
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
-    staticCheck: { config: BUILT_IN_DEFAULTS, body: '', linkedIssue: null, cacheDir: null },
+    body: '',
+    staticCheck: { config: BUILT_IN_DEFAULTS, linkedIssue: null, cacheDir: null },
   });
 
   expect(result.fixChecks).toStrictEqual([
@@ -1221,7 +1347,8 @@ test('it rejects the fix of a static finding whose fix rewrites the anchored lin
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
-    staticCheck: { config: BUILT_IN_DEFAULTS, body: '', linkedIssue: null, cacheDir: null },
+    body: '',
+    staticCheck: { config: BUILT_IN_DEFAULTS, linkedIssue: null, cacheDir: null },
   });
 
   expect(result.fixChecks).toStrictEqual([
@@ -1282,7 +1409,8 @@ test('it confirms the fix of a static finding whose fix deletes the test while a
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
-    staticCheck: { config: BUILT_IN_DEFAULTS, body: '', linkedIssue: null, cacheDir: null },
+    body: '',
+    staticCheck: { config: BUILT_IN_DEFAULTS, linkedIssue: null, cacheDir: null },
   });
 
   expect(result.fixChecks).toStrictEqual([
@@ -1323,7 +1451,8 @@ test('it runs with no fixed answer to check over a commit that no lens read, and
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
-    staticCheck: { config: BUILT_IN_DEFAULTS, body: '', linkedIssue: null, cacheDir: null },
+    body: '',
+    staticCheck: { config: BUILT_IN_DEFAULTS, linkedIssue: null, cacheDir: null },
   });
 
   expect(stub.requests).toStrictEqual([]);
@@ -1365,7 +1494,8 @@ test('it runs with no fixed answer to check and no commit since the last review'
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
-    staticCheck: { config: BUILT_IN_DEFAULTS, body: '', linkedIssue: null, cacheDir: null },
+    body: '',
+    staticCheck: { config: BUILT_IN_DEFAULTS, linkedIssue: null, cacheDir: null },
   });
 
   expect(stub.requests).toStrictEqual([]);
@@ -1414,7 +1544,8 @@ test('it runs the fix call of a fixed answer over a merge of a branch the base d
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
-    staticCheck: { config: BUILT_IN_DEFAULTS, body: '', linkedIssue: null, cacheDir: null },
+    body: '',
+    staticCheck: { config: BUILT_IN_DEFAULTS, linkedIssue: null, cacheDir: null },
   });
 
   expect(stub.requests.map((request) => request.callID)).toStrictEqual(['fix-1111111111111111']);
@@ -1466,7 +1597,8 @@ test('it runs the fix call of a fixed answer when a merge of the base came after
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
-    staticCheck: { config: BUILT_IN_DEFAULTS, body: '', linkedIssue: null, cacheDir: null },
+    body: '',
+    staticCheck: { config: BUILT_IN_DEFAULTS, linkedIssue: null, cacheDir: null },
   });
 
   expect(stub.requests.map((request) => request.callID)).toStrictEqual(['fix-1111111111111111']);
@@ -1531,7 +1663,8 @@ test('it records a resolution past the call limit as a failed call and lists non
       },
       dismissedFindings: [],
     },
-    staticCheck: { config: BUILT_IN_DEFAULTS, body: '', linkedIssue: null, cacheDir: null },
+    body: '',
+    staticCheck: { config: BUILT_IN_DEFAULTS, linkedIssue: null, cacheDir: null },
   });
 
   expect(stub.requests).toStrictEqual([]);
