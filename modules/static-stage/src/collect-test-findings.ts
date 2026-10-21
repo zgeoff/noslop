@@ -183,8 +183,6 @@ function collectNamedMissingTests(
   files: readonly AnalyzedFile[],
   claims: NamedTestClaims,
 ): ModelFinding[] {
-  // a body that names a test the pull request moves or deletes describes that move, so both paths of
-  // a rename and a deleted path count
   const changed = new Set([
     ...files.flatMap((entry) =>
       entry.isContext ? [] : [entry.file.path, entry.file.oldPath ?? entry.file.path],
