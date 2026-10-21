@@ -243,6 +243,13 @@ posting head. A commit that GitHub no longer serves, a file GitHub gives no patc
 with none or several commits leaves the fix unconfirmed. The matched commit then stands in for the
 named sha under every rule of this section.
 
+A review range that the summary marker keeps from before a clean rebase holds the commits as they
+were then, so the check finds the fix among them by the same patch match in the other direction. The
+range holds a fix when it holds the branch commit, the commit the answer names, or the one commit of
+its own that the branch no longer holds and whose patch matches the branch commit's patch. A `fixed`
+reply after the rebase therefore counts the review that read the fix before it, whichever of the two
+shas the reply names.
+
 The re-check is the second review of a pull request. From the third review on, the reporter sends
 each new finding in code the change did not write to a follow-up issue. A security finding, and any
 finding in code the change wrote, goes on the pull request at every review.

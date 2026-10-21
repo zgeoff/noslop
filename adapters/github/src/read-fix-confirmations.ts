@@ -3,6 +3,8 @@ import { buildFixFileEvidence } from '@noslop/contract';
 import { buildFixConfirmation } from './build-fix-confirmation';
 import type { GitHubClient } from './create-github-connection';
 import type { FixConfirmation } from './format-summary-comment';
+import type { CommitChange } from './make-commit-change-reader';
+import { makeCommitChangeReader } from './make-commit-change-reader';
 import type { FixState } from './pick-next-fix-state';
 import type { CommitFiles } from './read-commit-files';
 import { readCommitFiles } from './read-commit-files';
@@ -74,6 +76,8 @@ export async function readFixConfirmations(
     return commits;
   };
 
+  const readChange = makeCommitChangeReader(client, pr);
+
   const fileReads = new Map<string, Promise<CommitFiles>>();
 
   const readFiles = (commit: string): Promise<CommitFiles> => {
@@ -101,15 +105,27 @@ export async function readFixConfirmations(
     // rewrite passed that check on the commits before the rebase
     const isAfterChecked = posted === undefined || rewrite !== undefined;
     const after = isAfterChecked ? range : await readSincePosted(posted);
-    const isInRange = match !== null && range.includes(match) && after.includes(match);
+
+    const rangeFix =
+      match === null
+        ? null
+        : await readRangeFix({
+            range,
+            match,
+            named: commit,
+            fixCommits: input.fixCommits,
+            readChange,
+          });
+
+    const isInRange = rangeFix !== null && after.includes(rangeFix);
     const skipped = collectLensSkipped(notReviewed, review.notReviewedByLens, thread.marker.lens);
     const isUnchecked = review.checked !== undefined && !review.checked.includes(thread.marker.id);
     const isFileSkipped = isUnchecked || skipped.has(thread.marker.path);
 
     const read =
-      isInRange && match !== null && !isFileSkipped && skipped.size > 0
+      isInRange && rangeFix !== null && !isFileSkipped && skipped.size > 0
         ? await readFixCoverage(client, pr, {
-            commit: match,
+            commit: rangeFix,
             head: review.head,
             skipped,
             findingPath: thread.marker.path,
@@ -158,6 +174,51 @@ function findOneCommit(fixCommits: FixCommits, sha: string): string | null {
   }
 
   const matches = fixCommits.commits.filter((commit) => commit.startsWith(sha));
+
+  return matches.length === 1 ? (matches[0] ?? null) : null;
+}
+
+interface RangeFixInput {
+  range: readonly string[];
+
+  // the branch commit that holds the fix, and the sha the answer names
+  match: string;
+  named: string;
+  fixCommits: FixCommits;
+  readChange: (ref: string) => Promise<CommitChange | null>;
+}
+
+// the commit of a review's range that is the fix: the branch commit itself, the commit the answer
+// names, or, for a range a rebase left off the branch, the one commit off the branch with the same
+// patch as the fix, so a review that read the fix before the rebase still counts it
+async function readRangeFix(input: RangeFixInput): Promise<string | null> {
+  if (input.range.includes(input.match)) {
+    return input.match;
+  }
+
+  const named = input.range.filter((commit) => commit.startsWith(input.named));
+
+  if (named.length === 1) {
+    return named[0] ?? null;
+  }
+
+  const candidates = input.range.filter((commit) => !input.fixCommits.commits.includes(commit));
+
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  const fix = await input.readChange(input.match);
+
+  if (fix === null || fix.fingerprint === null) {
+    return null;
+  }
+
+  const changes = await Promise.all(candidates.map((commit) => input.readChange(commit)));
+
+  const matches = changes.flatMap((change) =>
+    change !== null && change.fingerprint === fix.fingerprint ? [change.sha] : [],
+  );
 
   return matches.length === 1 ? (matches[0] ?? null) : null;
 }
