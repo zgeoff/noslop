@@ -425,7 +425,7 @@ async function resolvePullRequestChange(
 
   const unchecked =
     values.fixesOnly && !isHeld
-      ? await readUncheckedRebase(ctx, {
+      ? await readUncheckedRebase(ctx.runner, {
           connection,
           pullRequest,
           repoDir,

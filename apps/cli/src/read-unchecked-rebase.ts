@@ -2,7 +2,7 @@ import type { PullRequestRef } from '@noslop/contract';
 import type { GitHubConnection, NetChangeKey } from '@noslop/github';
 import { collectChangedFiles, readNetChangeKey } from '@noslop/github';
 import type { AnsweredFix } from '@noslop/review';
-import type { CLIContext } from './cli-context';
+import type { Runner } from '@noslop/runner';
 
 export interface UncheckedRebaseInput {
   connection: GitHubConnection;
@@ -22,7 +22,7 @@ export interface UncheckedRebaseInput {
 // patch moved since the reviews must be one a fix commit the run judges changes, because the fix
 // calls read only the fixes
 export async function readUncheckedRebase(
-  ctx: CLIContext,
+  runner: Runner,
   input: UncheckedRebaseInput,
 ): Promise<string | null> {
   if (input.stored === undefined || 'head' in input.stored) {
@@ -37,7 +37,7 @@ export async function readUncheckedRebase(
 
   const changed = collectChangedFiles(input.stored.files, current.files);
 
-  const fixed = await readFixFiles(ctx, input);
+  const fixed = await readFixFiles(runner, input);
 
   const unchecked = changed.filter((path) => !fixed.has(path));
 
@@ -46,9 +46,10 @@ export async function readUncheckedRebase(
     : `the patch of ${unchecked.join(', ')} changed since the review, and no fix commit changes it`;
 }
 
-// the files each fix commit on the branch changes
-async function readFixFiles(ctx: CLIContext, input: UncheckedRebaseInput): Promise<Set<string>> {
-  const listed = await ctx.runner.run(['git', 'rev-list', `${input.mergeBase}..${input.head}`], {
+// the files each fix commit on the branch changes, a merge's against its first parent, as the fix
+// call reads a merge
+async function readFixFiles(runner: Runner, input: UncheckedRebaseInput): Promise<Set<string>> {
+  const listed = await runner.run(['git', 'rev-list', `${input.mergeBase}..${input.head}`], {
     cwd: input.repoDir,
   });
 
@@ -62,9 +63,21 @@ async function readFixFiles(ctx: CLIContext, input: UncheckedRebaseInput): Promi
 
   const files = await Promise.all(
     named.map((commit) =>
-      ctx.runner.run(['git', 'diff-tree', '--no-commit-id', '--name-only', '-r', '-z', commit], {
-        cwd: input.repoDir,
-      }),
+      runner.run(
+        [
+          'git',
+          'diff-tree',
+          '--diff-merges=first-parent',
+          '--no-commit-id',
+          '--name-only',
+          '-r',
+          '-z',
+          commit,
+        ],
+        {
+          cwd: input.repoDir,
+        },
+      ),
     ),
   );
 
