@@ -6,10 +6,16 @@ export interface ParsedDisposition {
   value: string;
 }
 
-// the first line of a reply as a typed disposition: the kind, a space, then its value; any other first
-// line, free text included, is no disposition
+// the first line of a reply as a typed disposition: the kind, a space, then its value; a bare `fixed`
+// has no value, and a sha after it is only a hint; any other first line, free text included, is no
+// disposition
 export function parseDisposition(reply: string): ParsedDisposition | null {
   const firstLine = reply.trim().split('\n', 1)[0]?.trim() ?? '';
+
+  if (firstLine === 'fixed') {
+    return { kind: 'fixed', value: '' };
+  }
+
   const match = /^(?<kind>\S+)\s+(?<value>.+)$/u.exec(firstLine);
   const kind = dispositionKindSchema.safeParse(match?.groups?.['kind']);
   const value = match?.groups?.['value']?.trim() ?? '';

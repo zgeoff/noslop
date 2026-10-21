@@ -18,11 +18,11 @@ import { formatSummaryComment } from './format-summary-comment';
 import { parseMarker } from './parse-marker';
 import { planReviewPost } from './plan-review-post';
 import { readAllPages } from './read-all-pages';
-import { readFixCommits } from './read-fix-commits';
 import type { ReviewedRange } from './read-fix-confirmations';
 import { readFixConfirmations } from './read-fix-confirmations';
 import { readHeldFixes } from './read-held-fixes';
 import { readNetChangeKey } from './read-net-change-key';
+import { readPullRequestFiles } from './read-pull-request-files';
 import type { FindingThread, PullRequestState } from './read-pull-request-state';
 import { readPullRequestState } from './read-pull-request-state';
 import { readThreadDispositions } from './read-thread-dispositions';
@@ -412,12 +412,9 @@ async function readConfirmations(
 ): Promise<FixConfirmation[]> {
   const dispositions = await readThreadDispositions(client, pr, before.threads);
 
-  const fixCommits = await readFixCommits(client, pr, {
-    commits: before.commits,
-    dispositions,
-    head: review.head,
-    threads: before.threads,
-  });
+  const pullRequestFiles = dispositions.some((item) => item.kind === 'fixed')
+    ? await readPullRequestFiles(client, pr)
+    : [];
 
   const previous = before.summary?.marker ?? null;
 
@@ -428,7 +425,8 @@ async function readConfirmations(
       : await readHeldFixes(client, pr, {
           threads: before.threads,
           dispositions,
-          fixCommits,
+          commits: before.commits,
+          pullRequestFiles,
           marker: previous,
         });
 
@@ -437,7 +435,8 @@ async function readConfirmations(
   return readFixConfirmations(client, pr, {
     threads: before.threads,
     dispositions,
-    fixCommits,
+    commits: before.commits,
+    pullRequestFiles,
     review,
     held,
   });

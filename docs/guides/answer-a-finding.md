@@ -36,17 +36,17 @@ form is no disposition. noslop answers it once with the accepted forms, and the 
 
 ## The four kinds
 
-| Kind            | Value        | Means                                  | Valid when                                              |
-| --------------- | ------------ | -------------------------------------- | ------------------------------------------------------- |
-| `fixed`         | a commit sha | a commit on the branch fixes it        | a re-review that read the commit no longer finds it     |
-| `not-a-defect`  | a reason     | the finding is wrong                   | always                                                  |
-| `deferred`      | an issue     | real, but it waits for a tracked issue | the change did not write the code, and the issue exists |
-| `accepted-risk` | a reason     | real, and you accept it                | the author has admin permission on the repo             |
+| Kind            | Value          | Means                                  | Valid when                                              |
+| --------------- | -------------- | -------------------------------------- | ------------------------------------------------------- |
+| `fixed`         | a sha, or none | the head no longer holds the defect    | a fix call or a re-review confirms it                   |
+| `not-a-defect`  | a reason       | the finding is wrong                   | always                                                  |
+| `deferred`      | an issue       | real, but it waits for a tracked issue | the change did not write the code, and the issue exists |
+| `accepted-risk` | a reason       | real, and you accept it                | the author has admin permission on the repo             |
 
-The sha of a `fixed` reply is 7 to 40 hex characters, and it must name exactly one commit on the
-branch. After a rebase, the sha can name the commit before the rebase: the App counts the branch
-commit that makes the same change, so you need not reply again. The issue of a `deferred` reply is
-`#<number>` in the same repo, `<owner>/<repo>#<number>`, or an issue URL.
+A `fixed` reply may end at the word, or name a sha of 7 to 40 hex characters as a hint. A fixes-only
+run judges the finding at the head whatever the sha names, so after a rebase or a squash you need
+not reply again. The issue of a `deferred` reply is `#<number>` in the same repo,
+`<owner>/<repo>#<number>`, or an issue URL.
 
 ## Which kinds a finding can take
 

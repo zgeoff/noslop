@@ -35,6 +35,31 @@ test('it strikes the heading, names the fix commit and collapses the posted comm
   `);
 });
 
+test('it names a fix that a bare fixed answer gives as fixed at the head', () => {
+  expect(
+    formatFixedFindingComment(
+      [
+        '**P2 · Correctness** · Return the total of every item',
+        '',
+        'The loop skips the first item.',
+        '<!-- noslop:finding {"id":"0123456789abcdef"} -->',
+      ].join('\n'),
+      {
+        id: '0123456789abcdef',
+        title: 'Return the total of every item',
+        path: 'src/a.ts',
+        lens: 'correctness',
+        severity: 'P2',
+        riskClass: null,
+        writtenByChange: true,
+      },
+      '',
+    ),
+  ).toStartWith(
+    '~~**P2 · Correctness** · Return the total of every item~~\n✅ Fixed at the head\n',
+  );
+});
+
 test('it collapses the first line of a finding outside the diff with the rest of the comment', () => {
   expect(
     formatFixedFindingComment(

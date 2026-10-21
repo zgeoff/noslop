@@ -9,7 +9,6 @@ import type { FixState } from './pick-next-fix-state';
 import { pickRangeFix } from './pick-range-fix';
 import type { CommitFiles } from './read-commit-files';
 import { readCommitFiles } from './read-commit-files';
-import type { FixCommits } from './read-fix-commits';
 import { readFixCoverage } from './read-fix-coverage';
 import type { FindingThread } from './read-pull-request-state';
 import { readRangeCommits } from './read-range-commits';
@@ -41,7 +40,13 @@ export interface ReviewedRange {
 export interface FixConfirmationsInput {
   threads: readonly FindingThread[];
   dispositions: readonly Disposition[];
-  fixCommits: FixCommits;
+
+  // the pull request's own commits, as GitHub lists them
+  commits: readonly string[];
+
+  // each path the pull request's diff changes, with each rename's earlier path, which a fix commit
+  // must reach; null when GitHub lists only part of the diff
+  pullRequestFiles: readonly string[] | null;
   review: ReviewedRange;
 
   // where each `<finding id>:<commit>` answer stands after the earlier reviews; an answer it lacks is
@@ -97,15 +102,12 @@ export async function readFixConfirmations(
     }
 
     const commit = disposition.value;
-    const rewrite = input.fixCommits.rewritten.get(`${thread.marker.id}:${commit}`);
-    const match = rewrite === undefined ? findOneCommit(input.fixCommits, commit) : rewrite.commit;
+    const match = findOneCommit(input.commits, commit);
     const posted = thread.marker.head;
 
     // a full review covers the whole branch, so only a commit after the head that posted the finding
-    // is a fix of it; a marker without that head leaves the review's range alone to decide, and a
-    // rewrite passed that check on the commits before the rebase
-    const isAfterChecked = posted === undefined || rewrite !== undefined;
-    const after = isAfterChecked ? range : await readSincePosted(posted);
+    // is a fix of it; a marker without that head leaves the review's range alone to decide
+    const after = posted === undefined ? range : await readSincePosted(posted);
 
     const rangeFix =
       match === null
@@ -114,13 +116,14 @@ export async function readFixConfirmations(
             range,
             match,
             named: commit,
-            fixCommits: input.fixCommits,
+            commits: input.commits,
             readChange,
           });
 
     const isInRange = rangeFix !== null && after.includes(rangeFix);
     const skipped = collectLensSkipped(notReviewed, review.notReviewedByLens, thread.marker.lens);
-    const isUnchecked = review.checked !== undefined && !review.checked.includes(thread.marker.id);
+    const isJudged = review.checked?.includes(thread.marker.id) === true;
+    const isUnchecked = review.checked !== undefined && !isJudged;
     const isFileSkipped = isUnchecked || skipped.has(thread.marker.path);
 
     const read =
@@ -138,11 +141,11 @@ export async function readFixConfirmations(
     const files =
       commitFiles === null
         ? { evidence: null, failure: null }
-        : buildFixFiles(commitFiles, input.fixCommits, thread.marker.path);
+        : buildFixFiles(commitFiles, input.pullRequestFiles, thread.marker.path);
 
     const coverage = {
       ...read,
-      failure: read.failure ?? rewrite?.failure ?? files.failure,
+      failure: read.failure ?? files.failure,
     };
 
     return [
@@ -151,7 +154,9 @@ export async function readFixConfirmations(
         title: thread.marker.title,
         commit,
         match,
+        isNamed: commit !== '' && input.commits.some((sha) => sha.startsWith(commit)),
         isInRange,
+        isJudged,
         isFileSkipped,
         isPartial: review.isPartial === true,
         coverage,
@@ -167,14 +172,14 @@ export async function readFixConfirmations(
   return all.flat();
 }
 
-// the one branch commit a `fixed` sha names; a prefix that 2 commits share names neither, and so does
-// one that GitHub finds ambiguous
-function findOneCommit(fixCommits: FixCommits, sha: string): string | null {
-  if (fixCommits.ambiguous.includes(sha)) {
+// the one branch commit a `fixed` sha names; a prefix that 2 commits share names neither, and a bare
+// `fixed` names none
+function findOneCommit(commits: readonly string[], sha: string): string | null {
+  if (sha === '') {
     return null;
   }
 
-  const matches = fixCommits.commits.filter((commit) => commit.startsWith(sha));
+  const matches = commits.filter((commit) => commit.startsWith(sha));
 
   return matches.length === 1 ? (matches[0] ?? null) : null;
 }
@@ -183,7 +188,7 @@ interface RangeFixReadInput {
   range: readonly string[];
   match: string;
   named: string;
-  fixCommits: FixCommits;
+  commits: readonly string[];
   readChange: (ref: string) => Promise<CommitChange | null>;
 }
 
@@ -194,7 +199,7 @@ async function readRangeFix(input: RangeFixReadInput): Promise<string | null> {
     range: input.range,
     match: input.match,
     named: input.named,
-    branchCommits: input.fixCommits.commits,
+    branchCommits: input.commits,
   };
 
   const first = pickRangeFix({ ...pickInput, changes: null });
@@ -233,12 +238,16 @@ interface FixFiles {
 
 // what the fix commit's files show against the pull request's diff, with each rename's earlier path
 // on both sides, or why GitHub gave no whole list to judge them by
-function buildFixFiles(read: CommitFiles, fixCommits: FixCommits, findingPath: string): FixFiles {
+function buildFixFiles(
+  read: CommitFiles,
+  pullRequestFiles: readonly string[] | null,
+  findingPath: string,
+): FixFiles {
   if (read.failure !== null) {
     return { evidence: null, failure: read.failure };
   }
 
-  if (fixCommits.pullRequestFiles === null) {
+  if (pullRequestFiles === null) {
     return { evidence: null, failure: 'the pull request changes more files than GitHub lists' };
   }
 
@@ -248,7 +257,7 @@ function buildFixFiles(read: CommitFiles, fixCommits: FixCommits, findingPath: s
         ? [file.filename]
         : [file.filename, file.previous_filename],
     ),
-    pullRequestFiles: fixCommits.pullRequestFiles,
+    pullRequestFiles,
     findingPath,
   });
 

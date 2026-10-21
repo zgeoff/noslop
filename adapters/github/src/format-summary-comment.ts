@@ -59,11 +59,11 @@ export function formatSummaryComment(
     lines.push('');
 
     for (const item of confirmations) {
-      const sha = `\`${item.commit.slice(0, 7)}\``;
+      const place = item.commit === '' ? 'at the head' : `in \`${item.commit.slice(0, 7)}\``;
 
       const line = item.fixed
-        ? `✅ ${item.title}: fixed in ${sha}${formatFixFiles(item.changesFindingFile)}`
-        : `❌ ${item.title}: not fixed in ${sha}${item.failure === undefined ? '' : ` (${item.failure})`}`;
+        ? `✅ ${item.title}: fixed ${place}${formatFixFiles(item.changesFindingFile)}`
+        : `❌ ${item.title}: not fixed ${place}${item.failure === undefined ? '' : ` (${item.failure})`}`;
 
       lines.push(line);
     }

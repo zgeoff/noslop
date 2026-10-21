@@ -13,8 +13,14 @@ export interface FixEvidence {
   commit: string;
   match: string | null;
 
+  // a branch commit starts with the sha, so the answer is no bare one and no sha off the branch
+  isNamed: boolean;
+
   // the review's range holds the commit, and the commit comes after the head that posted the finding
   isInRange: boolean;
+
+  // a fix call of the review judged the finding fixed at the head, so the sha is only a hint
+  isJudged: boolean;
 
   // the review left the finding's own file out of every call, or out of the call of the finding's lens
   isFileSkipped: boolean;
@@ -35,26 +41,32 @@ export interface FixEvidence {
 }
 
 // the review moves the answer through the fix lifecycle: it rejects a finding it reports again, and
-// confirms a fix in its range once it read every file the fix reaches; no fix holds for a sha that
-// names no single commit, or for a commit that changes no file of the pull request
+// confirms a fix a fix call judged fixed at the head, or a fix in its range once it read every file
+// the fix reaches, with a sha that names one commit changing a file of the pull request
 export function buildFixConfirmation(evidence: FixEvidence): FixConfirmation {
   const isRead =
-    evidence.isInRange &&
-    !evidence.isFileSkipped &&
-    !evidence.isPartial &&
-    !evidence.coverage.changesSkipped;
+    evidence.isJudged ||
+    (evidence.isInRange &&
+      !evidence.isFileSkipped &&
+      !evidence.isPartial &&
+      !evidence.coverage.changesSkipped);
 
   const state = pickNextFixState(evidence.held, pickReviewVerdict(evidence.isReported, isRead));
   const files = evidence.files;
-  const isHeld = evidence.match !== null && HELD_FIX_STATES.has(state);
 
-  if (isHeld && files?.changesPullRequest === true) {
+  const isCarried =
+    (evidence.match !== null || !evidence.isNamed) && HELD_FIX_STATES.has(evidence.held);
+
+  const isCallFix = evidence.isJudged || isCarried;
+  const isHeld = (evidence.match !== null || isCallFix) && HELD_FIX_STATES.has(state);
+
+  if (isHeld && (isCallFix || files?.changesPullRequest === true)) {
     return {
       id: evidence.id,
       title: evidence.title,
       commit: evidence.commit,
       fixed: true,
-      changesFindingFile: files.changesFindingFile,
+      ...(files === null ? {} : { changesFindingFile: files.changesFindingFile }),
     };
   }
 

@@ -12,20 +12,20 @@ import type {
   ReviewAdapter,
   ReviewResult,
 } from '@noslop/contract';
-import { REVIEW_OUTPUT_VERSION, buildFixFileEvidence } from '@noslop/contract';
+import { REVIEW_OUTPUT_VERSION } from '@noslop/contract';
 import type { Runner } from '@noslop/runner';
 import { z } from 'zod';
 import { buildFixCheckPrompt } from './build-fix-check-prompt';
 import { checkStaticFix } from './check-static-fix';
+import { findHeadAnchor } from './find-head-anchor';
 import { readAncestry } from './read-ancestry';
-import type { FixBase } from './read-fix-base';
-import { readFixBase } from './read-fix-base';
+import { readLaterHunks } from './read-later-hunks';
 import type { ResolutionCheckOptions } from './run-resolution-checks';
 import { runResolutionChecks } from './run-resolution-checks';
 import type { StaticRecheckOptions } from './run-static-recheck';
 import { runStaticRecheck } from './run-static-recheck';
 
-// a finding whose latest answer is `fixed <commit>`, as its comment on the pull request keeps it
+// a finding whose latest answer is `fixed`, as its comment on the pull request keeps it
 export interface AnsweredFix {
   id: string;
   title: string;
@@ -38,8 +38,8 @@ export interface AnsweredFix {
   // the finding as posted: its title, body, fix, lens, criterion and rule
   comment: string;
 
-  // the sha the answer names, or the branch commit with its change when a rebase rewrote it
-  commit: string;
+  // the sha the answer names, or null for a bare `fixed`; the call judges the head, never this commit
+  hint: string | null;
 
   // the head of the review that posted the finding, which a marker posted before the field lacks
   postedHead: string | null;
@@ -55,11 +55,8 @@ export interface FixesOnlyReviewInput {
   base: string;
   head: string;
 
-  // the merge base of the pull request, where the diff a fix commit must reach starts
+  // the merge base of the pull request, where its net diff starts
   mergeBase: string;
-
-  // the head of the newest review that ran its lenses, which judged every fix before it
-  lensHead: string | null;
   title: string;
   configHash: string;
   fixes: readonly AnsweredFix[];
@@ -78,35 +75,23 @@ export interface FixesOnlyReviewInput {
   staticCheck?: StaticRecheckOptions;
 }
 
-// a run after the last review round with no lens over the change: each `fixed` answer no review judged
-// gets one call over the diff of its files, or the static stage again for a static finding, and the
-// fix checks list each verdict, so no fix confirms through silence; only a merge raises a finding
+// a run after the last review round with no lens over the change: each `fixed` answer gets one call
+// that judges the finding at the head, or the static stage again for a static finding, and the fix
+// checks list each verdict, so no fix confirms through silence; only a merge raises a finding
 export async function runFixesOnlyReview(input: FixesOnlyReviewInput): Promise<ReviewResult> {
   const now = input.now ?? (() => new Date());
   const startedAt = now().toISOString();
 
-  const range = await readGitLines(input, ['rev-list', `${input.base}..${input.head}`]);
-  const bases = await Promise.all(input.fixes.map((fix) => readFixBase(input, fix, range)));
-
   // a run with no fix to judge reads none of the new commits, so its summary would pass a head that
   // no lens read; only a merge of the base, which brings in code the base holds, needs no fix
-  if (bases.every((fixBase) => fixBase === null)) {
+  if (input.fixes.length === 0) {
+    const range = await readGitLines(input, ['rev-list', `${input.base}..${input.head}`]);
+
     await requireMergesOfBase(input, range);
   }
 
-  const pullRequestFiles = await readGitPaths(input, [
-    'diff',
-    '-z',
-    '--name-only',
-    '--no-renames',
-    input.mergeBase,
-    input.head,
-  ]);
-
   // the stage runs once for every static fix the run judges, and not at all for a run with none
-  const hasStaticFix = input.fixes.some(
-    (fix, index) => fix.lens === 'static' && (bases[index] ?? null) !== null,
-  );
+  const hasStaticFix = input.fixes.some((fix) => fix.lens === 'static');
 
   const staticFindings =
     hasStaticFix && input.staticCheck !== undefined
@@ -120,10 +105,20 @@ export async function runFixesOnlyReview(input: FixesOnlyReviewInput): Promise<R
         })
       : null;
 
+  // every file, since the fix of a finding can sit in another file, such as a test it asks for
+  const diff = input.fixes.some((fix) => fix.lens !== 'static')
+    ? await readGitText(input, [
+        'diff',
+        '--no-color',
+        '--no-ext-diff',
+        '--no-renames',
+        input.mergeBase,
+        input.head,
+      ])
+    : '';
+
   const outcomes = await Promise.all(
-    input.fixes.map((fix, index) =>
-      runFixCheck(input, { fix, base: bases[index] ?? null, pullRequestFiles, staticFindings }),
-    ),
+    input.fixes.map((fix) => runFixCheck(input, { fix, diff, staticFindings })),
   );
 
   const tooLarge = new Set(outcomes.flatMap((outcome) => outcome.tooLargePath ?? []));
@@ -142,19 +137,14 @@ export async function runFixesOnlyReview(input: FixesOnlyReviewInput): Promise<R
           logger: input.logger,
         });
 
-  // the range reaches back to the oldest base a fix used, so it holds each commit the run judged
-  let base = input.base;
-
-  for (const fixBase of bases) {
-    base = fixBase === null ? base : await readGitText(input, ['merge-base', base, fixBase.base]);
-  }
-
   return {
     version: REVIEW_OUTPUT_VERSION,
     reviewID: randomUUID(),
     repo: input.repo,
     pullRequest: input.pullRequest,
-    base,
+
+    // a fix call reads the pull request's whole net diff, so its range starts at the merge base
+    base: input.fixes.length === 0 ? input.base : input.mergeBase,
     head: input.head,
     title: input.title,
     depth: 'light',
@@ -238,21 +228,6 @@ async function requireMergesOfBase(
   }
 }
 
-// the paths a git command run with `-z` lists, each as the file's own name: `-z` ends each with a NUL
-// and turns off git's quoting of an unusual name, which would name no file as a pathspec
-async function readGitPaths(
-  input: FixesOnlyReviewInput,
-  args: readonly string[],
-): Promise<string[]> {
-  const result = await input.runner.run(['git', ...args], { cwd: input.repoDir });
-
-  if (result.exitCode !== 0) {
-    throw new Error(`git ${args.join(' ')} failed: ${result.stderr.trim()}`);
-  }
-
-  return result.stdout.split('\0').filter((path) => path !== '');
-}
-
 interface FixCheckOutcome {
   check?: FixCheck;
   record?: CallRecord;
@@ -264,10 +239,9 @@ const fixCheckOutputSchema = z.strictObject({ fixed: z.boolean(), reason: z.stri
 
 interface FixTarget {
   fix: AnsweredFix;
-  base: FixBase | null;
 
-  // each path the pull request's diff changes, the earlier path of a renamed file included
-  pullRequestFiles: readonly string[];
+  // the pull request's net diff at the head
+  diff: string;
 
   // the static findings the whole pull request holds at its head, or null when the run has no static
   // check
@@ -279,35 +253,6 @@ async function runFixCheck(
   target: FixTarget,
 ): Promise<FixCheckOutcome> {
   const fix = target.fix;
-
-  if (target.base === null) {
-    return {};
-  }
-
-  // a merge's files are its change against its first parent, as GitHub lists them
-  const commitFiles = await readGitPaths(input, [
-    'diff-tree',
-    '-z',
-    '-r',
-    '--root',
-    '--no-commit-id',
-    '--name-only',
-    '--no-renames',
-    '--diff-merges=first-parent',
-    target.base.commit,
-  ]);
-
-  const files = buildFixFileEvidence({
-    commitFiles,
-    pullRequestFiles: target.pullRequestFiles,
-    findingPath: fix.path,
-  });
-
-  if (!files.changesPullRequest) {
-    const reason = 'the commit changes no file of the pull request';
-
-    return { check: { findingID: fix.id, fixed: false, reason } };
-  }
 
   if (fix.lens === 'static' && target.staticFindings === null) {
     const reason = 'a static finding takes a full review to confirm its fix';
@@ -331,34 +276,9 @@ async function runFixCheck(
     return { check };
   }
 
-  const code = await readAnchoredCode(input, fix, target.base.anchor);
+  const code = await readHeadCode(input, fix);
 
-  // every file, since a later commit can move the fix's code or its test to a file the fix commit
-  // never changed, and only the line it adds there tells a move from a deletion
-  const diff = await readGitText(input, [
-    'diff',
-    '--no-color',
-    '--no-ext-diff',
-    '--no-renames',
-    target.base.commit,
-    input.head,
-  ]);
-
-  const patch = await readGitText(input, [
-    'diff-tree',
-    '-p',
-    '--root',
-    '--no-commit-id',
-    '--no-color',
-    '--no-ext-diff',
-    '--no-renames',
-    '--diff-merges=first-parent',
-    target.base.commit,
-  ]);
-
-  const parts = [code, diff, patch];
-
-  if (parts.some((part) => part.length > input.maxFileChars)) {
+  if (code.text.length > input.maxFileChars || target.diff.length > input.maxFileChars) {
     input.logger.warn(
       'the fix of {id} passes the file limit, so no call reads it cut and it stays unjudged',
       {
@@ -391,10 +311,9 @@ async function runFixCheck(
     lens,
     comment: fix.comment,
     path: fix.path,
-    code,
-    commit: target.base.commit,
-    patch,
-    diff,
+    code: code.text,
+    isTraced: code.isTraced,
+    diff: target.diff,
   });
 
   try {
@@ -436,35 +355,61 @@ async function runFixCheck(
   }
 }
 
-// the lines above and below the anchored line that the call reads, so it sees the code around the
+// the lines above and below the traced line that the call reads, so it sees the code around the
 // finding and no more
 const CONTEXT_LINES = 20;
 
-// the most lines of a file the call reads when the finding names no line
-const WHOLE_FILE_LINES = 200;
+interface HeadCode {
+  // the numbered lines the call reads; empty for a file the head does not hold
+  text: string;
+  isTraced: boolean;
+}
 
-// the code around the anchored line at the anchor commit, with its line numbers; a file the anchor
-// does not hold reads as empty, so the call still judges the diff
-async function readAnchoredCode(
-  input: FixesOnlyReviewInput,
-  fix: AnsweredFix,
-  anchor: string,
-): Promise<string> {
-  const result = await input.runner.run(['git', 'show', `${anchor}:${fix.path}`], {
+async function readHeadCode(input: FixesOnlyReviewInput, fix: AnsweredFix): Promise<HeadCode> {
+  const result = await input.runner.run(['git', 'show', `${input.head}:${fix.path}`], {
     cwd: input.repoDir,
   });
 
   if (result.exitCode !== 0) {
-    return '';
+    return { text: '', isTraced: false };
   }
+
+  const line = await readTracedLine(input, fix);
 
   // the newline that ends the file starts no line of its own
   const lines = result.stdout.replace(/\n$/u, '').split('\n');
-  const first = fix.line === null ? 1 : Math.max(1, fix.line - CONTEXT_LINES);
-  const last = fix.line === null ? WHOLE_FILE_LINES : fix.line + CONTEXT_LINES;
+  const first = line === null ? 1 : Math.max(1, line - CONTEXT_LINES);
+  const last = line === null ? lines.length : line + CONTEXT_LINES;
 
-  return lines
+  const text = lines
     .slice(first - 1, last)
-    .map((line, index) => `${first + index}: ${line}`)
+    .map((code, index) => `${first + index}: ${code}`)
     .join('\n');
+
+  return { text, isTraced: line !== null };
+}
+
+async function readTracedLine(
+  input: FixesOnlyReviewInput,
+  fix: AnsweredFix,
+): Promise<number | null> {
+  if (fix.line === null || fix.postedHead === null) {
+    return null;
+  }
+
+  const hunks =
+    fix.postedHead === input.head
+      ? []
+      : await readLaterHunks({
+          runner: input.runner,
+          repoDir: input.repoDir,
+          from: fix.postedHead,
+          to: input.head,
+          path: fix.path,
+        });
+
+  const traced =
+    hunks === null ? null : findHeadAnchor(hunks, { startLine: fix.line, endLine: fix.line });
+
+  return traced?.startLine ?? null;
 }

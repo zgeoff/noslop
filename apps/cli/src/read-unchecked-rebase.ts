@@ -46,8 +46,8 @@ export async function readUncheckedRebase(
     : `the patch of ${unchecked.join(', ')} changed since the review, and no fix commit changes it`;
 }
 
-// the files each fix commit on the branch changes, a merge's against its first parent, as the fix
-// call reads a merge
+// the files that each commit a `fixed` answer names on the branch changes, a merge's against its
+// first parent; a bare `fixed` names no commit
 async function readFixFiles(runner: Runner, input: UncheckedRebaseInput): Promise<Set<string>> {
   const listed = await runner.run(['git', 'rev-list', `${input.mergeBase}..${input.head}`], {
     cwd: input.repoDir,
@@ -56,7 +56,8 @@ async function readFixFiles(runner: Runner, input: UncheckedRebaseInput): Promis
   const commits = listed.exitCode === 0 ? listed.stdout.trim().split('\n') : [];
 
   const named = input.fixes.flatMap((fix) => {
-    const matches = commits.filter((commit) => commit.startsWith(fix.commit));
+    const hint = fix.hint;
+    const matches = hint === null ? [] : commits.filter((commit) => commit.startsWith(hint));
 
     return matches.length === 1 ? matches : [];
   });

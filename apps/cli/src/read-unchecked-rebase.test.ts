@@ -77,7 +77,7 @@ test('it passes a rebase whose moved file a fix merge changes against its first 
         path: 'src/scan.ts',
         line: 1,
         comment: 'An empty separator splits the line into single characters.',
-        commit: (repo.commits[3] ?? '').slice(0, 7),
+        hint: (repo.commits[3] ?? '').slice(0, 7),
         postedHead: repo.commits[2] ?? '',
       },
     ],
