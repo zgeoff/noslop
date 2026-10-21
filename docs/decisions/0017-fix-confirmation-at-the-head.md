@@ -104,8 +104,7 @@ lifecycle (`pick-next-fix-state.ts`, 24, test 35), the held fixes (`build-held-f
 
 **Decision.** B. Only a fix call confirms a fix, and only for a finding the re-review dropped. A
 finding the re-review reports again stays open with no call, because the re-report is positive
-evidence that the fix failed. The cost is one call per open `fixed` answer that the re-review
-dropped.
+evidence that the fix failed.
 
 ## 3. The net-change key
 
@@ -154,11 +153,8 @@ GitHub's limit on its file list keys on its head sha, as under A.
 fixes-only run (`modules/review/src/run-fixes-only-review.ts:214-253`), and the rebase sections of
 `docs/architecture/output/fixes-only-run.md`.
 
-**Decision.** B. "Reviewed" is keyed on a patch id per file: the hash of each changed file's net
-diff from the merge base to the head, with line numbers left out. The key holds across a clean
-rebase, a conflict-free merge of the base, a lower layer's squash and a restack. The files whose
-patch id changed are the scope of the delta review. The resolution check is deleted, and the key
-comes from GitHub's patches in both the review and the check.
+**Decision.** B: a patch id per file, computed from GitHub's patches, with the resolution check
+deleted.
 
 ## 4. The relay, the round cap and the fixes-only run
 
@@ -169,8 +165,8 @@ marker's merge verdicts. It also passes a merge noslop's check refused, when the
 `No noslop review for this commit` and a merge of the base sits on the reviewed head.
 
 Under decisions 1 to 3, the relay reads noslop's check and nothing else. It deletes its own mapping,
-its fix rewrite, its merge test, its marker parse, and the pass on a refused check. A round counts a
-review that ran lenses on a moved key. A carry-over moves no key, so it is no round.
+its fix rewrite, its merge test, its marker parse, and the pass on a refused check. A round counts
+only a review that ran lenses on a moved key. A carry-over moves no key, so it is no round.
 
 | Option                     | Fixes-only run                                                                                                      | Past the cap                                                                         |
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
@@ -180,15 +176,12 @@ review that ran lenses on a moved key. A carry-over moves no key, so it is no ro
 A trusts the fix calls to read every file the key moved on, as the fixes-only run trusts them under
 the current rules. B costs a lens review per push past the cap.
 
-**Decision.** A. A fixes-only run makes one decision-1 fix call per open `fixed` answer and writes
-the key. It refuses only when the pull request holds no answer to judge, and it loses every history
-refusal (`apps/cli/src/run-review-command.ts:418-450`). Past the cap, the fix calls read the delta.
-A round counts only a review that ran lenses on a moved key, and a carry-over is no round. A keeps
-the cheap path that the cap relies on.
+**Decision.** A. It keeps the cheap path that the cap relies on and loses every history refusal
+(`apps/cli/src/run-review-command.ts:418-450`).
 
 ## 5. The migration
 
-The change moves three things, and each has a rule for the state that exists before it.
+The change moves three things, and the decision sets one rule for the state each finds before it.
 
 - **Stored answers.** A `fixed <sha>` reply stays valid, and its sha becomes the hint. An open
   `fixed` answer gets a fix call at the next review or fixes-only run. A fix the summary marker
@@ -200,8 +193,6 @@ The change moves three things, and each has a rule for the state that exists bef
   of its own. It makes one more call per open `fixed` answer that a re-review drops. The relay
   deletes its own mapping only after its repos run the release that writes the key, since an older
   CLI writes none.
-
-**Decision.** Each of the three rules above applies as stated.
 
 ## 6. The required check
 
