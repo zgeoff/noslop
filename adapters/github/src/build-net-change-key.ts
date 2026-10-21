@@ -38,13 +38,13 @@ export function buildNetChangeKey(input: NetChangeKeyInput): NetChangeKey {
   return JSON.stringify(files).length > KEY_CHARS ? { head: input.head } : { files };
 }
 
-// a hunk header holds line numbers and the heading of the code above the hunk, which a change of the
-// base above the hunk moves, so the id reads each header as `@@` alone
+// a change of the base above a hunk moves the line numbers of its header, so the id leaves them out;
+// the heading after them names the code the hunk sits in, so it tells apart 2 like edits in 2 places
 function buildPatchID(file: PullRequestFile): string {
   const body =
     file.patch === undefined
       ? `blob ${file.sha ?? 'none'}`
-      : file.patch.replaceAll(/^@@ .*$/gmu, '@@');
+      : file.patch.replaceAll(/^@@ [^@]* @@/gmu, '@@');
 
   return new Bun.CryptoHasher('sha256')
     .update([file.status, file.previous_filename ?? file.filename, body].join('\n'))

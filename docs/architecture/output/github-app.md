@@ -279,9 +279,10 @@ run that saw it, so a later `noslop check` judges the pull request without it.
 The summary marker keeps the key of the pull request's net change, the diff from its merge base to
 its head, as the review read it. The key holds one patch id per changed file. The `github` reporter
 and the check each build it the same way, from the patches GitHub lists for the pull request's
-files: each hunk header becomes a bare `@@`, because a change of the base above a hunk moves its
-line numbers and its heading, and the id hashes the file's status, its earlier path and that patch.
-A binary or large file, of which GitHub gives no patch, keys on its blob.
+files. Each hunk header loses its line numbers, because a change of the base above a hunk moves
+them, and keeps the heading of the code the hunk sits in, so 2 like edits in 2 functions get 2 ids.
+The id hashes the file's status, its earlier path and that patch. A binary or large file, of which
+GitHub gives no patch, keys on its blob.
 
 A clean rebase and a merge of the base that touches no line near the pull request's hunks leave
 every patch id where it was, so the review holds at the new head with no run. A push that changes a

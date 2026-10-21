@@ -42,7 +42,7 @@ test('it keys each file on its patch with the hunk headers cut, and a file with 
       "files": {
         "assets/logo.png": "ac73c8c8add1d98e",
         "src/read.ts": "b938c709a50cf7e1",
-        "src/scan.ts": "9b97bbb1b177e34e",
+        "src/scan.ts": "10faba259a0a0905",
       },
     }
   `);
@@ -114,6 +114,38 @@ test('it keeps the key of a file across a clean rebase and a conflict-free merge
   expect(patches[0]).not.toBe(patches[1]);
   expect(keys[1]).toStrictEqual(keys[0]);
   expect(keys[2]).toStrictEqual(keys[0]);
+});
+
+test('it tells apart 2 like edits whose hunks sit in different functions', () => {
+  const first = buildNetChangeKey({
+    head: 'e'.repeat(40),
+    isWhole: true,
+    files: [
+      {
+        filename: 'src/scan.ts',
+        status: 'modified',
+        sha: 'a'.repeat(40),
+        patch:
+          '@@ -3,3 +3,3 @@ function readHeader() {\n   const zero = 0;\n-  return zero;\n+  return 1;',
+      },
+    ],
+  });
+
+  const second = buildNetChangeKey({
+    head: 'f'.repeat(40),
+    isWhole: true,
+    files: [
+      {
+        filename: 'src/scan.ts',
+        status: 'modified',
+        sha: 'a'.repeat(40),
+        patch:
+          '@@ -9,3 +9,3 @@ function readFooter() {\n   const zero = 0;\n-  return zero;\n+  return 1;',
+      },
+    ],
+  });
+
+  expect(second).not.toStrictEqual(first);
 });
 
 test('it moves the key of a file whose patch changed and keeps the key of the others', () => {
