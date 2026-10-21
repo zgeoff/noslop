@@ -6,7 +6,6 @@ export interface StoreAccess {
   loadStore: (path: string) => Promise<Store>;
 }
 
-// a user with no store yet has none, and the run makes no store to find that out
 export async function readStoredReviews(
   access: StoreAccess,
   path: string,
