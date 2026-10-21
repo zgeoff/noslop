@@ -1261,7 +1261,6 @@ test('it sends the lenses only the file that a 1-line commit changed since the l
     patch: '@@ -1 +1,2 @@\n export const none = 0;\n+export const some = 1;',
   });
 
-  // the key the review of the head before the 1-line commit wrote
   const key = buildNetChangeKey({
     head: repo.commits[1] ?? '',
     isWhole: true,
@@ -2548,7 +2547,6 @@ test('it reviews nothing new and refuses nothing after a rebase that changes no 
     patch: '@@ -1 +1,2 @@\n export const zero = 0;\n+export const separator = ":";',
   });
 
-  // the key the review of the head before the rebase wrote, of the same patch
   const key = buildNetChangeKey({
     head: repo.commits[2] ?? '',
     isWhole: true,
@@ -2734,7 +2732,6 @@ test('it tells the calls not to judge the description when it reviews only the f
     patch: '@@ -0,0 +1 @@\n+export const cache = 1;',
   });
 
-  // the key the review of the earlier head wrote, before the parser changed
   const key = buildNetChangeKey({
     head: repo.commits[1] ?? '',
     isWhole: true,
@@ -7302,7 +7299,6 @@ test('it makes a fix call for an open fixed reply on a normal review and strikes
     inReplyToID: thread.id,
   });
 
-  // the key the first review wrote, before the fix changed the patch
   const key = buildNetChangeKey({
     head: repo.commits[1] ?? '',
     isWhole: true,
@@ -7406,7 +7402,6 @@ test('it makes only the fix call on a review that reads no file and strikes the 
     inReplyToID: thread.id,
   });
 
-  // the key the review of the head before the rebase wrote, of the same patch
   const key = buildNetChangeKey({
     head: repo.commits[2] ?? '',
     isWhole: true,
