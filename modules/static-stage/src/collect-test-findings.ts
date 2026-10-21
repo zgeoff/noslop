@@ -173,7 +173,7 @@ const TEST_PATH_IN_TEXT = /(?<![\w./*?{}\]-])[\w./*?{}-]+\.(?:test|spec)\.[cm]?[
 const GLOB_CHARACTERS = /[*?{}]/u;
 
 const CLAIMED_EDIT =
-  /\b(?:add|adds|added|adding|create|creates|created|write|writes|wrote|extend|extends|extended|edit|edits|update|updates|change|changes|rewrite|rewrites|rewrote)\b/iu;
+  /\b(?:add|adds|added|adding|create|creates|created|write|writes|wrote|extend|extends|extended|edit|edits|update|updates|change|changes|rewrite|rewrites|rewrote|(?<!\b(?:the|an?)\s)(?:edited|updated|changed))\b/iu;
 
 // code spans, quoted test titles and paths hold words such as "write" that are no verb of the sentence
 const NON_PROSE = /`[^`]*`|"[^"]*"/gu;
