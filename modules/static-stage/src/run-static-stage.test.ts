@@ -482,6 +482,174 @@ test('it reports no missing table for an access check when only the line above i
   expect(result.findings).toStrictEqual([]);
 });
 
+test('it reports an access check whose body changes only in the spaces of a string', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/access.ts':
+          'export function canAudit(role: string) {\n  return role === "site lead";\n}\n',
+      },
+    },
+    {
+      message: 'head',
+      files: {
+        'src/access.ts':
+          'export function canAudit(role: string) {\n  return role === "sitelead";\n}\n',
+      },
+    },
+  ]);
+
+  const config = BUILT_IN_DEFAULTS;
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config,
+    title: 'fix: match the audit role',
+    body: '',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(
+    result.findings.map((finding) => [
+      finding.anchor.path,
+      finding.anchor.startLine,
+      finding.title,
+    ]),
+  ).toStrictEqual([['src/access.ts', 1, 'New allow-or-deny check has no table of hostile inputs']]);
+});
+
+test('it reports a new access check whose body repeats an existing function that decides nothing', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/access.ts':
+          'export function isDraft(state: string) {\n  return state === "open";\n}\n',
+      },
+    },
+    {
+      message: 'head',
+      files: {
+        'src/access.ts': [
+          'export function isDraft(state: string) {',
+          '  return state === "open";',
+          '}',
+          '',
+          'export function canComment(state: string) {',
+          '  return state === "open";',
+          '}',
+          '',
+        ].join('\n'),
+      },
+    },
+  ]);
+
+  const config = BUILT_IN_DEFAULTS;
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config,
+    title: 'feat: let open threads take comments',
+    body: '',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(
+    result.findings.map((finding) => [
+      finding.anchor.path,
+      finding.anchor.startLine,
+      finding.title,
+    ]),
+  ).toStrictEqual([['src/access.ts', 5, 'New allow-or-deny check has no table of hostile inputs']]);
+});
+
+test('it reports a copy of an existing access check under a new name', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/access.ts': 'export function canPin(role: string) {\n  return role === "mod";\n}\n',
+      },
+    },
+    {
+      message: 'head',
+      files: {
+        'src/access.ts': [
+          'export function canPin(role: string) {',
+          '  return role === "mod";',
+          '}',
+          '',
+          'export function canLock(role: string) {',
+          '  return role === "mod";',
+          '}',
+          '',
+        ].join('\n'),
+      },
+    },
+  ]);
+
+  const config = BUILT_IN_DEFAULTS;
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config,
+    title: 'feat: let mods lock threads',
+    body: '',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(
+    result.findings.map((finding) => [
+      finding.anchor.path,
+      finding.anchor.startLine,
+      finding.title,
+    ]),
+  ).toStrictEqual([['src/access.ts', 5, 'New allow-or-deny check has no table of hostile inputs']]);
+});
+
 test('it reports a repeated rule and vague wording in an instruction file', async () => {
   const ctx = await setupTest();
 

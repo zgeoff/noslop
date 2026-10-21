@@ -250,7 +250,7 @@ function collectSecurityFunction(
       endLine,
       part: 'allow-deny-check',
       detail: `${name} decides access`,
-      body: body === null ? '' : getNodeText(body, ctx, Infinity),
+      body: body === null ? '' : ctx.parsed.text.slice(body.start, body.end),
     });
   }
 

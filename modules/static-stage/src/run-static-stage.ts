@@ -80,6 +80,12 @@ export async function runStaticStage(options: RunStaticStageOptions): Promise<St
     buildAnalyzedFile(file, headTexts.get(file.path) ?? null, false, options.config),
   );
 
+  const checkFiles = changed.filter(
+    (entry) =>
+      entry.file.status !== 'added' &&
+      entry.analysis?.security.some((item) => item.part === 'allow-deny-check') === true,
+  );
+
   // the base side of each changed manifest, of each deleted code file, whose exports leave with it,
   // of each modified workflow file, which the synced-copy check compares as YAML, and of each changed
   // file that holds an access check, whose body the hostile-input check compares
@@ -92,18 +98,14 @@ export async function runStaticStage(options: RunStaticStageOptions): Promise<St
           (file.status === 'modified' && isWorkflowFile(file.path)),
       )
       .map((file) => file.oldPath ?? file.path),
-    ...changed
-      .filter(
-        (entry) =>
-          entry.file.status !== 'added' &&
-          entry.analysis?.security.some((item) => item.part === 'allow-deny-check') === true,
-      )
-      .map((entry) => entry.file.oldPath ?? entry.file.path),
+    ...checkFiles.map((entry) => entry.file.oldPath ?? entry.file.path),
   ];
 
   const baseTexts = await readFilesAtCommit(options.runner, options.repoDir, change.base, [
     ...new Set(basePaths),
   ]);
+
+  const baseChecks = collectBaseChecks(checkFiles, baseTexts, options.config);
 
   const context = contextPaths
     .filter((path) => known.has(path))
@@ -194,7 +196,7 @@ export async function runStaticStage(options: RunStaticStageOptions): Promise<St
   const consumerManifests = await readConsumerManifests(options);
 
   const findings = [
-    ...collectTestFindings(all, slices.security, baseTexts, {
+    ...collectTestFindings(all, slices.security, baseChecks, {
       body: options.body,
       pullRequestAndMergePaths: [
         ...(change.baseOnly ?? [])
@@ -305,6 +307,36 @@ function buildAnalyzedFile(
     analysis: parsed === null ? null : collectSourceFacts(parsed, config.stack),
     lines: buildChangedLines(file),
   };
+}
+
+// the body of each access check at the base side of a changed file, keyed by the file's head path
+function collectBaseChecks(
+  files: readonly AnalyzedFile[],
+  baseTexts: ReadonlyMap<string, string>,
+  config: ReviewConfig,
+): Map<string, string[]> {
+  const checks = new Map<string, string[]>();
+
+  for (const entry of files) {
+    const basePath = entry.file.oldPath ?? entry.file.path;
+    const baseText = baseTexts.get(basePath);
+    const parsed = baseText === undefined ? null : parseSource(basePath, baseText);
+
+    if (parsed === null) {
+      continue;
+    }
+
+    const security = collectSourceFacts(parsed, config.stack).security;
+
+    checks.set(
+      entry.file.path,
+      security.flatMap((item) =>
+        item.part === 'allow-deny-check' && item.body !== undefined ? [item.body] : [],
+      ),
+    );
+  }
+
+  return checks;
 }
 
 function buildContextFile(path: string, config: ReviewConfig): ChangedFile {

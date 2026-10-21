@@ -147,7 +147,7 @@ function collectGuard(node: ASTNode, ancestors: readonly ASTNode[], ctx: Analyze
       endLine: ctx.parsed.getLine(node.end),
       part: 'allow-deny-check',
       detail: `denies when ${getNodeText(test, ctx, 80)}`,
-      body: getNodeText(node, ctx, Infinity),
+      body: ctx.parsed.text.slice(node.start, node.end),
     });
   }
 }

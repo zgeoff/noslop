@@ -16,14 +16,14 @@ export interface NamedTestClaims {
 export function collectTestFindings(
   files: readonly AnalyzedFile[],
   security: readonly SecurityEntry[],
-  baseTexts: ReadonlyMap<string, string>,
+  baseChecks: ReadonlyMap<string, readonly string[]>,
   claims: NamedTestClaims,
 ): ModelFinding[] {
   return [
     ...collectUnassertedTests(files),
     ...collectDuplicateTests(files),
     ...collectMissingTypeKeys(files),
-    ...collectUntabledChecks(files, security, baseTexts),
+    ...collectUntabledChecks(files, security, baseChecks),
     ...collectNamedMissingTests(files, claims),
   ];
 }
@@ -133,10 +133,10 @@ function collectMissingTypeKeys(files: readonly AnalyzedFile[]): ModelFinding[] 
 function collectUntabledChecks(
   files: readonly AnalyzedFile[],
   security: readonly SecurityEntry[],
-  baseTexts: ReadonlyMap<string, string>,
+  baseChecks: ReadonlyMap<string, readonly string[]>,
 ): ModelFinding[] {
   const checks = security.filter(
-    (item) => item.part === 'allow-deny-check' && hasChangedBody(item, files, baseTexts),
+    (item) => item.part === 'allow-deny-check' && hasChangedBody(item, files, baseChecks),
   );
 
   return checks.flatMap((check) => {
@@ -169,34 +169,34 @@ function collectUntabledChecks(
   });
 }
 
-// a check's body counts as changed unless the base side of its file already holds the same text, so a
-// rename of the check, an edit beside it, or a change of its whitespace leaves it alone
+// a check's body counts as changed unless the base side of its file holds as many access checks with
+// the same body, so a rename of the check or an edit beside it leaves it alone, while a copy of an
+// existing check still counts as new
 function hasChangedBody(
   check: SecurityEntry,
   files: readonly AnalyzedFile[],
-  baseTexts: ReadonlyMap<string, string>,
+  baseChecks: ReadonlyMap<string, readonly string[]>,
 ): boolean {
   const entry = files.find((item) => !item.isContext && item.file.path === check.location.path);
 
-  const fact = entry?.analysis?.security.find(
-    (item) =>
-      item.part === check.part &&
-      item.line === check.location.startLine &&
-      item.endLine === check.location.endLine,
+  const headChecks = (entry?.analysis?.security ?? []).filter(
+    (item) => item.part === 'allow-deny-check',
   );
 
-  const baseText =
-    entry === undefined ? undefined : baseTexts.get(entry.file.oldPath ?? entry.file.path);
+  const fact = headChecks.find(
+    (item) => item.line === check.location.startLine && item.endLine === check.location.endLine,
+  );
 
-  if (fact?.body === undefined || baseText === undefined || entry?.file.status === 'added') {
+  const baseBodies = baseChecks.get(check.location.path);
+
+  if (fact?.body === undefined || baseBodies === undefined) {
     return true;
   }
 
-  return !toCompactText(baseText).includes(toCompactText(fact.body));
-}
+  const headCount = headChecks.filter((item) => item.body === fact.body).length;
+  const baseCount = baseBodies.filter((body) => body === fact.body).length;
 
-function toCompactText(text: string): string {
-  return text.replaceAll(/\s+/gu, '');
+  return headCount > baseCount;
 }
 
 // a name starts where its path starts and holds the glob characters of a pattern, so a pattern such as

@@ -104,8 +104,9 @@ needs it. The stage reports:
   prefix, skips a glob pattern, and counts both paths of a rename and a deleted file as changed. A
   test file that exists at the head counts only where a sentence that names it says the pull request
   adds or edits it, so a body that names a test a rerun passed gets no finding. The hostile-input
-  check compares the check's body with the file at the base commit, so a rename of the check, an
-  edit beside it, or a change of its whitespace gets no finding.
+  check compares the check's body text with the bodies of the access checks in the file at the base
+  commit, so a rename of the check or an edit beside it gets no finding, while a copy of an existing
+  check counts as new.
 - Defects in instruction files: a new rule sentence that another instruction file loaded beside it
   already holds, and a new rule with wording that leaves an agent the choice.
 - Defects in the change as a whole: a version bump that a consumer's range refuses, a schema bound
