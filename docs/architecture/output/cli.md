@@ -131,7 +131,8 @@ check share one set of rules for an answer, under [dispositions](./github-app.md
 - A `deferred` answer is refused for code the change wrote.
 - A `deferred` answer is refused for a P1, security or risk-class finding.
 - A `fixed` answer holds once a fix check confirmed it, and stays `open` while the latest review
-  still reports the finding.
+  still reports the finding. A `fixed <commit>` answer holds when the pull request's head holds the
+  commit and the latest review's head does not, because that review never read the fix.
 - An `accepted-risk` answer holds only when its author has admin permission on the repo.
 
 A finding with no answer is `open`. With `--json`, the list follows the finding list schema in the

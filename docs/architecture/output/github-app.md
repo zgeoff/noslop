@@ -157,7 +157,9 @@ reply once with the accepted forms, and the forms marker stops a later run answe
 kind is valid under its own rule:
 
 - `fixed`, or `fixed <commit>` with the sha as a hint, is valid once a fix check judged the finding
-  fixed at the head, and no later review reports the finding again.
+  fixed at the head, and no later review reports the finding again. A `fixed <commit>` answer is
+  valid too when the pull request's head holds the commit and the latest review's head does not,
+  because that review judged the code before the fix.
 - `not-a-defect <reason>` is valid with any reason.
 - `deferred <issue>` is valid when the change did not write the code, the finding is no P1, security
   or risk-class finding, and the issue exists. The issue is `#<number>` in the same repo,
@@ -209,8 +211,9 @@ a check of its own. A fix check that judges a finding not fixed, or that fails, 
 open, and the summary shows the reason.
 
 A `fixed` reply posted after the last review gets no fix check from the check job that the reply
-queues, because that job reads only what GitHub holds. The answer waits for the next run that runs
-fix checks: the review of a later push, or a fixes-only run.
+queues, because that job reads only what GitHub holds. The fix waits for the next run that runs fix
+checks: the review of a later push, or a fixes-only run. Until that run, a `fixed <commit>` answer
+whose commit the pull request's head holds is valid under [dispositions](#dispositions).
 
 The re-check is the second review of a pull request. A review that runs no lens and raises no
 finding, such as one of a head whose every patch an earlier review read, counts as no review. From
