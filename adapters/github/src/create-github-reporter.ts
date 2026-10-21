@@ -454,9 +454,6 @@ interface RunFields {
   lensKey?: NetChangeKey;
 }
 
-// a fixes-only run's marker lists its fixed findings, which marks it as no lens review; a lens review
-// whose call failed drops the last complete lens review's head and keeps its key, so a later review
-// still knows that one completed and runs no second design pass
 function buildRunFields(
   result: ReviewResult,
   previous: SummaryMarker | null,
