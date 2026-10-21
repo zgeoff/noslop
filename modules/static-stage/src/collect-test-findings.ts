@@ -173,7 +173,6 @@ const GLOB_CHARACTERS = /[*?{}]/u;
 const CLAIMED_EDIT =
   /\b(?:add|adds|added|adding|create|creates|created|write|writes|wrote|written|extend|extends|extended|edit|edits|update|updates|change|changes|rewrite|rewrites|rewrote|rewritten|(?<!\b(?:the|an?)\s)(?:edited|updated|changed))\b/iu;
 
-// code spans, quoted test titles and paths hold words such as "write" that are no verb of the sentence
 const NON_PROSE = /`[^`]*`|"[^"]*"/gu;
 
 // Markdown wraps a sentence over several lines, so a line ends a sentence only before a blank line, a
