@@ -401,7 +401,7 @@ async function resolvePullRequestChange(
     pullRequest,
     paths,
     pullRequestBase: start,
-    isFirstPullRequestReview: findLensHead(summary) === null,
+    isFirstPullRequestReview: summary?.lensKey === undefined && findLensHead(summary) === null,
     dismissedFindings: collectDismissedFindings(state.threads),
     fixes,
   };
