@@ -26,7 +26,7 @@ jobs:
     with:
       include:
         skill-testing, skill-docs-writing, hook-skill-gate, workflow-bun-pr, pre-push-baseline,
-        skill-code-style, skill-skill-writing
+        skill-code-style, skill-skill-writing, skill-ci-design
     secrets:
       REPO_SYNC_APP_CLIENT_ID: ${{ secrets.REPO_SYNC_APP_CLIENT_ID }}
       REPO_SYNC_APP_PRIVATE_KEY: ${{ secrets.REPO_SYNC_APP_PRIVATE_KEY }}
