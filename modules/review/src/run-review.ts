@@ -381,6 +381,7 @@ function runDroppedFixChecks(
     head: options.head,
     mergeBase: options.fixes.pullRequestBase,
     title: options.title,
+    body: options.body,
     fixes: options.fixes.answers.filter((fix) => !reported.has(fix.id)),
     maxFileChars: options.config.thresholds.maxFileChars,
     adapter: options.adapter,
@@ -388,7 +389,6 @@ function runDroppedFixChecks(
     logger: options.logger,
     staticCheck: {
       config: options.config,
-      body: options.body,
       linkedIssue: options.linkedIssue,
       cacheDir: options.cacheDir,
       ...(options.author === undefined ? {} : { author: options.author }),

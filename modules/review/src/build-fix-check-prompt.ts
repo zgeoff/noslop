@@ -10,15 +10,17 @@ export interface FixCheckPromptInput {
   // when the whole diff passes the file limit
   diff: string;
   isWholeDiff: boolean;
+  pullRequestTitle: string;
+  body: string;
 }
 
 export function buildFixCheckPrompt(input: FixCheckPromptInput): string {
   return [
     'A reviewer posted the finding below on a pull request, and the author answered that the pull request fixes it.',
-    "Judge from the finding, its code at the pull request's head and the pull request's diff whether the head still holds the defect. Read no files.",
+    "Judge from the finding, its code at the pull request's head, the pull request's diff and its description now whether the pull request still holds the defect. Read no files.",
     '',
-    '1. Answer `fixed: true` only when the code at the head no longer holds the defect the finding describes. The fix may be in another file, such as a new test that the finding asks for.',
-    '2. Answer `fixed: false` when the head still holds the defect, or the diff moves the defect elsewhere.',
+    '1. Answer `fixed: true` only when the code at the head and the description no longer hold the defect the finding describes. The fix may be in another file, such as a new test that the finding asks for. The fix of a finding about the title or the body is an edit to the description, which the diff never shows.',
+    '2. Answer `fixed: false` when the code or the description still holds the defect, or the diff moves the defect elsewhere.',
     '3. The pull request may move the code or the test of a fix to another file and reshape it there. Count code or a test that the diff deletes as moved when the diff adds code or a test in another file that does what the deleted lines did, in other lines or not.',
     '4. Give the reason in one line.',
     '5. Report no other defect, however the code or the diff looks.',
@@ -44,6 +46,12 @@ export function buildFixCheckPrompt(input: FixCheckPromptInput): string {
     '```diff',
     input.diff === '' ? formatEmptyDiff(input.isWholeDiff) : input.diff,
     '```',
+    '',
+    "## The pull request's description now",
+    '',
+    `Title: ${input.pullRequestTitle}`,
+    '',
+    input.body.trim() || 'The body is empty.',
   ].join('\n');
 }
 

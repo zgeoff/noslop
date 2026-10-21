@@ -9,17 +9,19 @@ judges the finding at the pull request's head. A sha after `fixed` is only a hin
 gets the call too, and so does a sha that a rebase or a squash took off the branch. A finding of the
 static stage gets [its static check](#static-findings) in place of the call.
 
-The fix call reads the finding, its code at the head, and the pull request's net diff from its merge
-base to the head. It answers whether the head still holds the defect, with a one-line reason. A fix
-such as a new test in another file therefore gets judged on that test. The run traces the finding's
-line from the head that posted the finding through the diff to the head: a hunk above the line moves
-it. The call then reads the code around the traced line. When the trace fails, because a later
-commit rewrote the line, the finding names no line, or the repo holds no commit of the head that
-posted it, the call reads the whole file at the head. Code that the diff deletes counts as moved
-only when the diff adds code in another file that does what the deleted code did, even reshaped.
-When the whole net diff passes the config's file limit, the call reads the diff of the finding's
-file alone, so a small file of a large pull request still gets its call. A fix whose own code or
-diff passes the file limit gets no call and no verdict, because a cut diff can hide the fix.
+The fix call reads the finding, its code at the head, the pull request's net diff from its merge
+base to the head, and the pull request's title and body as they stand when the run starts. It
+answers whether the pull request still holds the defect, with a one-line reason. A fix such as a new
+test in another file therefore gets judged on that test. A finding about the description gets judged
+on the edited title or body, since an edit to the description changes no commit. The run traces the
+finding's line from the head that posted the finding through the diff to the head: a hunk above the
+line moves it. The call then reads the code around the traced line. When the trace fails, because a
+later commit rewrote the line, the finding names no line, or the repo holds no commit of the head
+that posted it, the call reads the whole file at the head. Code that the diff deletes counts as
+moved only when the diff adds code in another file that does what the deleted code did, even
+reshaped. When the whole net diff passes the config's file limit, the call reads the diff of the
+finding's file alone, so a small file of a large pull request still gets its call. A fix whose own
+code or diff passes the file limit gets no call and no verdict, because a cut diff can hide the fix.
 
 A fix with no verdict, from that file limit or from a failed call, is unjudged. The result lists it
 with the reason, and the summary shows it as not judged, never as not fixed. Its answer stays

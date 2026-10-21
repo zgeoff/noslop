@@ -4,11 +4,9 @@ import type { Runner } from '@noslop/runner';
 import { readChange, runStaticStage } from '@noslop/static-stage';
 
 // what the static stage reads beyond a fixes-only run's own input: the config, the pull request's
-// body, linked issue and author, which some checks compare the change against, and the base index's
-// cache
+// linked issue and author, which some checks compare the change against, and the base index's cache
 export interface StaticRecheckOptions {
   config: ReviewConfig;
-  body: string;
   linkedIssue: string | null;
   cacheDir: string | null;
   author?: string;
@@ -22,6 +20,7 @@ export interface StaticRecheckInput extends StaticRecheckOptions {
   mergeBase: string;
   head: string;
   title: string;
+  body: string;
 }
 
 // the static findings a review of the whole pull request reports at its head; a check such as a new
