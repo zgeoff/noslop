@@ -107,8 +107,6 @@ async function readBaseBranchFixBase(input: FixBaseInput, fix: FixAnswer): Promi
   const parent = commit === null ? null : await readCommitSha(input, `${commit}^`);
   const posted = fix.postedHead === null ? null : await readCommitSha(input, fix.postedHead);
 
-  // the ancestry and the dates are reads of resolved commits, so a name git cannot resolve leaves
-  // them unread
   const reads =
     commit === null || parent === null || posted === null
       ? null
