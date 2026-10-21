@@ -831,9 +831,13 @@ test('it judges a late fixed reply from the merge base when a rebase left every 
     { message: 'base', files: { 'src/scan.ts': 'export const separator = "";\n' } },
     { message: 'Describe the app', files: { 'README.md': '# app\n' } },
     {
-      message: 'Reject an empty separator',
+      message: 'Add the zero constant',
       parent: 0,
-      files: { 'src/scan.ts': 'export const separator = ":";\n' },
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = "";\n' },
+    },
+    {
+      message: 'Reject an empty separator',
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = ":";\n' },
     },
     { message: 'Add a tab', files: { 'src/tab.ts': 'export const tab = "\\t";\n' } },
   ]);
@@ -847,8 +851,8 @@ test('it judges a late fixed reply from the merge base when a rebase left every 
     repoDir: repo.path,
     repo: 'example/app',
     pullRequest: { owner: 'example', repo: 'app', number: 9 },
-    base: repo.commits[3] ?? '',
-    head: repo.commits[3] ?? '',
+    base: repo.commits[4] ?? '',
+    head: repo.commits[4] ?? '',
     mergeBase: repo.commits[0] ?? '',
     lensHead: null,
     title: 'Scan the header line',
@@ -859,9 +863,9 @@ test('it judges a late fixed reply from the merge base when a rebase left every 
         title: 'Reject an empty separator',
         lens: 'correctness',
         path: 'src/scan.ts',
-        line: 1,
+        line: 2,
         comment: 'An empty separator splits the line into single characters.',
-        commit: (repo.commits[2] ?? '').slice(0, 7),
+        commit: (repo.commits[3] ?? '').slice(0, 7),
         postedHead: repo.commits[1] ?? '',
       },
     ],
@@ -872,7 +876,12 @@ test('it judges a late fixed reply from the merge base when a rebase left every 
   });
 
   expect(stub.requests.map((request) => request.callID)).toStrictEqual(['fix-1111111111111111']);
-  expect(stub.requests[0]?.prompt).toInclude('1: export const separator = "";');
+
+  // the fix's parent holds the zero constant, which the merge base lacks
+  expect(stub.requests[0]?.prompt).toInclude(
+    '1: export const zero = 0;\n2: export const separator = "";',
+  );
+
   expect(result.base).toBe(repo.commits[0] ?? '');
 
   expect(result.fixChecks).toStrictEqual([
