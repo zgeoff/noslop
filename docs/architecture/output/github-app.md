@@ -170,13 +170,14 @@ because the pull request fixes the code it wrote rather than deferring it to a l
 ## Re-review and fix confirmation
 
 A re-review is a later review of a pull request, and it reads only the files whose patch changed
-since the last lens review. The CLI compares the summary marker's
-[net-change key](#the-net-change-key) with the key of the pull request at its current head, and the
-review keeps each file whose patch id differs or that only one key holds. The diff still runs from
-the merge base, so the review reads each kept file's whole patch, and a merge from the base branch
-adds none of the base branch's own changes. A rebase or a merge of the base that leaves every patch
-alone therefore reads no file, runs no lens call, and refuses nothing. New findings of a re-review
-come only from the files it reads.
+since the last lens review. The summary marker keeps that lens review's
+[net-change key](#the-net-change-key) apart from its own key, because a fixes-only run moves its own
+key to the head it judged while no lens read the files. The CLI compares the lens review's key with
+the key of the pull request at its current head, and the review keeps each file whose patch id
+differs or that only one key holds. The diff still runs from the merge base, so the review reads
+each kept file's whole patch, and a merge from the base branch adds none of the base branch's own
+changes. A rebase or a merge of the base that leaves every patch alone therefore reads no file, runs
+no lens call, and refuses nothing. New findings of a re-review come only from the files it reads.
 
 A re-review never refuses a head. It reads the whole change when the keys cannot be matched file by
 file: when the last review had a failed call, when no lens review completed, or when either key is
