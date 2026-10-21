@@ -1823,6 +1823,40 @@ test('it drops the failed fix call of an earlier fixes-only run when a later one
   expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('success');
 });
 
+test('it updates the one summary of a fixes-only run before any lens review on a later fixes-only run', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'c'.repeat(40),
+  });
+
+  for (const reviewID of ['review-a', 'review-b']) {
+    await ctx.reporter.report(
+      buildMockReviewResult({
+        reviewID,
+        pullRequest: { owner: 'example', repo: 'app', number: 5 },
+        base: 'a'.repeat(40),
+        head: 'c'.repeat(40),
+        lenses: [],
+        findings: [],
+        fixesOnly: true,
+        fixChecks: [],
+      }),
+      { logger: ctx.logger, options: {}, failedReporters: [] },
+    );
+  }
+
+  const summaries = githubCollections.issueComments
+    .all()
+    .filter((comment) => comment.body.includes('<!-- noslop:summary'));
+
+  expect(summaries).toHaveLength(1);
+  expect(summaries[0]?.body).toInclude('"reviews":0,"reviewIDs":["review-a","review-b"]');
+});
+
 test('it vouches for the merge base alone after a fixes-only run that judged no fix on a pull request no review covered', async () => {
   const ctx = setupTest();
 
