@@ -109,9 +109,8 @@ async function runGit(options: ReadChangeOptions, args: readonly string[]): Prom
   return result.stdout;
 }
 
-// the paths the pull request changes since its merge base, both paths of a rename among them, or null
-// with no merge base; the filter runs on the parsed diff, since a pathspec on the diff would stop git
-// pairing a rename whose old path the list leaves out
+// the filter runs on the parsed diff, since a pathspec on the diff would stop git pairing a rename
+// whose old path the list leaves out
 async function readOwnedPaths(
   options: ReadChangeOptions,
   head: string,
