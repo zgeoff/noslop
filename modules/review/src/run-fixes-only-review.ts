@@ -365,8 +365,6 @@ interface HeadCode {
   isTraced: boolean;
 }
 
-// the code around the finding's line traced from the head that posted it to the head now, or the whole
-// file at the head when the finding names no line or no head, or a later change rewrote the line
 async function readHeadCode(input: FixesOnlyReviewInput, fix: AnsweredFix): Promise<HeadCode> {
   const result = await input.runner.run(['git', 'show', `${input.head}:${fix.path}`], {
     cwd: input.repoDir,
