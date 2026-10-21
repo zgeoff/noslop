@@ -242,6 +242,7 @@ function collectSecurityFunction(
 
   const line = ctx.parsed.getLine(node.start);
   const endLine = ctx.parsed.getLine(node.end);
+  const body = findField(node, 'body');
 
   if (ALLOW_DENY_NAME.test(name)) {
     ctx.analysis.security.push({
@@ -249,6 +250,7 @@ function collectSecurityFunction(
       endLine,
       part: 'allow-deny-check',
       detail: `${name} decides access`,
+      body: body === null ? '' : getNodeText(body, ctx, Infinity),
     });
   }
 

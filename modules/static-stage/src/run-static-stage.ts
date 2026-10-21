@@ -76,27 +76,34 @@ export async function runStaticStage(options: RunStaticStageOptions): Promise<St
     ...new Set([...readable, ...contextPaths, ...manifestPaths, ...workflowPaths]),
   ]);
 
-  // the base side of each changed manifest, of each deleted code file, whose exports leave with it,
-  // and of each modified workflow file, which the synced-copy check compares as YAML
-  const basePaths = change.files
-    .filter(
-      (file) =>
-        (basename(file.path) === 'package.json' && file.status !== 'added') ||
-        (file.status === 'deleted' && file.kind === 'code') ||
-        (file.status === 'modified' && isWorkflowFile(file.path)),
-    )
-    .map((file) => file.oldPath ?? file.path);
-
-  const baseTexts = await readFilesAtCommit(
-    options.runner,
-    options.repoDir,
-    change.base,
-    basePaths,
-  );
-
   const changed = change.files.map((file) =>
     buildAnalyzedFile(file, headTexts.get(file.path) ?? null, false, options.config),
   );
+
+  // the base side of each changed manifest, of each deleted code file, whose exports leave with it,
+  // of each modified workflow file, which the synced-copy check compares as YAML, and of each changed
+  // file that holds an access check, whose body the hostile-input check compares
+  const basePaths = [
+    ...change.files
+      .filter(
+        (file) =>
+          (basename(file.path) === 'package.json' && file.status !== 'added') ||
+          (file.status === 'deleted' && file.kind === 'code') ||
+          (file.status === 'modified' && isWorkflowFile(file.path)),
+      )
+      .map((file) => file.oldPath ?? file.path),
+    ...changed
+      .filter(
+        (entry) =>
+          entry.file.status !== 'added' &&
+          entry.analysis?.security.some((item) => item.part === 'allow-deny-check') === true,
+      )
+      .map((entry) => entry.file.oldPath ?? entry.file.path),
+  ];
+
+  const baseTexts = await readFilesAtCommit(options.runner, options.repoDir, change.base, [
+    ...new Set(basePaths),
+  ]);
 
   const context = contextPaths
     .filter((path) => known.has(path))
@@ -187,7 +194,7 @@ export async function runStaticStage(options: RunStaticStageOptions): Promise<St
   const consumerManifests = await readConsumerManifests(options);
 
   const findings = [
-    ...collectTestFindings(all, slices.security, {
+    ...collectTestFindings(all, slices.security, baseTexts, {
       body: options.body,
       pullRequestAndMergePaths: [
         ...(change.baseOnly ?? [])

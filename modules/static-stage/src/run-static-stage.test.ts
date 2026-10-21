@@ -278,6 +278,210 @@ test('it reports a new access check whose tests hold no table of refused inputs'
   expect(result.signals.riskClasses).toStrictEqual(['auth']);
 });
 
+test('it reports an access check whose body changes when its tests hold no table of refused inputs', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/access.ts': 'export function canEdit(role: string) {\n  return role === "admin";\n}\n',
+        'src/access.test.ts': [
+          "import { expect, test } from 'bun:test';",
+          "import { canEdit } from './access';",
+          '',
+          "test('it lets an admin edit', () => {",
+          "  expect(canEdit('admin')).toBe(true);",
+          '});',
+          '',
+        ].join('\n'),
+      },
+    },
+    {
+      message: 'head',
+      files: {
+        'src/access.ts':
+          'export function canEdit(role: string) {\n  return role === "admin" || role === "owner";\n}\n',
+      },
+    },
+  ]);
+
+  const config = BUILT_IN_DEFAULTS;
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config,
+    title: 'feat: owners edit',
+    body: '',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(
+    result.findings.map((finding) => [
+      finding.anchor.path,
+      finding.anchor.startLine,
+      finding.title,
+    ]),
+  ).toStrictEqual([['src/access.ts', 1, 'New allow-or-deny check has no table of hostile inputs']]);
+});
+
+test('it reports no missing table for a renamed access check whose body stays the same', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/access.ts': 'export function canEdit(role: string) {\n  return role === "admin";\n}\n',
+      },
+    },
+    {
+      message: 'head',
+      files: {
+        'src/access.ts':
+          'export function canModify(role: string) {\n  return role === "admin";\n}\n',
+      },
+    },
+  ]);
+
+  const config = BUILT_IN_DEFAULTS;
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config,
+    title: 'refactor: rename the edit check',
+    body: '',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(result.findings).toStrictEqual([]);
+});
+
+test('it reports no missing table for a renamed one-line access check whose body stays the same', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/access.ts': 'export const canPublish = (role: string) => role === "editor";\n',
+      },
+    },
+    {
+      message: 'head',
+      files: {
+        'src/access.ts': 'export const canRelease = (role: string) => role === "editor";\n',
+      },
+    },
+  ]);
+
+  const config = BUILT_IN_DEFAULTS;
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config,
+    title: 'refactor: rename the publish check',
+    body: '',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(result.findings).toStrictEqual([]);
+});
+
+test('it reports no missing table for an access check when only the line above it changes', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/access.ts': [
+          'export const retryLimit = 3;',
+          'export function canArchive(role: string) {',
+          '  return role === "keeper";',
+          '}',
+          '',
+        ].join('\n'),
+      },
+    },
+    {
+      message: 'head',
+      files: {
+        'src/access.ts': [
+          'export function canArchive(role: string) {',
+          '  return role === "keeper";',
+          '}',
+          '',
+        ].join('\n'),
+      },
+    },
+  ]);
+
+  const config = BUILT_IN_DEFAULTS;
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config,
+    title: 'refactor: drop the retry limit',
+    body: '',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(result.slices.security.map((entry) => entry.location)).toStrictEqual([
+    { path: 'src/access.ts', startLine: 1, endLine: 3 },
+  ]);
+
+  expect(result.findings).toStrictEqual([]);
+});
+
 test('it reports a repeated rule and vague wording in an instruction file', async () => {
   const ctx = await setupTest();
 

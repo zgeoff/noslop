@@ -11,18 +11,19 @@ export interface NamedTestClaims {
 }
 
 // the direct findings about tests: a new test with no assertion, 2 tests with one body, a type test
-// on a key its type lacks, a new allow-or-deny check whose tests hold no table of hostile inputs, and
-// a test file the pull request body claims that the whole pull request does not add
+// on a key its type lacks, an allow-or-deny check whose body changed and whose tests hold no table of
+// hostile inputs, and a test file the pull request body claims that the whole pull request does not add
 export function collectTestFindings(
   files: readonly AnalyzedFile[],
   security: readonly SecurityEntry[],
+  baseTexts: ReadonlyMap<string, string>,
   claims: NamedTestClaims,
 ): ModelFinding[] {
   return [
     ...collectUnassertedTests(files),
     ...collectDuplicateTests(files),
     ...collectMissingTypeKeys(files),
-    ...collectUntabledChecks(files, security),
+    ...collectUntabledChecks(files, security, baseTexts),
     ...collectNamedMissingTests(files, claims),
   ];
 }
@@ -132,8 +133,11 @@ function collectMissingTypeKeys(files: readonly AnalyzedFile[]): ModelFinding[] 
 function collectUntabledChecks(
   files: readonly AnalyzedFile[],
   security: readonly SecurityEntry[],
+  baseTexts: ReadonlyMap<string, string>,
 ): ModelFinding[] {
-  const checks = security.filter((item) => item.part === 'allow-deny-check');
+  const checks = security.filter(
+    (item) => item.part === 'allow-deny-check' && hasChangedBody(item, files, baseTexts),
+  );
 
   return checks.flatMap((check) => {
     const stem = basename(check.location.path).replace(/\.[cm]?[jt]sx?$/u, '');
@@ -163,6 +167,36 @@ function collectUntabledChecks(
       }),
     ];
   });
+}
+
+// a check's body counts as changed unless the base side of its file already holds the same text, so a
+// rename of the check, an edit beside it, or a change of its whitespace leaves it alone
+function hasChangedBody(
+  check: SecurityEntry,
+  files: readonly AnalyzedFile[],
+  baseTexts: ReadonlyMap<string, string>,
+): boolean {
+  const entry = files.find((item) => !item.isContext && item.file.path === check.location.path);
+
+  const fact = entry?.analysis?.security.find(
+    (item) =>
+      item.part === check.part &&
+      item.line === check.location.startLine &&
+      item.endLine === check.location.endLine,
+  );
+
+  const baseText =
+    entry === undefined ? undefined : baseTexts.get(entry.file.oldPath ?? entry.file.path);
+
+  if (fact?.body === undefined || baseText === undefined || entry?.file.status === 'added') {
+    return true;
+  }
+
+  return !toCompactText(baseText).includes(toCompactText(fact.body));
+}
+
+function toCompactText(text: string): string {
+  return text.replaceAll(/\s+/gu, '');
 }
 
 // a name starts where its path starts and holds the glob characters of a pattern, so a pattern such as
