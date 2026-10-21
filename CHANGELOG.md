@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.4.13](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.12...@noslop/cli@0.4.13) (2026-10-21)
+
+
+### Features
+
+* judge a fixed answer at the pull request's head ([#100](https://github.com/zgeoff/noslop/issues/100)) ([3c4448f](https://github.com/zgeoff/noslop/commit/3c4448f36eb44a847142303a5026a148303dc312))
+* key the review on the pull request's net change ([#97](https://github.com/zgeoff/noslop/issues/97)) ([8d5675c](https://github.com/zgeoff/noslop/commit/8d5675c5e9204a32d754a0b6cff0e92df5f6a149))
+
+
+### Bug Fixes
+
+* **static-stage:** skip the synced-copy check on a sync author's pr ([#98](https://github.com/zgeoff/noslop/issues/98)) ([14ea4e5](https://github.com/zgeoff/noslop/commit/14ea4e5ae2fe4ae5de7f72bc7f6add4bd2ea48e5))
+
 ## [0.4.12](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.11...@noslop/cli@0.4.12) (2026-10-21)
 
 ### Bug Fixes
