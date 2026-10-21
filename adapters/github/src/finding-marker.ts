@@ -17,8 +17,8 @@ export const findingMarkerSchema = z.strictObject({
   criterion: criterionSchema.optional(),
   rule: z.string().min(1).nullable().optional(),
 
-  // the head of the review that posted the finding, so only a commit after it confirms a fix; a
-  // marker posted before the field holds none
+  // the head of the review that posted the finding, which a fix call traces the finding's line from;
+  // a marker posted before the field holds none
   head: z
     .string()
     .regex(/^[0-9a-f]{40}$/u)

@@ -1976,3 +1976,182 @@ test('it runs the design pass in the head worktree on a later review that routes
   expect(stub.requests.map((request) => request.callID)).toStrictEqual(['design']);
   expect(stub.seenFiles).toStrictEqual([['package.json']]);
 });
+
+test('it judges a fixed answer whose finding the review no longer reports with a fix call', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
+    {
+      message: 'Add the separator',
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = "";\n' },
+    },
+    {
+      message: 'Reject an empty separator',
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = ":";\n' },
+    },
+  ]);
+
+  const stub = buildStubAdapter({
+    light: [{ findings: { correctness: [], 'naming-shape-and-comments': [], tests: [] } }],
+    'fix-1111111111111111': [{ fixed: true, reason: 'The separator is a colon now.' }],
+  });
+
+  await Bun.write(join(ctx.directory, 'temp', '.keep'), '');
+
+  const run = await runReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/scan',
+    base: repo.commits[1] ?? '',
+    head: repo.commits[2] ?? '',
+    config: BUILT_IN_DEFAULTS,
+    configHash: 'hash',
+    rules: null,
+    adapter: stub.adapter,
+    logger: ctx.logger,
+    tempDir: join(ctx.directory, 'temp'),
+    cacheDir: null,
+    title: 'Scan the header line',
+    body: '',
+    linkedIssue: null,
+    pullRequest: { owner: 'example', repo: 'scan', number: 4 },
+    isIncremental: true,
+    mergeBase: repo.commits[0] ?? '',
+    isPush: false,
+    pastEscapes: [],
+    fixes: {
+      answers: [
+        {
+          id: '1111111111111111',
+          title: 'Reject an empty separator',
+          lens: 'correctness',
+          path: 'src/scan.ts',
+          line: 2,
+          comment: 'An empty separator splits the line into single characters.',
+          hint: null,
+          postedHead: repo.commits[1] ?? '',
+        },
+      ],
+      pullRequestBase: repo.commits[0] ?? '',
+    },
+  });
+
+  expect(run.result.fixChecks).toStrictEqual([
+    { findingID: '1111111111111111', fixed: true, reason: 'The separator is a colon now.' },
+  ]);
+
+  expect(run.result.calls.map((call) => call.id)).toStrictEqual(['light', 'fix-1111111111111111']);
+});
+
+test('it makes no fix call for a fixed answer whose finding the review reports again', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
+    {
+      message: 'Add the total',
+      files: {
+        'src/total.ts': [
+          'export const zero = 0;',
+          '',
+          'export function total(items: number[]): number {',
+          '  return items.slice(1).reduce((sum, item) => sum + item, 0);',
+          '}',
+          '',
+        ].join('\n'),
+      },
+    },
+    {
+      message: 'Name the total',
+      files: {
+        'src/total.ts': [
+          'export const zero = 0;',
+          '',
+          'export function total(items: number[]): number {',
+          '  return items.slice(1).reduce((sum, value) => sum + value, 0);',
+          '}',
+          '',
+        ].join('\n'),
+      },
+    },
+  ]);
+
+  const stub = buildStubAdapter({
+    light: [
+      {
+        findings: {
+          correctness: [
+            {
+              title: 'Count the first item in the total',
+              body: 'The slice drops the first item, so the total is short by it.',
+              anchor: { path: 'src/total.ts', startLine: 4, endLine: 4 },
+              secondLocation: null,
+              severity: 'P2',
+              criterion: 'wrong-behaviour-edge-path',
+              rule: null,
+              ruleQuote: null,
+              verdict: 'CONFIRMED',
+              unverifiedFact: null,
+              missingChange: false,
+              fix: 'Reduce over the whole list.',
+            },
+          ],
+          'naming-shape-and-comments': [],
+          tests: [],
+        },
+      },
+    ],
+  });
+
+  await Bun.write(join(ctx.directory, 'temp', '.keep'), '');
+
+  const findingID = buildFindingID(
+    'correctness',
+    'src/total.ts',
+    'wrong-behaviour-edge-path',
+    'Count the first item in the total',
+  );
+
+  const run = await runReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/total',
+    base: repo.commits[1] ?? '',
+    head: repo.commits[2] ?? '',
+    config: BUILT_IN_DEFAULTS,
+    configHash: 'hash',
+    rules: null,
+    adapter: stub.adapter,
+    logger: ctx.logger,
+    tempDir: join(ctx.directory, 'temp'),
+    cacheDir: null,
+    title: 'Add the total',
+    body: '',
+    linkedIssue: null,
+    pullRequest: { owner: 'example', repo: 'total', number: 4 },
+    isIncremental: true,
+    mergeBase: repo.commits[0] ?? '',
+    isPush: false,
+    pastEscapes: [],
+    fixes: {
+      answers: [
+        {
+          id: findingID,
+          title: 'Count the first item in the total',
+          lens: 'correctness',
+          path: 'src/total.ts',
+          line: 4,
+          comment: 'The slice drops the first item, so the total is short by it.',
+          hint: null,
+          postedHead: repo.commits[1] ?? '',
+        },
+      ],
+      pullRequestBase: repo.commits[0] ?? '',
+    },
+  });
+
+  expect(run.result.findings.map((finding) => finding.id)).toStrictEqual([findingID]);
+  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['light']);
+  expect(run.result.fixChecks).toStrictEqual([]);
+});

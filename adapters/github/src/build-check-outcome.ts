@@ -10,13 +10,6 @@ export interface CheckOutcomeInput {
   // every disposition of the pull request, oldest first; a finding's latest one counts
   dispositions: readonly Disposition[];
   summary: SummaryMarker | null;
-
-  // each `<finding id>:<commit>` fix a review read: the ones the summary holds, and the ones answered
-  // after the review of the head that its range held
-  confirmed: readonly string[];
-
-  // why GitHub could not show a fix whole, by finding id, so the check names it
-  fixFailures: ReadonlyMap<string, string>;
   currentHead: string;
 
   // the key of the pull request's net change at the current head
@@ -136,13 +129,9 @@ function findFixedReason(
 
   // the sha is only a hint, so one the branch no longer holds fails nothing here
   const fix = commit === '' ? 'the fix' : `the commit ${commit}`;
-  const failure = input.fixFailures.get(finding.id);
 
-  if (failure !== undefined) {
-    return `the review could not read ${fix}: ${failure}`;
-  }
-
-  if (!input.confirmed.includes(`${finding.id}:${commit}`)) {
+  // only a fix call's verdict, which the summary keeps, confirms a fix
+  if (input.summary?.confirmed.includes(`${finding.id}:${commit}`) !== true) {
     return `no re-review has read ${fix} yet`;
   }
 

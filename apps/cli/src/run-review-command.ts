@@ -8,7 +8,7 @@ import type {
   ReviewResult,
 } from '@noslop/contract';
 import { reviewResultSchema } from '@noslop/contract';
-import type { GitHubConnection, PullRequestState, SummaryMarker } from '@noslop/github';
+import type { GitHubConnection, PullRequestState } from '@noslop/github';
 import { collectDismissedFindings, readLinkedIssue, readThreadDispositions } from '@noslop/github';
 import type { AnsweredFix } from '@noslop/review';
 import { runFixesOnlyReview, runReview } from '@noslop/review';
@@ -163,11 +163,18 @@ export async function runReviewCommand(values: ReviewValues, ctx: CLIContext): P
         isPush: values.push,
         pastEscapes,
         ...(change.author === undefined ? {} : { author: change.author }),
+        ...(change.pullRequestBase === null
+          ? {}
+          : { fixes: { answers: change.fixes, pullRequestBase: change.pullRequestBase } }),
         ...(ctx.now === undefined ? {} : { now: ctx.now }),
       });
 
       for (const item of run.result.dropped) {
         ctx.logger.info('dropped a {lens} finding, {reason}: {title}', item);
+      }
+
+      for (const check of run.result.fixChecks ?? []) {
+        ctx.logger.info('the fix of {findingID} holds: {fixed}, {reason}', { ...check });
       }
 
       result = reviewResultSchema.parse(run.result);
@@ -235,7 +242,7 @@ interface ResolvedChange {
   // finding matches one
   dismissedFindings: DismissedFinding[];
 
-  // the findings whose latest answer is `fixed`, which a fixes-only run checks; read only for one
+  // the findings whose latest answer is `fixed` with no confirmed fix, which a fix call judges
   fixes: AnsweredFix[];
 }
 
@@ -351,12 +358,17 @@ async function resolvePullRequestChange(
   // only a review with no failed call covered its head, so only such a head bases a delta
   const summary = state.summary?.marker;
   const full = summary !== undefined && summary.failedCalls === 0 ? summary.head : null;
-  const latest = values.fixesOnly ? findCompleteHead(summary) : full;
-  const reviewed = values.full ? null : latest;
+  const reviewed = values.full ? null : full;
 
   // a lens review of a head that a lens review with no failed call already covered would review the
-  // whole change again and raise its findings anew, so it runs only under --full
-  if (!values.full && !values.fixesOnly && findLensHead(summary) === state.headSha) {
+  // whole change again and raise its findings anew, so it runs only under --full; a fixes-only run's
+  // marker keeps the list of fixes it checked, and a lens review's keeps none
+  if (
+    !values.full &&
+    !values.fixesOnly &&
+    summary?.checked === undefined &&
+    full === state.headSha
+  ) {
     throw new Error(
       `a review with no failed call already covered ${state.headSha.slice(0, 12)}, the head of the pull request; push a commit to review it, or pass --full to review the whole change again`,
     );
@@ -377,20 +389,24 @@ async function resolvePullRequestChange(
 
   const start = await readGitText(ctx, repoDir, ['merge-base', state.baseSha, state.headSha]);
 
+  // a fixes-only run after a run whose call failed reads from the merge base, so it checks every merge
+  // of the pull request again
+  const since = values.fixesOnly ? (reviewed ?? start) : reviewed;
+
   const ancestry = await ctx.runner.run(
-    ['git', 'merge-base', '--is-ancestor', reviewed ?? state.headSha, state.headSha],
+    ['git', 'merge-base', '--is-ancestor', since ?? state.headSha, state.headSha],
     { cwd: repoDir },
   );
 
-  const isHeld = reviewed !== null && ancestry.exitCode === 0;
-  const isDelta = isHeld && reviewed !== state.headSha;
+  const isHeld = since !== null && ancestry.exitCode === 0;
+  const isDelta = isHeld && since !== state.headSha;
 
   // a fixes-only run may run again at the same head, for a `fixed` reply posted after the last run
-  if (values.fixesOnly && reviewed === null) {
-    throw new Error('--fixes-only needs an earlier review with no failed call');
+  if (values.fixesOnly && summary === undefined) {
+    throw new Error('--fixes-only needs an earlier review');
   }
 
-  const fixes = values.fixesOnly ? await readAnsweredFixes(connection, pullRequest, state) : [];
+  const fixes = await readAnsweredFixes(connection, pullRequest, state);
 
   // the call traces each finding's line from the head that posted it, which a rebase may have left on
   // no branch; one fetch per head, since git fails a fetch whole on one sha it cannot get, and a head
@@ -433,7 +449,7 @@ async function resolvePullRequestChange(
     repo,
 
     // a head a rebase took off the branch bounds nothing, so the run reads from the merge base
-    base: (values.fixesOnly || isDelta) && isHeld && reviewed !== null ? reviewed : start,
+    base: (values.fixesOnly || isDelta) && isHeld && since !== null ? since : start,
     head: state.headSha,
     config,
     title: state.title,
@@ -456,39 +472,6 @@ async function resolvePullRequestChange(
     dismissedFindings: collectDismissedFindings(state.threads),
     fixes,
   };
-}
-
-// the head of the newest run with no failed call that the summary marker keeps, so a fixes-only run
-// whose call failed leaves the next one its own base
-function findCompleteHead(summary: SummaryMarker | undefined): string | null {
-  if (summary === undefined) {
-    return null;
-  }
-
-  if (summary.failedCalls === 0) {
-    return summary.head;
-  }
-
-  return summary.earlier?.find((range) => range.partial !== true)?.head ?? null;
-}
-
-// the head of the newest review with no failed call that ran its lenses, which judged every `fixed`
-// reply before it; a fixes-only run's range keeps the list of fixes it checked, and a lens review's
-// keeps none
-function findLensHead(summary: SummaryMarker | undefined): string | null {
-  if (summary === undefined) {
-    return null;
-  }
-
-  if (summary.checked === undefined && summary.failedCalls === 0) {
-    return summary.head;
-  }
-
-  const range = summary.earlier?.find(
-    (item) => item.checked === undefined && item.partial !== true,
-  );
-
-  return range?.head ?? null;
 }
 
 // each finding whose latest disposition is `fixed` with a fix the summary does not hold confirmed, as

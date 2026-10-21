@@ -65,8 +65,8 @@ export const pullRequestRefSchema = z.strictObject({
 
 export type PullRequestRef = z.infer<typeof pullRequestRefSchema>;
 
-// a fixes-only run's word on one `fixed` answer: whether the change since the last reviewed head fixes
-// the finding, and the one-line reason
+// a fix call's word on one `fixed` answer: whether the head still holds the finding, and the one-line
+// reason
 export const fixCheckSchema = z.strictObject({
   findingID: z.string().regex(/^[0-9a-f]{16}$/u),
   fixed: z.boolean(),
@@ -110,8 +110,11 @@ export const reviewResultSchema = z.strictObject({
   notReviewedByLens: z.array(lensNotReviewedFileSchema),
   configHash: z.string().min(1),
 
-  // set only on a fixes-only run, which runs no lens and judges only the fixes it lists, so a reporter
-  // posts no finding and confirms no other fix through the run's silence
+  // set only on a fixes-only run, which runs no lens, so it is no review round
+  fixesOnly: z.literal(true).optional(),
+
+  // the verdict of each fix call: a fixes-only run's, or a review's for each `fixed` answer whose
+  // finding it no longer reported; only a verdict confirms a fix, never a finding's absence
   fixChecks: z.array(fixCheckSchema).optional(),
 
   // set only on a fixes-only run that judged a merge in its range; a clean merge gets no check

@@ -64,6 +64,7 @@ test('it counts no new review for a fixes-only run', () => {
     buildMockReviewResult({
       reviewID: 'review-c',
       startedAt: '2026-10-17T10:10:00.000Z',
+      fixesOnly: true,
       fixChecks: [{ findingID: '1111111111111111', fixed: true, reason: 'The guard is in place.' }],
     }),
   );
@@ -75,6 +76,31 @@ test('it counts no new review for a fixes-only run', () => {
     inline: [],
     followUps: [],
   });
+});
+
+test('it counts a new review for a lens review that made fix calls', () => {
+  const plan = planReviewPost(
+    {
+      summary: {
+        head: 'b'.repeat(40),
+        reviews: 1,
+        reported: [],
+        failedCalls: 0,
+        followUps: [],
+        confirmed: [],
+        reviewIDs: ['review-a'],
+        startedAt: '2026-10-17T10:05:00.000Z',
+      },
+      posted: new Set(),
+    },
+    buildMockReviewResult({
+      reviewID: 'review-b',
+      startedAt: '2026-10-17T10:10:00.000Z',
+      fixChecks: [{ findingID: '1111111111111111', fixed: true, reason: 'The guard is in place.' }],
+    }),
+  );
+
+  expect(plan.reviews).toBe(2);
 });
 
 test('it leaves the summary to a later review when a counted earlier review is retried', () => {
