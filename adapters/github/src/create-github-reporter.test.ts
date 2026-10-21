@@ -6416,6 +6416,98 @@ test('it passes the check on a late fix that names the rebased copy of the commi
   expect(outcome).toMatchObject({ conclusion: 'success', open: [], reviewed: true });
 });
 
+test('it fails the check on a late fix whose patch 2 commits a review read before a clean rebase share', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'b'.repeat(40),
+  });
+
+  for (const commit of [
+    { sha: 'a'.repeat(40), isOnBranch: false, patch: '@@ -1,1 +1,1 @@\n-a\n+b' },
+    { sha: 'e'.repeat(40), isOnBranch: false, patch: '@@ -2,1 +2,1 @@\n-sum\n+total' },
+    { sha: 'b'.repeat(40), isOnBranch: false, patch: '@@ -4,1 +4,1 @@\n-sum\n+total' },
+    { sha: 'c'.repeat(40), isOnBranch: true, patch: '@@ -1,1 +1,1 @@\n-a\n+b' },
+    { sha: 'd'.repeat(40), isOnBranch: true, patch: '@@ -7,1 +7,1 @@\n-sum\n+total' },
+  ]) {
+    await githubCollections.pullCommits.create({
+      owner: 'example',
+      repo: 'app',
+      number: 5,
+      sha: commit.sha,
+      files: ['src/a.ts'],
+      patches: { 'src/a.ts': commit.patch },
+      isOnBranch: commit.isOnBranch,
+    });
+  }
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/a.ts',
+    lines: [1],
+    patch: '@@ -1,4 +1,4 @@\n-a\n+b\n x\n y\n-sum\n+total',
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'a'.repeat(40),
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      base: 'a'.repeat(40),
+      head: 'b'.repeat(40),
+      findings: [],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  await githubCollections.pullRequests.update((query) => query.where({ number: 5 }), {
+    data(record) {
+      record.headSha = 'd'.repeat(40);
+    },
+  });
+
+  const [thread] = githubCollections.reviewComments.all();
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    body: `fixed ${'d'.repeat(7)}`,
+    authorLogin: 'dev',
+    inReplyToID: thread?.id ?? null,
+  });
+
+  const connection = await createGitHubConnection({
+    appID: 1,
+    privateKey: buildStubAppKey(),
+    installationID: 7,
+  });
+
+  const outcome = await runGitHubCheck(
+    connection,
+    { owner: 'example', repo: 'app', number: 5 },
+    { failedReporters: [] },
+  );
+
+  expect(outcome).toMatchObject({
+    conclusion: 'failure',
+    open: [{ id: '1111111111111111', reason: 'no re-review has read the commit ddddddd yet' }],
+    reviewed: true,
+  });
+});
+
 test('it refuses to post under a token, whose comments no later review trusts', async () => {
   const reporter = createGitHubReporter({
     loadConnection: () => createGitHubConnection(null, 'ghp_reader'),
