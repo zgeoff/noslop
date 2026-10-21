@@ -174,6 +174,7 @@ async function runFixCheck(input: FixChecksInput, target: FixTarget): Promise<Fi
   const diff = isWholeDiff
     ? target.diff
     : await readGitText(input, [
+        '--literal-pathspecs',
         'diff',
         '--no-color',
         '--no-ext-diff',
