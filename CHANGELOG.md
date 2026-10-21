@@ -2,11 +2,14 @@
 
 ## [0.4.12](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.11...@noslop/cli@0.4.12) (2026-10-21)
 
-
 ### Bug Fixes
 
-* **geo-1588:** check a fixed answer whose commit landed in a lower layer ([#83](https://github.com/zgeoff/noslop/issues/83)) ([122ffe5](https://github.com/zgeoff/noslop/commit/122ffe5ba5ad5a5393834217bae2e5cc46c8cd22))
-* **geo-1593:** map a stacked pr past a lower layer's squash ([#84](https://github.com/zgeoff/noslop/issues/84)) ([aaf7059](https://github.com/zgeoff/noslop/commit/aaf7059bc7e2dee5788a3540830498adeb67b3e0))
+- **geo-1588:** check a fixed answer whose commit landed in a lower layer
+  ([#83](https://github.com/zgeoff/noslop/issues/83))
+  ([122ffe5](https://github.com/zgeoff/noslop/commit/122ffe5ba5ad5a5393834217bae2e5cc46c8cd22))
+- **geo-1593:** map a stacked pr past a lower layer's squash
+  ([#84](https://github.com/zgeoff/noslop/issues/84))
+  ([aaf7059](https://github.com/zgeoff/noslop/commit/aaf7059bc7e2dee5788a3540830498adeb67b3e0))
 
 ## [0.4.11](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.10...@noslop/cli@0.4.11) (2026-10-20)
 
