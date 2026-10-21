@@ -35,6 +35,9 @@ export interface RunStaticStageOptions {
   cacheDir: string | null;
   pastEscapes: readonly string[];
   readConsumerFile?: (repo: string, path: string) => Promise<string | null>;
+
+  // the GitHub login that opened the pull request; a local change has none
+  author?: string;
 }
 
 export interface StaticStageResult {
@@ -202,6 +205,8 @@ export async function runStaticStage(options: RunStaticStageOptions): Promise<St
       config: options.config,
       linkedIssue: options.linkedIssue,
       isSync,
+      isSyncAuthor:
+        options.author !== undefined && options.config.syncAuthors.includes(options.author),
     }),
   ];
 

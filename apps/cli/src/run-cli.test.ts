@@ -244,6 +244,50 @@ test('it reviews a pull request that edits review.json under the config of its b
   expect(stub.requests.map((request) => request.model)).toStrictEqual(['base-model']);
 });
 
+test('it reports no synced edit in a pull request that an account the config names as a sync author opened', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'review.json': '{ "synced": ["vendor/**"], "syncAuthors": ["mirror-bot[bot]"] }\n',
+        'vendor/shared.ts': 'export const shared = 1;\n',
+        'src/a.ts': 'export const a = 1;\n',
+      },
+    },
+    {
+      message: 'Sync the shared files',
+      files: {
+        'vendor/shared.ts': 'export const shared = 2;\n',
+        'src/a.ts': 'export const a = 2;\n',
+      },
+    },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    title: 'Sync the shared files',
+    body: 'Brings the shared files up to date.',
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[1] ?? '',
+    authorLogin: 'mirror-bot[bot]',
+  });
+
+  const stub = buildStubAdapter({ light: [{ findings: { correctness: [] } }] });
+
+  await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'json', '--json'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  const result = reviewResultSchema.parse(JSON.parse(ctx.stdout.join('')));
+
+  expect(result.findings.map((finding) => finding.title)).toStrictEqual([]);
+});
+
 test("it follows the base commit's symlinks to its config files", async () => {
   const ctx = await setupTest();
 

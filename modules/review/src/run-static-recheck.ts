@@ -4,12 +4,15 @@ import type { Runner } from '@noslop/runner';
 import { readChange, runStaticStage } from '@noslop/static-stage';
 
 // what the static stage reads beyond a fixes-only run's own input: the config, the pull request's
-// body and linked issue, which some checks compare the change against, and the base index's cache
+// body, linked issue and author, which some checks compare the change against, and the base index's cache
 export interface StaticRecheckOptions {
   config: ReviewConfig;
   body: string;
   linkedIssue: string | null;
   cacheDir: string | null;
+
+  // the GitHub login that opened the pull request
+  author?: string;
 }
 
 export interface StaticRecheckInput extends StaticRecheckOptions {
@@ -43,6 +46,7 @@ export async function runStaticRecheck(input: StaticRecheckInput): Promise<Findi
     linkedIssue: input.linkedIssue,
     cacheDir: input.cacheDir,
     pastEscapes: [],
+    ...(input.author === undefined ? {} : { author: input.author }),
   });
 
   // Assemble drops a finding off the diff and cuts a long title, as in the review that posted it

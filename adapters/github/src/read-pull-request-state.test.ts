@@ -39,3 +39,24 @@ test('it keeps the lines a finding comment was posted on after a push moves the 
 
   expect(state.threads).toMatchObject([{ startLine: 10, line: 12 }]);
 });
+
+test('it reads the login of the account that opened the pull request', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 6,
+    authorLogin: 'mirror-bot[bot]',
+  });
+
+  const connection = await ctx.loadConnection();
+
+  const state = await readPullRequestState(connection, {
+    owner: 'example',
+    repo: 'app',
+    number: 6,
+  });
+
+  expect(state.author).toBe('mirror-bot[bot]');
+});

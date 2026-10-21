@@ -1152,6 +1152,21 @@
         }
       ]
     },
+    "syncAuthors": {
+      "description": "GitHub logins of the accounts that open sync pull requests, such as <slug>[bot]; the synced-copy check skips a pull request one of them opened",
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "breakingMarkers": {
       "description": "Text in the pull request title or body that marks a breaking change",
       "anyOf": [

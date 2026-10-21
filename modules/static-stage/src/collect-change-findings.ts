@@ -23,10 +23,14 @@ export interface ChangeFindingInputs {
   config: ReviewConfig;
   linkedIssue: string | null;
   isSync: boolean;
+
+  // the pull request comes from an account the config names as a sync's, so a change beside the
+  // synced copies, such as a manifest the sync also edits, does not make it a hand edit
+  isSyncAuthor: boolean;
 }
 
 // the direct findings about the change as a whole: a version bump a consumer's range refuses, a schema
-// bound above a published limit, an edit to a synced copy, a format-only hunk the linked issue does
+// bound above a published limit, an edit to a synced copy outside a sync, a format-only hunk the linked issue does
 // not cover, and a change that needs a version bump the change lacks
 export function collectChangeFindings(inputs: ChangeFindingInputs): ModelFinding[] {
   return [
@@ -120,7 +124,7 @@ function collectBoundsOverLimit(inputs: ChangeFindingInputs): ModelFinding[] {
 }
 
 function collectSyncedEdits(inputs: ChangeFindingInputs): ModelFinding[] {
-  if (inputs.isSync) {
+  if (inputs.isSync || inputs.isSyncAuthor) {
     return [];
   }
 

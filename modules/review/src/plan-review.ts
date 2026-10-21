@@ -20,6 +20,7 @@ export type PlanReviewOptions = Pick<
   | 'isPush'
   | 'pastEscapes'
   | 'readConsumerFile'
+  | 'author'
   | 'depth'
 >;
 
@@ -59,6 +60,7 @@ export async function planReview(options: PlanReviewOptions): Promise<ReviewPlan
     ...(options.readConsumerFile === undefined
       ? {}
       : { readConsumerFile: options.readConsumerFile }),
+    ...(options.author === undefined ? {} : { author: options.author }),
   });
 
   const routeInput: RouteInput = {

@@ -112,6 +112,12 @@ of a job's `uses:` call to a workflow in another repo, because the sync that del
 pins the call to its own ref. The check parses both versions as YAML to find which values changed,
 and it compares the changed lines as text, because a parse drops comments.
 
+The synced-copy check also skips a pull request that an account in the config's sync authors opened.
+A sync can change files outside the synced paths, such as a manifest or the repo's config, and those
+files keep the change from routing as a sync, so the lenses still review them. The check matches the
+GitHub login of the account that opened the pull request, so a local review, which has none, always
+runs it.
+
 The review takes the linked issue and a reader for consumer manifests from its caller. The CLI takes
 the linked issue from `--issue-file` when it is given, so an issue that lives outside GitHub reaches
 the review with no tracker code in noslop. Without it, a review of a pull request reads the GitHub
