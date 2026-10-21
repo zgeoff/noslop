@@ -6203,7 +6203,6 @@ test('it passes the check on a fix answered after a merge of the base that left 
     { logger: ctx.logger, options: {}, failedReporters: [] },
   );
 
-  // a merge of the base that touches none of the pull request's files
   await githubCollections.pullCommits.create({
     owner: 'example',
     repo: 'app',
