@@ -29,7 +29,9 @@ check stays on the net change it was on and passes no commit that no lens read. 
 when each of the branch's own new commits is a merge whose other parents the pull request's base
 holds. Such a merge brings in only code the base holds, and the
 [resolution check](#the-resolution-check) judges each one that is not clean. A clean rebase needs no
-run, because it leaves the [net-change key](./github-app.md#the-net-change-key) where it was.
+run when the summary marker keys each file, because it leaves that
+[net-change key](./github-app.md#the-net-change-key) where it was. A key on the head moves with any
+rebase, so such a pull request needs a new review after one.
 
 A `fixed` reply posted after an earlier fixes-only run passed its commit gets a call too, so the
 next run, at the same head or a later one, checks it. Its diff starts from the newer of the head
