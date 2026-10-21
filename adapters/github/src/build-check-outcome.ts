@@ -1,4 +1,5 @@
 import type { Disposition } from '@noslop/contract';
+import { findInvalidAnswerReason } from './find-invalid-answer-reason';
 import { findUnreviewedReason } from './find-unreviewed-reason';
 import type { FindingMarker } from './finding-marker';
 import type { NetChangeKey } from './net-change-key';
@@ -45,8 +46,14 @@ export interface CheckOutcome {
 export function buildCheckOutcome(input: CheckOutcomeInput): CheckOutcome {
   const latest = new Map(input.dispositions.map((item) => [item.findingID, item]));
 
+  const evidence = {
+    reported: input.summary?.reported ?? [],
+    confirmed: input.summary?.confirmed ?? [],
+    existingIssues: input.existingIssues,
+  };
+
   const open = input.findings.flatMap((finding) => {
-    const reason = findInvalidReason(finding, latest.get(finding.id), input);
+    const reason = findInvalidAnswerReason(finding, latest.get(finding.id), evidence);
 
     return reason === null ? [] : [{ id: finding.id, title: finding.title, reason }];
   });
@@ -92,64 +99,4 @@ export function buildCheckOutcome(input: CheckOutcomeInput): CheckOutcome {
     open,
     reviewed: unreviewed === null,
   };
-}
-
-function findInvalidReason(
-  finding: FindingMarker,
-  disposition: Disposition | undefined,
-  input: CheckOutcomeInput,
-): string | null {
-  if (disposition === undefined) {
-    return 'no disposition';
-  }
-
-  if (disposition.kind === 'fixed') {
-    return findFixedReason(finding, disposition.value, input);
-  }
-
-  if (disposition.kind === 'deferred') {
-    return findDeferredReason(finding, disposition.value, input);
-  }
-
-  if (disposition.kind === 'accepted-risk' && !disposition.authorIsOwner) {
-    return 'only a repo owner gives accepted-risk';
-  }
-
-  return null;
-}
-
-function findFixedReason(
-  finding: FindingMarker,
-  commit: string,
-  input: CheckOutcomeInput,
-): string | null {
-  if (input.summary?.reported.includes(finding.id) === true) {
-    return 'the re-review still finds it';
-  }
-
-  // the sha is only a hint, so one the branch no longer holds fails nothing here
-  const fix = commit === '' ? 'the fix' : `the commit ${commit}`;
-
-  // only a fix call's verdict, which the summary keeps, confirms a fix
-  if (input.summary?.confirmed.includes(`${finding.id}:${commit}`) !== true) {
-    return `no re-review has read ${fix} yet`;
-  }
-
-  return null;
-}
-
-function findDeferredReason(
-  finding: FindingMarker,
-  issue: string,
-  input: CheckOutcomeInput,
-): string | null {
-  if (finding.writtenByChange) {
-    return 'the change wrote this code, so it takes fixed, not-a-defect or accepted-risk';
-  }
-
-  if (finding.severity === 'P1' || finding.lens === 'security' || finding.riskClass !== null) {
-    return 'a P1, a security finding or a risk-class finding blocks the merge and cannot be deferred';
-  }
-
-  return input.existingIssues.has(issue) ? null : `the issue ${issue} does not exist`;
 }

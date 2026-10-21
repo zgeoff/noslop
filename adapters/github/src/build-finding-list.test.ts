@@ -44,7 +44,9 @@ test('it counts a fixed answer as fixed only when a fix call confirmed that answ
           at: '2026-10-20T10:01:00Z',
         },
       ],
+      reported: [],
       confirmed: ['1111111111111111:1a2b3c4', '2222222222222222:9a8b7c6'],
+      existingIssues: new Set(),
     }),
   ).toStrictEqual({
     findings: [
@@ -100,7 +102,9 @@ test('it reads the latest answer of a finding, and its author', () => {
           at: '2026-10-20T11:00:00Z',
         },
       ],
+      reported: [],
       confirmed: [],
+      existingIssues: new Set(),
     }),
   ).toStrictEqual({
     findings: [

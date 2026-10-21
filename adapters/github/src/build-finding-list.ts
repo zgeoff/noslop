@@ -1,23 +1,24 @@
 import type { Disposition, FindingList, FindingState } from '@noslop/contract';
+import type { AnswerEvidence } from './find-invalid-answer-reason';
+import { findInvalidAnswerReason } from './find-invalid-answer-reason';
 import type { FindingMarker } from './finding-marker';
 
-export interface FindingListInput {
+export interface FindingListInput extends AnswerEvidence {
   findings: readonly FindingMarker[];
   dispositions: readonly Disposition[];
-  confirmed: readonly string[];
 }
 
+// a finding whose latest answer the check would not accept is open, so a gate counts open findings
+// alone
 export function buildFindingList(input: FindingListInput): FindingList {
   const latest = new Map(input.dispositions.map((item) => [item.findingID, item]));
-  const confirmed = new Set(input.confirmed);
 
   return {
     findings: input.findings.map((finding) => {
       const disposition = latest.get(finding.id);
 
       const state: FindingState =
-        disposition === undefined ||
-        (disposition.kind === 'fixed' && !confirmed.has(`${finding.id}:${disposition.value}`))
+        disposition === undefined || findInvalidAnswerReason(finding, disposition, input) !== null
           ? 'open'
           : disposition.kind;
 

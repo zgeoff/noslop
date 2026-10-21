@@ -7597,6 +7597,315 @@ test('it lists each finding of a pull request with its state and the author of i
         state: 'not-a-defect',
         author: 'dev',
       },
+      { id: '4444444444444444', path: 'src/scan.ts', severity: 'P3', state: 'open', author: 'dev' },
+      { id: '5555555555555555', path: 'src/scan.ts', severity: 'P3', state: 'open', author: 'dev' },
+      { id: '6666666666666666', path: 'src/scan.ts', severity: 'P2', state: 'open', author: null },
+    ],
+  });
+
+  expect(githubCollections.issueComments.all()).toHaveLength(1);
+  expect(githubCollections.checkRuns.all()).toStrictEqual([]);
+});
+
+test('it lists an accepted-risk finding as open when its author has no admin permission', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[0] ?? '',
+  });
+
+  await githubCollections.collaborators.create({
+    owner: 'example',
+    repo: 'app',
+    login: 'maintainer',
+    permission: 'admin',
+  });
+
+  await githubCollections.collaborators.create({
+    owner: 'example',
+    repo: 'app',
+    login: 'dev',
+    permission: 'write',
+  });
+
+  const findings = [
+    ['1111111111111111', 'dev'],
+    ['2222222222222222', 'maintainer'],
+  ];
+
+  for (const [id, author] of findings) {
+    const thread = await githubCollections.reviewComments.create({
+      owner: 'example',
+      repo: 'app',
+      number: 9,
+      path: 'src/scan.ts',
+      line: 1,
+      authorLogin: STUB_APP_LOGIN,
+      authorType: 'Bot',
+      body: `<!-- noslop:finding {"id":"${id}","title":"Reject an empty separator","path":"src/scan.ts","lens":"correctness","severity":"P2","riskClass":null,"writtenByChange":true} -->`,
+    });
+
+    await githubCollections.reviewComments.create({
+      owner: 'example',
+      repo: 'app',
+      number: 9,
+      body: 'accepted-risk the scanner runs once per import',
+      authorLogin: author,
+      inReplyToID: thread.id,
+    });
+  }
+
+  const stub = buildStubAdapter({});
+
+  const code = await runCLI(
+    ['findings', '--pr', '9', '--repo', 'example/app', '--json'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  const list = findingListSchema.parse(JSON.parse(ctx.stdout.join('')));
+
+  expect(code).toBe(0);
+
+  expect(list).toStrictEqual({
+    findings: [
+      { id: '1111111111111111', path: 'src/scan.ts', severity: 'P2', state: 'open', author: 'dev' },
+      {
+        id: '2222222222222222',
+        path: 'src/scan.ts',
+        severity: 'P2',
+        state: 'accepted-risk',
+        author: 'maintainer',
+      },
+    ],
+  });
+});
+
+test('it lists a deferred finding as open while its issue does not exist', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[0] ?? '',
+  });
+
+  await githubCollections.issues.create({
+    owner: 'example',
+    repo: 'app',
+    number: 13,
+    title: 'Split the scanner by token kind',
+    body: 'The scanner reads every token kind in one loop.',
+  });
+
+  const findings = [
+    ['1111111111111111', 'deferred #12'],
+    ['2222222222222222', 'deferred #13'],
+  ];
+
+  for (const [id, answer] of findings) {
+    const thread = await githubCollections.reviewComments.create({
+      owner: 'example',
+      repo: 'app',
+      number: 9,
+      path: 'src/scan.ts',
+      line: 1,
+      authorLogin: STUB_APP_LOGIN,
+      authorType: 'Bot',
+      body: `<!-- noslop:finding {"id":"${id}","title":"Name the separator","path":"src/scan.ts","lens":"correctness","severity":"P3","riskClass":null,"writtenByChange":false} -->`,
+    });
+
+    await githubCollections.reviewComments.create({
+      owner: 'example',
+      repo: 'app',
+      number: 9,
+      body: answer,
+      authorLogin: 'dev',
+      inReplyToID: thread.id,
+    });
+  }
+
+  const stub = buildStubAdapter({});
+
+  const code = await runCLI(
+    ['findings', '--pr', '9', '--repo', 'example/app', '--json'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  const list = findingListSchema.parse(JSON.parse(ctx.stdout.join('')));
+
+  expect(code).toBe(0);
+
+  expect(list).toStrictEqual({
+    findings: [
+      { id: '1111111111111111', path: 'src/scan.ts', severity: 'P3', state: 'open', author: 'dev' },
+      {
+        id: '2222222222222222',
+        path: 'src/scan.ts',
+        severity: 'P3',
+        state: 'deferred',
+        author: 'dev',
+      },
+    ],
+  });
+});
+
+test('it lists a deferred finding as open when the change wrote its code', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[0] ?? '',
+  });
+
+  await githubCollections.issues.create({
+    owner: 'example',
+    repo: 'app',
+    number: 13,
+    title: 'Split the scanner by token kind',
+    body: 'The scanner reads every token kind in one loop.',
+  });
+
+  const findings = [
+    ['1111111111111111', 'true'],
+    ['2222222222222222', 'false'],
+  ];
+
+  for (const [id, writtenByChange] of findings) {
+    const thread = await githubCollections.reviewComments.create({
+      owner: 'example',
+      repo: 'app',
+      number: 9,
+      path: 'src/scan.ts',
+      line: 1,
+      authorLogin: STUB_APP_LOGIN,
+      authorType: 'Bot',
+      body: `<!-- noslop:finding {"id":"${id}","title":"Name the separator","path":"src/scan.ts","lens":"correctness","severity":"P3","riskClass":null,"writtenByChange":${writtenByChange}} -->`,
+    });
+
+    await githubCollections.reviewComments.create({
+      owner: 'example',
+      repo: 'app',
+      number: 9,
+      body: 'deferred #13',
+      authorLogin: 'dev',
+      inReplyToID: thread.id,
+    });
+  }
+
+  const stub = buildStubAdapter({});
+
+  const code = await runCLI(
+    ['findings', '--pr', '9', '--repo', 'example/app', '--json'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  const list = findingListSchema.parse(JSON.parse(ctx.stdout.join('')));
+
+  expect(code).toBe(0);
+
+  expect(list).toStrictEqual({
+    findings: [
+      { id: '1111111111111111', path: 'src/scan.ts', severity: 'P3', state: 'open', author: 'dev' },
+      {
+        id: '2222222222222222',
+        path: 'src/scan.ts',
+        severity: 'P3',
+        state: 'deferred',
+        author: 'dev',
+      },
+    ],
+  });
+});
+
+test('it lists a deferred P1, security or risk-class finding as open', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[0] ?? '',
+  });
+
+  await githubCollections.issues.create({
+    owner: 'example',
+    repo: 'app',
+    number: 13,
+    title: 'Split the scanner by token kind',
+    body: 'The scanner reads every token kind in one loop.',
+  });
+
+  const findings = [
+    ['1111111111111111', 'correctness', 'P1', 'null'],
+    ['2222222222222222', 'security', 'P3', 'null'],
+    ['3333333333333333', 'correctness', 'P3', '"payments"'],
+    ['4444444444444444', 'correctness', 'P3', 'null'],
+  ];
+
+  for (const [id, lens, severity, riskClass] of findings) {
+    const thread = await githubCollections.reviewComments.create({
+      owner: 'example',
+      repo: 'app',
+      number: 9,
+      path: 'src/scan.ts',
+      line: 1,
+      authorLogin: STUB_APP_LOGIN,
+      authorType: 'Bot',
+      body: `<!-- noslop:finding {"id":"${id}","title":"Name the separator","path":"src/scan.ts","lens":"${lens}","severity":"${severity}","riskClass":${riskClass},"writtenByChange":false} -->`,
+    });
+
+    await githubCollections.reviewComments.create({
+      owner: 'example',
+      repo: 'app',
+      number: 9,
+      body: 'deferred #13',
+      authorLogin: 'dev',
+      inReplyToID: thread.id,
+    });
+  }
+
+  const stub = buildStubAdapter({});
+
+  const code = await runCLI(
+    ['findings', '--pr', '9', '--repo', 'example/app', '--json'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  const list = findingListSchema.parse(JSON.parse(ctx.stdout.join('')));
+
+  expect(code).toBe(0);
+
+  expect(list).toStrictEqual({
+    findings: [
+      { id: '1111111111111111', path: 'src/scan.ts', severity: 'P1', state: 'open', author: 'dev' },
+      { id: '2222222222222222', path: 'src/scan.ts', severity: 'P3', state: 'open', author: 'dev' },
+      { id: '3333333333333333', path: 'src/scan.ts', severity: 'P3', state: 'open', author: 'dev' },
       {
         id: '4444444444444444',
         path: 'src/scan.ts',
@@ -7604,19 +7913,84 @@ test('it lists each finding of a pull request with its state and the author of i
         state: 'deferred',
         author: 'dev',
       },
-      {
-        id: '5555555555555555',
-        path: 'src/scan.ts',
-        severity: 'P3',
-        state: 'accepted-risk',
-        author: 'dev',
-      },
-      { id: '6666666666666666', path: 'src/scan.ts', severity: 'P2', state: 'open', author: null },
     ],
   });
+});
 
-  expect(githubCollections.issueComments.all()).toHaveLength(1);
-  expect(githubCollections.checkRuns.all()).toStrictEqual([]);
+test('it lists a fixed finding as open while the latest review still reports it', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[0] ?? '',
+  });
+
+  const findings = [
+    ['1111111111111111', 'fixed 1a2b3c4'],
+    ['2222222222222222', 'fixed 5d6e7f8'],
+  ];
+
+  for (const [id, answer] of findings) {
+    const thread = await githubCollections.reviewComments.create({
+      owner: 'example',
+      repo: 'app',
+      number: 9,
+      path: 'src/scan.ts',
+      line: 1,
+      authorLogin: STUB_APP_LOGIN,
+      authorType: 'Bot',
+      body: `<!-- noslop:finding {"id":"${id}","title":"Reject an empty separator","path":"src/scan.ts","lens":"correctness","severity":"P2","riskClass":null,"writtenByChange":true} -->`,
+    });
+
+    await githubCollections.reviewComments.create({
+      owner: 'example',
+      repo: 'app',
+      number: 9,
+      body: answer,
+      authorLogin: 'dev',
+      inReplyToID: thread.id,
+    });
+  }
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${repo.commits[0] ?? ''}","reviews":2,"reported":["1111111111111111"],"failedCalls":0,"confirmed":["1111111111111111:1a2b3c4","2222222222222222:5d6e7f8"]} -->`,
+  });
+
+  const stub = buildStubAdapter({});
+
+  const code = await runCLI(
+    ['findings', '--pr', '9', '--repo', 'example/app', '--json'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  const list = findingListSchema.parse(JSON.parse(ctx.stdout.join('')));
+
+  expect(code).toBe(0);
+
+  expect(list).toStrictEqual({
+    findings: [
+      { id: '1111111111111111', path: 'src/scan.ts', severity: 'P2', state: 'open', author: 'dev' },
+      {
+        id: '2222222222222222',
+        path: 'src/scan.ts',
+        severity: 'P2',
+        state: 'fixed',
+        author: 'dev',
+      },
+    ],
+  });
 });
 
 test('it records an escape in the store and counts it in recall', async () => {

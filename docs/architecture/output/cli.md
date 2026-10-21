@@ -123,13 +123,22 @@ token or an anonymous GitHub connection.
 
 `findings` prints each finding the App posted on a pull request, with its id, its file, its
 severity, its state and the login that wrote its latest answer. A gate outside noslop reads the list
-and decides whether the pull request may merge, so noslop judges no answer's author. The state is
-the kind of the latest answer, with one exception: a `fixed` answer counts as `fixed` only once a
-fix check confirmed it, and stays `open` until then. A finding with no answer is `open`. With
-`--json`, the list follows the finding list schema in the contract package. The command trusts the
-App's comments as [checking read-only](#checking-read-only) trusts them, and it writes nothing to
-GitHub. It exits 1 and lists nothing when a finding comment of the App holds a marker noslop cannot
-read, because a list without that finding would show the gate one open finding too few.
+and decides from the `open` findings alone whether the pull request may merge. The state is the kind
+of the latest answer when the check accepts that answer, and `open` otherwise. The list and the
+check share one set of rules for an answer, under [dispositions](./github-app.md#dispositions):
+
+- A `deferred` answer names an issue that exists.
+- A `deferred` answer is refused for code the change wrote.
+- A `deferred` answer is refused for a P1, security or risk-class finding.
+- A `fixed` answer holds once a fix check confirmed it, and stays `open` while the latest review
+  still reports the finding.
+- An `accepted-risk` answer holds only when its author has admin permission on the repo.
+
+A finding with no answer is `open`. With `--json`, the list follows the finding list schema in the
+contract package. The command trusts the App's comments as [checking read-only](#checking-read-only)
+trusts them, and it writes nothing to GitHub. It exits 1 and lists nothing when a finding comment of
+the App holds a marker noslop cannot read, because a list without that finding would show the gate
+one open finding too few.
 
 ## Checking read-only
 
