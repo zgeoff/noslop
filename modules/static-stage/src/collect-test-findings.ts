@@ -4,21 +4,26 @@ import type { AnalyzedFile } from './analyzed-file';
 import { buildStaticFinding } from './build-static-finding';
 import type { SecurityEntry } from './types';
 
+export interface NamedTestClaims {
+  body: string;
+  pullRequestAndMergePaths: readonly string[];
+  headPaths: readonly string[];
+}
+
 // the direct findings about tests: a new test with no assertion, 2 tests with one body, a type test
 // on a key its type lacks, a new allow-or-deny check whose tests hold no table of hostile inputs, and
-// a test file the pull request body names that the whole pull request does not add
+// a test file the pull request body claims that the whole pull request does not add
 export function collectTestFindings(
   files: readonly AnalyzedFile[],
   security: readonly SecurityEntry[],
-  body: string,
-  added: readonly string[],
+  claims: NamedTestClaims,
 ): ModelFinding[] {
   return [
     ...collectUnassertedTests(files),
     ...collectDuplicateTests(files),
     ...collectMissingTypeKeys(files),
     ...collectUntabledChecks(files, security),
-    ...collectNamedMissingTests(files, body, added),
+    ...collectNamedMissingTests(files, claims),
   ];
 }
 
@@ -165,21 +170,29 @@ function collectUntabledChecks(
 const TEST_PATH_IN_TEXT = /(?<![\w./*?{}\]-])[\w./*?{}-]+\.(?:test|spec)\.[cm]?[jt]sx?(?![\w-])/gu;
 const GLOB_CHARACTERS = /[*?{}]/u;
 
+const CLAIMED_EDIT =
+  /\b(?:add|adds|added|adding|create|creates|created|write|writes|wrote|written|extend|extends|extended|edit|edits|update|updates|change|changes|rewrite|rewrites|rewrote|rewritten|(?<!\b(?:the|an?)\s)(?:edited|updated|changed))\b/iu;
+
+const NON_PROSE = /`[^`]*`|"[^"]*"/gu;
+
+// Markdown wraps a sentence over several lines, so a line ends a sentence only before a blank line, a
+// list item, a heading, a quote, a table row or a code fence
+const SENTENCE_BREAK = /(?<=[.!?])\s+|\n(?=[ \t]*(?:\n|$|[-*+>#|]|\d+[.)]|```))/mu;
+
 function collectNamedMissingTests(
   files: readonly AnalyzedFile[],
-  body: string,
-  added: readonly string[],
+  claims: NamedTestClaims,
 ): ModelFinding[] {
   const changed = new Set([
-    ...files
-      .filter((entry) => !entry.isContext && entry.file.status !== 'deleted')
-      .map((entry) => entry.file.path),
-    ...added,
+    ...files.flatMap((entry) =>
+      entry.isContext ? [] : [entry.file.path, entry.file.oldPath ?? entry.file.path],
+    ),
+    ...claims.pullRequestAndMergePaths,
   ]);
 
   const named = [
     ...new Set(
-      (body.match(TEST_PATH_IN_TEXT) ?? [])
+      (claims.body.match(TEST_PATH_IN_TEXT) ?? [])
         .filter((name) => !GLOB_CHARACTERS.test(name))
         .map((name) => name.replace(/^(?:\.\.?\/)+/u, '')),
     ),
@@ -191,8 +204,19 @@ function collectNamedMissingTests(
     return [];
   }
 
+  const sentences = claims.body.split(SENTENCE_BREAK);
+
   return named
-    .filter((name) => ![...changed].some((path) => path === name || path.endsWith(`/${name}`)))
+    .filter((name) => !isPathListed(name, changed))
+    .filter(
+      (name) =>
+        !isPathListed(name, claims.headPaths) ||
+        sentences.some(
+          (sentence) =>
+            sentence.includes(name) &&
+            CLAIMED_EDIT.test(sentence.replace(NON_PROSE, '').replace(TEST_PATH_IN_TEXT, '')),
+        ),
+    )
     .map((name) =>
       buildStaticFinding({
         title: `The pull request names ${formatShort(name)}, which the change does not add`,
@@ -202,4 +226,8 @@ function collectNamedMissingTests(
         missingChange: true,
       }),
     );
+}
+
+function isPathListed(name: string, paths: Iterable<string>): boolean {
+  return [...paths].some((path) => path === name || path.endsWith(`/${name}`));
 }

@@ -263,7 +263,7 @@ test('it keeps the deletion of a path the pull request renames across 2 commits'
   ]);
 });
 
-test('it lists the paths the whole pull request keeps, with a rename under its new path', async () => {
+test('it lists every path the whole pull request changes, with both paths of a rename', async () => {
   const ctx = await setupTest();
 
   const content = 'export const count = 1;\nexport const size = 2;\nexport const total = 3;\n';
@@ -289,7 +289,12 @@ test('it lists the paths the whole pull request keeps, with a rename under its n
     config: BUILT_IN_DEFAULTS,
   });
 
-  expect(change.pullRequestPaths).toStrictEqual(['src/new.ts', 'src/size.ts']);
+  expect(change.pullRequestPaths).toIncludeSameMembers([
+    'src/gone.ts',
+    'src/new.ts',
+    'src/old.ts',
+    'src/size.ts',
+  ]);
 });
 
 test('it lists the files only the base branch changes apart after a merge from the base', async () => {
