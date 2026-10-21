@@ -56,7 +56,9 @@ export function buildFixConfirmation(evidence: FixEvidence): FixConfirmation {
 
   // an answer that names no branch commit holds only through a fix call, so one an earlier review
   // holds confirmed stays confirmed until a review reports the finding again
-  const isCarried = !evidence.isNamed && HELD_FIX_STATES.has(evidence.held);
+  const isCarried =
+    (evidence.match !== null || !evidence.isNamed) && HELD_FIX_STATES.has(evidence.held);
+
   const isCallFix = evidence.isJudged || isCarried;
   const isHeld = (evidence.match !== null || isCallFix) && HELD_FIX_STATES.has(state);
 

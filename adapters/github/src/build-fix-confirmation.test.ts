@@ -278,6 +278,32 @@ test('it keeps a bare fixed answer that an earlier fix call confirmed when this 
   });
 });
 
+test('it keeps an earlier confirmed fix whose hinted commit changes no file of the pull request when this review does not judge it', () => {
+  expect(
+    buildFixConfirmation({
+      id: '1111111111111111',
+      title: 'Await the write',
+      commit: 'abc1234',
+      match: 'abc1234'.padEnd(40, '0'),
+      isNamed: true,
+      isInRange: false,
+      isJudged: false,
+      isFileSkipped: false,
+      isPartial: false,
+      coverage: { changesSkipped: false, failure: null },
+      held: 'confirmed',
+      isReported: false,
+      files: { changesPullRequest: false, changesFindingFile: false },
+    }),
+  ).toStrictEqual({
+    id: '1111111111111111',
+    title: 'Await the write',
+    commit: 'abc1234',
+    fixed: true,
+    changesFindingFile: false,
+  });
+});
+
 test('it drops an earlier confirmed fix whose sha names 2 commits of the branch', () => {
   expect(
     buildFixConfirmation({
