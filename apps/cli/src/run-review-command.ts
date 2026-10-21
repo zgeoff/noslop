@@ -221,9 +221,6 @@ interface ResolvedChange {
   // the issue a pull request body closes, for the intent lens; a local change links none
   linkedIssue: string | null;
   pullRequest: PullRequestRef | null;
-
-  // the files whose patch changed since the last review of a pull request, the only files a later
-  // review reads; null when the review reads the whole change
   paths: string[] | null;
 
   // the merge base of a pull request with its base branch, where its whole diff starts, which a fix
