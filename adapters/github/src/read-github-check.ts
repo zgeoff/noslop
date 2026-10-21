@@ -147,8 +147,6 @@ interface CheckFixesInput {
   state: PullRequestState;
   dispositions: readonly Disposition[];
   fixCommits: FixCommits;
-
-  // whether the summary's reviews read the net change at the current head
   isReviewed: boolean;
 }
 
