@@ -16,9 +16,6 @@ export interface ReadChangeOptions {
   // files the pull request changes since its merge base, so a merge from the base branch brings in no
   // file the pull request never touched
   mergeBase?: string;
-
-  // the files a later review of a pull request reads, those whose patch changed since its last
-  // review; the change leaves out every other file, which an earlier review read
   paths?: readonly string[];
 }
 
