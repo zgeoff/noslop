@@ -8,6 +8,7 @@ import type {
   FixCheck,
   NotReviewedFile,
   ReviewAdapter,
+  UnjudgedFix,
 } from '@noslop/contract';
 import type { Runner } from '@noslop/runner';
 import { z } from 'zod';
@@ -31,9 +32,6 @@ export interface AnsweredFix {
   // the finding as posted: its title, body, fix, lens, criterion and rule
   comment: string;
 
-  // the sha the answer names, or null for a bare `fixed`; the call judges the head, never this commit
-  hint: string | null;
-
   // the head of the review that posted the finding, which a marker posted before the field lacks
   postedHead: string | null;
 }
@@ -52,15 +50,17 @@ export interface FixChecksInput {
   tempDir: string;
   logger: Logger;
 
-  // with it, the run judges the fix of a static finding by running the static stage over the whole
-  // pull request again; without it, the run judges such a fix not fixed
-  staticCheck?: StaticRecheckOptions;
+  // what the static stage reads to judge the fix of a static finding over the whole pull request
+  staticCheck: StaticRecheckOptions;
 }
 
 export interface FixChecksRun {
   checks: FixCheck[];
   records: CallRecord[];
   failedCalls: FailedCall[];
+
+  // each fix with no verdict, from a failed call or a file past the limit
+  unjudged: UnjudgedFix[];
 
   // each finding's file whose code or diff passes the file limit, so no call judged its fix
   notReviewed: NotReviewedFile[];
@@ -72,17 +72,16 @@ export async function runFixChecks(input: FixChecksInput): Promise<FixChecksRun>
   // the stage runs once for every static fix the run judges, and not at all for a run with none
   const hasStaticFix = input.fixes.some((fix) => fix.lens === 'static');
 
-  const staticFindings =
-    hasStaticFix && input.staticCheck !== undefined
-      ? await runStaticRecheck({
-          ...input.staticCheck,
-          runner: input.runner,
-          repoDir: input.repoDir,
-          mergeBase: input.mergeBase,
-          head: input.head,
-          title: input.title,
-        })
-      : null;
+  const staticFindings = hasStaticFix
+    ? await runStaticRecheck({
+        ...input.staticCheck,
+        runner: input.runner,
+        repoDir: input.repoDir,
+        mergeBase: input.mergeBase,
+        head: input.head,
+        title: input.title,
+      })
+    : [];
 
   // every file, since the fix of a finding can sit in another file, such as a test it asks for
   const diff = input.fixes.some((fix) => fix.lens !== 'static')
@@ -106,6 +105,7 @@ export async function runFixChecks(input: FixChecksInput): Promise<FixChecksRun>
     checks: outcomes.flatMap((outcome) => outcome.check ?? []),
     records: outcomes.flatMap((outcome) => outcome.record ?? []),
     failedCalls: outcomes.flatMap((outcome) => outcome.failedCall ?? []),
+    unjudged: outcomes.flatMap((outcome) => outcome.unjudged ?? []),
     notReviewed: [...tooLarge].map((path): NotReviewedFile => ({ path, reason: 'too-large' })),
   };
 }
@@ -124,6 +124,7 @@ interface FixCheckOutcome {
   check?: FixCheck;
   record?: CallRecord;
   failedCall?: FailedCall;
+  unjudged?: UnjudgedFix;
   tooLargePath?: string;
 }
 
@@ -135,19 +136,12 @@ interface FixTarget {
   // the pull request's net diff at the head
   diff: string;
 
-  // the static findings the whole pull request holds at its head, or null when the run has no static
-  // check
-  staticFindings: readonly Finding[] | null;
+  // the static findings the whole pull request holds at its head
+  staticFindings: readonly Finding[];
 }
 
 async function runFixCheck(input: FixChecksInput, target: FixTarget): Promise<FixCheckOutcome> {
   const fix = target.fix;
-
-  if (fix.lens === 'static' && target.staticFindings === null) {
-    const reason = 'a static finding takes a full review to confirm its fix';
-
-    return { check: { findingID: fix.id, fixed: false, reason } };
-  }
 
   if (fix.lens === 'static') {
     const check = await checkStaticFix({
@@ -159,7 +153,7 @@ async function runFixCheck(input: FixChecksInput, target: FixTarget): Promise<Fi
       path: fix.path,
       line: fix.line,
       postedHead: fix.postedHead,
-      findings: target.staticFindings ?? [],
+      findings: target.staticFindings,
     });
 
     return { check };
@@ -193,7 +187,9 @@ async function runFixCheck(input: FixChecksInput, target: FixTarget): Promise<Fi
       },
     );
 
-    return { tooLargePath: fix.path };
+    const reason = 'its code or diff passes the file limit, so no call read it whole';
+
+    return { tooLargePath: fix.path, unjudged: { findingID: fix.id, reason } };
   }
 
   const lens: CallLens = fix.lens;
@@ -259,6 +255,7 @@ async function runFixCheck(input: FixChecksInput, target: FixTarget): Promise<Fi
     return {
       record: { ...record, status: 'failed', durationMs: Math.round(performance.now() - started) },
       failedCall: { id: callID, lenses: [lens], reason },
+      unjudged: { findingID: fix.id, reason: 'its fix call failed' },
     };
   }
 }

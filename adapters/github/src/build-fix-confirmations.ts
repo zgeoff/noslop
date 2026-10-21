@@ -19,12 +19,16 @@ export interface FixConfirmationsInput {
 
 // where each `fixed` answer stands after the review: a fix call's verdict decides it, a finding the
 // review reports again stays open, and a fix an earlier verdict confirmed holds until one of those;
-// a finding the review left out without a verdict is never confirmed by that silence
+// silence about a finding neither confirms its fix nor judges it not fixed
 export function buildFixConfirmations(input: FixConfirmationsInput): FixConfirmation[] {
   const latest = new Map(input.dispositions.map((item) => [item.findingID, item]));
   const confirmed = new Set(input.confirmed);
   const reported = new Set(input.reported);
   const checks = new Map((input.result.fixChecks ?? []).map((check) => [check.findingID, check]));
+
+  const unjudged = new Map(
+    (input.result.unjudgedFixes ?? []).map((item) => [item.findingID, item.reason]),
+  );
 
   return input.findings.flatMap((finding): FixConfirmation[] => {
     const disposition = latest.get(finding.id);
@@ -38,30 +42,26 @@ export function buildFixConfirmations(input: FixConfirmationsInput): FixConfirma
 
     if (check !== undefined) {
       return [
-        check.fixed ? { ...item, fixed: true } : { ...item, fixed: false, failure: check.reason },
+        check.fixed
+          ? { ...item, status: 'fixed' }
+          : { ...item, status: 'not-fixed', failure: check.reason },
       ];
     }
 
     if (reported.has(finding.id)) {
-      return [{ ...item, fixed: false }];
+      return [{ ...item, status: 'not-fixed' }];
     }
 
     if (confirmed.has(`${finding.id}:${disposition.value}`)) {
-      return [{ ...item, fixed: true }];
+      return [{ ...item, status: 'fixed' }];
     }
 
-    const isTooLarge = input.result.notReviewed.some(
-      (file) => file.path === finding.path && file.reason === 'too-large',
-    );
+    const reason = unjudged.get(finding.id);
 
     return [
-      isTooLarge && input.result.fixChecks !== undefined
-        ? {
-            ...item,
-            fixed: false,
-            failure: 'unjudged: its diff passes the file limit, so no call read it whole',
-          }
-        : { ...item, fixed: false },
+      reason === undefined
+        ? { ...item, status: 'unjudged' }
+        : { ...item, status: 'unjudged', failure: reason },
     ];
   });
 }

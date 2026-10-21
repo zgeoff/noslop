@@ -1,6 +1,7 @@
 import { basename } from 'node:path';
 import type { Finding, NotReviewedFile, ReviewResult, Severity } from '@noslop/contract';
 import { formatPathCode } from '@noslop/contract';
+import { match } from 'ts-pattern';
 import { formatMarker } from './format-marker';
 import type { SummaryMarker } from './summary-marker';
 
@@ -10,7 +11,10 @@ export interface FixConfirmation {
 
   // the sha the `fixed` disposition names, empty for a bare `fixed`
   commit: string;
-  fixed: boolean;
+
+  // a fix call's verdict, or the review reporting the finding again, decides fixed or not fixed; a
+  // fix that neither decided stays unjudged, which never reads as not fixed
+  status: 'fixed' | 'not-fixed' | 'unjudged';
 
   // the fix call's reason, or why no call judged the fix, on a fix the review leaves unconfirmed
   failure?: string;
@@ -56,10 +60,13 @@ export function formatSummaryComment(
 
     for (const item of confirmations) {
       const place = item.commit === '' ? 'at the head' : `in \`${item.commit.slice(0, 7)}\``;
+      const reason = item.failure === undefined ? '' : ` (${item.failure})`;
 
-      const line = item.fixed
-        ? `✅ ${item.title}: fixed ${place}`
-        : `❌ ${item.title}: not fixed ${place}${item.failure === undefined ? '' : ` (${item.failure})`}`;
+      const line = match(item.status)
+        .with('fixed', () => `✅ ${item.title}: fixed ${place}`)
+        .with('not-fixed', () => `❌ ${item.title}: not fixed ${place}${reason}`)
+        .with('unjudged', () => `❔ ${item.title}: not judged ${place}${reason}`)
+        .exhaustive();
 
       lines.push(line);
     }
@@ -111,7 +118,7 @@ const SEVERITIES: readonly Severity[] = ['P1', 'P2', 'P3'];
 // "2 findings, both P2", "3 findings: 1 P1, 2 P3", "all 2 findings fixed" once every finding an
 // earlier review posted is, or "no findings", which a re-review writes as "no new findings"
 function formatHeadline(findings: readonly Finding[], fixes: FixStatus, reviews: number): string {
-  const fixed = fixes.confirmations.filter((item) => item.fixed).length;
+  const fixed = fixes.confirmations.filter((item) => item.status === 'fixed').length;
 
   if (findings.length === 0 && fixed > 0 && fixed === fixes.posted) {
     return fixed === 1 ? '1 finding fixed' : `all ${fixed} findings fixed`;

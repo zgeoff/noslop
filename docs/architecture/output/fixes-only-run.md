@@ -1,14 +1,13 @@
 # The fixes-only run
 
 A fixes-only run lets a fix that lands after the last review round pass the check without a new
-review round. It starts from the head of the newest run with no failed call that the summary marker
-keeps, or from the pull request's merge base when a rebase took that head off the branch. It runs no
-lens over the diff, and it raises a finding only on what a merge commit wrote, under
-[the resolution check](#the-resolution-check). For each finding of a model lens whose latest
-disposition is `fixed`, it makes one small call that judges the finding at the pull request's head.
-A sha after `fixed` is only a hint, so a bare `fixed` gets the call too, and so does a sha that a
-rebase or a squash took off the branch. A finding of the static stage gets
-[its static check](#static-findings) in place of the call.
+review round. It runs whatever the pull request's history holds: a merge of the base, a rebase, a
+squash of a lower layer, or no earlier review at all. It runs no lens over the diff, and it raises a
+finding only on what a merge commit wrote, under [the resolution check](#the-resolution-check). For
+each finding of a model lens whose latest disposition is `fixed`, it makes one small call that
+judges the finding at the pull request's head. A sha after `fixed` is only a hint, so a bare `fixed`
+gets the call too, and so does a sha that a rebase or a squash took off the branch. A finding of the
+static stage gets [its static check](#static-findings) in place of the call.
 
 The fix call reads the finding, its code at the head, and the pull request's net diff from its merge
 base to the head. It answers whether the head still holds the defect, with a one-line reason. A fix
@@ -17,18 +16,23 @@ line from the head that posted the finding through the diff to the head: a hunk 
 it. The call then reads the code around the traced line. When the trace fails, because a later
 commit rewrote the line, the finding names no line, or the repo holds no commit of the head that
 posted it, the call reads the whole file at the head. Code that the diff deletes counts as moved
-only when the diff adds code in another file that does what the deleted code did, even reshaped. A
-fix whose code or diff passes the config's file limit gets no call and no verdict, because a cut
-diff can hide the fix, and the summary says why the fix stays unconfirmed.
+only when the diff adds code in another file that does what the deleted code did, even reshaped.
+When the whole net diff passes the config's file limit, the call reads the diff of the finding's
+file alone, so a small file of a large pull request still gets its call. A fix whose own code or
+diff passes the file limit gets no call and no verdict, because a cut diff can hide the fix.
 
-A run with no `fixed` answer to judge refuses and gives the reason. It writes no summary, so the
-check stays on the net change it was on and passes no commit that no lens read. The run goes ahead
-when each of the branch's own new commits is a merge whose other parents the pull request's base
-holds. Such a merge brings in only code the base holds, and the
-[resolution check](#the-resolution-check) judges each one that is not clean. A clean rebase needs no
-run when the summary marker keys each file, because it leaves that
-[net-change key](./github-app.md#the-net-change-key) where it was. A key on the head moves with any
-rebase, so such a pull request needs a new review after one.
+A fix with no verdict, from that file limit or from a failed call, is unjudged. The result lists it
+with the reason, and the summary shows it as not judged, never as not fixed. Its answer stays
+unconfirmed until a later run judges it.
+
+The summary vouches for the run's head only when a fix call or static check returned a verdict and
+an earlier lens review had no failed call. The fix calls read the whole net diff, so such a run
+writes the [net-change key](./github-app.md#the-net-change-key) at the head. Any other run, such as
+one with no `fixed` answer to judge or one after a lens review whose call failed, keeps the head,
+the key and the failed calls of the summary before it. The check then stays on the net change a
+review read and passes no commit that no call read. With no summary before it, the run vouches for
+the merge base alone. A clean rebase needs no run when the summary marker keys each file, because it
+leaves that key where it was.
 
 A `fixed` reply posted after an earlier fixes-only run gets a call too, so the next run, at the same
 head or a later one, checks it. A fix the summary already holds as confirmed gets no call. The run's
@@ -40,9 +44,8 @@ whether the CLI or `noslop post` sends it. A yes confirms the fix under
 run reporting the finding again, so the check names it as still found, and the summary gives the
 reason. The summary marker keeps the findings the run judged fixed with its range, and that range
 confirms no other fix, so a fix the run did not ask about stays unconfirmed, a `fixed` reply posted
-after the run included. A run that goes ahead writes the summary at the new head and keeps the count
-of reviews, so the check reads the current head. It posts a finding comment only for a finding of a
-resolution check.
+after the run included. The run keeps the count of reviews. It posts a finding comment only for a
+finding of a resolution check.
 
 ## Static findings
 
@@ -64,16 +67,9 @@ its linked issue, so the run reads the linked issue when it judges a static fix.
 
 ## After a rebase
 
-A rebase after the last review takes its head off the branch, so the run starts from the pull
-request's merge base. Each fix call judges the head, so a rebase changes nothing about what the call
-reads.
-
-The fix calls read only the fixes, so the run refuses a rebase that changed anything else. It
-compares the [net-change key](./github-app.md#the-net-change-key) the summary marker holds with the
-key at the head, and each file whose patch id moved must be a file that a branch commit a `fixed`
-answer names changes. The run refuses, and names the files, when one is not. It refuses too when the
-summary marker holds no key, or when GitHub gives no whole file list, since neither key can show
-what moved.
+A rebase after the last review takes its head off the branch, so the run checks the merges from the
+pull request's merge base. Each fix call judges the head and reads the net diff, so a rebase, a
+squash of a lower layer, or a merge of the base changes nothing about what the call reads.
 
 ## The resolution check
 

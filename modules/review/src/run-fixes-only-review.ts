@@ -3,7 +3,6 @@ import type { Logger } from '@logtape/logtape';
 import type { PullRequestRef, ReviewAdapter, ReviewResult } from '@noslop/contract';
 import { REVIEW_OUTPUT_VERSION } from '@noslop/contract';
 import type { Runner } from '@noslop/runner';
-import { readAncestry } from './read-ancestry';
 import type { AnsweredFix } from './run-fix-checks';
 import { runFixChecks } from './run-fix-checks';
 import type { ResolutionCheckOptions } from './run-resolution-checks';
@@ -16,7 +15,8 @@ export interface FixesOnlyReviewInput {
   repo: string;
   pullRequest: PullRequestRef;
 
-  // the head of the last review, and the pull request's head now
+  // where the range of merges the run checks starts: the head of the last review, or the merge base
+  // when no review's head is on the branch; and the pull request's head now
   base: string;
   head: string;
 
@@ -35,9 +35,8 @@ export interface FixesOnlyReviewInput {
   // differs from the tree `git merge-tree` builds from its parents; without it, the run checks no merge
   resolution?: ResolutionCheckOptions;
 
-  // with it, the run judges the fix of a static finding by running the static stage over the whole
-  // pull request again; without it, the run judges such a fix not fixed
-  staticCheck?: StaticRecheckOptions;
+  // what the static stage reads to judge the fix of a static finding over the whole pull request
+  staticCheck: StaticRecheckOptions;
 }
 
 // a run after the last review round with no lens over the change: each `fixed` answer gets one call
@@ -46,14 +45,6 @@ export interface FixesOnlyReviewInput {
 export async function runFixesOnlyReview(input: FixesOnlyReviewInput): Promise<ReviewResult> {
   const now = input.now ?? (() => new Date());
   const startedAt = now().toISOString();
-
-  // a run with no fix to judge reads none of the new commits, so its summary would pass a head that
-  // no lens read; only a merge of the base, which brings in code the base holds, needs no fix
-  if (input.fixes.length === 0) {
-    const range = await readGitLines(input, ['rev-list', `${input.base}..${input.head}`]);
-
-    await requireMergesOfBase(input, range);
-  }
 
   const fixChecks = await runFixChecks({
     runner: input.runner,
@@ -66,7 +57,7 @@ export async function runFixesOnlyReview(input: FixesOnlyReviewInput): Promise<R
     adapter: input.adapter,
     tempDir: input.tempDir,
     logger: input.logger,
-    ...(input.staticCheck === undefined ? {} : { staticCheck: input.staticCheck }),
+    staticCheck: input.staticCheck,
   });
 
   const merges =
@@ -90,7 +81,7 @@ export async function runFixesOnlyReview(input: FixesOnlyReviewInput): Promise<R
     pullRequest: input.pullRequest,
 
     // a fix call reads the pull request's whole net diff, so its range starts at the merge base
-    base: input.fixes.length === 0 ? input.base : input.mergeBase,
+    base: input.mergeBase,
     head: input.head,
     title: input.title,
     depth: 'light',
@@ -106,65 +97,9 @@ export async function runFixesOnlyReview(input: FixesOnlyReviewInput): Promise<R
     configHash: input.configHash,
     fixesOnly: true,
     fixChecks: fixChecks.checks,
+    ...(fixChecks.unjudged.length === 0 ? {} : { unjudgedFixes: fixChecks.unjudged }),
     ...(merges === null || merges.checks.length === 0 ? {} : { resolutionChecks: merges.checks }),
     startedAt,
     endedAt: now().toISOString(),
   };
-}
-
-async function readGitLines(
-  input: FixesOnlyReviewInput,
-  args: readonly string[],
-): Promise<string[]> {
-  const text = await readGitText(input, args);
-
-  return text === '' ? [] : text.split('\n');
-}
-
-async function readGitText(input: FixesOnlyReviewInput, args: readonly string[]): Promise<string> {
-  const result = await input.runner.run(['git', ...args], { cwd: input.repoDir });
-
-  if (result.exitCode !== 0) {
-    throw new Error(`git ${args.join(' ')} failed: ${result.stderr.trim()}`);
-  }
-
-  return result.stdout.trim();
-}
-
-// throws unless each of the branch's own commits in the range is a merge whose other parents the
-// pull request's base holds, and the range holds a commit; a merge with a conflict resolution still
-// gets its resolution check
-async function requireMergesOfBase(
-  input: FixesOnlyReviewInput,
-  range: readonly string[],
-): Promise<void> {
-  const refusal = '--fixes-only has no `fixed` answer to check';
-
-  if (range.length === 0) {
-    throw new Error(`${refusal}, and no commit came after the last review`);
-  }
-
-  // a commit that a merge brought in from the base is code the base holds, so the range leaves it out
-  const own = await readGitLines(input, [
-    'rev-list',
-    input.head,
-    `^${input.base}`,
-    `^${input.mergeBase}`,
-  ]);
-
-  for (const commit of own) {
-    const listed = await readGitText(input, ['rev-list', '--parents', '-n', '1', commit]);
-
-    const others = listed.split(' ').slice(2);
-
-    const held = await Promise.all(
-      others.map((parent) => readAncestry(input, parent, input.mergeBase)),
-    );
-
-    if (others.length === 0 || held.includes(false)) {
-      throw new Error(
-        `${refusal}, so it cannot pass ${commit.slice(0, 12)}, which no lens read and which is no merge of the base; run a review without --fixes-only`,
-      );
-    }
-  }
 }

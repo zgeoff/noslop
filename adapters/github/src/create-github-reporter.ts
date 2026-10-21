@@ -16,6 +16,7 @@ import { formatMarker } from './format-marker';
 import { formatRewrittenComment } from './format-rewritten-comment';
 import type { FixConfirmation } from './format-summary-comment';
 import { formatSummaryComment } from './format-summary-comment';
+import type { NetChangeKey } from './net-change-key';
 import { parseMarker } from './parse-marker';
 import { planReviewPost } from './plan-review-post';
 import { readAllPages } from './read-all-pages';
@@ -172,20 +173,22 @@ async function runReviewPost(
 
   const merges = buildMergeLists(before.summary?.marker ?? null, result);
 
+  const reviewed = await readReviewedChange(client, pr, result, before.summary?.marker ?? null);
+
   const marker = {
-    head: result.head,
+    head: reviewed.head,
     ...buildRunFields(result, before.summary?.marker ?? null),
     ...merges,
     reviews: plan.reviews,
     reviewIDs: plan.reviewIDs,
     reported,
-    failedCalls: result.failedCalls.length,
+    failedCalls: reviewed.failedCalls,
     followUps: [...filed, ...followUps.map((finding) => finding.id)],
     confirmed: confirmations
-      .filter((item) => item.fixed)
+      .filter((item) => item.status === 'fixed')
       .map((item) => `${item.id}:${item.commit}`),
     startedAt: result.startedAt,
-    key: await readNetChangeKey(client, pr, result.head),
+    ...(reviewed.key === undefined ? {} : { key: reviewed.key }),
   };
 
   await writeSummaryComment(
@@ -387,7 +390,10 @@ async function updateFixedComments(
   confirmations: readonly FixConfirmation[],
 ): Promise<void> {
   for (const thread of threads) {
-    const confirmation = confirmations.find((item) => item.id === thread.marker.id && item.fixed);
+    const confirmation = confirmations.find(
+      (item) => item.id === thread.marker.id && item.status === 'fixed',
+    );
+
     const commit = confirmation?.commit ?? null;
     const body = formatFixedFindingComment(thread.body, thread.marker, commit);
 
@@ -410,6 +416,40 @@ function toCommentURL(pr: PullRequestRef, thread: FindingThread): string {
       : `issuecomment-${thread.commentID}`;
 
   return `https://github.com/${pr.owner}/${pr.repo}/pull/${pr.number}#${anchor}`;
+}
+
+interface ReviewedChange {
+  head: string;
+  key?: NetChangeKey;
+  failedCalls: number;
+}
+
+// a fixes-only run vouches for its head only when a fix call judged a fix on top of a lens review with
+// no failed call, since its calls read the net diff but no lens did; any other such run keeps what
+// the summary before it held, so the check passes no commit that no call read
+async function readReviewedChange(
+  client: GitHubClient,
+  pr: PullRequestRef,
+  result: ReviewResult,
+  previous: SummaryMarker | null,
+): Promise<ReviewedChange> {
+  const failedCalls = result.failedCalls.length;
+
+  const isVouched =
+    result.fixesOnly !== true ||
+    ((result.fixChecks ?? []).length > 0 && findLensHead(previous) !== null);
+
+  if (isVouched) {
+    return { head: result.head, key: await readNetChangeKey(client, pr, result.head), failedCalls };
+  }
+
+  if (previous === null) {
+    return { head: result.base, failedCalls };
+  }
+
+  const kept = { head: previous.head, failedCalls: previous.failedCalls + failedCalls };
+
+  return previous.key === undefined ? kept : { ...kept, key: previous.key };
 }
 
 interface RunFields {

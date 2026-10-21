@@ -3074,11 +3074,11 @@ test('it refuses --fixes-only beside --full', async () => {
   expect(code).toBe(1);
 
   expect(ctx.stderr.join('')).toStartWith(
-    'noslop: --fixes-only reviews only the commits since the last review; leave out --full',
+    'noslop: --fixes-only runs only fix calls; leave out --full',
   );
 });
 
-test('it refuses --fixes-only on a pull request that no review covered yet', async () => {
+test('it runs --fixes-only on a pull request that no review covered yet with no call, and fails the check', async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
@@ -3104,13 +3104,13 @@ test('it refuses --fixes-only on a pull request that no review covered yet', asy
     ctx.buildContext(repo.path, stub.adapter),
   );
 
-  expect(code).toBe(1);
+  expect(code).toBe(0);
+  expect(stub.requests).toStrictEqual([]);
 
-  expect(ctx.stderr.join('')).toStartWith(
-    'noslop: --fixes-only needs an earlier review with no failed call',
-  );
-
-  expect(githubCollections.checkRuns.all()).toStrictEqual([]);
+  expect(githubCollections.checkRuns.all().at(-1)).toMatchObject({
+    conclusion: 'failure',
+    title: `No noslop review for this commit, ${(repo.commits[1] ?? '').slice(0, 12)}.`,
+  });
 });
 
 test('it confirms a fixed reply under --fixes-only and posts nothing new', async () => {
@@ -3434,7 +3434,7 @@ test('it confirms a fixed reply under --fixes-only from the merge base when a re
   expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('success');
 });
 
-test('it refuses --fixes-only when a rebase changed the patch of a file that no fix commit changes, and names the file', async () => {
+test('it runs the fix call under --fixes-only when a rebase changed the patch of a file that no fix commit changes', async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
@@ -3538,22 +3538,123 @@ test('it refuses --fixes-only when a rebase changed the patch of a file that no 
     body: `<!-- noslop:summary {"head":"${repo.commits[2] ?? ''}","key":${JSON.stringify(key)},"base":"${repo.commits[0] ?? ''}","reviews":2,"reported":["1111111111111111"],"failedCalls":0} -->`,
   });
 
-  const stub = buildStubAdapter({});
+  const stub = buildStubAdapter({
+    'fix-1111111111111111': [{ fixed: true, reason: 'The separator is a colon now.' }],
+  });
 
   const code = await runCLI(
     ['review', '--pr', '9', '--repo', 'example/app', '--fixes-only', '--report', 'github'],
     ctx.buildContext(repo.path, stub.adapter),
   );
 
-  expect({ code, stderr: ctx.stderr.join('') }).toStrictEqual({
-    code: 1,
-    stderr: `noslop: --fixes-only cannot pass the rebase of ${(repo.commits[2] ?? '').slice(0, 12)}: the patch of src/parse.ts changed since the review, and no fix commit changes it; run a review without --fixes-only\n`,
-  });
+  expect(code).toBe(0);
+  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['fix-1111111111111111']);
+  expect(stub.requests[0]?.prompt).toInclude('+export const parse = 1;');
 
-  expect(stub.requests).toStrictEqual([]);
+  expect(githubCollections.checkRuns.all().at(-1)).toMatchObject({
+    headSha: repo.commits[4] ?? '',
+    conclusion: 'success',
+  });
 });
 
-test('it refuses --fixes-only after a rebase when the summary holds no key', async () => {
+test('it runs the fix call of a bare fixed reply under --fixes-only on a stacked pull request rebased past a squash of the layer below', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
+    { message: 'Add the reader', files: { 'src/read.ts': 'export const read = 1;\n' } },
+    {
+      message: 'Add the scanner',
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = "";\n' },
+    },
+    {
+      message: 'Add the reader (#4)',
+      parent: 0,
+      files: { 'src/read.ts': 'export const read = 1;\n' },
+    },
+    {
+      message: 'Add the scanner',
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = "";\n' },
+    },
+    {
+      message: 'Reject an empty separator',
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = ":";\n' },
+    },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    baseSha: repo.commits[3] ?? '',
+    headSha: repo.commits[5] ?? '',
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/scan.ts',
+    lines: [2],
+    blobSha: '2'.repeat(40),
+  });
+
+  const thread = await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/scan.ts',
+    line: 2,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:finding {"id":"1111111111111111","title":"Reject an empty separator","path":"src/scan.ts","lens":"correctness","severity":"P2","riskClass":null,"writtenByChange":true,"head":"${repo.commits[2] ?? ''}"} -->`,
+  });
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    body: 'fixed',
+    authorLogin: 'dev',
+    inReplyToID: thread.id,
+  });
+
+  // the key the review wrote while the layer below was the base
+  const key = buildNetChangeKey({
+    head: repo.commits[2] ?? '',
+    isWhole: true,
+    files: [{ filename: 'src/scan.ts', status: 'modified', sha: '1'.repeat(40) }],
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${repo.commits[2] ?? ''}","key":${JSON.stringify(key)},"reviews":2,"reported":["1111111111111111"],"failedCalls":0} -->`,
+  });
+
+  const stub = buildStubAdapter({
+    'fix-1111111111111111': [{ fixed: true, reason: 'The separator is a colon now.' }],
+  });
+
+  const code = await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--fixes-only', '--report', 'github'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  expect(code).toBe(0);
+  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['fix-1111111111111111']);
+  expect(stub.requests[0]?.prompt).not.toInclude('src/read.ts');
+
+  expect(githubCollections.checkRuns.all().at(-1)).toMatchObject({
+    headSha: repo.commits[5] ?? '',
+    conclusion: 'success',
+  });
+});
+
+test('it runs --fixes-only with no fixed answer after a rebase when the summary holds no key, and keeps the summary on its head', async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
@@ -3595,12 +3696,19 @@ test('it refuses --fixes-only after a rebase when the summary holds no key', asy
     ctx.buildContext(repo.path, stub.adapter),
   );
 
-  expect({ code, stderr: ctx.stderr.join('') }).toStrictEqual({
-    code: 1,
-    stderr: `noslop: --fixes-only cannot pass the rebase of ${(repo.commits[2] ?? '').slice(0, 12)}: the summary holds no key of the net change the reviews read; run a review without --fixes-only\n`,
-  });
+  const summary = githubCollections.issueComments
+    .all()
+    .findLast((comment) => comment.body.includes('<!-- noslop:summary'));
 
-  expect(githubCollections.checkRuns.all()).toStrictEqual([]);
+  expect(code).toBe(0);
+  expect(stub.requests).toStrictEqual([]);
+  expect(summary?.body).toInclude(`<!-- noslop:summary {"head":"${repo.commits[2] ?? ''}"`);
+
+  expect(githubCollections.checkRuns.all().at(-1)).toMatchObject({
+    headSha: repo.commits[3] ?? '',
+    conclusion: 'failure',
+    title: `No noslop review for this commit, ${(repo.commits[3] ?? '').slice(0, 12)}.`,
+  });
 });
 
 test('it confirms a fixed reply under --fixes-only that names a fix commit the rebase rewrote', async () => {
@@ -4116,7 +4224,7 @@ test('it fails the check at a new head whose push changed the patch of a reviewe
   });
 });
 
-test('it checks the resolution of a merge with a conflict under --fixes-only and marks the merge as checked', async () => {
+test('it checks the resolution of a merge with a conflict under --fixes-only, marks the merge as checked, and keeps the check on the reviewed head with no fix judged', async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
@@ -4208,7 +4316,11 @@ test('it checks the resolution of a merge with a conflict under --fixes-only and
   expect(summary?.body).toInclude(`"checkedMerges":["${merge}"]`);
   expect(summary?.body).toInclude('"reviews":2,');
   expect(githubCollections.reviews.all()).toStrictEqual([]);
-  expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('success');
+
+  expect(githubCollections.checkRuns.all().at(-1)).toMatchObject({
+    conclusion: 'failure',
+    title: `No noslop review for this commit, ${merge.slice(0, 12)}.`,
+  });
 });
 
 test('it posts the finding of a resolution that drops a change under --fixes-only, fails the check and counts no review', async () => {
@@ -5194,6 +5306,142 @@ test('it makes one call per fixed reply under --fixes-only, no lens call, and ju
   );
 });
 
+test('it makes one fix call per fixed reply under --fixes-only on a pull request past the file limit after a merge of the base, and lists no small file as too large', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'review.json': '{ "thresholds": { "maxFileChars": 2000 } }\n',
+        'src/scan.ts': 'export const separator = "";\n',
+        'src/trim.ts': 'export const trim = false;\n',
+      },
+    },
+    {
+      message: 'Add the scanner table',
+      files: {
+        'src/scan.ts': 'export const separator = "";\n',
+        'src/trim.ts': 'export const trim = false;\n',
+        'src/table.ts': 'export const row = "a long row of the scanner table";\n'.repeat(80),
+      },
+    },
+    {
+      message: 'Reject an empty separator and trim the line',
+      files: {
+        'src/scan.ts': 'export const separator = ":";\n',
+        'src/trim.ts': 'export const trim = true;\n',
+      },
+    },
+    { message: 'Describe the app', files: { 'README.md': '# app\n' }, parent: 0 },
+    { message: 'Merge main', files: {}, parent: 2, merged: 3 },
+  ]);
+
+  const head = repo.commits[4] ?? '';
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    title: 'Scan the header line',
+    body: 'Scans the header line.',
+    baseSha: repo.commits[3] ?? '',
+    headSha: head,
+  });
+
+  for (const path of ['src/scan.ts', 'src/trim.ts', 'src/table.ts']) {
+    await githubCollections.pullFiles.create({
+      owner: 'example',
+      repo: 'app',
+      number: 9,
+      path,
+      lines: [1],
+    });
+  }
+
+  const separator = await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/scan.ts',
+    line: 1,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:finding {"id":"1111111111111111","title":"Reject an empty separator","path":"src/scan.ts","lens":"correctness","severity":"P2","riskClass":null,"writtenByChange":true,"head":"${repo.commits[1] ?? ''}"} -->`,
+  });
+
+  const trim = await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/trim.ts',
+    line: 1,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:finding {"id":"3333333333333333","title":"Trim the line before the split","path":"src/trim.ts","lens":"correctness","severity":"P2","riskClass":null,"writtenByChange":true,"head":"${repo.commits[1] ?? ''}"} -->`,
+  });
+
+  for (const thread of [separator, trim]) {
+    await githubCollections.reviewComments.create({
+      owner: 'example',
+      repo: 'app',
+      number: 9,
+      body: 'fixed',
+      authorLogin: 'dev',
+      inReplyToID: thread.id,
+    });
+  }
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","reviews":2,"reported":["1111111111111111","3333333333333333"],"failedCalls":0} -->`,
+  });
+
+  const stub = buildStubAdapter({
+    'fix-1111111111111111': [{ fixed: true, reason: 'The separator is a colon now.' }],
+    'fix-3333333333333333': [{ fixed: true, reason: 'The line is trimmed now.' }],
+  });
+
+  await runCLI(
+    [
+      'review',
+      '--pr',
+      '9',
+      '--repo',
+      'example/app',
+      '--fixes-only',
+      '--report',
+      'github',
+      '--json',
+    ],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  const output = reviewResultSchema.parse(JSON.parse(ctx.stdout.join('')));
+
+  const summary = githubCollections.issueComments
+    .all()
+    .findLast((comment) => comment.body.includes('<!-- noslop:summary'));
+
+  expect(stub.requests.map((request) => request.callID)).toIncludeSameMembers([
+    'fix-1111111111111111',
+    'fix-3333333333333333',
+  ]);
+
+  expect(stub.requests.map((request) => request.prompt)).toSatisfyAll((prompt: string) =>
+    prompt.includes('alone, since its whole diff is too large to read'),
+  );
+
+  expect(output.notReviewed).toStrictEqual([]);
+  expect(summary?.body).not.toInclude('too large');
+  expect(summary?.body).toInclude('✅ Reject an empty separator: fixed at the head');
+  expect(summary?.body).toInclude('✅ Trim the line before the split: fixed at the head');
+});
+
 test('it confirms no fixed reply posted after a --fixes-only review that never checked it', async () => {
   const ctx = await setupTest();
 
@@ -5504,7 +5752,7 @@ test('it keeps a fixed reply posted after 2 --fixes-only reviews open until a --
   });
 });
 
-test('it refuses --fixes-only with no fixed answer to check, so the summary stays on its head and the check fails at the new head', async () => {
+test('it runs --fixes-only with no fixed answer to check, and the summary stays on its head, so the check fails at the new head', async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
@@ -5608,21 +5856,15 @@ test('it refuses --fixes-only with no fixed answer to check, so the summary stay
     .all()
     .findLast((comment) => comment.body.includes('<!-- noslop:summary'));
 
-  expect({ code, stderr }).toStrictEqual({
-    code: 1,
-    stderr: `noslop: --fixes-only has no \`fixed\` answer to check, so it cannot pass ${(repo.commits[3] ?? '').slice(0, 12)}, which no lens read and which is no merge of the base; run a review without --fixes-only\n`,
-  });
-
+  expect({ code, stderr }).toStrictEqual({ code: 0, stderr: '' });
   expect(stub.requests).toStrictEqual([]);
   expect(summary?.body).toInclude(`{"head":"${repo.commits[2] ?? ''}"`);
 
-  expect(githubCollections.checkRuns.all()).toMatchObject([
-    {
-      headSha: repo.commits[3] ?? '',
-      conclusion: 'failure',
-      title: `No noslop review for this commit, ${(repo.commits[3] ?? '').slice(0, 12)}.`,
-    },
-  ]);
+  expect(githubCollections.checkRuns.all().at(-1)).toMatchObject({
+    headSha: repo.commits[3] ?? '',
+    conclusion: 'failure',
+    title: `No noslop review for this commit, ${(repo.commits[3] ?? '').slice(0, 12)}.`,
+  });
 });
 
 test('it confirms a fixed reply posted after a --fixes-only run that found no fixed answer, so the check passes', async () => {
@@ -6489,7 +6731,7 @@ test('it judges a --fixes-only fix from the last lens review and passes the chec
   expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('success');
 });
 
-test('it refuses --fixes-only after a lens review whose call failed and no lens review before it', async () => {
+test('it runs --fixes-only after a lens review whose call failed and no lens review before it, and keeps the failed call in the summary', async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
@@ -6524,13 +6766,18 @@ test('it refuses --fixes-only after a lens review whose call failed and no lens 
     ctx.buildContext(repo.path, stub.adapter),
   );
 
-  expect(code).toBe(1);
+  const summary = githubCollections.issueComments
+    .all()
+    .findLast((comment) => comment.body.includes('<!-- noslop:summary'));
 
-  expect(ctx.stderr.join('')).toStartWith(
-    'noslop: --fixes-only needs an earlier review with no failed call',
-  );
-
+  expect(code).toBe(0);
   expect(stub.requests).toStrictEqual([]);
+  expect(summary?.body).toInclude('"failedCalls":1,');
+
+  expect(githubCollections.checkRuns.all().at(-1)).toMatchObject({
+    conclusion: 'failure',
+    title: '1 calls of the review failed.',
+  });
 });
 
 test('it refuses a lens review of a head that a lens review covered before a fixes-only run there', async () => {

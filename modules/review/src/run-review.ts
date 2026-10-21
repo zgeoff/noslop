@@ -188,6 +188,9 @@ export async function runReview(options: RunReviewOptions): Promise<ReviewRun> {
       ],
       configHash: options.configHash,
       ...(fixChecks === null ? {} : { fixChecks: fixChecks.checks }),
+      ...(fixChecks === null || fixChecks.unjudged.length === 0
+        ? {}
+        : { unjudgedFixes: fixChecks.unjudged }),
       startedAt,
       endedAt: now().toISOString(),
     },
