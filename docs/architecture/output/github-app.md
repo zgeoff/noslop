@@ -211,9 +211,11 @@ A `fixed` reply posted after the last review gets no fix check from the check jo
 queues, because that job reads only what GitHub holds. The answer waits for the next run that runs
 fix checks: the review of a later push, or a fixes-only run.
 
-The re-check is the second review of a pull request. From the third review on, the reporter sends
-each new finding in code the change did not write to a follow-up issue. A security finding, and any
-finding in code the change wrote, goes on the pull request at every review.
+The re-check is the second review of a pull request. A review that runs no lens and raises no
+finding, such as one of a head whose every patch an earlier review read, counts as no review. From
+the third review on, the reporter sends each new finding in code the change did not write to a
+follow-up issue. A security finding, and any finding in code the change wrote, goes on the pull
+request at every review.
 
 ### The fixes-only run
 

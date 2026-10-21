@@ -39,11 +39,15 @@ export function planReviewPost(prior: PostPrior, result: ReviewResult): PostPlan
     };
   }
 
-  // a post of a result the summary already counted, such as a retry after a failed request, is the
-  // same review, so it never moves a pull request toward the re-check limit; a fixes-only run is no
-  // review round either
-  const isFixesOnly = result.fixesOnly === true;
-  const reviews = (prior.summary?.reviews ?? 0) + (isRepost || isFixesOnly ? 0 : 1);
+  // a retry after a failed request is the same review, so it never moves a pull request toward the
+  // re-check limit; a fixes-only run, and a review that ran no lens and raised nothing, such as one of
+  // a head whose every patch an earlier review read, is no review round either
+  const isRound =
+    !isRepost &&
+    result.fixesOnly !== true &&
+    (result.lenses.length > 0 || result.findings.length > 0);
+
+  const reviews = (prior.summary?.reviews ?? 0) + (isRound ? 1 : 0);
   const fresh = result.findings.filter((finding) => !prior.posted.has(finding.id));
 
   const followUps =

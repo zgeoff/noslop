@@ -53,7 +53,9 @@ rests on a rule quotes that file under 0003, so the prompt keeps the model from 
 The design lens asks whether a better approach meets the pull request's task, so an author does not
 patch the same logic case after case. Routing never picks it, and a config can neither group it into
 a call nor force it on. The review runs it in one call of its own after the merge pass, on the first
-review of a pull request only, under [the pipeline](./pipeline.md#the-stages).
+review of a pull request only, under [the pipeline](./pipeline.md#the-stages). A review counts as
+the first until one review of the pull request completes with no failed call, so a design call that
+fails runs again on the next review.
 
 The task is what the pull request's title and body state. The design call holds those, the findings
 of this review, and the hunks of the whole pull request since its merge base. It holds no linked

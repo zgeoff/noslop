@@ -155,8 +155,9 @@ export async function runReviewCommand(values: ReviewValues, ctx: CLIContext): P
         linkedIssue: issueText ?? change.linkedIssue,
         pullRequest: change.pullRequest,
         isIncremental: change.paths !== null,
-        ...(change.paths === null ? {} : { paths: change.paths }),
-        ...(change.pullRequestBase === null ? {} : { mergeBase: change.pullRequestBase }),
+        ...(change.paths === null || change.pullRequestBase === null
+          ? {}
+          : { paths: change.paths, mergeBase: change.pullRequestBase }),
         isFirstPullRequestReview: change.isFirstPullRequestReview,
         dismissedFindings: change.dismissedFindings,
         isPush: values.push,
@@ -229,7 +230,8 @@ interface ResolvedChange {
   // commit must reach; null for a local change
   pullRequestBase: string | null;
 
-  // a pull request that holds no summary of an earlier review; false for a local change
+  // a pull request that no lens review with no failed call covered yet, so a first review whose
+  // design call failed leaves the next one a first review; false for a local change
   isFirstPullRequestReview: boolean;
 
   // the posted findings whose latest answer is `not-a-defect`, which the review drops when a new
@@ -399,7 +401,7 @@ async function resolvePullRequestChange(
     pullRequest,
     paths,
     pullRequestBase: start,
-    isFirstPullRequestReview: summary === null,
+    isFirstPullRequestReview: findLensHead(summary) === null,
     dismissedFindings: collectDismissedFindings(state.threads),
     fixes,
   };
