@@ -21,11 +21,14 @@ import { loadStore, readEscapePaths } from '@noslop/sqlite';
 import cliPackage from '../package.json' with { type: 'json' };
 import { buildConfiguredAdapter } from './build-configured-adapter';
 import type { CLIContext } from './cli-context';
+import { cliStoreAccess } from './cli-store-access';
+import { findReviewBase } from './find-review-base';
 import { formatReviewSummary } from './format-review-summary';
 import { getStorePath } from './get-store-path';
 import { loadRepoConfig } from './load-repo-config';
 import { readFixFloors } from './read-fix-floors';
-import { readRebasedHead } from './read-rebased-head';
+import { readMappedReview } from './read-mapped-review';
+import { readStoredReviews } from './read-stored-reviews';
 import { readTrustedPullRequest } from './read-trusted-pull-request';
 import { runReporters } from './run-reporters';
 
@@ -420,17 +423,27 @@ async function resolvePullRequestChange(
     throw new Error(refusal);
   }
 
+  const lastLensHead = findLensHead(summary);
+
+  const storedReviews = values.fixesOnly
+    ? await readStoredReviews(cliStoreAccess, getStorePath(config.config, ctx), repo, number)
+    : [];
+
+  const reviewBase = lastLensHead === null ? null : findReviewBase(storedReviews, lastLensHead);
+
   // a rebase after the review leaves its head off the branch, so the run starts from the branch
   // commit with the same patches, and each fix diff still covers only the commits after the review
   const rebased =
     values.fixesOnly && reviewed !== null && ancestry.exitCode !== 0
-      ? await readRebasedHead(ctx.runner, {
+      ? await readMappedReview(ctx.runner, {
           repoDir,
           reviewed,
+          lensHead: lastLensHead,
           base: state.baseSha,
           head: state.headSha,
+          reviewBase,
         })
-      : { head: reviewed, failure: null };
+      : { from: reviewed, head: reviewed, failure: null };
 
   if (values.fixesOnly && rebased.head === null) {
     throw new Error(`${refusal}: ${rebased.failure ?? ''}`);
@@ -442,10 +455,11 @@ async function resolvePullRequestChange(
         repoDir,
         base: state.baseSha,
         head: state.headSha,
-        lensHead: findLensHead(summary),
+        reviewBase,
+        lensHead: lastLensHead,
         fixes: await readAnsweredFixes(connection, pullRequest, state),
       })
-    : { lensHead: findLensHead(summary), fixes: [] };
+    : { lensHead: lastLensHead, fixes: [] };
 
   const lensHead = floors.lensHead;
   const fixes = floors.fixes;
@@ -462,7 +476,7 @@ async function resolvePullRequestChange(
     base: (values.fixesOnly || isDelta) && rebased.head !== null ? rebased.head : start,
     head: state.headSha,
     lensHead,
-    rebasedFrom: rebased.head === reviewed ? null : reviewed,
+    rebasedFrom: rebased.head === rebased.from ? null : rebased.from,
     config,
     title: state.title,
     body: state.body,

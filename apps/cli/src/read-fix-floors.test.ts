@@ -40,6 +40,7 @@ test('it gives a posting head a rebase rewrote its branch commit beside it, and 
     repoDir: repo.path,
     base: repo.commits[1] ?? '',
     head: repo.commits[4] ?? '',
+    reviewBase: null,
     lensHead: repo.commits[3] ?? '',
     fixes: [
       {
@@ -139,6 +140,7 @@ test('it drops a lens head a rebase took off the branch, and keeps a posting hea
     repoDir: repo.path,
     base: repo.commits[1] ?? '',
     head: repo.commits[3] ?? '',
+    reviewBase: null,
     lensHead: repo.commits[2] ?? '',
     fixes: [
       {
@@ -166,6 +168,73 @@ test('it drops a lens head a rebase took off the branch, and keeps a posting hea
         comment: 'Reject an empty separator.',
         commit: repo.commits[3] ?? '',
         postedHead: repo.commits[2] ?? '',
+      },
+    ],
+  });
+});
+
+test('it gives a posting head its branch commit past a lower layer that squash-merged', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
+    {
+      message: 'Add the parser',
+      parent: 0,
+      files: { 'src/parse.ts': 'export const parse = 1;\n' },
+    },
+    {
+      message: 'Add the scanner',
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = "";\n' },
+    },
+    {
+      message: 'Add the parser (#4)',
+      parent: 0,
+      files: { 'src/parse.ts': 'export const parse = 2;\n' },
+    },
+    {
+      message: 'Add the scanner',
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = "";\n' },
+    },
+    {
+      message: 'Reject an empty separator',
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = ":";\n' },
+    },
+  ]);
+
+  const floors = await readFixFloors(ctx.runner, {
+    repoDir: repo.path,
+    base: repo.commits[3] ?? '',
+    head: repo.commits[5] ?? '',
+    reviewBase: repo.commits[1] ?? '',
+    lensHead: repo.commits[2] ?? '',
+    fixes: [
+      {
+        id: '1111111111111111',
+        title: 'Reject an empty separator',
+        lens: 'correctness',
+        path: 'src/scan.ts',
+        line: 2,
+        comment: 'Reject an empty separator.',
+        commit: repo.commits[5] ?? '',
+        postedHead: repo.commits[2] ?? '',
+      },
+    ],
+  });
+
+  expect(floors).toStrictEqual({
+    lensHead: null,
+    fixes: [
+      {
+        id: '1111111111111111',
+        title: 'Reject an empty separator',
+        lens: 'correctness',
+        path: 'src/scan.ts',
+        line: 2,
+        comment: 'Reject an empty separator.',
+        commit: repo.commits[5] ?? '',
+        postedHead: repo.commits[2] ?? '',
+        postedBranchHead: repo.commits[4] ?? '',
       },
     ],
   });

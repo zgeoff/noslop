@@ -76,6 +76,20 @@ and the run starts from the branch commit that matches the reviewed head. Each f
 still covers only the commits after the review. A reviewed commit whose patch the base already holds
 belongs to the base, as in a stack whose base branch rebased too, so the mapping leaves it out.
 
+A squash merge of a lower stack layer holds no single commit's patch, so the base matches none of
+that layer's commits by patch. The mapping leaves out every reviewed commit below the base that the
+last lens review read, as the store records it, because the lower layer's own review read those
+commits. A delta review's stored base is the head of the review before it, so the run follows each
+such head back to the base of the review that read it. With no lens review of that head in the
+store, the mapping counts every reviewed commit past the pull request's base. A branch that carries
+a lower layer's commit as its own fails the match, since the reviewed commits do not open the
+branch.
+
+A fixes-only run stores its own head as its base. When a lower layer rebased under such a run, the
+commits below the run's head match neither the base nor the lens review's base. When the reviewed
+head maps to no branch commit, the run maps the last lens review's head instead, and each fix commit
+after it takes the fix path.
+
 The run refuses, and gives the reason, in five cases:
 
 - The rebase changed a reviewed commit's patch, such as by a conflict resolution.

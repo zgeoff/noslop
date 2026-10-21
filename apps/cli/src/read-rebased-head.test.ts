@@ -41,6 +41,7 @@ test('it maps a reviewed head onto the branch commit a rebase made of it', async
     reviewed: repo.commits[2] ?? '',
     base: repo.commits[1] ?? '',
     head: repo.commits[4] ?? '',
+    reviewBase: null,
   });
 
   expect(rebased).toStrictEqual({ head: repo.commits[3] ?? '', failure: null });
@@ -69,9 +70,119 @@ test('it maps a reviewed head past the commits of a base branch that rebased too
     reviewed: repo.commits[2] ?? '',
     base: repo.commits[4] ?? '',
     head: repo.commits[5] ?? '',
+    reviewBase: null,
   });
 
   expect(rebased).toStrictEqual({ head: repo.commits[5] ?? '', failure: null });
+});
+
+test('it maps a reviewed head past a lower layer that changed after the review and squash-merged', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
+    {
+      message: 'Add the parser',
+      parent: 0,
+      files: { 'src/parse.ts': 'export const parse = 1;\n' },
+    },
+    {
+      message: 'Add the scanner',
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = "";\n' },
+    },
+    {
+      message: 'Add the parser (#4)',
+      parent: 0,
+      files: { 'src/parse.ts': 'export const parse = 2;\n' },
+    },
+    {
+      message: 'Add the scanner',
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = "";\n' },
+    },
+  ]);
+
+  const rebased = await readRebasedHead(ctx.runner, {
+    repoDir: repo.path,
+    reviewed: repo.commits[2] ?? '',
+    base: repo.commits[3] ?? '',
+    head: repo.commits[4] ?? '',
+    reviewBase: repo.commits[1] ?? '',
+  });
+
+  expect(rebased).toStrictEqual({ head: repo.commits[4] ?? '', failure: null });
+});
+
+test('it maps a reviewed head on a rebased branch whose first review read an older base', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
+    { message: 'Describe the app', parent: 0, files: { 'README.md': '# app\n' } },
+    {
+      message: 'Add the scanner',
+      parent: 0,
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = "";\n' },
+    },
+    {
+      message: 'Reject an empty separator',
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = ":";\n' },
+    },
+    {
+      message: 'Add the scanner',
+      parent: 1,
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = "";\n' },
+    },
+    {
+      message: 'Reject an empty separator',
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = ":";\n' },
+    },
+  ]);
+
+  const rebased = await readRebasedHead(ctx.runner, {
+    repoDir: repo.path,
+    reviewed: repo.commits[3] ?? '',
+    base: repo.commits[1] ?? '',
+    head: repo.commits[5] ?? '',
+    reviewBase: repo.commits[0] ?? '',
+  });
+
+  expect(rebased).toStrictEqual({ head: repo.commits[5] ?? '', failure: null });
+});
+
+test('it maps no head when the branch carries a lower layer commit as its own', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
+    {
+      message: 'Add the parser',
+      parent: 0,
+      files: { 'src/parse.ts': 'export const parse = 1;\n' },
+    },
+    {
+      message: 'Add the scanner',
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = "";\n' },
+    },
+    { message: 'Describe the app', parent: 0, files: { 'README.md': '# app\n' } },
+    { message: 'Add the parser', files: { 'src/parse.ts': 'export const parse = 1;\n' } },
+    {
+      message: 'Add the scanner',
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = "";\n' },
+    },
+  ]);
+
+  const rebased = await readRebasedHead(ctx.runner, {
+    repoDir: repo.path,
+    reviewed: repo.commits[2] ?? '',
+    base: repo.commits[3] ?? '',
+    head: repo.commits[5] ?? '',
+    reviewBase: repo.commits[1] ?? '',
+  });
+
+  expect(rebased).toStrictEqual({
+    head: null,
+    failure: `the rebase changed the patch of the reviewed commit ${(repo.commits[2] ?? '').slice(0, 12)}`,
+  });
 });
 
 test('it maps no head when the rebase changed the patch of a reviewed commit', async () => {
@@ -101,6 +212,7 @@ test('it maps no head when the rebase changed the patch of a reviewed commit', a
     reviewed: repo.commits[2] ?? '',
     base: repo.commits[1] ?? '',
     head: repo.commits[3] ?? '',
+    reviewBase: null,
   });
 
   expect(rebased).toStrictEqual({
@@ -124,6 +236,7 @@ test('it maps no head when a reviewed commit is empty', async () => {
     reviewed: repo.commits[2] ?? '',
     base: repo.commits[1] ?? '',
     head: repo.commits[3] ?? '',
+    reviewBase: null,
   });
 
   expect(rebased).toStrictEqual({
@@ -156,6 +269,7 @@ test('it maps no head when the reviewed range holds a merge', async () => {
     reviewed: repo.commits[3] ?? '',
     base: repo.commits[1] ?? '',
     head: repo.commits[4] ?? '',
+    reviewBase: null,
   });
 
   expect(rebased).toStrictEqual({
@@ -191,6 +305,7 @@ test('it maps no head when the rebase squashed the reviewed commits', async () =
     reviewed: repo.commits[3] ?? '',
     base: repo.commits[1] ?? '',
     head: repo.commits[4] ?? '',
+    reviewBase: null,
   });
 
   expect(rebased).toStrictEqual({
@@ -216,6 +331,7 @@ test('it maps no head when the reviewed head holds no commit past the base', asy
     reviewed: repo.commits[0] ?? '',
     base: repo.commits[1] ?? '',
     head: repo.commits[2] ?? '',
+    reviewBase: null,
   });
 
   expect(rebased).toStrictEqual({
@@ -240,6 +356,7 @@ test('it maps no head when the repo holds no commit of the reviewed head', async
     reviewed: 'a'.repeat(40),
     base: repo.commits[0] ?? '',
     head: repo.commits[1] ?? '',
+    reviewBase: null,
   });
 
   expect(rebased).toStrictEqual({ head: null, failure: 'the repo holds no commit aaaaaaaaaaaa' });

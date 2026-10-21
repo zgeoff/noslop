@@ -11,6 +11,9 @@ export interface RebasedHeadInput {
   // the pull request's base and head now
   base: string;
   head: string;
+
+  // the base the pull request's first review read; null counts the reviewed commits from `base`
+  reviewBase: string | null;
 }
 
 // the branch commit a rebase made of a reviewed head, from the reviewed commits past the base, with
@@ -29,11 +32,13 @@ export async function readRebasedHead(
   }
 
   // a stack's base branch may have rebased too, so a reviewed commit the base holds the patch of is
-  // the base's own and not the pull request's
+  // the base's own and not the pull request's; a lower layer's squash holds no single commit's
+  // patch, so its commits below the review's base, which its own review read, are left out too
   const reviewed = await readCommits(runner, input.repoDir, [
     '--right-only',
     '--cherry-pick',
     `${input.base}...${input.reviewed}`,
+    ...(input.reviewBase === null ? [] : ['--not', input.reviewBase]),
   ]);
 
   const branch = await readCommits(runner, input.repoDir, [`${input.base}..${input.head}`]);
