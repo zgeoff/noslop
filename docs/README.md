@@ -95,3 +95,5 @@ stable IDs in the order the decisions were made.
 - [0015: Reporters and disposition sources](decisions/0015-reporters.md): one result, a list of
   reporters out, dispositions back in
 - [0016: The stack](decisions/0016-the-stack.md): the libraries noslop builds on
+- [0017: Fix confirmation at the head](decisions/0017-fix-confirmation-at-the-head.md): pending; a
+  fix judged at the head, a review keyed on the net change
