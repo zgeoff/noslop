@@ -328,10 +328,9 @@ test("it traces the finding's line past the lines a later commit adds above it",
       files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = "";\n' },
     },
     {
-      message: 'Test the separator and name the other constants',
+      message: 'Test the separator and add the filler constants',
       files: {
-        'src/scan.ts':
-          'export const one = 1;\nexport const two = 2;\nexport const three = 3;\nexport const zero = 0;\nexport const separator = "";\n',
+        'src/scan.ts': `${'export const filler = 0;\n'.repeat(30)}export const zero = 0;\nexport const separator = "";\n`,
         'src/scan.test.ts': 'test("it rejects an empty separator", () => {});\n',
       },
     },
@@ -370,10 +369,10 @@ test("it traces the finding's line past the lines a later commit adds above it",
   });
 
   expect(stub.requests[0]?.prompt).toInclude(
-    "## The code at `src/scan.ts` at the head, around the finding's lines\n\n```text\n1: export const one = 1;",
+    "## The code at `src/scan.ts` at the head, around the finding's lines\n\n```text\n12: export const filler = 0;",
   );
 
-  expect(stub.requests[0]?.prompt).toInclude('5: export const separator = "";');
+  expect(stub.requests[0]?.prompt).toInclude('32: export const separator = "";\n```');
 });
 
 test('it gives the call the whole file at the head when a later commit rewrote the finding line', async () => {
