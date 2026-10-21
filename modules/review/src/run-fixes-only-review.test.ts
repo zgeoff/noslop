@@ -1480,3 +1480,69 @@ test('it runs the fix call of a fixed answer when a merge of the base came after
     failedCalls: [],
   });
 });
+
+test('it records a resolution past the call limit as a failed call and lists none of its files as too large', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: { 'src/options.ts': 'export const options = { retries: 1, timeoutMs: 1000 };\n' },
+    },
+    {
+      message: 'Retry 3 times',
+      files: { 'src/options.ts': 'export const options = { retries: 3, timeoutMs: 1000 };\n' },
+    },
+    {
+      message: 'Wait longer',
+      files: { 'src/options.ts': 'export const options = { retries: 1, timeoutMs: 5000 };\n' },
+      parent: 0,
+    },
+    {
+      message: 'Merge main',
+      files: { 'src/options.ts': 'export const options = { retries: 3, timeoutMs: 5000 };\n' },
+      parent: 1,
+      merged: 2,
+    },
+  ]);
+
+  const merge = repo.commits[3] ?? '';
+  const stub = buildStubAdapter({});
+
+  const result = await runFixesOnlyReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/app',
+    pullRequest: { owner: 'example', repo: 'app', number: 9 },
+    base: repo.commits[1] ?? '',
+    head: merge,
+    mergeBase: repo.commits[2] ?? '',
+    title: 'Retry a failed request',
+    configHash: 'hash',
+    fixes: [],
+    maxFileChars: 10_000,
+    adapter: stub.adapter,
+    tempDir: ctx.directory,
+    logger: ctx.logger,
+    resolution: {
+      config: {
+        ...BUILT_IN_DEFAULTS,
+        thresholds: { ...BUILT_IN_DEFAULTS.thresholds, maxCallChars: 100 },
+      },
+      dismissedFindings: [],
+    },
+    staticCheck: { config: BUILT_IN_DEFAULTS, body: '', linkedIssue: null, cacheDir: null },
+  });
+
+  expect(stub.requests).toStrictEqual([]);
+
+  expect(result.failedCalls).toStrictEqual([
+    {
+      id: `resolution-${merge.slice(0, 12)}`,
+      lenses: ['correctness', 'security'],
+      reason: 'the resolution passes the call limit, so no call read it',
+    },
+  ]);
+
+  expect(result.notReviewed).toStrictEqual([]);
+});
