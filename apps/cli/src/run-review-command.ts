@@ -416,14 +416,18 @@ async function readChangedPaths(
   state: PullRequestState,
 ): Promise<string[] | null> {
   const summary = state.summary?.marker ?? null;
+  const lensHead = findLensHead(summary);
 
-  if (summary === null || summary.failedCalls > 0 || findLensHead(summary) === null) {
+  if (summary === null || summary.failedCalls > 0 || lensHead === null) {
     return null;
   }
 
+  // a marker written before the lens review's own key holds only the key of its own head
+  const lensKey = summary.lensKey ?? (lensHead === summary.head ? summary.key : undefined);
+
   const currentKey = await readNetChangeKey(connection.client, pullRequest, state.headSha);
 
-  return findChangedPaths(summary, state.headSha, currentKey);
+  return findChangedPaths({ head: lensHead, key: lensKey }, state.headSha, currentKey);
 }
 
 // each finding whose latest disposition is `fixed` with a fix the summary does not hold confirmed, as

@@ -2600,3 +2600,68 @@ test('it refuses to post under a token, whose comments no later review trusts', 
     'the github reporter posts as the App: set NOSLOP_GITHUB_APP_ID, NOSLOP_GITHUB_APP_PRIVATE_KEY and NOSLOP_GITHUB_APP_INSTALLATION_ID',
   );
 });
+
+test('it keeps the key of the last lens review when a fixes-only run moves the key to its own head', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'c'.repeat(40),
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/a.ts',
+    lines: [1],
+    patch: '@@ -1 +1 @@\n-export const a = 0;\n+export const a = 2;',
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${'b'.repeat(40)}","key":{"files":{"src/a.ts":"1111111111111111"}},"lensHead":"${'b'.repeat(40)}","lensKey":{"files":{"src/a.ts":"1111111111111111"}},"reviews":1,"reported":[],"failedCalls":0,"reviewIDs":["review-1"]} -->`,
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      reviewID: 'review-2',
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      base: 'b'.repeat(40),
+      head: 'c'.repeat(40),
+      lenses: [],
+      findings: [],
+      fixesOnly: true,
+      fixChecks: [{ findingID: '2222222222222222', fixed: true, reason: 'The guard is in place.' }],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const connection = await createGitHubConnection({
+    appID: 1,
+    privateKey: buildStubAppKey(),
+    installationID: 7,
+  });
+
+  const state = await readPullRequestState(connection, {
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+  });
+
+  expect(state.summary?.marker).toMatchObject({
+    head: 'c'.repeat(40),
+    lensHead: 'b'.repeat(40),
+    lensKey: { files: { 'src/a.ts': '1111111111111111' } },
+  });
+
+  expect(state.summary?.marker.key).not.toStrictEqual({
+    files: { 'src/a.ts': '1111111111111111' },
+  });
+});

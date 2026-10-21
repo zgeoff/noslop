@@ -1307,6 +1307,88 @@ test('it sends the lenses only the file that a 1-line commit changed since the l
   expect(stub.requests[0]?.prompt).not.toInclude('### src/count.ts');
 });
 
+test('it sends the lenses a file whose patch changed since the last lens review after a fixes-only run moved the key', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
+    {
+      message: 'Add one',
+      files: { 'src/total.ts': 'export const zero = 0;\nexport const one = 1;\n' },
+    },
+    {
+      message: 'Add two',
+      files: {
+        'src/total.ts': 'export const zero = 0;\nexport const one = 1;\nexport const two = 2;\n',
+      },
+    },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    title: 'Add one and two',
+    body: 'Adds one and two.',
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[2] ?? '',
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/total.ts',
+    patch: '@@ -1 +1,3 @@\n export const zero = 0;\n+export const one = 1;\n+export const two = 2;',
+  });
+
+  const key = buildNetChangeKey({
+    head: repo.commits[2] ?? '',
+    isWhole: true,
+    files: [
+      {
+        filename: 'src/total.ts',
+        status: 'modified',
+        sha: null,
+        patch:
+          '@@ -1 +1,3 @@\n export const zero = 0;\n+export const one = 1;\n+export const two = 2;',
+      },
+    ],
+  });
+
+  const lensKey = buildNetChangeKey({
+    head: repo.commits[1] ?? '',
+    isWhole: true,
+    files: [
+      {
+        filename: 'src/total.ts',
+        status: 'modified',
+        sha: null,
+        patch: '@@ -1 +1,2 @@\n export const zero = 0;\n+export const one = 1;',
+      },
+    ],
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${repo.commits[2] ?? ''}","key":${JSON.stringify(key)},"lensHead":"${repo.commits[1] ?? ''}","lensKey":${JSON.stringify(lensKey)},"checked":[],"reviews":1,"reported":[],"failedCalls":0} -->`,
+  });
+
+  const stub = buildStubAdapter({ light: [{ findings: { correctness: [] } }] });
+
+  await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'json', '--json'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['light']);
+  expect(stub.requests[0]?.prompt).toInclude('+ export const two = 2;');
+});
+
 test('it reads a pull request of a private repo with GH_TOKEN and no App keys', async () => {
   const ctx = await setupTest();
 

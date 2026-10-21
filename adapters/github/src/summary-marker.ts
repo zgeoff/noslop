@@ -30,6 +30,10 @@ export const summaryMarkerSchema = z.strictObject({
   // lens review with a failed call drops
   lensHead: buildShaSchema().optional(),
 
+  // the key of that lens review, which a later review compares to read only the files whose patch
+  // changed since the lenses last read them; a fixes-only run moves the key above and carries this one
+  lensKey: netChangeKeySchema.optional(),
+
   // each merge commit whose resolution a fixes-only run judged sound, the ones earlier summaries held
   // among them, so a reader that counts the commits since the last lens review can count each such
   // merge as checked
