@@ -55,11 +55,7 @@ export async function readChange(options: ReadChangeOptions): Promise<Change> {
 
     // a rename keeps either side the pull request changes, so a deletion of its own survives a rename
     // whose new path only the base branch changed
-    if (
-      owned !== null &&
-      !owned.paths.has(parsed.path) &&
-      !owned.paths.has(parsed.oldPath ?? parsed.path)
-    ) {
+    if (owned !== null && !owned.has(parsed.path) && !owned.has(parsed.oldPath ?? parsed.path)) {
       baseOnly.push({
         ...parsed,
         kind,
@@ -88,7 +84,7 @@ export async function readChange(options: ReadChangeOptions): Promise<Change> {
     head,
     files,
     excluded,
-    ...(owned === null ? {} : { baseOnly, pullRequestPaths: owned.kept }),
+    ...(owned === null ? {} : { baseOnly, pullRequestPaths: [...owned] }),
   };
 }
 
@@ -113,12 +109,13 @@ async function runGit(options: ReadChangeOptions, args: readonly string[]): Prom
   return result.stdout;
 }
 
-// the filter runs on the parsed diff, since a pathspec on the diff would stop git pairing a rename
-// whose old path the list leaves out
+// the paths the pull request changes since its merge base, both paths of a rename among them, or null
+// with no merge base; the filter runs on the parsed diff, since a pathspec on the diff would stop git
+// pairing a rename whose old path the list leaves out
 async function readOwnedPaths(
   options: ReadChangeOptions,
   head: string,
-): Promise<{ paths: Set<string>; kept: string[] } | null> {
+): Promise<Set<string> | null> {
   if (options.mergeBase === undefined) {
     return null;
   }
@@ -127,7 +124,7 @@ async function readOwnedPaths(
     '-c',
     'core.quotePath=false',
     'diff',
-    '--name-status',
+    '--name-only',
     '-z',
     '--no-ext-diff',
     '--no-renames',
@@ -135,23 +132,7 @@ async function readOwnedPaths(
     head,
   ]);
 
-  const fields = listed.split('\0');
-
-  const paths = new Set<string>();
-
-  const kept: string[] = [];
-
-  for (let index = 0; index + 1 < fields.length; index += 2) {
-    const path = fields[index + 1] ?? '';
-
-    paths.add(path);
-
-    if (fields[index] !== 'D') {
-      kept.push(path);
-    }
-  }
-
-  return { paths, kept };
+  return new Set(listed.split('\0').filter((path) => path !== ''));
 }
 
 async function probeShebang(

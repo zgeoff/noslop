@@ -39,7 +39,7 @@ export interface Change {
   // which the change leaves out
   baseOnly?: ChangedFile[];
 
-  // the paths the whole pull request adds or edits since its merge base, a rename under its new path,
+  // the paths the whole pull request changes since its merge base, both paths of a rename among them,
   // which an incremental review's change can leave out
   pullRequestPaths?: string[];
 }

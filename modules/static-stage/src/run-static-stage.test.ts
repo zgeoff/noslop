@@ -1571,13 +1571,105 @@ test('it reports no missing test that an earlier commit of the pull request rena
     change,
     config: BUILT_IN_DEFAULTS,
     title: 'Raise the value',
-    body: 'Moves the test to src/main.test.ts and raises the value.',
+    body: 'Moves the test from src/old.test.ts to src/main.test.ts and raises the value.',
     linkedIssue: null,
     cacheDir: null,
     pastEscapes: [],
   });
 
   expect(result.findings).toStrictEqual([]);
+});
+
+test('it reports no missing test for a test file at the head that the body only says passes', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/main.ts': 'export const main = 1;\n',
+        'src/main.test.ts': [
+          "import { expect, test } from 'bun:test';",
+          "import { main } from './main';",
+          '',
+          "test('it exports a value', () => {",
+          '  expect(main).toBeNumber();',
+          '});',
+          '',
+        ].join('\n'),
+      },
+    },
+    { message: 'Raise the value', files: { 'src/main.ts': 'export const main = 2;\n' } },
+  ]);
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config: BUILT_IN_DEFAULTS,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config: BUILT_IN_DEFAULTS,
+    title: 'Raise the value',
+    body: 'Raises the value. One rerun cleared `src/main.test.ts`, and "it adds a case" in src/main.test.ts passes for the changed files.',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(result.findings).toStrictEqual([]);
+});
+
+test('it reports a missing test for a test file at the head that the body says it adds to', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/main.ts': 'export const main = 1;\n',
+        'src/main.test.ts': [
+          "import { expect, test } from 'bun:test';",
+          "import { main } from './main';",
+          '',
+          "test('it exports a value', () => {",
+          '  expect(main).toBeNumber();',
+          '});',
+          '',
+        ].join('\n'),
+      },
+    },
+    { message: 'Raise the value', files: { 'src/main.ts': 'export const main = 2;\n' } },
+  ]);
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config: BUILT_IN_DEFAULTS,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config: BUILT_IN_DEFAULTS,
+    title: 'Raise the value',
+    body: 'Raises the value. Adds a case for the new value to `src/main.test.ts`.',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(result.findings.map((finding) => [finding.criterion, finding.title])).toStrictEqual([
+    ['intent-mismatch', 'The pull request names src/main.test.ts, which the change does not add'],
+  ]);
 });
 
 test('it reports no missing test that the pull request adds before a merge from the base branch', async () => {
