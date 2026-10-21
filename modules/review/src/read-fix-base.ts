@@ -154,7 +154,6 @@ async function readBaseBranchFixReads(
   return { isInBase, isInPostedHead, isInLensHead, authoredAt, postedCommittedAt };
 }
 
-// the commit's author or committer time, in seconds since the epoch, by the format git gives it
 async function readCommitTime(
   input: FixBaseInput,
   format: '%at' | '%ct',

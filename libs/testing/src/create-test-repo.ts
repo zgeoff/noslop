@@ -19,11 +19,7 @@ export interface TestCommit {
   // octopus merge; the files apply on top of the merged tree, and they resolve a conflict the merge left
   merged?: number | readonly number[];
 
-  // the author and committer date git records, in a form git reads, such as an ISO 8601 date; with
-  // none, git records the time of the commit
   date?: string;
-
-  // the author date alone, in place of the date, such as the older author date a rebase keeps
   authorDate?: string;
 }
 

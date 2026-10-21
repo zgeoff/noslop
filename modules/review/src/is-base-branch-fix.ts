@@ -1,6 +1,3 @@
-// where the commit stands against the base, the head that posted the finding and the head of the
-// newest lens review, with the fix commit's author time and the posting head's commit time, in
-// seconds since the epoch
 export interface BaseBranchFixReads {
   isInBase: boolean;
   isInPostedHead: boolean;
