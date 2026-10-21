@@ -5,9 +5,10 @@ import type {
   ReporterContext,
   ReviewResult,
 } from '@noslop/contract';
+import { buildFixConfirmations } from './build-fix-confirmations';
 import { buildMergeLists } from './build-merge-lists';
 import type { GitHubClient, GitHubConnection } from './create-github-connection';
-import { findFixCheckFailure } from './find-fix-check-failure';
+import { findLensHead } from './find-lens-head';
 import { followUpMarkerSchema } from './follow-up-marker';
 import { formatFindingComment } from './format-finding-comment';
 import { formatFixedFindingComment } from './format-fixed-finding-comment';
@@ -18,18 +19,12 @@ import { formatSummaryComment } from './format-summary-comment';
 import { parseMarker } from './parse-marker';
 import { planReviewPost } from './plan-review-post';
 import { readAllPages } from './read-all-pages';
-import type { ReviewedRange } from './read-fix-confirmations';
-import { readFixConfirmations } from './read-fix-confirmations';
-import { readHeldFixes } from './read-held-fixes';
 import { readNetChangeKey } from './read-net-change-key';
-import { readPullRequestFiles } from './read-pull-request-files';
 import type { FindingThread, PullRequestState } from './read-pull-request-state';
 import { readPullRequestState } from './read-pull-request-state';
 import { readThreadDispositions } from './read-thread-dispositions';
 import { runGitHubCheck } from './run-github-check';
 import type { SummaryMarker } from './summary-marker';
-import type { KeptRange } from './to-reviewed-ranges';
-import { toReviewedRanges } from './to-reviewed-ranges';
 
 export interface GitHubReporterOptions {
   loadConnection: () => Promise<GitHubConnection>;
@@ -118,7 +113,7 @@ async function runReviewPost(
   const posted = new Set([...before.threads.map((thread) => thread.marker.id), ...filed]);
 
   const plan = planReviewPost({ summary: before.summary?.marker ?? null, posted }, result);
-  const own = toOwnRange(result);
+  const reported = collectReported(result);
 
   // a retry of an earlier review leaves the later summary in place and only sets the check again
   // from the current answers
@@ -149,16 +144,13 @@ async function runReviewPost(
     await createFollowUpIssue(client, pr, finding);
   }
 
-  const confirmations = await readConfirmations(client, pr, before, own);
-
-  for (const item of confirmations) {
-    const thread = before.threads.find((entry) => entry.marker.id === item.id);
-    const failure = findFixCheckFailure(result, item, thread?.marker.path ?? null);
-
-    if (failure !== null) {
-      item.failure = failure;
-    }
-  }
+  const confirmations = buildFixConfirmations({
+    findings: before.threads.map((thread) => thread.marker),
+    dispositions: await readThreadDispositions(client, pr, before.threads),
+    confirmed: before.summary?.marker.confirmed ?? [],
+    reported,
+    result,
+  });
 
   for (const item of confirmations) {
     if (item.failure !== undefined) {
@@ -182,11 +174,11 @@ async function runReviewPost(
 
   const marker = {
     head: result.head,
-    ...buildRangeFields(own, before.summary?.marker ?? null),
+    ...buildRunFields(result, before.summary?.marker ?? null),
     ...merges,
     reviews: plan.reviews,
     reviewIDs: plan.reviewIDs,
-    reported: [...own.reported],
+    reported,
     failedCalls: result.failedCalls.length,
     followUps: [...filed, ...followUps.map((finding) => finding.id)],
     confirmed: confirmations
@@ -208,38 +200,22 @@ async function runReviewPost(
   await options.recordCommentURLs?.(pr, links);
 }
 
-// the range this review read; a fixes-only run reported no finding, so a fix it judged not fixed
-// counts as reported again, and its range reads only the fixes it judged fixed; a finding the review
-// dropped as answered `not-a-defect` counts as reported, so it confirms no fix of the answered finding
-function toOwnRange(result: ReviewResult): KeptRange {
-  const checks = result.fixChecks;
-  const rejected = (checks ?? []).filter((check) => !check.fixed);
+// the findings the review counts as reported: a fix it judged not fixed counts as reported again, and
+// a finding it dropped as answered `not-a-defect` counts as reported, so it confirms no fix of it
+function collectReported(result: ReviewResult): string[] {
+  const rejected = (result.fixChecks ?? []).filter((check) => !check.fixed);
 
   const answered = result.dropped.flatMap((item) =>
     item.answeredID === undefined ? [] : [item.answeredID],
   );
 
-  return {
-    base: result.base,
-    head: result.head,
-    reported: [
-      ...new Set([
-        ...result.findings.map((finding) => finding.id),
-        ...rejected.map((check) => check.findingID),
-        ...answered,
-      ]),
-    ],
-    notReviewed: result.notReviewed.map((file) => file.path),
-    notReviewedByLens: toLensNotReviewedPaths(result),
-    isPartial: result.failedCalls.length > 0,
-    ...(checks === undefined
-      ? {}
-      : { checked: checks.filter((check) => check.fixed).map((check) => check.findingID) }),
-  };
-}
-
-function toLensNotReviewedPaths(result: ReviewResult): { path: string; lenses: string[] }[] {
-  return result.notReviewedByLens.map((file) => ({ path: file.path, lenses: [...file.lenses] }));
+  return [
+    ...new Set([
+      ...result.findings.map((finding) => finding.id),
+      ...rejected.map((check) => check.findingID),
+      ...answered,
+    ]),
+  ];
 }
 
 async function runCheck(
@@ -402,46 +378,6 @@ async function createFollowUpIssue(
   });
 }
 
-// the fixes this review confirms; a fix answered after the review before it ran, inside that review's
-// range, counts as that review read it, as the check counted it, so the answer needs no extra review
-async function readConfirmations(
-  client: GitHubClient,
-  pr: PullRequestRef,
-  before: PullRequestState,
-  review: ReviewedRange,
-): Promise<FixConfirmation[]> {
-  const dispositions = await readThreadDispositions(client, pr, before.threads);
-
-  const pullRequestFiles = dispositions.some((item) => item.kind === 'fixed')
-    ? await readPullRequestFiles(client, pr)
-    : [];
-
-  const previous = before.summary?.marker ?? null;
-
-  // this review's verdict is the newest, so the earlier reviews' word counts only where it is silent
-  const earlier =
-    previous === null
-      ? null
-      : await readHeldFixes(client, pr, {
-          threads: before.threads,
-          dispositions,
-          commits: before.commits,
-          pullRequestFiles,
-          marker: previous,
-        });
-
-  const held = earlier?.states ?? new Map();
-
-  return readFixConfirmations(client, pr, {
-    threads: before.threads,
-    dispositions,
-    commits: before.commits,
-    pullRequestFiles,
-    review,
-    held,
-  });
-}
-
 // strikes the heading of each finding comment whose fix the review confirms, and restores a struck
 // comment whose fix no longer holds, around the same marker
 async function updateFixedComments(
@@ -476,101 +412,26 @@ function toCommentURL(pr: PullRequestRef, thread: FindingThread): string {
   return `https://github.com/${pr.owner}/${pr.repo}/pull/${pr.number}#${anchor}`;
 }
 
-// the most characters of review ranges the summary marker keeps, far under GitHub's comment limit
-const MARKER_PATH_CHARS = 16_000;
-
-// the most ranges of earlier reviews the summary marker keeps beside the latest one
-const EARLIER_RANGES = 4;
-
-interface RangeFields {
-  base?: string;
-  notReviewed?: string[];
-  notReviewedByLens?: SummaryMarker['notReviewedByLens'];
+interface RunFields {
   checked?: string[];
-  earlier?: SummaryMarker['earlier'];
+  lensHead?: string;
 }
 
-// the ranges the summary marker keeps for a `fixed` answer after the review: its own, then the newest
-// earlier ones that fit the budget, which counts them as the marker writes them, escapes included; a
-// review whose own range does not fit keeps none, so such an answer waits for the next review
-function buildRangeFields(own: KeptRange, previous: SummaryMarker | null): RangeFields {
-  const notReviewed = [...own.notReviewed];
-
-  const notReviewedByLens = own.notReviewedByLens.map((file) => ({
-    path: file.path,
-    lenses: [...file.lenses],
-  }));
-
-  // a repost of a review keeps its own range once, so it evicts no earlier one; another review of the
-  // same range keeps its verdicts, so a rejection it holds outlives every older confirmation
-  const earlier = (previous === null ? [] : toReviewedRanges(previous))
-    .filter((range) => !isSameRange(range, own))
-    .slice(0, EARLIER_RANGES)
-    .map((range) => {
-      const kept: NonNullable<SummaryMarker['earlier']>[number] = {
-        base: range.base,
-        head: range.head,
-        reported: [...range.reported],
-        notReviewed: [...range.notReviewed],
-      };
-
-      if (range.notReviewedByLens.length > 0) {
-        kept.notReviewedByLens = range.notReviewedByLens.map((file) => ({
-          path: file.path,
-          lenses: [...file.lenses],
-        }));
-      }
-
-      if (range.isPartial) {
-        kept.partial = true;
-      }
-
-      // an earlier fixes-only range keeps its list, so a reply posted after it never confirms through
-      // its silence
-      if (range.checked !== undefined) {
-        kept.checked = [...range.checked];
-      }
-
-      return kept;
-    });
-
-  for (let count = earlier.length; count >= 0; count -= 1) {
-    const kept = earlier.slice(0, count);
-
-    const fields = {
-      base: own.base,
-      notReviewed,
-      ...(notReviewedByLens.length === 0 ? {} : { notReviewedByLens }),
-      ...(own.checked === undefined ? {} : { checked: [...own.checked] }),
-      ...(count === 0 ? {} : { earlier: kept }),
-    };
-
-    if (formatMarker('summary', fields).length <= MARKER_PATH_CHARS) {
-      return fields;
-    }
+// a fixes-only run's marker lists the fixes its calls judged fixed, which marks it as no lens review,
+// and carries the head of the last lens review with no failed call; a lens review sets that head
+// only when none of its calls failed
+function buildRunFields(result: ReviewResult, previous: SummaryMarker | null): RunFields {
+  if (result.fixesOnly !== true) {
+    return result.failedCalls.length === 0 ? { lensHead: result.head } : {};
   }
 
-  return {};
-}
+  const fixed = (result.fixChecks ?? []).filter((check) => check.fixed);
+  const lensHead = findLensHead(previous);
 
-function isSameRange(range: KeptRange, other: KeptRange): boolean {
-  return (
-    range.base === other.base &&
-    range.head === other.head &&
-    range.isPartial === other.isPartial &&
-    isSameList(range.checked ?? [], other.checked ?? []) &&
-    (range.checked === undefined) === (other.checked === undefined) &&
-    isSameList(range.reported, other.reported) &&
-    isSameList(range.notReviewed, other.notReviewed) &&
-    isSameList(
-      range.notReviewedByLens.map((file) => `${file.path}:${file.lenses.join(',')}`),
-      other.notReviewedByLens.map((file) => `${file.path}:${file.lenses.join(',')}`),
-    )
-  );
-}
-
-function isSameList(list: readonly string[], other: readonly string[]): boolean {
-  return list.length === other.length && list.every((item, index) => item === other[index]);
+  return {
+    checked: fixed.map((check) => check.findingID),
+    ...(lensHead === null ? {} : { lensHead }),
+  };
 }
 
 async function writeSummaryComment(

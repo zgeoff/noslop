@@ -1,6 +1,5 @@
 export * from './build-call-output-schema';
 export * from './build-config-file-json-schema';
-export * from './build-fix-file-evidence';
 export * from './criterion';
 export * from './depth';
 export * from './disposition';

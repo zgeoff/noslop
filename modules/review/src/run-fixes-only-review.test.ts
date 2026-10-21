@@ -693,6 +693,121 @@ test('it asks nothing about a fix whose diff passes the file limit and names the
   expect(result.notReviewed).toStrictEqual([{ path: 'src/scan.ts', reason: 'too-large' }]);
 });
 
+test("it reads the finding file's diff alone by its literal path, though the path reads as a glob", async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: { 'src/[a].ts': 'export const separator = "";\n', 'src/a.ts': 'alpha\n' },
+    },
+    {
+      message: 'Reject an empty separator',
+      files: {
+        'src/[a].ts': 'export const separator = ":";\n',
+        'src/a.ts': 'word\n'.repeat(400),
+      },
+    },
+  ]);
+
+  const stub = buildStubAdapter({
+    'fix-1111111111111111': [{ fixed: true, reason: 'The separator is a colon now.' }],
+  });
+
+  const result = await runFixesOnlyReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/app',
+    pullRequest: { owner: 'example', repo: 'app', number: 9 },
+    base: repo.commits[0] ?? '',
+    head: repo.commits[1] ?? '',
+    mergeBase: repo.commits[0] ?? '',
+    title: 'Scan the header line',
+    configHash: 'hash',
+    fixes: [
+      {
+        id: '1111111111111111',
+        title: 'Reject an empty separator',
+        lens: 'correctness',
+        path: 'src/[a].ts',
+        line: 1,
+        comment: 'An empty separator splits the line into single characters.',
+        hint: null,
+        postedHead: null,
+      },
+    ],
+    maxFileChars: 1000,
+    adapter: stub.adapter,
+    tempDir: ctx.directory,
+    logger: ctx.logger,
+  });
+
+  expect(result.fixChecks).toStrictEqual([
+    { findingID: '1111111111111111', fixed: true, reason: 'The separator is a colon now.' },
+  ]);
+
+  expect(result.notReviewed).toStrictEqual([]);
+});
+
+test("it gives the call the finding file's diff alone when the whole diff passes the file limit", async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: { 'src/scan.ts': 'export const separator = "";\n', 'data/words.txt': 'alpha\n' },
+    },
+    {
+      message: 'Reject an empty separator',
+      files: {
+        'src/scan.ts': 'export const separator = ":";\n',
+        'data/words.txt': 'word\n'.repeat(400),
+      },
+    },
+  ]);
+
+  const stub = buildStubAdapter({
+    'fix-1111111111111111': [{ fixed: true, reason: 'The separator is a colon now.' }],
+  });
+
+  const result = await runFixesOnlyReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/app',
+    pullRequest: { owner: 'example', repo: 'app', number: 9 },
+    base: repo.commits[0] ?? '',
+    head: repo.commits[1] ?? '',
+    mergeBase: repo.commits[0] ?? '',
+    title: 'Scan the header line',
+    configHash: 'hash',
+    fixes: [
+      {
+        id: '1111111111111111',
+        title: 'Reject an empty separator',
+        lens: 'correctness',
+        path: 'src/scan.ts',
+        line: 1,
+        comment: 'An empty separator splits the line into single characters.',
+        hint: null,
+        postedHead: null,
+      },
+    ],
+    maxFileChars: 1000,
+    adapter: stub.adapter,
+    tempDir: ctx.directory,
+    logger: ctx.logger,
+  });
+
+  const prompt = stub.requests[0]?.prompt ?? '';
+
+  expect(result.fixChecks).toStrictEqual([
+    { findingID: '1111111111111111', fixed: true, reason: 'The separator is a colon now.' },
+  ]);
+
+  expect(prompt).toInclude('+export const separator = ":";');
+  expect(prompt).not.toInclude('data/words.txt');
+});
+
 test('it gives the call the diff of a fix in a file whose name git quotes', async () => {
   const ctx = await setupTest();
 

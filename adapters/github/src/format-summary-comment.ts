@@ -8,15 +8,11 @@ export interface FixConfirmation {
   id: string;
   title: string;
 
-  // the commit the `fixed` disposition names
+  // the sha the `fixed` disposition names, empty for a bare `fixed`
   commit: string;
   fixed: boolean;
 
-  // on a confirmed fix, whether its commit changes the finding's own file, which the summary shows as
-  // evidence and no fix needs
-  changesFindingFile?: boolean;
-
-  // why the review could not judge the fix, on a fix it leaves unconfirmed
+  // the fix call's reason, or why no call judged the fix, on a fix the review leaves unconfirmed
   failure?: string;
 }
 
@@ -62,7 +58,7 @@ export function formatSummaryComment(
       const place = item.commit === '' ? 'at the head' : `in \`${item.commit.slice(0, 7)}\``;
 
       const line = item.fixed
-        ? `✅ ${item.title}: fixed ${place}${formatFixFiles(item.changesFindingFile)}`
+        ? `✅ ${item.title}: fixed ${place}`
         : `❌ ${item.title}: not fixed ${place}${item.failure === undefined ? '' : ` (${item.failure})`}`;
 
       lines.push(line);
@@ -181,16 +177,6 @@ function formatNotReviewed(files: readonly NotReviewedFile[]): string {
   }
 
   return [`⚠️ ${count} left out of the review:`, ...lines].join('\n');
-}
-
-// which files the commit of a confirmed fix changes, as evidence for a reader: a fix such as a new
-// test may live outside the finding's file
-function formatFixFiles(changesFindingFile: boolean | undefined): string {
-  if (changesFindingFile === undefined) {
-    return '';
-  }
-
-  return changesFindingFile ? " (in the finding's file)" : ' (in other files of the pull request)';
 }
 
 function sortFindings(findings: readonly Finding[]): Finding[] {

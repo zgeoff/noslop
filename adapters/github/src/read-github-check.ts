@@ -2,10 +2,7 @@ import type { Disposition, PullRequestRef } from '@noslop/contract';
 import type { CheckOutcome } from './build-check-outcome';
 import { buildCheckOutcome } from './build-check-outcome';
 import type { GitHubClient, GitHubConnection } from './create-github-connection';
-import { findUnreviewedReason } from './find-unreviewed-reason';
-import { readHeldFixes } from './read-held-fixes';
 import { readNetChangeKey } from './read-net-change-key';
-import { readPullRequestFiles } from './read-pull-request-files';
 import type { PullRequestState } from './read-pull-request-state';
 import { readThreadDispositions } from './read-thread-dispositions';
 
@@ -34,17 +31,10 @@ export async function readGitHubCheck(
       ? { head: state.headSha }
       : await readNetChangeKey(client, pr, state.headSha);
 
-  const isReviewed =
-    findUnreviewedReason({ summary, currentHead: state.headSha, currentKey }) === null;
-
-  const fixes = await readCheckFixes(client, pr, { state, dispositions, isReviewed });
-
   return buildCheckOutcome({
     findings: state.threads.map((thread) => thread.marker),
     dispositions,
     summary,
-    confirmed: fixes.confirmed,
-    fixFailures: fixes.failures,
     currentHead: state.headSha,
     currentKey,
     existingIssues,
@@ -130,47 +120,4 @@ async function probeIssue(client: GitHubClient, issue: IssueRef): Promise<boolea
 
 function isNotFound(error: unknown): boolean {
   return typeof error === 'object' && error !== null && 'status' in error && error.status === 404;
-}
-
-interface CheckFixesInput {
-  state: PullRequestState;
-  dispositions: readonly Disposition[];
-  isReviewed: boolean;
-}
-
-interface CheckFixes {
-  confirmed: string[];
-
-  // why GitHub could not show the fix whole, by finding id, for each fix the check leaves unconfirmed
-  failures: Map<string, string>;
-}
-
-// the fixes the check counts: the ones the reviews of the summary hold, answers after a review among
-// them while those reviews read the net change at the head, so such an answer needs no further review
-async function readCheckFixes(
-  client: GitHubClient,
-  pr: PullRequestRef,
-  input: CheckFixesInput,
-): Promise<CheckFixes> {
-  const marker = input.state.summary?.marker;
-
-  if (marker === undefined) {
-    return { confirmed: [], failures: new Map() };
-  }
-
-  if (!input.isReviewed) {
-    return { confirmed: marker.confirmed, failures: new Map() };
-  }
-
-  const pullRequestFiles = input.dispositions.some((item) => item.kind === 'fixed')
-    ? await readPullRequestFiles(client, pr)
-    : [];
-
-  return readHeldFixes(client, pr, {
-    threads: input.state.threads,
-    dispositions: input.dispositions,
-    commits: input.state.commits,
-    pullRequestFiles,
-    marker,
-  });
 }

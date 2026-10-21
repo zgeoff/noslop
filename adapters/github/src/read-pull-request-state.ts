@@ -44,7 +44,6 @@ export interface PullRequestState {
   baseRef: string;
   baseSha: string;
   headSha: string;
-  commits: string[];
   threads: FindingThread[];
   summary: { commentID: number; marker: SummaryMarker } | null;
 
@@ -61,7 +60,7 @@ interface GitHubComment {
   created_at?: string;
 }
 
-// everything noslop keeps on a pull request, read back from GitHub: its commits, each finding thread
+// everything noslop keeps on a pull request, read back from GitHub: each finding thread
 // with its replies, and the summary of the latest review; only a comment by noslop's own App holds
 // state, and a comment by anyone else, another bot included, is a reply
 export async function readPullRequestState(
@@ -74,17 +73,6 @@ export async function readPullRequestState(
   const pull = await client.request('GET /repos/{owner}/{repo}/pulls/{pull_number}', {
     ...params,
     pull_number: pr.number,
-  });
-
-  const commits = await readAllPages(async (page, perPage) => {
-    const response = await client.request('GET /repos/{owner}/{repo}/pulls/{pull_number}/commits', {
-      ...params,
-      pull_number: pr.number,
-      page,
-      per_page: perPage,
-    });
-
-    return response.data;
   });
 
   const reviewComments = await readAllPages(async (page, perPage) => {
@@ -231,7 +219,6 @@ export async function readPullRequestState(
     baseRef: pull.data.base.ref,
     baseSha: pull.data.base.sha,
     headSha: pull.data.head.sha,
-    commits: commits.map((commit) => commit.sha),
     threads: [...byFindingID.values()],
     summary,
     unreadable,

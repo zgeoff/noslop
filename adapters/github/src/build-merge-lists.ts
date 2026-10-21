@@ -33,7 +33,7 @@ function buildCheckedMerges(previous: SummaryMarker | null, result: ReviewResult
 // the ones the summary before held, then each merge this run judged not sound with no finding, whose
 // findings would fail the check on their own; a lens review starts the list again
 function buildRejectedMerges(previous: SummaryMarker | null, result: ReviewResult): string[] {
-  if (result.fixChecks === undefined) {
+  if (result.fixesOnly !== true) {
     return [];
   }
 

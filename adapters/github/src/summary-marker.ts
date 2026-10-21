@@ -2,8 +2,8 @@ import { z } from 'zod';
 import { netChangeKeySchema } from './net-change-key';
 
 // the latest review as the summary marker keeps it; `followUps` stops a later review filing an issue
-// twice, `confirmed` holds each `<finding id>:<commit>` fix a re-review read, so a later delta keeps
-// it, and `reviewIDs` holds every review counted, so a repost of any of them adds no review
+// twice, `confirmed` holds each `<finding id>:<commit>` fix a fix call judged fixed, and `reviewIDs`
+// holds every review counted, so a repost of any of them adds no review
 export const summaryMarkerSchema = z.strictObject({
   head: buildShaSchema(),
 
@@ -11,24 +11,24 @@ export const summaryMarkerSchema = z.strictObject({
   // none counts only for its own head
   key: netChangeKeySchema.optional(),
 
-  // the range the review covered and the files it left out, so an answer after it counts its read
-  base: buildShaSchema().optional(),
-
-  // the ranges of the reviews before it, newest first, so an answer that a later review passed by
-  // still counts the review that read its commit
-  earlier: z.array(buildReviewedRangeSchema()).optional(),
+  // a marker that an earlier version wrote may hold these ranges, which nothing reads; the schema
+  // rejects an unknown key, so it keeps them to parse such a marker
+  base: z.unknown().optional(),
+  earlier: z.unknown().optional(),
+  notReviewed: z.unknown().optional(),
+  notReviewedByLens: z.unknown().optional(),
   reviews: z.int().positive(),
   reported: z.array(z.string()),
   failedCalls: z.int().nonnegative(),
   followUps: z.array(z.string()).default([]),
   confirmed: z.array(z.string()).default([]),
-  notReviewed: z.array(z.string()).optional(),
 
-  // the files the review read while some lenses' calls left them out, with those lenses
-  notReviewedByLens: buildLensNotReviewedSchema().optional(),
-
-  // on a fixes-only run, the findings whose fix its calls judged fixed, the only fixes its range reads
+  // on a fixes-only run, the findings whose fix its calls judged fixed; a lens review keeps none
   checked: z.array(z.string()).optional(),
+
+  // the head of the latest lens review with no failed call, which a fixes-only run carries and a
+  // lens review with a failed call drops
+  lensHead: buildShaSchema().optional(),
 
   // each merge commit whose resolution a fixes-only run judged sound, the ones earlier summaries held
   // among them, so a reader that counts the commits since the last lens review can count each such
@@ -49,24 +49,3 @@ function buildShaSchema() {
 }
 
 export type SummaryMarker = z.infer<typeof summaryMarkerSchema>;
-
-function buildReviewedRangeSchema() {
-  return z.strictObject({
-    base: buildShaSchema(),
-    head: buildShaSchema(),
-    reported: z.array(z.string()),
-    notReviewed: z.array(z.string()),
-    notReviewedByLens: buildLensNotReviewedSchema().optional(),
-
-    // a review with a failed call, whose range rejects the findings it reported and confirms no fix
-    partial: z.boolean().optional(),
-    checked: z.array(z.string()).optional(),
-  });
-}
-
-// a lens is a plain string here, so a marker that names a lens a later version renames still parses
-function buildLensNotReviewedSchema() {
-  const file = z.strictObject({ path: z.string(), lenses: z.array(z.string()) });
-
-  return z.array(file);
-}

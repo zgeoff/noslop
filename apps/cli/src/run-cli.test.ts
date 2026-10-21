@@ -1863,6 +1863,7 @@ test('it confirms a fix through a merge from the base branch that brings in a lo
   const stub = buildStubAdapter({
     light: [{ findings: { correctness: [] } }],
     design: [{ findings: { design: [] } }],
+    [`fix-${findingID}`]: [{ fixed: true, reason: 'The total adds one now.' }],
   });
 
   await runCLI(
@@ -1871,6 +1872,92 @@ test('it confirms a fix through a merge from the base branch that brings in a lo
   );
 
   expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('success');
+});
+
+test('it confirms no fix of a finding a re-review no longer reports when no fix call judges it', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
+    {
+      message: 'Add the total',
+      files: { 'src/total.ts': 'export const zero = 0;\nexport const one = zero - 1;\n' },
+    },
+    {
+      message: 'Add one',
+      files: { 'src/total.ts': 'export const zero = 0;\nexport const one = zero + 1;\n' },
+    },
+  ]);
+
+  const findingID = '1111111111111111';
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    title: 'Add the total',
+    body: 'Adds one.',
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[2] ?? '',
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/total.ts',
+    lines: [2],
+  });
+
+  const thread = await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/total.ts',
+    line: 2,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:finding {"id":"${findingID}","title":"Add one, not subtract it","path":"src/total.ts","lens":"correctness","severity":"P2","riskClass":null,"writtenByChange":true,"head":"${repo.commits[1] ?? ''}"} -->`,
+  });
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    body: `fixed ${(repo.commits[2] ?? '').slice(0, 7)}`,
+    authorLogin: 'dev',
+    inReplyToID: thread.id,
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","reviews":1,"reported":["${findingID}"],"failedCalls":0} -->`,
+  });
+
+  const stub = buildStubAdapter({
+    light: [{ findings: { correctness: [] } }],
+    design: [{ findings: { design: [] } }],
+    [`fix-${findingID}`]: [{ error: 'the model timed out' }, { error: 'the model timed out' }],
+  });
+
+  await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'github'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  const summary = githubCollections.issueComments
+    .all()
+    .findLast((comment) => comment.body.includes('<!-- noslop:summary'));
+
+  expect(summary?.body).toInclude('"confirmed":[]');
+
+  expect(githubCollections.checkRuns.all().at(-1)?.summary).toInclude(
+    `\`${findingID}\` Add one, not subtract it: no re-review has read the commit ${(repo.commits[2] ?? '').slice(0, 7)} yet`,
+  );
 });
 
 test('it reviews the whole pull request from its merge base under --full', async () => {
@@ -2525,6 +2612,7 @@ test('it runs the design pass on a later review over both rounds of findings, th
       },
     ],
     design: [{ findings: { design: [] } }],
+    'fix-a1b2c3d4e5f60718': [{ fixed: true, reason: 'The scanner skips a tab now.' }],
   });
 
   await runCLI(
@@ -2538,7 +2626,12 @@ test('it runs the design pass on a later review over both rounds of findings, th
     throw new Error('the review made no design call');
   }
 
-  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['light', 'design']);
+  expect(stub.requests.map((request) => request.callID)).toStrictEqual([
+    'light',
+    'design',
+    'fix-a1b2c3d4e5f60718',
+  ]);
+
   expect(stub.requests[0]?.prompt).toInclude('Text that only the issue holds.');
   expect(design.prompt).toInclude('Title: Parse the header line\n\nParses the header line.');
   expect(design.prompt).toInclude('"title": "Accept a space before the header value"');
@@ -2550,7 +2643,7 @@ test('it runs the design pass on a later review over both rounds of findings, th
   expect(design.prompt).not.toInclude('## Linked issue');
 });
 
-test('it confirms no fix of a design finding when the design call fails', async () => {
+test("it confirms a design finding's fix through its fix call and fails the check when the design call fails", async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
@@ -2631,6 +2724,7 @@ test('it confirms no fix of a design finding when the design call fails', async 
   const stub = buildStubAdapter({
     light: [{ findings: { correctness: [] } }],
     design: [{ error: 'the model CLI timed out' }, { error: 'the model CLI timed out' }],
+    'fix-2222222222222222': [{ fixed: true, reason: 'The scanner uses the library parser now.' }],
   });
 
   await runCLI(
@@ -2643,11 +2737,15 @@ test('it confirms no fix of a design finding when the design call fails', async 
     .findLast((comment) => comment.body.includes('<!-- noslop:summary'));
 
   expect(summary?.body).toInclude('"failedCalls":1');
-  expect(summary?.body).toInclude('"confirmed":[]');
+
+  expect(summary?.body).toInclude(
+    `"confirmed":["2222222222222222:${(repo.commits[2] ?? '').slice(0, 7)}"]`,
+  );
+
   expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('failure');
 });
 
-test('it confirms no fix of a design finding when the config turns the design pass off', async () => {
+test("it judges a design finding's fix with a fix call when the config turns the design pass off", async () => {
   const ctx = await setupTest();
 
   const config = '{ "designPass": { "enabled": false, "effort": "medium" } }\n';
@@ -2736,7 +2834,10 @@ test('it confirms no fix of a design finding when the config turns the design pa
     body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":1,"reported":["2222222222222222"],"failedCalls":0} -->`,
   });
 
-  const stub = buildStubAdapter({ light: [{ findings: { correctness: [] } }] });
+  const stub = buildStubAdapter({
+    light: [{ findings: { correctness: [] } }],
+    'fix-2222222222222222': [{ fixed: false, reason: 'The scanner still splits by hand.' }],
+  });
 
   await runCLI(
     ['review', '--pr', '9', '--repo', 'example/app', '--report', 'github'],
@@ -2747,12 +2848,17 @@ test('it confirms no fix of a design finding when the config turns the design pa
     .all()
     .findLast((comment) => comment.body.includes('<!-- noslop:summary'));
 
-  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['light']);
+  expect(stub.requests.map((request) => request.callID)).toStrictEqual([
+    'light',
+    'fix-2222222222222222',
+  ]);
+
   expect(summary?.body).toInclude('"confirmed":[]');
+  expect(summary?.body).toInclude('(The scanner still splits by hand.)');
   expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('failure');
 });
 
-test('it confirms the fix of a design finding when the design call passes and reports it no more', async () => {
+test('it confirms the fix of a design finding when the design call reports it no more and its fix call judges it fixed', async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
@@ -2833,6 +2939,7 @@ test('it confirms the fix of a design finding when the design call passes and re
   const stub = buildStubAdapter({
     light: [{ findings: { correctness: [] } }],
     design: [{ findings: { design: [] } }],
+    'fix-2222222222222222': [{ fixed: true, reason: 'The scanner uses the library parser now.' }],
   });
 
   await runCLI(
@@ -3323,7 +3430,7 @@ test('it confirms a fixed reply under --fixes-only from the merge base when a re
     `"confirmed":["1111111111111111:${(repo.commits[4] ?? '').slice(0, 7)}"]`,
   );
 
-  expect(summary?.body).toInclude(`"base":"${repo.commits[1] ?? ''}"`);
+  expect(summary?.body).toInclude(`against \`${(repo.commits[1] ?? '').slice(0, 12)}\``);
   expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('success');
 });
 
@@ -3636,7 +3743,7 @@ test('it confirms a fixed reply under --fixes-only that names a fix commit the r
     `"confirmed":["1111111111111111:${(repo.commits[3] ?? '').slice(0, 7)}"]`,
   );
 
-  expect(summary?.body).toInclude(`"base":"${repo.commits[1] ?? ''}"`);
+  expect(summary?.body).toInclude(`against \`${(repo.commits[1] ?? '').slice(0, 12)}\``);
   expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('success');
 });
 
@@ -6275,7 +6382,7 @@ test('it confirms a fixed reply at a rewritten sha under --fixes-only after 2 ca
   });
 });
 
-test('it judges a --fixes-only fix from the merge base and passes the check after an earlier fix check failed', async () => {
+test('it judges a --fixes-only fix from the last lens review and passes the check after an earlier fix check failed', async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
@@ -6353,14 +6460,14 @@ test('it judges a --fixes-only fix from the merge base and passes the check afte
     inReplyToID: thread.id,
   });
 
-  // the summary of a fixes-only run at the fix whose call failed, over the review before it
+  // the summary of a fixes-only run at the fix whose call failed, after a lens review of the head before
   await githubCollections.issueComments.create({
     owner: 'example',
     repo: 'app',
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[2] ?? ''}","base":"${repo.commits[1] ?? ''}","earlier":[{"base":"${repo.commits[0] ?? ''}","head":"${repo.commits[1] ?? ''}","reported":["1111111111111111"],"notReviewed":[]}],"reviews":2,"reported":[],"failedCalls":1,"checked":[]} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[2] ?? ''}","lensHead":"${repo.commits[1] ?? ''}","reviews":2,"reported":[],"failedCalls":1,"checked":[]} -->`,
   });
 
   const stub = buildStubAdapter({
@@ -6377,12 +6484,97 @@ test('it judges a --fixes-only fix from the merge base and passes the check afte
     .findLast((comment) => comment.body.includes('<!-- noslop:summary'));
 
   expect(code).toBe(0);
+  expect(summary?.body).toInclude(`against \`${(repo.commits[0] ?? '').slice(0, 12)}\``);
+  expect(summary?.body).toInclude(`"lensHead":"${repo.commits[1] ?? ''}"`);
+  expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('success');
+});
 
-  expect(summary?.body).toInclude(
-    `{"head":"${repo.commits[3] ?? ''}","base":"${repo.commits[0] ?? ''}"`,
+test('it refuses --fixes-only after a lens review whose call failed and no lens review before it', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
+    {
+      message: 'Add the scanner',
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = ":";\n' },
+    },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[1] ?? '',
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","reviews":1,"reported":[],"failedCalls":1} -->`,
+  });
+
+  const stub = buildStubAdapter({});
+
+  const code = await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--fixes-only', '--report', 'github'],
+    ctx.buildContext(repo.path, stub.adapter),
   );
 
-  expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('success');
+  expect(code).toBe(1);
+
+  expect(ctx.stderr.join('')).toStartWith(
+    'noslop: --fixes-only needs an earlier review with no failed call',
+  );
+
+  expect(stub.requests).toStrictEqual([]);
+});
+
+test('it refuses a lens review of a head that a lens review covered before a fixes-only run there', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
+    {
+      message: 'Add the scanner',
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = ":";\n' },
+    },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[1] ?? '',
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","lensHead":"${repo.commits[1] ?? ''}","reviews":1,"reported":[],"failedCalls":0,"checked":[]} -->`,
+  });
+
+  const stub = buildStubAdapter({});
+
+  const code = await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'github'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  expect(code).toBe(1);
+
+  expect(ctx.stderr.join('')).toStartWith(
+    `noslop: a review with no failed call already covered ${(repo.commits[1] ?? '').slice(0, 12)}`,
+  );
+
+  expect(stub.requests).toStrictEqual([]);
 });
 
 test('it moves the summary head to the head a --fixes-only review read, so the check reads the current head', async () => {
@@ -7686,6 +7878,7 @@ test('it posts a fixes-only result as no new review and gives the reason a fix i
     base: 'b'.repeat(40),
     head: 'c'.repeat(40),
     findings: [],
+    fixesOnly: true,
     fixChecks: [
       {
         findingID: '1111111111111111',

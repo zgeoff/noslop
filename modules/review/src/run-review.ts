@@ -8,6 +8,7 @@ import type {
   Depth,
   DismissedFinding,
   EarlierFinding,
+  Finding,
   LensID,
   LensNotReviewedFile,
   NotReviewedFile,
@@ -32,10 +33,17 @@ import { readDismissedFindings } from './read-dismissed-findings';
 import { removeReviewWorktree } from './remove-review-worktree';
 import type { DesignPass } from './run-design-pass';
 import { runDesignPass } from './run-design-pass';
+import type { AnsweredFix, FixChecksRun } from './run-fix-checks';
+import { runFixChecks } from './run-fix-checks';
 import type { MergePass } from './run-merge-pass';
 import { runMergePass } from './run-merge-pass';
 import type { CallBatch } from './run-planned-calls';
 import { runPlannedCalls } from './run-planned-calls';
+
+export interface FixCallOptions {
+  answers: readonly AnsweredFix[];
+  pullRequestBase: string;
+}
 
 export interface RunReviewOptions {
   runner: Runner;
@@ -84,6 +92,10 @@ export interface RunReviewOptions {
   // the findings of earlier reviews that the author answered `not-a-defect`; the review drops each new
   // finding that matches one, so an answered finding never comes back under a new ID
   dismissedFindings?: readonly DismissedFinding[];
+
+  // the open `fixed` answers of a pull request, and its merge base, where the diff a fix call reads
+  // starts; the review makes a fix call for each answer whose finding it no longer reports
+  fixes?: FixCallOptions;
 }
 
 export interface ReviewRun {
@@ -142,6 +154,8 @@ export async function runReview(options: RunReviewOptions): Promise<ReviewRun> {
     maxLines: options.config.thresholds.dismissedMaxLines,
   });
 
+  const fixChecks = await runDroppedFixChecks(options, answered.kept);
+
   return {
     result: {
       version: REVIEW_OUTPUT_VERSION,
@@ -155,7 +169,7 @@ export async function runReview(options: RunReviewOptions): Promise<ReviewRun> {
       special: ctx.route.special,
       riskClasses: stage.signals.riskClasses,
       lenses: collectRunLenses(ctx.route.lenses, records),
-      calls: [...records, ...passRecords],
+      calls: [...records, ...passRecords, ...(fixChecks?.records ?? [])],
       findings: answered.kept,
 
       dropped: buildDroppedFindings(
@@ -165,17 +179,15 @@ export async function runReview(options: RunReviewOptions): Promise<ReviewRun> {
       failedCalls: [
         ...batches.flatMap((batch) => batch.failed),
         ...(design === null || design.failed === null ? [] : [design.failed]),
+        ...(fixChecks?.failedCalls ?? []),
       ],
-
-      // a reporter reads no fix as confirmed on a file that no call read
-      notReviewed: collectNotReviewed(ctx, batches),
-
-      // a reporter reads no silence of a lens as a fix on a file that the lens's call left out
+      notReviewed: [...collectNotReviewed(ctx, batches), ...(fixChecks?.notReviewed ?? [])],
       notReviewedByLens: [
         ...batches.flatMap((batch) => batch.notReviewedByLens),
         ...collectDesignNotReviewed(ctx, design),
       ],
       configHash: options.configHash,
+      ...(fixChecks === null ? {} : { fixChecks: fixChecks.checks }),
       startedAt,
       endedAt: now().toISOString(),
     },
@@ -345,6 +357,39 @@ function runBatch(ctx: PassContext, calls: readonly PlannedCall[]): Promise<Call
     data: ctx.options.config.data,
     maxCallChars: ctx.options.config.thresholds.maxCallChars,
     maxFileChars: ctx.options.config.thresholds.maxFileChars,
+  });
+}
+
+// a fix call for each `fixed` answer whose finding the review no longer reports; a finding it reports
+// again stays open with no call, since the report is the verdict
+function runDroppedFixChecks(
+  options: RunReviewOptions,
+  findings: readonly Finding[],
+): Promise<FixChecksRun | null> {
+  if (options.fixes === undefined) {
+    return Promise.resolve(null);
+  }
+
+  const reported = new Set(findings.map((finding) => finding.id));
+
+  return runFixChecks({
+    runner: options.runner,
+    repoDir: options.repoDir,
+    head: options.head,
+    mergeBase: options.fixes.pullRequestBase,
+    title: options.title,
+    fixes: options.fixes.answers.filter((fix) => !reported.has(fix.id)),
+    maxFileChars: options.config.thresholds.maxFileChars,
+    adapter: options.adapter,
+    tempDir: options.tempDir,
+    logger: options.logger,
+    staticCheck: {
+      config: options.config,
+      body: options.body,
+      linkedIssue: options.linkedIssue,
+      cacheDir: options.cacheDir,
+      ...(options.author === undefined ? {} : { author: options.author }),
+    },
   });
 }
 

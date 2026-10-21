@@ -6,8 +6,10 @@ export interface FixCheckPromptInput {
   code: string;
   isTraced: boolean;
 
-  // the pull request's net diff, from its merge base to the head
+  // the pull request's net diff, from its merge base to the head, or only the finding file's part of it
+  // when the whole diff passes the file limit
   diff: string;
+  isWholeDiff: boolean;
 }
 
 export function buildFixCheckPrompt(input: FixCheckPromptInput): string {
@@ -35,10 +37,18 @@ export function buildFixCheckPrompt(input: FixCheckPromptInput): string {
     input.code === '' ? '(the file is empty or absent at the head)' : input.code,
     '```',
     '',
-    "## The pull request's diff",
+    input.isWholeDiff
+      ? "## The pull request's diff"
+      : `## The pull request's diff of \`${input.path}\` alone, since its whole diff is too large to read`,
     '',
     '```diff',
-    input.diff === '' ? '(the pull request changes no file)' : input.diff,
+    input.diff === '' ? formatEmptyDiff(input.isWholeDiff) : input.diff,
     '```',
   ].join('\n');
+}
+
+function formatEmptyDiff(isWholeDiff: boolean): string {
+  return isWholeDiff
+    ? '(the pull request changes no file)'
+    : '(the pull request leaves this file alone)';
 }
