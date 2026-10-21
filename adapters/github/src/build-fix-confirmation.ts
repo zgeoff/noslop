@@ -13,6 +13,9 @@ export interface FixEvidence {
   commit: string;
   match: string | null;
 
+  // a branch commit starts with the sha, so the answer is no bare one and no sha off the branch
+  isNamed: boolean;
+
   // the review's range holds the commit, and the commit comes after the head that posted the finding
   isInRange: boolean;
 
@@ -50,9 +53,14 @@ export function buildFixConfirmation(evidence: FixEvidence): FixConfirmation {
 
   const state = pickNextFixState(evidence.held, pickReviewVerdict(evidence.isReported, isRead));
   const files = evidence.files;
-  const isHeld = (evidence.match !== null || evidence.isJudged) && HELD_FIX_STATES.has(state);
 
-  if (isHeld && (evidence.isJudged || files?.changesPullRequest === true)) {
+  // an answer that names no branch commit holds only through a fix call, so one an earlier review
+  // holds confirmed stays confirmed until a review reports the finding again
+  const isCarried = !evidence.isNamed && HELD_FIX_STATES.has(evidence.held);
+  const isCallFix = evidence.isJudged || isCarried;
+  const isHeld = (evidence.match !== null || isCallFix) && HELD_FIX_STATES.has(state);
+
+  if (isHeld && (isCallFix || files?.changesPullRequest === true)) {
     return {
       id: evidence.id,
       title: evidence.title,

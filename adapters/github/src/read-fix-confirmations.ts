@@ -154,6 +154,7 @@ export async function readFixConfirmations(
         title: thread.marker.title,
         commit,
         match,
+        isNamed: commit !== '' && input.commits.some((sha) => sha.startsWith(commit)),
         isInRange,
         isJudged,
         isFileSkipped,
