@@ -38,6 +38,10 @@ export interface Change {
   // the files of an incremental review's new commits that only a merge from the base branch changes,
   // which the change leaves out
   baseOnly?: ChangedFile[];
+
+  // the paths the whole pull request adds or edits since its merge base, a rename under its new path,
+  // which an incremental review's change can leave out
+  pullRequestPaths?: string[];
 }
 
 // a place in a file at the reviewed head

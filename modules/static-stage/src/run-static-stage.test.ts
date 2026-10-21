@@ -1425,6 +1425,267 @@ test('it reports no missing test that the pull request body names when a merge f
   expect(result.findings).toStrictEqual([]);
 });
 
+test('it reports no missing test that the pull request body names with a ./ prefix', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/main.ts': 'export const main = 1;\n' } },
+    {
+      message: 'Test the value',
+      files: {
+        'src/main.test.ts': [
+          "import { expect, test } from 'bun:test';",
+          "import { main } from './main';",
+          '',
+          "test('it exports a value', () => {",
+          '  expect(main).toBeNumber();',
+          '});',
+          '',
+        ].join('\n'),
+      },
+    },
+  ]);
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config: BUILT_IN_DEFAULTS,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config: BUILT_IN_DEFAULTS,
+    title: 'Test the value',
+    body: 'Adds `./src/main.test.ts`.',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(result.findings).toStrictEqual([]);
+});
+
+test('it reports no missing test for a glob that the pull request body names', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/main.ts': 'export const main = 1;\n' } },
+    { message: 'Raise the value', files: { 'src/main.ts': 'export const main = 2;\n' } },
+  ]);
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config: BUILT_IN_DEFAULTS,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config: BUILT_IN_DEFAULTS,
+    title: 'Raise the value',
+    body: 'Passes `src/*/index.test.ts`, `src/[ab]/main.test.ts` and `*.e2e.test.ts`.',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(result.findings).toStrictEqual([]);
+});
+
+test('it reports no missing test for a fixture whose name only starts like a test file', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/main.ts': 'export const main = 1;\n' } },
+    { message: 'Raise the value', files: { 'src/main.ts': 'export const main = 2;\n' } },
+  ]);
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config: BUILT_IN_DEFAULTS,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config: BUILT_IN_DEFAULTS,
+    title: 'Raise the value',
+    body: 'Keeps the values in fixtures/main.test.json.',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(result.findings).toStrictEqual([]);
+});
+
+test('it reports no missing test that an earlier commit of the pull request renames to the name the body gives', async () => {
+  const ctx = await setupTest();
+
+  const testText = [
+    "import { expect, test } from 'bun:test';",
+    "import { main } from './main';",
+    '',
+    "test('it exports a value', () => {",
+    '  expect(main).toBeNumber();',
+    '});',
+    '',
+  ].join('\n');
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: { 'src/main.ts': 'export const main = 1;\n', 'src/old.test.ts': testText },
+    },
+    {
+      message: 'Rename the test',
+      files: { 'src/old.test.ts': null, 'src/main.test.ts': testText },
+    },
+    { message: 'Raise the value', files: { 'src/main.ts': 'export const main = 2;\n' } },
+  ]);
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: repo.commits[1] ?? '',
+    head: repo.commits[2] ?? '',
+    mergeBase: repo.commits[0] ?? '',
+    config: BUILT_IN_DEFAULTS,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config: BUILT_IN_DEFAULTS,
+    title: 'Raise the value',
+    body: 'Moves the test to src/main.test.ts and raises the value.',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(result.findings).toStrictEqual([]);
+});
+
+test('it reports no missing test that the pull request adds before a merge from the base branch', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/main.ts': 'export const main = 1;\n' } },
+    {
+      message: 'Test the value',
+      files: {
+        'src/main.test.ts': [
+          "import { expect, test } from 'bun:test';",
+          "import { main } from './main';",
+          '',
+          "test('it exports a value', () => {",
+          '  expect(main).toBeNumber();',
+          '});',
+          '',
+        ].join('\n'),
+      },
+    },
+    { message: 'Add a helper', files: { 'src/other.ts': 'export const other = 1;\n' }, parent: 0 },
+    {
+      message: 'Merge main and raise the value',
+      files: { 'src/main.ts': 'export const main = 2;\n' },
+      parent: 1,
+      merged: 2,
+    },
+  ]);
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: repo.commits[1] ?? '',
+    head: repo.commits[3] ?? '',
+    mergeBase: repo.commits[2] ?? '',
+    config: BUILT_IN_DEFAULTS,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config: BUILT_IN_DEFAULTS,
+    title: 'Raise the value',
+    body: 'Raises the value that src/main.test.ts checks.',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(result.findings).toStrictEqual([]);
+});
+
+test('it reports a missing test that the pull request body names when no commit of the pull request adds it', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/main.ts': 'export const main = 1;\n' } },
+    {
+      message: 'Test the value',
+      files: {
+        'src/main.test.ts': [
+          "import { expect, test } from 'bun:test';",
+          "import { main } from './main';",
+          '',
+          "test('it exports a value', () => {",
+          '  expect(main).toBeNumber();',
+          '});',
+          '',
+        ].join('\n'),
+      },
+    },
+    { message: 'Add a helper', files: { 'src/other.ts': 'export const other = 1;\n' }, parent: 0 },
+    {
+      message: 'Merge main and raise the value',
+      files: { 'src/main.ts': 'export const main = 2;\n' },
+      parent: 1,
+      merged: 2,
+    },
+  ]);
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: repo.commits[1] ?? '',
+    head: repo.commits[3] ?? '',
+    mergeBase: repo.commits[2] ?? '',
+    config: BUILT_IN_DEFAULTS,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config: BUILT_IN_DEFAULTS,
+    title: 'Raise the value',
+    body: 'Raises the value that ./src/main.test.ts and src/value.test.ts check.',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(result.findings.map((finding) => [finding.criterion, finding.title])).toStrictEqual([
+    ['intent-mismatch', 'The pull request names src/value.test.ts, which the change does not add'],
+  ]);
+});
+
 test('it reports a synced edit when a synced caller is renamed and only moves the ref of its workflow call', async () => {
   const ctx = await setupTest();
 

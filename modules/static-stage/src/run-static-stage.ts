@@ -187,12 +187,12 @@ export async function runStaticStage(options: RunStaticStageOptions): Promise<St
   const consumerManifests = await readConsumerManifests(options);
 
   const findings = [
-    ...collectTestFindings(
-      all,
-      slices.security,
-      options.body,
-      (change.baseOnly ?? []).filter((file) => file.status !== 'deleted').map((file) => file.path),
-    ),
+    ...collectTestFindings(all, slices.security, options.body, [
+      ...(change.baseOnly ?? [])
+        .filter((file) => file.status !== 'deleted')
+        .map((file) => file.path),
+      ...(change.pullRequestPaths ?? []),
+    ]),
     ...collectInstructionFindings(all, slices.instructions),
     ...collectChangeFindings({
       files: all,

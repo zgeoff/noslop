@@ -99,7 +99,9 @@ needs it. The stage reports:
 
 - Defects in tests: a new test with no assertion, a new test whose body repeats another test's, a
   type test on a key its type lacks, a new allow-or-deny check whose tests hold no table of hostile
-  inputs, and a test file the pull request body names that the change neither adds nor edits.
+  inputs, and a test file the pull request body names that the whole pull request neither adds nor
+  edits since its merge base. The check reads a named path without its `./` prefix, skips a glob
+  pattern, and counts a renamed file under its new name.
 - Defects in instruction files: a new rule sentence that another instruction file loaded beside it
   already holds, and a new rule with wording that leaves an agent the choice.
 - Defects in the change as a whole: a version bump that a consumer's range refuses, a schema bound
