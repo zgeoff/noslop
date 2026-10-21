@@ -7448,6 +7448,36 @@ test('it makes only the fix call on a review that reads no file and strikes the 
   expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('success');
 });
 
+test('it refuses to list the findings of a pull request number that is not a positive integer', async () => {
+  const ctx = await setupTest();
+
+  const stub = buildStubAdapter({});
+
+  const code = await runCLI(
+    ['findings', '--pr', '0', '--repo', 'example/app', '--json'],
+    ctx.buildContext(ctx.directory, stub.adapter),
+  );
+
+  expect(code).toBe(1);
+  expect(ctx.stdout).toStrictEqual([]);
+  expect(ctx.stderr.join('')).toBe('noslop: --pr takes a pull request number, not 0\n');
+});
+
+test('it refuses to list the findings of a repo that is not owner/name', async () => {
+  const ctx = await setupTest();
+
+  const stub = buildStubAdapter({});
+
+  const code = await runCLI(
+    ['findings', '--pr', '9', '--repo', 'app', '--json'],
+    ctx.buildContext(ctx.directory, stub.adapter),
+  );
+
+  expect(code).toBe(1);
+  expect(ctx.stdout).toStrictEqual([]);
+  expect(ctx.stderr.join('')).toBe('noslop: --repo takes owner/name, not app\n');
+});
+
 test('it lists no finding and exits 1 when a finding comment of the App holds a marker it cannot read', async () => {
   const ctx = await setupTest();
 
