@@ -6,6 +6,7 @@ import { readExistingIssues } from './read-existing-issues';
 import { readNetChangeKey } from './read-net-change-key';
 import type { PullRequestState } from './read-pull-request-state';
 import { readThreadDispositions } from './read-thread-dispositions';
+import { readUnreadFixes } from './read-unread-fixes';
 
 export interface GitHubCheckInput {
   failedReporters: readonly string[];
@@ -27,6 +28,12 @@ export async function readGitHubCheck(
 
   const summary = state.summary?.marker ?? null;
 
+  const unread = await readUnreadFixes(client, pr, {
+    dispositions,
+    reviewHead: summary?.head ?? null,
+    head: state.headSha,
+  });
+
   const currentKey =
     summary?.key === undefined
       ? { head: state.headSha }
@@ -39,6 +46,7 @@ export async function readGitHubCheck(
     currentHead: state.headSha,
     currentKey,
     existingIssues,
+    unread,
     failedReporters: input.failedReporters,
     unreadable: state.unreadable,
   });

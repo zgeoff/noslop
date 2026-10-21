@@ -18,6 +18,10 @@ export interface CheckOutcomeInput {
 
   // the values of the `deferred` dispositions whose issue exists
   existingIssues: ReadonlySet<string>;
+
+  // the findings whose `fixed <commit>` answer names a commit the head holds and the latest review
+  // never read
+  unread: ReadonlySet<string>;
   failedReporters: readonly string[];
 
   // the App's finding comments whose marker noslop cannot read
@@ -50,6 +54,7 @@ export function buildCheckOutcome(input: CheckOutcomeInput): CheckOutcome {
     reported: input.summary?.reported ?? [],
     confirmed: input.summary?.confirmed ?? [],
     existingIssues: input.existingIssues,
+    unread: input.unread,
   };
 
   const open = input.findings.flatMap((finding) => {

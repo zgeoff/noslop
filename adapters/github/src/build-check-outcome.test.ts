@@ -54,6 +54,7 @@ test('it passes when the review ran on the head and every finding holds a valid 
     currentHead: 'f'.repeat(40),
     currentKey: { head: 'f'.repeat(40) },
     existingIssues: new Set(['#12']),
+    unread: new Set(),
     failedReporters: [],
     unreadable: 0,
   });
@@ -165,6 +166,7 @@ test('it lists each finding whose disposition is not valid, with the reason', ()
     currentHead: 'f'.repeat(40),
     currentKey: { head: 'f'.repeat(40) },
     existingIssues: new Set(['#12']),
+    unread: new Set(),
     failedReporters: [],
     unreadable: 0,
   });
@@ -266,6 +268,7 @@ test('it fails a fixed finding that is still found or that no re-review read', (
     currentHead: 'f'.repeat(40),
     currentKey: { head: 'f'.repeat(40) },
     existingIssues: new Set(),
+    unread: new Set(),
     failedReporters: [],
     unreadable: 0,
   });
@@ -312,6 +315,50 @@ test('it passes a fixed finding whose sha the branch no longer holds once a revi
     currentHead: 'f'.repeat(40),
     currentKey: { head: 'f'.repeat(40) },
     existingIssues: new Set(),
+    unread: new Set(),
+    failedReporters: [],
+    unreadable: 0,
+  });
+
+  expect(outcome.open).toStrictEqual([]);
+});
+
+test('it lists no reason for a fixed finding that the latest review reports but never read the fix of', () => {
+  const outcome = buildCheckOutcome({
+    findings: [
+      {
+        id: '1111111111111111',
+        title: 'Await the write',
+        path: 'src/a.ts',
+        lens: 'correctness',
+        severity: 'P2',
+        riskClass: null,
+        writtenByChange: true,
+      },
+    ],
+    dispositions: [
+      {
+        findingID: '1111111111111111',
+        kind: 'fixed',
+        value: 'abc1234',
+        author: 'dev',
+        authorIsOwner: false,
+        source: 'github',
+        at: '2026-10-17T10:00:00.000Z',
+      },
+    ],
+    summary: {
+      head: 'e'.repeat(40),
+      reviews: 2,
+      reported: ['1111111111111111'],
+      failedCalls: 0,
+      followUps: [],
+      confirmed: [],
+    },
+    currentHead: 'f'.repeat(40),
+    currentKey: { head: 'f'.repeat(40) },
+    existingIssues: new Set(),
+    unread: new Set(['1111111111111111']),
     failedReporters: [],
     unreadable: 0,
   });
@@ -354,6 +401,7 @@ test('it fails a bare fixed finding that no review confirmed and names the fix',
     currentHead: 'f'.repeat(40),
     currentKey: { head: 'f'.repeat(40) },
     existingIssues: new Set(),
+    unread: new Set(),
     failedReporters: [],
     unreadable: 0,
   });
@@ -402,6 +450,7 @@ test('it fails a fixed finding whose answer a review confirmed only for another 
     currentHead: 'f'.repeat(40),
     currentKey: { head: 'f'.repeat(40) },
     existingIssues: new Set(),
+    unread: new Set(),
     failedReporters: [],
     unreadable: 0,
   });
@@ -430,6 +479,7 @@ test('it fails when a finding comment holds a marker noslop cannot read', () => 
     currentHead: 'f'.repeat(40),
     currentKey: { head: 'f'.repeat(40) },
     existingIssues: new Set(),
+    unread: new Set(),
     failedReporters: [],
     unreadable: 2,
   });
@@ -458,6 +508,7 @@ test('it fails when no review ran on the current head, a call failed or a report
     currentHead: 'f'.repeat(40),
     currentKey: { head: 'f'.repeat(40) },
     existingIssues: new Set(),
+    unread: new Set(),
     failedReporters: ['sqlite'],
     unreadable: 0,
   });
@@ -491,6 +542,7 @@ test('it passes at a new head whose net change holds the same patch id for each 
     currentHead: 'f'.repeat(40),
     currentKey: { files: { 'src/a.ts': '0123456789abcdef', 'src/b.ts': 'fedcba9876543210' } },
     existingIssues: new Set(),
+    unread: new Set(),
     failedReporters: [],
     unreadable: 0,
   });
@@ -532,6 +584,7 @@ test('it fails at a new head and names each file whose patch id changed, came or
       },
     },
     existingIssues: new Set(),
+    unread: new Set(),
     failedReporters: [],
     unreadable: 0,
   });
@@ -557,6 +610,7 @@ test('it fails at a new head when GitHub gives no whole file list, though the re
     currentHead: 'f'.repeat(40),
     currentKey: { head: 'f'.repeat(40) },
     existingIssues: new Set(),
+    unread: new Set(),
     failedReporters: [],
     unreadable: 0,
   });
@@ -580,6 +634,7 @@ test('it passes a review keyed on its head only at that head', () => {
     currentHead: 'f'.repeat(40),
     currentKey: { head: 'f'.repeat(40) },
     existingIssues: new Set(),
+    unread: new Set(),
     failedReporters: [],
     unreadable: 0,
   });
@@ -631,6 +686,7 @@ test('it judges a finding by its latest disposition', () => {
     currentHead: 'f'.repeat(40),
     currentKey: { head: 'f'.repeat(40) },
     existingIssues: new Set(),
+    unread: new Set(),
     failedReporters: [],
     unreadable: 0,
   });

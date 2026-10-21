@@ -7993,6 +7993,103 @@ test('it lists a fixed finding as open while the latest review still reports it'
   });
 });
 
+test('it lists a fixed finding that the latest review reports as fixed when that review never read the fix', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
+    { message: 'split on a separator', files: { 'src/scan.ts': 'export const one = 1;\n' } },
+    { message: 'reject an empty separator', files: { 'src/scan.ts': 'export const two = 2;\n' } },
+  ]);
+
+  const reviewed = repo.commits[1] ?? '';
+  const fix = repo.commits[2] ?? '';
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    baseSha: repo.commits[0] ?? '',
+    headSha: fix,
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: reviewed,
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: fix,
+  });
+
+  const findings = [
+    ['1111111111111111', `fixed ${fix.slice(0, 7)}`],
+    ['2222222222222222', `fixed ${reviewed.slice(0, 7)}`],
+    ['3333333333333333', 'fixed 9f8e7d6'],
+  ];
+
+  for (const [id, answer] of findings) {
+    const thread = await githubCollections.reviewComments.create({
+      owner: 'example',
+      repo: 'app',
+      number: 9,
+      path: 'src/scan.ts',
+      line: 1,
+      authorLogin: STUB_APP_LOGIN,
+      authorType: 'Bot',
+      body: `<!-- noslop:finding {"id":"${id}","title":"Reject an empty separator","path":"src/scan.ts","lens":"correctness","severity":"P2","riskClass":null,"writtenByChange":true} -->`,
+    });
+
+    await githubCollections.reviewComments.create({
+      owner: 'example',
+      repo: 'app',
+      number: 9,
+      body: answer,
+      authorLogin: 'dev',
+      inReplyToID: thread.id,
+    });
+  }
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${reviewed}","reviews":2,"reported":["1111111111111111","2222222222222222","3333333333333333"],"failedCalls":0,"confirmed":[]} -->`,
+  });
+
+  const stub = buildStubAdapter({});
+
+  const code = await runCLI(
+    ['findings', '--pr', '9', '--repo', 'example/app', '--json'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  const list = findingListSchema.parse(JSON.parse(ctx.stdout.join('')));
+
+  expect(code).toBe(0);
+
+  expect(list).toStrictEqual({
+    findings: [
+      {
+        id: '1111111111111111',
+        path: 'src/scan.ts',
+        severity: 'P2',
+        state: 'fixed',
+        author: 'dev',
+      },
+      { id: '2222222222222222', path: 'src/scan.ts', severity: 'P2', state: 'open', author: 'dev' },
+      { id: '3333333333333333', path: 'src/scan.ts', severity: 'P2', state: 'open', author: 'dev' },
+    ],
+  });
+});
+
 test('it records an escape in the store and counts it in recall', async () => {
   const ctx = await setupTest();
 
@@ -9304,6 +9401,108 @@ test('it fails a read-only check with exit 1 under the job token, and writes not
   const hasStore = await Bun.file(join(ctx.directory, 'data', 'store.sqlite')).exists();
 
   expect(hasStore).toBe(false);
+});
+
+test('it keeps a fixed finding out of the check failures when the latest review that reports it never read the fix', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
+    { message: 'split on a separator', files: { 'src/scan.ts': 'export const one = 1;\n' } },
+    { message: 'reject an empty separator', files: { 'src/scan.ts': 'export const two = 2;\n' } },
+  ]);
+
+  const reviewed = repo.commits[1] ?? '';
+  const fix = repo.commits[2] ?? '';
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    baseRef: 'main',
+    baseSha: repo.commits[0] ?? '',
+    headSha: fix,
+  });
+
+  await githubCollections.branches.create({
+    owner: 'example',
+    repo: 'app',
+    name: 'main',
+    sha: repo.commits[0] ?? '',
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: reviewed,
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: fix,
+  });
+
+  await githubCollections.files.create({
+    owner: 'example',
+    repo: 'app',
+    ref: repo.commits[0] ?? '',
+    path: 'review.json',
+    content: '{ "github": { "app": "noslop-review" } }\n',
+  });
+
+  const findings = [
+    ['1111111111111111', `fixed ${fix.slice(0, 7)}`],
+    ['2222222222222222', `fixed ${reviewed.slice(0, 7)}`],
+  ];
+
+  for (const [id, answer] of findings) {
+    const thread = await githubCollections.reviewComments.create({
+      owner: 'example',
+      repo: 'app',
+      number: 9,
+      path: 'src/scan.ts',
+      line: 1,
+      authorLogin: STUB_APP_LOGIN,
+      authorType: 'Bot',
+      body: `<!-- noslop:finding {"id":"${id}","title":"Reject an empty separator","path":"src/scan.ts","lens":"correctness","severity":"P2","riskClass":null,"writtenByChange":true} -->`,
+    });
+
+    await githubCollections.reviewComments.create({
+      owner: 'example',
+      repo: 'app',
+      number: 9,
+      body: answer,
+      authorLogin: 'dev',
+      inReplyToID: thread.id,
+    });
+  }
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${reviewed}","reviews":2,"reported":["1111111111111111","2222222222222222"],"failedCalls":0,"confirmed":[]} -->`,
+  });
+
+  const code = await runCLI(
+    ['check', '--pr', '9', '--repo', 'example/app', '--read-only'],
+    ctx.buildContext(
+      ctx.directory,
+      buildStubAdapter({}).adapter,
+      createGitHubConnectionLoader({ GITHUB_TOKEN: 'ghp_ci_job' }),
+    ),
+  );
+
+  expect(code).toBe(1);
+
+  expect(ctx.stdout.join('')).toInclude(
+    '1 findings hold no valid disposition.\n- `2222222222222222` Reject an empty separator: the re-review still finds it\n',
+  );
 });
 
 test('it keeps a check read-only when the environment also holds the App keys', async () => {

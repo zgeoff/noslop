@@ -10,6 +10,10 @@ export interface AnswerEvidence {
 
   // the values of the `deferred` dispositions whose issue exists
   existingIssues: ReadonlySet<string>;
+
+  // the findings whose `fixed <commit>` answer names a commit the head holds and the latest review
+  // never read
+  unread: ReadonlySet<string>;
 }
 
 // the reason a finding's latest answer leaves it open; null when the answer holds
@@ -42,6 +46,12 @@ function findFixedReason(
   commit: string,
   evidence: AnswerEvidence,
 ): string | null {
+  // a review that never read the fix judged the code before it, so its report and its silence count
+  // for nothing
+  if (evidence.unread.has(finding.id)) {
+    return null;
+  }
+
   if (evidence.reported.includes(finding.id)) {
     return 'the re-review still finds it';
   }
