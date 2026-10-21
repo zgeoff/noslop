@@ -482,6 +482,66 @@ test('it reports no missing table for an access check when only the line above i
   expect(result.findings).toStrictEqual([]);
 });
 
+test('it reports no missing table for a deny guard when only the line above it changes', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/archive.ts': [
+          'export function archiveBoard(member: { admin: boolean }) {',
+          "  console.info('archiving');",
+          "  if (!member.admin) throw new Error('forbidden');",
+          '  return true;',
+          '}',
+          '',
+        ].join('\n'),
+      },
+    },
+    {
+      message: 'head',
+      files: {
+        'src/archive.ts': [
+          'export function archiveBoard(member: { admin: boolean }) {',
+          "  if (!member.admin) throw new Error('forbidden');",
+          '  return true;',
+          '}',
+          '',
+        ].join('\n'),
+      },
+    },
+  ]);
+
+  const config = BUILT_IN_DEFAULTS;
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config,
+    title: 'chore: drop the archive log line',
+    body: '',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(result.slices.security.map((entry) => [entry.part, entry.location])).toStrictEqual([
+    ['allow-deny-check', { path: 'src/archive.ts', startLine: 2, endLine: 2 }],
+  ]);
+
+  expect(result.findings).toStrictEqual([]);
+});
+
 test('it reports an access check whose body changes only in the spaces of a string', async () => {
   const ctx = await setupTest();
 
