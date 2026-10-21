@@ -136,7 +136,14 @@ function collectUntabledChecks(
   baseChecks: ReadonlyMap<string, readonly string[]>,
 ): ModelFinding[] {
   const checks = security.filter(
-    (item) => item.part === 'allow-deny-check' && hasChangedBody(item, files, baseChecks),
+    (item, index) =>
+      item.part === 'allow-deny-check' &&
+      hasChangedBody(
+        item,
+        security.slice(0, index).filter((earlier) => isSameCheckPlace(earlier, item)).length,
+        files,
+        baseChecks,
+      ),
   );
 
   return checks.flatMap((check) => {
@@ -169,11 +176,11 @@ function collectUntabledChecks(
   });
 }
 
-// a check's body counts as changed unless the base side of its file holds as many access checks with
-// the same body, so a rename of the check or an edit beside it leaves it alone, while a copy of an
-// existing check still counts as new
+// the slice keeps the walk's order, so the ordinal among the checks with one place and detail picks
+// the check's own fact, and a copy of a base check's body counts as new once it outnumbers the base
 function hasChangedBody(
   check: SecurityEntry,
+  ordinal: number,
   files: readonly AnalyzedFile[],
   baseChecks: ReadonlyMap<string, readonly string[]>,
 ): boolean {
@@ -183,12 +190,12 @@ function hasChangedBody(
     (item) => item.part === 'allow-deny-check',
   );
 
-  const fact = headChecks.find(
+  const fact = headChecks.filter(
     (item) =>
       item.line === check.location.startLine &&
       item.endLine === check.location.endLine &&
       item.detail === check.detail,
-  );
+  )[ordinal];
 
   const baseBodies = baseChecks.get(check.location.path);
 
@@ -200,6 +207,16 @@ function hasChangedBody(
   const baseCount = baseBodies.filter((body) => body === fact.body).length;
 
   return headCount > baseCount;
+}
+
+function isSameCheckPlace(left: SecurityEntry, right: SecurityEntry): boolean {
+  return (
+    left.part === right.part &&
+    left.detail === right.detail &&
+    left.location.path === right.location.path &&
+    left.location.startLine === right.location.startLine &&
+    left.location.endLine === right.location.endLine
+  );
 }
 
 // a name starts where its path starts and holds the glob characters of a pattern, so a pattern such as

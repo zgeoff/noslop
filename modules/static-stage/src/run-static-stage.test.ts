@@ -592,6 +592,69 @@ test('it reports the changed one of 2 access checks that share a line', async ()
   ]);
 });
 
+test('it reports the changed one of 2 deny guards on a line that test one condition', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/archive.ts': [
+          'export function closeBoard(member: { admin: boolean }) {',
+          "  if (!member.admin) throw new Error('forbidden to close'); if (!member.admin) throw new Error('forbidden to lock');",
+          '  return true;',
+          '}',
+          '',
+        ].join('\n'),
+      },
+    },
+    {
+      message: 'head',
+      files: {
+        'src/archive.ts': [
+          'export function closeBoard(member: { admin: boolean }) {',
+          "  if (!member.admin) throw new Error('forbidden to close'); if (!member.admin) throw new Error('forbidden to seal');",
+          '  return true;',
+          '}',
+          '',
+        ].join('\n'),
+      },
+    },
+  ]);
+
+  const config = BUILT_IN_DEFAULTS;
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config,
+    title: 'fix: say why a board stays open',
+    body: '',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(
+    result.findings.map((finding) => [
+      finding.anchor.path,
+      finding.anchor.startLine,
+      finding.title,
+    ]),
+  ).toStrictEqual([
+    ['src/archive.ts', 2, 'New allow-or-deny check has no table of hostile inputs'],
+  ]);
+});
+
 test('it reports an access check whose body changes only in the spaces of a string', async () => {
   const ctx = await setupTest();
 
