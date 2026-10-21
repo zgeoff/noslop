@@ -6,6 +6,7 @@ export * from './create-github-connection';
 export * from './create-github-disposition-source';
 export * from './create-github-file-reader';
 export * from './create-github-reporter';
+export * from './find-lens-head';
 export * from './parse-github-app-env';
 export * from './parse-github-token-env';
 export * from './read-branch-head';

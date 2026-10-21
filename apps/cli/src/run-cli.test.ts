@@ -3105,7 +3105,11 @@ test('it refuses --fixes-only on a pull request that no review covered yet', asy
   );
 
   expect(code).toBe(1);
-  expect(ctx.stderr.join('')).toStartWith('noslop: --fixes-only needs an earlier review\n');
+
+  expect(ctx.stderr.join('')).toStartWith(
+    'noslop: --fixes-only needs an earlier review with no failed call',
+  );
+
   expect(githubCollections.checkRuns.all()).toStrictEqual([]);
 });
 
@@ -6378,7 +6382,7 @@ test('it confirms a fixed reply at a rewritten sha under --fixes-only after 2 ca
   });
 });
 
-test('it judges a --fixes-only fix from the merge base and passes the check after an earlier fix check failed', async () => {
+test('it judges a --fixes-only fix from the last lens review and passes the check after an earlier fix check failed', async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
@@ -6456,14 +6460,14 @@ test('it judges a --fixes-only fix from the merge base and passes the check afte
     inReplyToID: thread.id,
   });
 
-  // the summary of a fixes-only run at the fix whose call failed, as an earlier version wrote it
+  // the summary of a fixes-only run at the fix whose call failed, after a lens review of the head before
   await githubCollections.issueComments.create({
     owner: 'example',
     repo: 'app',
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[2] ?? ''}","base":"${repo.commits[1] ?? ''}","earlier":[{"base":"${repo.commits[0] ?? ''}","head":"${repo.commits[1] ?? ''}","reported":["1111111111111111"],"notReviewed":[]}],"reviews":2,"reported":[],"failedCalls":1,"checked":[]} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[2] ?? ''}","lensHead":"${repo.commits[1] ?? ''}","reviews":2,"reported":[],"failedCalls":1,"checked":[]} -->`,
   });
 
   const stub = buildStubAdapter({
@@ -6481,8 +6485,96 @@ test('it judges a --fixes-only fix from the merge base and passes the check afte
 
   expect(code).toBe(0);
   expect(summary?.body).toInclude(`against \`${(repo.commits[0] ?? '').slice(0, 12)}\``);
-  expect(summary?.body).not.toInclude('"earlier"');
+  expect(summary?.body).toInclude(`"lensHead":"${repo.commits[1] ?? ''}"`);
   expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('success');
+});
+
+test('it refuses --fixes-only after a lens review whose call failed and no lens review before it', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
+    {
+      message: 'Add the scanner',
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = ":";\n' },
+    },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[1] ?? '',
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","reviews":1,"reported":[],"failedCalls":1} -->`,
+  });
+
+  const stub = buildStubAdapter({});
+
+  const code = await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--fixes-only', '--report', 'github'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  expect(code).toBe(1);
+
+  expect(ctx.stderr.join('')).toStartWith(
+    'noslop: --fixes-only needs an earlier review with no failed call',
+  );
+
+  expect(stub.requests).toStrictEqual([]);
+});
+
+test('it refuses a lens review of a head that a lens review covered before a fixes-only run there', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
+    {
+      message: 'Add the scanner',
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = ":";\n' },
+    },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[1] ?? '',
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","lensHead":"${repo.commits[1] ?? ''}","reviews":1,"reported":[],"failedCalls":0,"checked":[]} -->`,
+  });
+
+  const stub = buildStubAdapter({});
+
+  const code = await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'github'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  expect(code).toBe(1);
+
+  expect(ctx.stderr.join('')).toStartWith(
+    `noslop: a review with no failed call already covered ${(repo.commits[1] ?? '').slice(0, 12)}`,
+  );
+
+  expect(stub.requests).toStrictEqual([]);
 });
 
 test('it moves the summary head to the head a --fixes-only review read, so the check reads the current head', async () => {

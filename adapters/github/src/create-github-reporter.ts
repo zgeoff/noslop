@@ -8,6 +8,7 @@ import type {
 import { buildFixConfirmations } from './build-fix-confirmations';
 import { buildMergeLists } from './build-merge-lists';
 import type { GitHubClient, GitHubConnection } from './create-github-connection';
+import { findLensHead } from './find-lens-head';
 import { followUpMarkerSchema } from './follow-up-marker';
 import { formatFindingComment } from './format-finding-comment';
 import { formatFixedFindingComment } from './format-fixed-finding-comment';
@@ -23,6 +24,7 @@ import type { FindingThread, PullRequestState } from './read-pull-request-state'
 import { readPullRequestState } from './read-pull-request-state';
 import { readThreadDispositions } from './read-thread-dispositions';
 import { runGitHubCheck } from './run-github-check';
+import type { SummaryMarker } from './summary-marker';
 
 export interface GitHubReporterOptions {
   loadConnection: () => Promise<GitHubConnection>;
@@ -172,7 +174,7 @@ async function runReviewPost(
 
   const marker = {
     head: result.head,
-    ...buildCheckedField(result),
+    ...buildRunFields(result, before.summary?.marker ?? null),
     ...merges,
     reviews: plan.reviews,
     reviewIDs: plan.reviewIDs,
@@ -410,15 +412,26 @@ function toCommentURL(pr: PullRequestRef, thread: FindingThread): string {
   return `https://github.com/${pr.owner}/${pr.repo}/pull/${pr.number}#${anchor}`;
 }
 
-// a fixes-only run's marker lists the fixes its calls judged fixed, which marks it as no lens review
-function buildCheckedField(result: ReviewResult): { checked?: string[] } {
+interface RunFields {
+  checked?: string[];
+  lensHead?: string;
+}
+
+// a fixes-only run's marker lists the fixes its calls judged fixed, which marks it as no lens review,
+// and carries the head of the last lens review with no failed call; a lens review sets that head
+// only when none of its calls failed
+function buildRunFields(result: ReviewResult, previous: SummaryMarker | null): RunFields {
   if (result.fixesOnly !== true) {
-    return {};
+    return result.failedCalls.length === 0 ? { lensHead: result.head } : {};
   }
 
   const fixed = (result.fixChecks ?? []).filter((check) => check.fixed);
+  const lensHead = findLensHead(previous);
 
-  return { checked: fixed.map((check) => check.findingID) };
+  return {
+    checked: fixed.map((check) => check.findingID),
+    ...(lensHead === null ? {} : { lensHead }),
+  };
 }
 
 async function writeSummaryComment(

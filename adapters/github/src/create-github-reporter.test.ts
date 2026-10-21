@@ -409,6 +409,7 @@ test('it writes no kept ranges to the summary marker and reads a marker that hol
   }
 
   expect(state.summary.marker.reviews).toBe(2);
+  expect(state.summary.marker.lensHead).toBe('c'.repeat(40));
 
   expect(state.summary.marker).not.toContainAnyKeys([
     'base',
