@@ -234,3 +234,15 @@ test('it keys on the head when the patch ids are too long for the summary marker
     head: 'f'.repeat(40),
   });
 });
+
+test('it keys on the head when the patch ids pass the marker budget only once the marker escapes each >', () => {
+  const files = Array.from({ length: 80 }, (_, index) => ({
+    filename: `docs/${'>'.repeat(100)}-${index}.md`,
+    status: 'added',
+    sha: 'a'.repeat(40),
+  }));
+
+  expect(buildNetChangeKey({ head: 'f'.repeat(40), isWhole: true, files })).toStrictEqual({
+    head: 'f'.repeat(40),
+  });
+});
