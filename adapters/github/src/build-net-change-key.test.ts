@@ -2,6 +2,7 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { createRunner } from '@noslop/runner';
 import { createTestRepo } from '@noslop/testing';
 import { buildNetChangeKey } from './build-net-change-key';
 
@@ -10,7 +11,7 @@ async function setupTest() {
 
   onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  return { directory };
+  return { directory, runner: createRunner() };
 }
 
 test('it keys each file on its patch with the hunk headers cut, and a file with no patch on its blob', () => {
@@ -90,10 +91,12 @@ test('it keeps the key of a file across a clean rebase and a conflict-free merge
   ]);
 
   const readPatch = async (base: number, head: number) => {
-    const diff =
-      await Bun.$`git -C ${repo.path} diff ${repo.commits[base] ?? ''} ${repo.commits[head] ?? ''} -- src/values.ts`.text();
+    const diff = await ctx.runner.run(
+      ['git', 'diff', repo.commits[base] ?? '', repo.commits[head] ?? '', '--', 'src/values.ts'],
+      { cwd: repo.path },
+    );
 
-    return diff.slice(diff.indexOf('@@')).trimEnd();
+    return diff.stdout.slice(diff.stdout.indexOf('@@')).trimEnd();
   };
 
   // each net change starts at the merge base: the first commit before the base moved, the moved base

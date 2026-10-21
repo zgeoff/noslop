@@ -19,6 +19,7 @@
   },
   "devDependencies": {
     "@logtape/logtape": "catalog:",
+    "@noslop/runner": "workspace:*",
     "@noslop/testing": "workspace:*",
     "msw": "catalog:"
   }
