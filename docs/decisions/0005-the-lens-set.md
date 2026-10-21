@@ -1,7 +1,7 @@
 # 0005: The lens set
 
 - Date: 2026-10-17
-- Updated: 2026-10-21
+- Updated: 2026-10-22
 - Status: decided
 
 noslop has 13 lenses that routing picks, and the design lens, which it never picks. Each one is a
@@ -30,9 +30,9 @@ adds, and the `any` values whose type no checker confirms. A one-off script that
 such as a codemod, stays in the tree with no caller, so the lens that judges shape reads each new
 script that nothing runs again.
 
-The design lens runs after the other lenses and the merge pass, over the findings of every review so
-far, the whole diff and the pull request body. Its task is what the body states, and it reads no
-linked issue.
+The design lens runs after the other lenses and the merge pass on the first review of a pull
+request, over that review's findings, the whole diff and the pull request body. Its task is what the
+body states, and it reads no linked issue.
 
 ## Why
 
@@ -41,8 +41,8 @@ linked issue.
 - Agent-written code drifts most on taste, intent and tests, so those concerns get their own lenses.
 - An agent that answers each finding with a patch can patch the same logic review after review, or
   grow a redesign toward an outside spec, and no lens that judges one line asks whether the approach
-  is wrong. The findings of 2 or more reviews show that pattern, so the design lens starts at the
-  second review.
+  is wrong. A later review reads only the files whose patch changed, so the design lens judges the
+  approach once, on the first review, which reads the whole diff.
 - A pull request body that promises more than its task needs is its own defect, so the design lens
   judges the approach against the body, and its call holds no linked issue. The other lenses still
   read the issue that the body closes.
@@ -57,8 +57,8 @@ linked issue.
 
 - Each lens is a separate unit with its own id, trigger, slice, prompt section and output schema,
   under [0008](0008-stacking-lenses-into-calls.md).
-- The design lens costs one more call on each review after the first, and a review of a local
-  change, which has no earlier review, never runs it.
+- The design lens costs one more call on the first review of a pull request, and a review of a local
+  change never runs it.
 - A design call that fails is a failed call of the review, as a lens call is, so that review
   confirms no fix.
 
@@ -70,3 +70,5 @@ linked issue.
   typed place, under naming, shape and comments.
 - 2026-10-21: read each new script that no package.json script and no workflow names under naming,
   shape and comments, which reports one that ran once under a rule from the rules file.
+- 2026-10-22: run the design lens on the first review of a pull request only, over that review's
+  findings, since a later review reads only the files whose patch changed.

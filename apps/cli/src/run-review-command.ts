@@ -1,18 +1,15 @@
 import { mkdir, mkdtemp, rm } from 'node:fs/promises';
-import { basename, join } from 'node:path';
+import { join } from 'node:path';
 import type { LoadedConfig } from '@noslop/config';
-import type {
-  DismissedFinding,
-  EarlierFinding,
-  PullRequestRef,
-  ReviewResult,
-} from '@noslop/contract';
+import type { DismissedFinding, PullRequestRef, ReviewResult } from '@noslop/contract';
 import { reviewResultSchema } from '@noslop/contract';
 import type { GitHubConnection, PullRequestState } from '@noslop/github';
 import {
   collectDismissedFindings,
+  findChangedPaths,
   findLensHead,
   readLinkedIssue,
+  readNetChangeKey,
   readThreadDispositions,
 } from '@noslop/github';
 import type { AnsweredFix } from '@noslop/review';
@@ -25,6 +22,7 @@ import { formatReviewSummary } from './format-review-summary';
 import { getStorePath } from './get-store-path';
 import { loadRepoConfig } from './load-repo-config';
 import { readIssueFile } from './read-issue-file';
+import { readRepoName } from './read-repo-name';
 import { readTrustedPullRequest } from './read-trusted-pull-request';
 import { runReporters } from './run-reporters';
 
@@ -156,10 +154,10 @@ export async function runReviewCommand(values: ReviewValues, ctx: CLIContext): P
         body: change.body,
         linkedIssue: issueText ?? change.linkedIssue,
         pullRequest: change.pullRequest,
-        isIncremental: change.isIncremental,
-        ...(change.mergeBase === null ? {} : { mergeBase: change.mergeBase }),
-        round: change.round,
-        earlierFindings: change.earlierFindings,
+        isIncremental: change.paths !== null,
+        ...(change.paths === null ? {} : { paths: change.paths }),
+        ...(change.pullRequestBase === null ? {} : { mergeBase: change.pullRequestBase }),
+        isFirstPullRequestReview: change.isFirstPullRequestReview,
         dismissedFindings: change.dismissedFindings,
         isPush: values.push,
         pastEscapes,
@@ -213,7 +211,7 @@ interface ResolvedChange {
   head: string;
 
   // the config at a pull request's base or a local change's base, so a change that edits the config
-  // is reviewed under the config it would replace; a delta review's base is a head of the pull request
+  // is reviewed under the config it would replace
   config: LoadedConfig;
   title: string;
   body: string;
@@ -223,21 +221,16 @@ interface ResolvedChange {
   linkedIssue: string | null;
   pullRequest: PullRequestRef | null;
 
-  // the base is the last reviewed head of a pull request, so the change is only its new commits
-  isIncremental: boolean;
-
-  // the merge base of an incremental review, which keeps the new commits to the files the pull
-  // request changes, so a merge from the base branch adds none of its own
-  mergeBase: string | null;
+  // the files whose patch changed since the last review of a pull request, the only files a later
+  // review reads; null when the review reads the whole change
+  paths: string[] | null;
 
   // the merge base of a pull request with its base branch, where its whole diff starts, which a fix
   // commit must reach; null for a local change
   pullRequestBase: string | null;
 
-  // which review of the pull request this is, from 1, and the findings the earlier reviews posted,
-  // which the design pass reads; a local change is always a first review
-  round: number;
-  earlierFindings: EarlierFinding[];
+  // a pull request that holds no summary of an earlier review; false for a local change
+  isFirstPullRequestReview: boolean;
 
   // the posted findings whose latest answer is `not-a-defect`, which the review drops when a new
   // finding matches one
@@ -281,11 +274,9 @@ async function resolveLocalChange(
     body,
     linkedIssue: null,
     pullRequest: null,
-    isIncremental: false,
-    mergeBase: null,
+    paths: null,
     pullRequestBase: null,
-    round: 1,
-    earlierFindings: [],
+    isFirstPullRequestReview: false,
     dismissedFindings: [],
     fixes: [],
   };
@@ -305,22 +296,9 @@ async function resolveDefaultBase(ctx: CLIContext, repoDir: string, head: string
   throw new Error('noslop cannot find the branch the change starts from; pass --base');
 }
 
-// owner/repo from the origin remote's URL, or the folder name when the repo has no remote
-async function readRepoName(ctx: CLIContext, repoDir: string): Promise<string> {
-  const result = await ctx.runner.run(['git', 'remote', 'get-url', 'origin'], { cwd: repoDir });
-
-  const match = /[:/](?<owner>[^/:]+)\/(?<repo>[^/]+?)(?:\.git)?$/u.exec(result.stdout.trim());
-  const owner = match?.groups?.['owner'];
-  const repo = match?.groups?.['repo'];
-
-  return result.exitCode === 0 && owner !== undefined && repo !== undefined
-    ? `${owner}/${repo}`
-    : basename(repoDir);
-}
-
-// a pull request's change from GitHub: its title and body, its head, and its base; once noslop has
-// reviewed an earlier head of it, the base is that head, so a re-review covers only the new commits;
-// --full keeps the merge base, so the review covers the whole change again
+// a pull request's change from GitHub: its title and body, its head, and its base, the merge base;
+// once noslop has reviewed it, a review reads only the files whose patch changed since, and --full
+// reads the whole change again
 async function resolvePullRequestChange(
   ctx: CLIContext,
   repoDir: string,
@@ -355,23 +333,12 @@ async function resolvePullRequestChange(
   const config = trusted.config;
   const connection = trusted.connection;
   const state = trusted.state;
-
-  // only a review with no failed call covered its head, so only such a head bases a delta
   const summary = state.summary?.marker ?? null;
+
+  // a fixes-only run reads from the head of the last review with no failed call, or after a run whose
+  // call failed, from the last lens review with no failed call
   const full = summary !== null && summary.failedCalls === 0 ? summary.head : null;
-  const lensHead = findLensHead(summary);
-
-  // a fixes-only run after a run whose call failed reads from the last lens review with no failed call
-  const latest = values.fixesOnly ? (full ?? lensHead) : full;
-  const reviewed = values.full ? null : latest;
-
-  // a lens review of a head that a lens review with no failed call already covered would review the
-  // whole change again and raise its findings anew, so it runs only under --full
-  if (!values.full && !values.fixesOnly && lensHead === state.headSha) {
-    throw new Error(
-      `a review with no failed call already covered ${state.headSha.slice(0, 12)}, the head of the pull request; push a commit to review it, or pass --full to review the whole change again`,
-    );
-  }
+  const reviewed = values.fixesOnly ? (full ?? findLensHead(summary)) : null;
 
   await ctx.runner.run(
     [
@@ -394,7 +361,9 @@ async function resolvePullRequestChange(
   );
 
   const isHeld = reviewed !== null && ancestry.exitCode === 0;
-  const isDelta = isHeld && reviewed !== state.headSha;
+
+  const paths =
+    values.full || values.fixesOnly ? null : await readChangedPaths(connection, pullRequest, state);
 
   const fixes = await readAnsweredFixes(connection, pullRequest, state);
 
@@ -420,7 +389,7 @@ async function resolvePullRequestChange(
     repo,
 
     // a head a rebase took off the branch bounds nothing, so the run reads from the merge base
-    base: (values.fixesOnly || isDelta) && isHeld && reviewed !== null ? reviewed : start,
+    base: isHeld && reviewed !== null ? reviewed : start,
     head: state.headSha,
     config,
     title: state.title,
@@ -428,21 +397,31 @@ async function resolvePullRequestChange(
     author: state.author,
     linkedIssue,
     pullRequest,
-    isIncremental: isDelta,
-    mergeBase: isDelta ? start : null,
+    paths,
     pullRequestBase: start,
-    round: (state.summary?.marker.reviews ?? 0) + 1,
-    earlierFindings: state.threads.map((thread): EarlierFinding => ({
-      id: thread.marker.id,
-      lens: thread.marker.lens,
-      severity: thread.marker.severity,
-      title: thread.marker.title,
-      path: thread.marker.path,
-      answer: thread.replies.at(-1)?.body.trim().split('\n')[0] ?? null,
-    })),
+    isFirstPullRequestReview: summary === null,
     dismissedFindings: collectDismissedFindings(state.threads),
     fixes,
   };
+}
+
+// the files whose patch changed since the last lens review, which read every file its key holds; a
+// review whose call failed left a file unread, and a key that cannot be matched file by file names
+// no file, so either reads the whole change again
+async function readChangedPaths(
+  connection: GitHubConnection,
+  pullRequest: PullRequestRef,
+  state: PullRequestState,
+): Promise<string[] | null> {
+  const summary = state.summary?.marker ?? null;
+
+  if (summary === null || summary.failedCalls > 0 || findLensHead(summary) === null) {
+    return null;
+  }
+
+  const currentKey = await readNetChangeKey(connection.client, pullRequest, state.headSha);
+
+  return findChangedPaths(summary, state.headSha, currentKey);
 }
 
 // each finding whose latest disposition is `fixed` with a fix the summary does not hold confirmed, as

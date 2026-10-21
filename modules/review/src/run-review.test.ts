@@ -1356,7 +1356,7 @@ test('it splits a change over the prompt limit into calls that each fit and list
   expect(run.result.notReviewed).toStrictEqual([{ path: 'samples/corpus.jsonl', reason: 'data' }]);
 });
 
-test('it reports the finding of the design pass on a file that only an earlier review read', async () => {
+test('it reports the finding of the design pass on the first review of a pull request', async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
@@ -1409,12 +1409,9 @@ test('it reports the finding of the design pass on a file that only an earlier r
     runner: ctx.runner,
     repoDir: repo.path,
     repo: 'example/parse',
-    base: repo.commits[1] ?? '',
+    base: repo.commits[0] ?? '',
     head: repo.commits[2] ?? '',
-    mergeBase: repo.commits[0] ?? '',
-    isIncremental: true,
-    round: 2,
-    earlierFindings: [],
+    isFirstPullRequestReview: true,
     config: BUILT_IN_DEFAULTS,
     configHash: 'hash',
     rules: null,
@@ -1500,8 +1497,7 @@ test('it keeps the lens findings and lists the design call as failed when it fai
     repo: 'example/parse',
     base: repo.commits[0] ?? '',
     head: repo.commits[1] ?? '',
-    round: 2,
-    earlierFindings: [],
+    isFirstPullRequestReview: true,
     config: BUILT_IN_DEFAULTS,
     configHash: 'hash',
     rules: null,
@@ -1531,7 +1527,7 @@ test('it keeps the lens findings and lists the design call as failed when it fai
   ]);
 });
 
-test('it runs no design pass on a later review when the config turns it off', async () => {
+test('it runs no design pass on a first review when the config turns it off', async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
@@ -1549,8 +1545,7 @@ test('it runs no design pass on a later review when the config turns it off', as
     repo: 'example/parse',
     base: repo.commits[0] ?? '',
     head: repo.commits[1] ?? '',
-    round: 2,
-    earlierFindings: [],
+    isFirstPullRequestReview: true,
     config: { ...BUILT_IN_DEFAULTS, designPass: { enabled: false, effort: 'medium' } },
     configHash: 'hash',
     rules: null,
@@ -1569,7 +1564,7 @@ test('it runs no design pass on a later review when the config turns it off', as
   expect(stub.requests.map((request) => request.callID)).toStrictEqual(['light']);
 });
 
-test('it runs the design pass on the third review of a pull request', async () => {
+test('it runs no design pass on a later review of a pull request', async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
@@ -1577,10 +1572,7 @@ test('it runs the design pass on the third review of a pull request', async () =
     { message: 'Fix the parser', files: { 'src/parse.ts': 'export const parse = 1;\n' } },
   ]);
 
-  const stub = buildStubAdapter({
-    light: [{ findings: { correctness: [] } }],
-    design: [{ findings: { design: [] } }],
-  });
+  const stub = buildStubAdapter({ light: [{ findings: { correctness: [] } }] });
 
   await Bun.write(join(ctx.directory, 'temp', '.keep'), '');
 
@@ -1590,8 +1582,7 @@ test('it runs the design pass on the third review of a pull request', async () =
     repo: 'example/parse',
     base: repo.commits[0] ?? '',
     head: repo.commits[1] ?? '',
-    round: 3,
-    earlierFindings: [],
+    isFirstPullRequestReview: false,
     config: BUILT_IN_DEFAULTS,
     configHash: 'hash',
     rules: null,
@@ -1607,7 +1598,7 @@ test('it runs the design pass on the third review of a pull request', async () =
     pastEscapes: [],
   });
 
-  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['light', 'design']);
+  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['light']);
 });
 
 test('it gives the design pass the findings the merge pass keeps', async () => {
@@ -1702,8 +1693,7 @@ test('it gives the design pass the findings the merge pass keeps', async () => {
     repo: 'example/queue',
     base: repo.commits[0] ?? '',
     head: repo.commits[1] ?? '',
-    round: 2,
-    earlierFindings: [],
+    isFirstPullRequestReview: true,
     config: BUILT_IN_DEFAULTS,
     configHash: 'hash',
     rules: null,
@@ -1733,113 +1723,6 @@ test('it gives the design pass the findings the merge pass keeps', async () => {
 
   expect(design.prompt).toInclude('"title": "Write the queue before emptying it"');
   expect(design.prompt).not.toInclude('Keep the items flush is meant to write');
-});
-
-test('it lists the file of an earlier design finding as not reviewed by the design lens when the pass is off', async () => {
-  const ctx = await setupTest();
-
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
-    { message: 'base', files: { 'src/parse.ts': 'export const parse = 0;\n' } },
-    { message: 'Fix the parser', files: { 'src/parse.ts': 'export const parse = 1;\n' } },
-  ]);
-
-  const stub = buildStubAdapter({ light: [{ findings: { correctness: [] } }] });
-
-  await Bun.write(join(ctx.directory, 'temp', '.keep'), '');
-
-  const run = await runReview({
-    runner: ctx.runner,
-    repoDir: repo.path,
-    repo: 'example/parse',
-    base: repo.commits[0] ?? '',
-    head: repo.commits[1] ?? '',
-    round: 2,
-    earlierFindings: [
-      {
-        id: '3333333333333333',
-        lens: 'design',
-        severity: 'P2',
-        title: 'Split the header line with the library parser',
-        path: 'src/parse.ts',
-        answer: 'fixed 1a2b3c4',
-      },
-      {
-        id: '4444444444444444',
-        lens: 'correctness',
-        severity: 'P2',
-        title: 'Start the parse at 0',
-        path: 'src/scan.ts',
-        answer: null,
-      },
-    ],
-    config: { ...BUILT_IN_DEFAULTS, designPass: { enabled: false, effort: 'medium' } },
-    configHash: 'hash',
-    rules: null,
-    adapter: stub.adapter,
-    logger: ctx.logger,
-    tempDir: join(ctx.directory, 'temp'),
-    cacheDir: null,
-    title: 'Fix the parser',
-    body: '',
-    linkedIssue: null,
-    pullRequest: null,
-    isPush: false,
-    pastEscapes: [],
-  });
-
-  expect(run.result.notReviewedByLens).toStrictEqual([
-    { path: 'src/parse.ts', lenses: ['design'] },
-  ]);
-});
-
-test('it lists no file as not reviewed by the design lens when the design call runs', async () => {
-  const ctx = await setupTest();
-
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
-    { message: 'base', files: { 'src/parse.ts': 'export const parse = 0;\n' } },
-    { message: 'Fix the parser', files: { 'src/parse.ts': 'export const parse = 1;\n' } },
-  ]);
-
-  const stub = buildStubAdapter({
-    light: [{ findings: { correctness: [] } }],
-    design: [{ findings: { design: [] } }],
-  });
-
-  await Bun.write(join(ctx.directory, 'temp', '.keep'), '');
-
-  const run = await runReview({
-    runner: ctx.runner,
-    repoDir: repo.path,
-    repo: 'example/parse',
-    base: repo.commits[0] ?? '',
-    head: repo.commits[1] ?? '',
-    round: 2,
-    earlierFindings: [
-      {
-        id: '3333333333333333',
-        lens: 'design',
-        severity: 'P2',
-        title: 'Split the header line with the library parser',
-        path: 'src/parse.ts',
-        answer: 'fixed 1a2b3c4',
-      },
-    ],
-    config: BUILT_IN_DEFAULTS,
-    configHash: 'hash',
-    rules: null,
-    adapter: stub.adapter,
-    logger: ctx.logger,
-    tempDir: join(ctx.directory, 'temp'),
-    cacheDir: null,
-    title: 'Fix the parser',
-    body: '',
-    linkedIssue: null,
-    pullRequest: null,
-    isPush: false,
-    pastEscapes: [],
-  });
-
-  expect(run.result.notReviewedByLens).toStrictEqual([]);
 });
 
 test('it gives the design call every file of a pull request whose hunks pass the call limit, in a file it reads', async () => {
@@ -1876,21 +1759,9 @@ test('it gives the design call every file of a pull request whose hunks pass the
     runner: ctx.runner,
     repoDir: repo.path,
     repo: 'example/parse',
-    base: repo.commits[1] ?? '',
+    base: repo.commits[0] ?? '',
     head: repo.commits[2] ?? '',
-    mergeBase: repo.commits[0] ?? '',
-    isIncremental: true,
-    round: 2,
-    earlierFindings: [
-      {
-        id: '3333333333333333',
-        lens: 'design',
-        severity: 'P2',
-        title: 'Load the table from a file',
-        path: 'src/c.ts',
-        answer: 'fixed 1a2b3c4',
-      },
-    ],
+    isFirstPullRequestReview: true,
     config: {
       ...BUILT_IN_DEFAULTS,
       thresholds: { ...BUILT_IN_DEFAULTS.thresholds, maxCallChars: 40_000, maxFileChars: 35_000 },
@@ -1928,10 +1799,14 @@ test('it gives the design call every file of a pull request whose hunks pass the
   expect(design.prompt).toInclude(['- `src/c.ts`', '- `src/e.ts`', '- `src/parse.ts`'].join('\n'));
   expect(design.prompt).not.toInclude(`'${'c'.repeat(1000)}`);
   expect(design.prompt.length).toBeLessThanOrEqual(40_000);
-  expect(run.result.notReviewed).toStrictEqual([]);
+
+  expect(run.result.notReviewed).toStrictEqual([
+    { path: 'src/c.ts', reason: 'too-large' },
+    { path: 'src/e.ts', reason: 'too-large' },
+  ]);
 });
 
-test('it runs the design pass in the head worktree on a later review that routes no lens call', async () => {
+test('it runs the design pass in the head worktree on a first review that routes no lens call', async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
@@ -1955,8 +1830,7 @@ test('it runs the design pass in the head worktree on a later review that routes
     repo: 'example/a',
     base: repo.commits[0] ?? '',
     head: repo.commits[1] ?? '',
-    round: 2,
-    earlierFindings: [],
+    isFirstPullRequestReview: true,
     config: BUILT_IN_DEFAULTS,
     configHash: 'hash',
     rules: null,

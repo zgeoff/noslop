@@ -1,23 +1,22 @@
 # Design
 
-- Trigger: every review of a pull request after its first, once the other lenses and the merge pass
-  have run
-- Input: the pull request title and body, the findings of this review, the findings of the earlier
-  reviews with their answers, and the hunks of the whole pull request; never the linked issue
+- Trigger: the first review of a pull request, once the other lenses and the merge pass have run
+- Input: the pull request title and body, the findings of this review, and the hunks of the whole
+  pull request; never the linked issue
 - Call: one design pass, on the lens model
 
 ## Prompt
 
 Decide whether a better approach meets the task of this pull request. The task is what the pull
 request title and body state. A better approach meets that task with less code, fewer moving parts
-or fewer cases to get right, and it removes findings that the current approach keeps raising.
+or fewer cases to get right, and it removes findings that the current approach raises.
 
 Look for:
 
-1. Findings across the reviews that patch the same logic, such as the same function, rule or parser,
-   round after round.
+1. Findings of this review that patch the same logic, such as the same function, rule or parser, in
+   one case after another.
 2. An approach that rebuilds part of an outside spec, a library or a platform feature by hand, so
-   each review finds another case the spec covers.
+   each case the spec covers needs code of its own.
 3. A promise in the body that is larger than the task needs, such as conformance to a whole spec,
    when a narrower promise meets the task and needs far less code.
 4. A tool, library, platform feature or existing function of the repo that already does the job.
@@ -26,8 +25,7 @@ Check each candidate:
 
 1. Read the code the approach would replace, and check that the simpler approach meets every part of
    the task the body states.
-2. Name the findings, from this review and the earlier ones, that the simpler approach removes, by
-   their titles.
+2. Name the findings of this review that the simpler approach removes, by their titles.
 3. Name what the simpler approach gives up, if anything, and say why the task does not need it.
 
 Report at most 1 finding. Anchor it to the changed line where the current approach starts, use the

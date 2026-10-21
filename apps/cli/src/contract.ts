@@ -1,9 +1,10 @@
-// the versioned review result, the public contract of `noslop review --json`, with its schema so a
-// caller can validate a result it receives
+// the versioned review result, the public contract of `noslop review --json`, and the finding list of
+// `noslop findings --json`, with their schemas so a caller can validate what it receives
 export {
   REVIEW_OUTPUT_VERSION,
   dispositionSchema,
   droppedFindingSchema,
+  findingListSchema,
   findingSchema,
   pullRequestRefSchema,
   reviewResultSchema,
@@ -17,6 +18,9 @@ export type {
   DroppedFinding,
   FailedCall,
   Finding,
+  FindingList,
+  FindingState,
+  ListedFinding,
   PullRequestRef,
   ReviewResult,
   SecondLocation,

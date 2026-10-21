@@ -50,25 +50,20 @@ rests on a rule quotes that file under 0003, so the prompt keeps the model from 
 
 ## The design lens
 
-The design lens asks whether a better approach meets the pull request's task, so an author stops
-patching the same logic review after review. Routing never picks it, and a config can neither group
-it into a call nor force it on. The review runs it in one call of its own after the merge pass, on
-every review of a pull request after its first, under [the pipeline](./pipeline.md#the-stages).
+The design lens asks whether a better approach meets the pull request's task, so an author does not
+patch the same logic case after case. Routing never picks it, and a config can neither group it into
+a call nor force it on. The review runs it in one call of its own after the merge pass, on the first
+review of a pull request only, under [the pipeline](./pipeline.md#the-stages).
 
 The task is what the pull request's title and body state. The design call holds those, the findings
-of this review, the findings that the earlier reviews posted with the first line of the latest
-answer to each, and the hunks of the whole pull request since its merge base. It holds no linked
+of this review, and the hunks of the whole pull request since its merge base. It holds no linked
 issue, so the lens judges the approach against what the pull request promises and never against an
-issue. A re-review's own diff holds only its new commits, while an approach spans every round, so
-the call reads the whole pull request. When those hunks pass the call limit, the review writes them
-to a file in the worktree of the head, and the prompt names that file and lists the changed files in
-their place, so a model whose only tools read files still reads every hunk. The design call
-therefore leaves out only the files that no call reads: the generated files and the data files of
-the config. A later review that runs no design call, such as one whose config turns the pass off,
-lists the file of each earlier design finding as not reviewed by the design lens, so a reporter
-confirms no design fix that no design call read.
+issue. When those hunks pass the call limit, the review writes them to a file in the worktree of the
+head, and the prompt names that file and lists the changed files in their place, so a model whose
+only tools read files still reads every hunk. The design call therefore leaves out only the files
+that no call reads: the generated files and the data files of the config.
 
 The lens reports at most one finding. It names the simpler approach and the findings that approach
 would remove, and it reports nothing when the findings show no repeated patching and the change is
-already small. The earlier findings come from the finding comments on the pull request, so a review
-of a local change, which has no earlier review, never runs the lens.
+already small. A later review reads only the files whose patch changed, so the first review is the
+one that reads the whole approach. A review of a local change runs no design pass.

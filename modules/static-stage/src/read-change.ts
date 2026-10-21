@@ -16,6 +16,10 @@ export interface ReadChangeOptions {
   // files the pull request changes since its merge base, so a merge from the base branch brings in no
   // file the pull request never touched
   mergeBase?: string;
+
+  // the files a later review of a pull request reads, those whose patch changed since its last
+  // review; the change leaves out every other file, which an earlier review read
+  paths?: readonly string[];
 }
 
 // reads the change between 2 commits through git, resolving each ref to its full commit so every line
@@ -25,6 +29,8 @@ export async function readChange(options: ReadChangeOptions): Promise<Change> {
   const base = await resolveCommit(options, options.base);
   const head = await resolveCommit(options, options.head);
   const owned = await readOwnedPaths(options, head);
+
+  const kept = options.paths === undefined ? null : new Set(options.paths);
 
   const diff = await runGit(options, [
     '-c',
@@ -44,6 +50,10 @@ export async function readChange(options: ReadChangeOptions): Promise<Change> {
   const baseOnly: ChangedFile[] = [];
 
   for (const parsed of parseDiff(diff)) {
+    if (kept !== null && !kept.has(parsed.path) && !kept.has(parsed.oldPath ?? parsed.path)) {
+      continue;
+    }
+
     // a generated file is never read, whichever side changes it, so it stays out of the left-out files
     if (isGlobMatch(parsed.path, options.config.generated)) {
       excluded.push(parsed.path);

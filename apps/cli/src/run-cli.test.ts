@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { configureSync, getLogger, resetSync } from '@logtape/logtape';
 import type { ReviewAdapter } from '@noslop/contract';
-import { reviewResultSchema } from '@noslop/contract';
+import { findingListSchema, reviewResultSchema } from '@noslop/contract';
 import { buildNetChangeKey, createGitHubReporter } from '@noslop/github';
 import { createRunner } from '@noslop/runner';
 import { createSQLiteReporter, loadStore, runStoreQuery, writeReview } from '@noslop/sqlite';
@@ -234,14 +234,17 @@ test('it reviews a pull request that edits review.json under the config of its b
     headSha: repo.commits[1] ?? '',
   });
 
-  const stub = buildStubAdapter({ light: [{ findings: { correctness: [] } }] });
+  const stub = buildStubAdapter({
+    light: [{ findings: { correctness: [] } }],
+    design: [{ findings: { design: [] } }],
+  });
 
   await runCLI(
     ['review', '--pr', '9', '--repo', 'example/app', '--report', 'json', '--json'],
     ctx.buildContext(repo.path, stub.adapter),
   );
 
-  expect(stub.requests.map((request) => request.model)).toStrictEqual(['base-model']);
+  expect(stub.requests.find((request) => request.callID === 'light')?.model).toBe('base-model');
 });
 
 test('it reports no synced edit in a pull request that an account the config names as a sync author opened', async () => {
@@ -1205,19 +1208,29 @@ test('it fails the review when the issue file does not exist', async () => {
   expect(stub.requests).toBeEmpty();
 });
 
-test('it reviews a pull request from the head of its last review', async () => {
+test('it sends the lenses only the file that a 1-line commit changed since the last review', async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
-    { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
+    {
+      message: 'base',
+      files: {
+        'src/total.ts': 'export const zero = 0;\n',
+        'src/count.ts': 'export const none = 0;\n',
+      },
+    },
     {
       message: 'Add one',
-      files: { 'src/total.ts': 'export const zero = 0;\nexport const one = 1;\n' },
+      files: {
+        'src/total.ts': 'export const zero = 0;\nexport const one = 1;\n',
+        'src/count.ts': 'export const none = 0;\nexport const some = 1;\n',
+      },
     },
     {
       message: 'Add two',
       files: {
         'src/total.ts': 'export const zero = 0;\nexport const one = 1;\nexport const two = 2;\n',
+        'src/count.ts': 'export const none = 0;\nexport const some = 1;\n',
       },
     },
   ]);
@@ -1232,13 +1245,49 @@ test('it reviews a pull request from the head of its last review', async () => {
     headSha: repo.commits[2] ?? '',
   });
 
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/total.ts',
+    patch: '@@ -1 +1,3 @@\n export const zero = 0;\n+export const one = 1;\n+export const two = 2;',
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/count.ts',
+    patch: '@@ -1 +1,2 @@\n export const none = 0;\n+export const some = 1;',
+  });
+
+  // the key the review of the head before the 1-line commit wrote
+  const key = buildNetChangeKey({
+    head: repo.commits[1] ?? '',
+    isWhole: true,
+    files: [
+      {
+        filename: 'src/total.ts',
+        status: 'modified',
+        sha: null,
+        patch: '@@ -1 +1,2 @@\n export const zero = 0;\n+export const one = 1;',
+      },
+      {
+        filename: 'src/count.ts',
+        status: 'modified',
+        sha: null,
+        patch: '@@ -1 +1,2 @@\n export const none = 0;\n+export const some = 1;',
+      },
+    ],
+  });
+
   await githubCollections.issueComments.create({
     owner: 'example',
     repo: 'app',
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","reviews":1,"reported":[],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","key":${JSON.stringify(key)},"reviews":1,"reported":[],"failedCalls":0} -->`,
   });
 
   const stub = buildStubAdapter({
@@ -1252,7 +1301,10 @@ test('it reviews a pull request from the head of its last review', async () => {
 
   const result = reviewResultSchema.parse(JSON.parse(ctx.stdout.join('')));
 
-  expect(result.base).toBe(repo.commits[1] ?? '');
+  expect(result.base).toBe(repo.commits[0] ?? '');
+  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['light']);
+  expect(stub.requests[0]?.prompt).toInclude('+ export const two = 2;');
+  expect(stub.requests[0]?.prompt).not.toInclude('### src/count.ts');
 });
 
 test('it reads a pull request of a private repo with GH_TOKEN and no App keys', async () => {
@@ -1328,7 +1380,7 @@ test('it fails to read a pull request of a private repo with no token', async ()
   expect(ctx.stdout).toStrictEqual([]);
 });
 
-test('it reviews a pull request from the head of a summary by the App the config names, with a token', async () => {
+test('it reads a summary by the App the config names as an earlier review, with a token', async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
@@ -1383,12 +1435,10 @@ test('it reviews a pull request from the head of a summary by the App the config
     ),
   );
 
-  const result = reviewResultSchema.parse(JSON.parse(ctx.stdout.join('')));
-
-  expect(result.base).toBe(repo.commits[1] ?? '');
+  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['light']);
 });
 
-test('it reviews the whole pull request when a summary comes from another login than the App the config names', async () => {
+test('it runs a first review of a pull request when a summary comes from another login than the App the config names', async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
@@ -1432,6 +1482,7 @@ test('it reviews the whole pull request when a summary comes from another login 
 
   const stub = buildStubAdapter({
     light: [{ findings: { correctness: [] } }],
+    design: [{ findings: { design: [] } }],
   });
 
   await runCLI(
@@ -1443,9 +1494,7 @@ test('it reviews the whole pull request when a summary comes from another login 
     ),
   );
 
-  const result = reviewResultSchema.parse(JSON.parse(ctx.stdout.join('')));
-
-  expect(result.base).toBe(repo.commits[0] ?? '');
+  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['light', 'design']);
 });
 
 test('it drops a finding answered not-a-defect in a thread of the App the config names, with a token', async () => {
@@ -1638,7 +1687,7 @@ test('it reviews only the files the pull request changes after it merges its bas
 
   const result = reviewResultSchema.parse(JSON.parse(ctx.stdout.join('')));
 
-  expect(result.base).toBe(repo.commits[1] ?? '');
+  expect(result.base).toBe(repo.commits[2] ?? '');
 
   expect(result.findings.map((finding) => [finding.anchor.path, finding.title])).toStrictEqual([
     ['AGENTS.md', 'Instruction rule leaves a choice open with "consider"'],
@@ -2128,7 +2177,7 @@ test('it raises no finding again on a new head that matches a finding answered n
 
   const result = reviewResultSchema.parse(JSON.parse(ctx.stdout.join('')));
 
-  expect([result.base, result.findings]).toStrictEqual([repo.commits[1] ?? '', []]);
+  expect([result.base, result.findings]).toStrictEqual([repo.commits[0] ?? '', []]);
 
   expect(result.dropped).toStrictEqual([
     {
@@ -2336,7 +2385,7 @@ test('it reviews the whole pull request again at a head a complete review covere
   expect([result.base, result.head]).toStrictEqual([repo.commits[0] ?? '', repo.commits[1] ?? '']);
 });
 
-test('it refuses to review again the head that a review with no failed call covered', async () => {
+test('it reviews no file and refuses nothing at the head that a review with no failed call covered', async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
@@ -2369,17 +2418,92 @@ test('it refuses to review again the head that a review with no failed call cove
   const stub = buildStubAdapter({});
 
   const code = await runCLI(
-    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'github', '--json'],
+    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'json', '--json'],
     ctx.buildContext(repo.path, stub.adapter),
   );
 
-  expect(code).toBe(1);
+  const result = reviewResultSchema.parse(JSON.parse(ctx.stdout.join('')));
 
-  expect(ctx.stderr.join('')).toStartWith(
-    `noslop: a review with no failed call already covered ${(repo.commits[1] ?? '').slice(0, 12)}, the head of the pull request; push a commit to review it, or pass --full to review the whole change again`,
+  expect(code).toBe(0);
+  expect(ctx.stderr).toStrictEqual([]);
+  expect(stub.requests).toStrictEqual([]);
+  expect(result.findings).toStrictEqual([]);
+});
+
+test('it reviews nothing new and refuses nothing after a rebase that changes no file content', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
+    { message: 'Describe the app', parent: 0, files: { 'README.md': '# app\n' } },
+    {
+      message: 'Add the separator',
+      parent: 0,
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = ":";\n' },
+    },
+    {
+      message: 'Add the separator',
+      parent: 1,
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = ":";\n' },
+    },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    title: 'Add the separator',
+    body: 'Adds the separator.',
+    baseSha: repo.commits[1] ?? '',
+    headSha: repo.commits[3] ?? '',
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/scan.ts',
+    patch: '@@ -1 +1,2 @@\n export const zero = 0;\n+export const separator = ":";',
+  });
+
+  // the key the review of the head before the rebase wrote, of the same patch
+  const key = buildNetChangeKey({
+    head: repo.commits[2] ?? '',
+    isWhole: true,
+    files: [
+      {
+        filename: 'src/scan.ts',
+        status: 'modified',
+        sha: null,
+        patch: '@@ -1 +1,2 @@\n export const zero = 0;\n+export const separator = ":";',
+      },
+    ],
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${repo.commits[2] ?? ''}","key":${JSON.stringify(key)},"reviews":1,"reported":[],"failedCalls":0} -->`,
+  });
+
+  const stub = buildStubAdapter({});
+
+  const code = await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'github'],
+    ctx.buildContext(repo.path, stub.adapter),
   );
 
+  expect(code).toBe(0);
+  expect(ctx.stderr).toStrictEqual([]);
   expect(stub.requests).toStrictEqual([]);
+
+  expect(githubCollections.checkRuns.all().at(-1)).toMatchObject({
+    headSha: repo.commits[3] ?? '',
+    conclusion: 'success',
+  });
 });
 
 test('it reviews the head again after the review that covered it had a failed call', async () => {
@@ -2428,7 +2552,7 @@ test('it reviews the head again after the review that covered it had a failed ca
   expect([result.base, result.head]).toStrictEqual([repo.commits[0] ?? '', repo.commits[1] ?? '']);
 });
 
-test('it tells the calls not to judge the description when it reviews only the new commits', async () => {
+test('it tells the calls not to judge the description when it reviews only the files whose patch changed', async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
@@ -2461,13 +2585,59 @@ test('it tells the calls not to judge the description when it reviews only the n
     headSha: repo.commits[2] ?? '',
   });
 
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/parse.ts',
+    patch: '@@ -1 +1 @@\n-export const parse = 0;\n+export const parse = 1;',
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/print.ts',
+    status: 'added',
+    patch: '@@ -0,0 +1 @@\n+export const print = 1;',
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/cache.ts',
+    status: 'added',
+    patch: '@@ -0,0 +1 @@\n+export const cache = 1;',
+  });
+
+  // the key the review of the earlier head wrote, before the parser changed
+  const key = buildNetChangeKey({
+    head: repo.commits[1] ?? '',
+    isWhole: true,
+    files: [
+      {
+        filename: 'src/print.ts',
+        status: 'added',
+        sha: null,
+        patch: '@@ -0,0 +1 @@\n+export const print = 1;',
+      },
+      {
+        filename: 'src/cache.ts',
+        status: 'added',
+        sha: null,
+        patch: '@@ -0,0 +1 @@\n+export const cache = 1;',
+      },
+    ],
+  });
+
   await githubCollections.issueComments.create({
     owner: 'example',
     repo: 'app',
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","reviews":1,"reported":[],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","key":${JSON.stringify(key)},"reviews":1,"reported":[],"failedCalls":0} -->`,
   });
 
   const stub = buildStubAdapter({
@@ -2481,14 +2651,16 @@ test('it tells the calls not to judge the description when it reviews only the n
 
   const result = reviewResultSchema.parse(JSON.parse(ctx.stdout.join('')));
 
-  expect(result.base).toBe(repo.commits[1] ?? '');
+  expect(result.base).toBe(repo.commits[0] ?? '');
+  expect(stub.requests[0]?.prompt).toInclude('+ export const parse = 1;');
+  expect(stub.requests[0]?.prompt).not.toInclude('### src/print.ts');
 
   expect(stub.requests[0]?.prompt).toInclude(
     'Do not report that the title or the body misdescribes the change, names a file the change does not touch, or claims work the diff does not show.',
   );
 });
 
-test('it runs no design pass on the first review of a pull request', async () => {
+test('it runs the design pass on the first review of a pull request', async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
@@ -2516,10 +2688,10 @@ test('it runs no design pass on the first review of a pull request', async () =>
     ctx.buildContext(repo.path, stub.adapter),
   );
 
-  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['light']);
+  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['light', 'design']);
 });
 
-test('it runs the design pass on a later review over both rounds of findings, the whole diff and the body, and no linked issue', async () => {
+test('it runs the design pass on the first review over its findings, the whole diff and the body, and no linked issue', async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
@@ -2558,35 +2730,6 @@ test('it runs the design pass on a later review over both rounds of findings, th
     body: 'Text that only the issue holds.',
   });
 
-  const thread = await githubCollections.reviewComments.create({
-    owner: 'example',
-    repo: 'app',
-    number: 9,
-    path: 'src/scan.ts',
-    line: 1,
-    authorLogin: STUB_APP_LOGIN,
-    authorType: 'Bot',
-    body: `<!-- noslop:finding {"id":"a1b2c3d4e5f60718","title":"Accept a tab before the header value","path":"src/scan.ts","lens":"correctness","severity":"P2","riskClass":null,"writtenByChange":true,"head":"${repo.commits[1] ?? ''}"} -->`,
-  });
-
-  await githubCollections.reviewComments.create({
-    owner: 'example',
-    repo: 'app',
-    number: 9,
-    body: 'fixed 1a2b3c4\nThe scanner now skips a tab.',
-    authorLogin: 'dev',
-    inReplyToID: thread.id,
-  });
-
-  await githubCollections.issueComments.create({
-    owner: 'example',
-    repo: 'app',
-    number: 9,
-    authorLogin: STUB_APP_LOGIN,
-    authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","reviews":1,"reported":["a1b2c3d4e5f60718"],"failedCalls":0} -->`,
-  });
-
   const stub = buildStubAdapter({
     light: [
       {
@@ -2612,7 +2755,6 @@ test('it runs the design pass on a later review over both rounds of findings, th
       },
     ],
     design: [{ findings: { design: [] } }],
-    'fix-a1b2c3d4e5f60718': [{ fixed: true, reason: 'The scanner skips a tab now.' }],
   });
 
   await runCLI(
@@ -2626,24 +2768,17 @@ test('it runs the design pass on a later review over both rounds of findings, th
     throw new Error('the review made no design call');
   }
 
-  expect(stub.requests.map((request) => request.callID)).toStrictEqual([
-    'light',
-    'design',
-    'fix-a1b2c3d4e5f60718',
-  ]);
-
+  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['light', 'design']);
   expect(stub.requests[0]?.prompt).toInclude('Text that only the issue holds.');
   expect(design.prompt).toInclude('Title: Parse the header line\n\nParses the header line.');
   expect(design.prompt).toInclude('"title": "Accept a space before the header value"');
-  expect(design.prompt).toInclude('"title": "Accept a tab before the header value"');
-  expect(design.prompt).toInclude('"answer": "fixed 1a2b3c4"');
   expect(design.prompt).toInclude('### src/scan.ts (added)');
   expect(design.prompt).toInclude('### src/parse.ts (modified)');
   expect(design.prompt).not.toInclude('Text that only the issue holds.');
   expect(design.prompt).not.toInclude('## Linked issue');
 });
 
-test("it confirms a design finding's fix through its fix call and fails the check when the design call fails", async () => {
+test("it confirms a design finding's fix through its fix call on a later review, which runs no design call", async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
@@ -2723,7 +2858,6 @@ test("it confirms a design finding's fix through its fix call and fails the chec
 
   const stub = buildStubAdapter({
     light: [{ findings: { correctness: [] } }],
-    design: [{ error: 'the model CLI timed out' }, { error: 'the model CLI timed out' }],
     'fix-2222222222222222': [{ fixed: true, reason: 'The scanner uses the library parser now.' }],
   });
 
@@ -2736,13 +2870,16 @@ test("it confirms a design finding's fix through its fix call and fails the chec
     .all()
     .findLast((comment) => comment.body.includes('<!-- noslop:summary'));
 
-  expect(summary?.body).toInclude('"failedCalls":1');
+  expect(stub.requests.map((request) => request.callID)).toStrictEqual([
+    'light',
+    'fix-2222222222222222',
+  ]);
 
   expect(summary?.body).toInclude(
     `"confirmed":["2222222222222222:${(repo.commits[2] ?? '').slice(0, 7)}"]`,
   );
 
-  expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('failure');
+  expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('success');
 });
 
 test("it judges a design finding's fix with a fix call when the config turns the design pass off", async () => {
@@ -6780,50 +6917,6 @@ test('it runs --fixes-only after a lens review whose call failed and no lens rev
   });
 });
 
-test('it refuses a lens review of a head that a lens review covered before a fixes-only run there', async () => {
-  const ctx = await setupTest();
-
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
-    { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
-    {
-      message: 'Add the scanner',
-      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = ":";\n' },
-    },
-  ]);
-
-  await githubCollections.pullRequests.create({
-    owner: 'example',
-    repo: 'app',
-    number: 9,
-    baseSha: repo.commits[0] ?? '',
-    headSha: repo.commits[1] ?? '',
-  });
-
-  await githubCollections.issueComments.create({
-    owner: 'example',
-    repo: 'app',
-    number: 9,
-    authorLogin: STUB_APP_LOGIN,
-    authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","lensHead":"${repo.commits[1] ?? ''}","reviews":1,"reported":[],"failedCalls":0,"checked":[]} -->`,
-  });
-
-  const stub = buildStubAdapter({});
-
-  const code = await runCLI(
-    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'github'],
-    ctx.buildContext(repo.path, stub.adapter),
-  );
-
-  expect(code).toBe(1);
-
-  expect(ctx.stderr.join('')).toStartWith(
-    `noslop: a review with no failed call already covered ${(repo.commits[1] ?? '').slice(0, 12)}`,
-  );
-
-  expect(stub.requests).toStrictEqual([]);
-});
-
 test('it moves the summary head to the head a --fixes-only review read, so the check reads the current head', async () => {
   const ctx = await setupTest();
 
@@ -7030,6 +7123,212 @@ test('it judges a bare fixed reply under --fixes-only at the head, strikes the f
   );
 
   expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('success');
+});
+
+test('it makes a fix call for an open fixed reply on a normal review and strikes the finding it confirms', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
+    {
+      message: 'Add the scanner',
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = "";\n' },
+    },
+    {
+      message: 'Reject an empty separator',
+      files: { 'src/scan.ts': 'export const zero = 0;\nexport const separator = ":";\n' },
+    },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    title: 'Scan the header line',
+    body: 'Scans the header line.',
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[2] ?? '',
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/scan.ts',
+    lines: [1, 2],
+    patch: '@@ -1 +1,2 @@\n export const zero = 0;\n+export const separator = ":";',
+  });
+
+  const thread = await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/scan.ts',
+    line: 2,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `**P2 · Correctness** · Reject an empty separator\n\nAn empty separator splits the line into single characters.\n<!-- noslop:finding {"id":"1111111111111111","title":"Reject an empty separator","path":"src/scan.ts","lens":"correctness","severity":"P2","riskClass":null,"writtenByChange":true,"head":"${repo.commits[1] ?? ''}"} -->`,
+  });
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    body: 'fixed',
+    authorLogin: 'dev',
+    inReplyToID: thread.id,
+  });
+
+  // the key the first review wrote, before the fix changed the patch
+  const key = buildNetChangeKey({
+    head: repo.commits[1] ?? '',
+    isWhole: true,
+    files: [
+      {
+        filename: 'src/scan.ts',
+        status: 'modified',
+        sha: null,
+        patch: '@@ -1 +1,2 @@\n export const zero = 0;\n+export const separator = "";',
+      },
+    ],
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","key":${JSON.stringify(key)},"reviews":1,"reported":["1111111111111111"],"failedCalls":0} -->`,
+  });
+
+  const stub = buildStubAdapter({
+    light: [{ findings: { correctness: [] } }],
+    'fix-1111111111111111': [{ fixed: true, reason: 'The separator is a colon now.' }],
+  });
+
+  const code = await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'github'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  expect(code).toBe(0);
+
+  expect(stub.requests.map((request) => request.callID)).toStrictEqual([
+    'light',
+    'fix-1111111111111111',
+  ]);
+
+  expect(githubCollections.reviewComments.all()[0]?.body).toStartWith(
+    '~~**P2 · Correctness** · Reject an empty separator~~\n✅ Fixed at the head\n',
+  );
+
+  expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('success');
+});
+
+test('it lists each finding of a pull request with its state and the author of its answer', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[0] ?? '',
+  });
+
+  const findings = [
+    ['1111111111111111', 'P1', 'fixed 1a2b3c4'],
+    ['2222222222222222', 'P2', 'fixed 5d6e7f8'],
+    ['3333333333333333', 'P2', 'not-a-defect the parser trims the value first'],
+    ['4444444444444444', 'P3', 'deferred #12'],
+    ['5555555555555555', 'P3', 'accepted-risk a one-off script'],
+    ['6666666666666666', 'P2', 'I will look at this later'],
+  ];
+
+  for (const [id, severity, answer] of findings) {
+    const thread = await githubCollections.reviewComments.create({
+      owner: 'example',
+      repo: 'app',
+      number: 9,
+      path: 'src/scan.ts',
+      line: 1,
+      authorLogin: STUB_APP_LOGIN,
+      authorType: 'Bot',
+      body: `<!-- noslop:finding {"id":"${id}","title":"Reject an empty separator","path":"src/scan.ts","lens":"correctness","severity":"${severity}","riskClass":null,"writtenByChange":true} -->`,
+    });
+
+    await githubCollections.reviewComments.create({
+      owner: 'example',
+      repo: 'app',
+      number: 9,
+      body: answer,
+      authorLogin: 'dev',
+      inReplyToID: thread.id,
+    });
+  }
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${repo.commits[0] ?? ''}","reviews":1,"reported":[],"failedCalls":0,"confirmed":["1111111111111111:1a2b3c4"]} -->`,
+  });
+
+  const stub = buildStubAdapter({});
+
+  const code = await runCLI(
+    ['findings', '--pr', '9', '--repo', 'example/app', '--json'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  const list = findingListSchema.parse(JSON.parse(ctx.stdout.join('')));
+
+  expect(code).toBe(0);
+
+  expect(list).toStrictEqual({
+    findings: [
+      {
+        id: '1111111111111111',
+        path: 'src/scan.ts',
+        severity: 'P1',
+        state: 'fixed',
+        author: 'dev',
+      },
+      { id: '2222222222222222', path: 'src/scan.ts', severity: 'P2', state: 'open', author: 'dev' },
+      {
+        id: '3333333333333333',
+        path: 'src/scan.ts',
+        severity: 'P2',
+        state: 'not-a-defect',
+        author: 'dev',
+      },
+      {
+        id: '4444444444444444',
+        path: 'src/scan.ts',
+        severity: 'P3',
+        state: 'deferred',
+        author: 'dev',
+      },
+      {
+        id: '5555555555555555',
+        path: 'src/scan.ts',
+        severity: 'P3',
+        state: 'accepted-risk',
+        author: 'dev',
+      },
+      { id: '6666666666666666', path: 'src/scan.ts', severity: 'P2', state: 'open', author: null },
+    ],
+  });
+
+  expect(githubCollections.issueComments.all()).toHaveLength(1);
+  expect(githubCollections.checkRuns.all()).toStrictEqual([]);
 });
 
 test('it records an escape in the store and counts it in recall', async () => {
@@ -7411,14 +7710,17 @@ test('it reviews a pull request under the config at the tip of its base branch w
     sha: repo.commits[2] ?? '',
   });
 
-  const stub = buildStubAdapter({ light: [{ findings: { correctness: [] } }] });
+  const stub = buildStubAdapter({
+    light: [{ findings: { correctness: [] } }],
+    design: [{ findings: { design: [] } }],
+  });
 
   await runCLI(
     ['review', '--pr', '9', '--repo', 'example/app', '--report', 'json', '--json'],
     ctx.buildContext(repo.path, stub.adapter),
   );
 
-  expect(stub.requests.map((request) => request.model)).toStrictEqual(['stricter-model']);
+  expect(stub.requests.find((request) => request.callID === 'light')?.model).toBe('stricter-model');
 });
 
 test('it verifies the result of a review whose pull request has a base commit behind the tip of its base branch, with a config change between them', async () => {
@@ -8632,7 +8934,7 @@ test('it refuses a read-only check under a token when the base config names no A
   expect({ code, stderr: ctx.stderr.join('') }).toStrictEqual({
     code: 1,
     stderr:
-      'noslop: a read-only check trusts the comments of the App that github.app names, and the config on main names none: set github.app to the slug of the App that posts the reviews\n',
+      'noslop: a read-only command trusts the comments of the App that github.app names, and the config on main names none: set github.app to the slug of the App that posts the reviews\n',
   });
 });
 

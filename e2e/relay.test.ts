@@ -164,6 +164,7 @@ test('it carries a review from a developer machine through the relay and passes 
         },
       },
     ],
+    design: [{ findings: { design: [] } }],
   });
 
   const unreviewed = await runCLI(

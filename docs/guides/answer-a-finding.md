@@ -72,7 +72,7 @@ the reply before the push that carries the fix:
 
 1. Commit the fix on the branch.
 2. Reply `fixed`, or `fixed <sha>` with that commit's sha as a hint.
-3. Push the branch. The App reviews the new commits and runs the fix check.
+3. Push the branch. The App reviews the files whose patch the push changed and runs the fix check.
 4. Expect the finding's comment to show its heading struck through, and the check to stop listing
    the finding.
 

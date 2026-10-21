@@ -60,8 +60,7 @@ test('it reports only the first design finding when the call returns 2', async (
   const pass = await runDesignPass({
     title: 'Parse the header line',
     body: 'Parses the header line.',
-    latest: [],
-    earlier: [],
+    findings: [],
     files: [buildMockChangedFile()],
     base: 'a'.repeat(40),
     head: 'b'.repeat(40),
@@ -112,8 +111,7 @@ test('it reports the finding of a retry when the first design attempt fails', as
   const pass = await runDesignPass({
     title: 'Parse the header line',
     body: 'Parses the header line.',
-    latest: [],
-    earlier: [],
+    findings: [],
     files: [buildMockChangedFile()],
     base: 'a'.repeat(40),
     head: 'b'.repeat(40),
@@ -143,8 +141,7 @@ test('it gives the hunks of every file but a data file when they fit the call li
   await runDesignPass({
     title: 'Parse the header line',
     body: 'Parses the header line.',
-    latest: [],
-    earlier: [],
+    findings: [],
     files: [
       buildMockChangedFile({ path: 'src/a.ts' }),
       buildMockChangedFile({
@@ -192,8 +189,7 @@ test('it writes the hunks of every file but a data file to a new file in the wor
   await runDesignPass({
     title: 'Parse the header line',
     body: 'Parses the header line.',
-    latest: [],
-    earlier: [],
+    findings: [],
     files: [
       buildMockChangedFile({ path: 'src/a.ts' }),
       buildMockChangedFile({

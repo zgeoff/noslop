@@ -1,4 +1,4 @@
-import type { EarlierFinding, Finding } from '@noslop/contract';
+import type { Finding } from '@noslop/contract';
 import { formatPathCode } from '@noslop/contract';
 import type { ChangedFile } from '@noslop/static-stage';
 import { getLensPrompt } from './get-lens-prompt';
@@ -14,13 +14,7 @@ export interface DesignPromptInput {
   body: string;
 
   // the findings of this review, after the merge pass
-  latest: readonly Finding[];
-
-  // the findings the earlier reviews of the pull request posted
-  earlier: readonly EarlierFinding[];
-
-  // the files of the whole pull request since its merge base, which the pass reads in place of a
-  // re-review's new commits alone, since an approach spans every round
+  findings: readonly Finding[];
   files: readonly ChangedFile[];
   leftOut: readonly LeftOutFile[];
   base: string;
@@ -33,7 +27,7 @@ export interface DesignPromptInput {
 }
 
 // the prompt of the design pass: the shared header, the design lens, and its input, with the
-// findings as JSON, so the model reads which logic each review patched
+// findings as JSON, so the model reads which logic each finding patches
 export function buildDesignPrompt(input: DesignPromptInput): string {
   const sections = [
     getLensPrompt('shared-header').replace('{{criteria}}', renderCriteria()),
@@ -44,7 +38,7 @@ export function buildDesignPrompt(input: DesignPromptInput): string {
     renderFindings(
       '## Findings of this review',
       'This review reports no finding.',
-      input.latest.map((finding) => ({
+      input.findings.map((finding) => ({
         id: finding.id,
         lens: finding.lens,
         severity: finding.severity,
@@ -52,11 +46,6 @@ export function buildDesignPrompt(input: DesignPromptInput): string {
         body: finding.body,
         anchor: finding.anchor,
       })),
-    ),
-    renderFindings(
-      '## Findings of the earlier reviews',
-      'The earlier reviews posted no finding.',
-      input.earlier,
     ),
   ];
 

@@ -2,7 +2,7 @@
 
 - Date: 2026-10-17
 - Status: decided
-- Updated: 2026-10-20
+- Updated: 2026-10-22
 
 noslop posts as its own GitHub App. It posts each finding as an inline review comment and posts a
 required check run. The check passes only when every finding, P3 included, has a disposition, on the
@@ -23,15 +23,14 @@ A finding on a line that the pull request added or changed takes `fixed`, `not-a
 defect it exposes, a consumer in another repo, or a fix that needs another repo. For that code,
 every security finding, every risk-class finding and every P1 blocks the merge.
 
-A re-review covers only the commits since the reviewed head, and it confirms each fix as fixed or
-not fixed. There is one re-check. A new finding after it becomes a follow-up issue, unless it is a
-security finding or sits in code the pull request wrote. When the head moves, the App reviews the
-new commits.
+A re-review covers only the files whose patch changed since the last review, and it confirms each
+fix as fixed or not fixed. There is one re-check. A new finding after it becomes a follow-up issue,
+unless it is a security finding or sits in code the pull request wrote. When the head moves, the App
+reviews the files whose patch the push changed.
 
 A later review drops a new finding that matches one the author answered `not-a-defect` on the same
-pull request, so the author answers each finding once. A head that a review with no failed call
-covered gets no second review unless one is asked for in full, because that review would raise the
-whole pull request's findings again.
+pull request, so the author answers each finding once. A head whose every patch a review with no
+failed call read gets a review of no file, so a rebase raises no finding again and is never refused.
 
 ## Why
 
@@ -56,3 +55,5 @@ whole pull request's findings again.
 
 - 2026-10-20: a later review drops a finding that matches one answered `not-a-defect`, and a head
   that a complete review covered gets a second review only in full.
+- 2026-10-22: a re-review reads only the files whose patch changed since the last review, so a head
+  with no changed patch gets a review of no file in place of a refusal.

@@ -197,6 +197,49 @@ test('it keeps to the files the pull request changes since its merge base after 
   );
 });
 
+test('it keeps only the files the paths name, a rename from a named path among them, and lists no other', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/total.ts': 'export const total = 0;\n',
+        'src/count.ts':
+          'export const count = 0;\nexport const limit = 10;\nexport const step = 1;\n',
+        'bun.lock': '{}\n',
+      },
+    },
+    {
+      message: 'head',
+      files: {
+        'src/total.ts': 'export const total = 1;\n',
+        'src/count.ts': null,
+        'src/tally.ts':
+          'export const count = 0;\nexport const limit = 10;\nexport const step = 1;\n',
+        'docs/guide.md': '# Guide\n',
+        'bun.lock': '{ "lockfileVersion": 1 }\n',
+      },
+    },
+  ]);
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: repo.commits[0] ?? '',
+    head: repo.commits[1] ?? '',
+    paths: ['src/count.ts', 'docs/guide.md'],
+    config: BUILT_IN_DEFAULTS,
+  });
+
+  expect(change.files.map((file) => [file.path, file.status])).toStrictEqual([
+    ['docs/guide.md', 'added'],
+    ['src/tally.ts', 'renamed'],
+  ]);
+
+  expect(change.excluded).toStrictEqual([]);
+});
+
 test('it keeps a rename whose old path the pull request deletes when only its new path is the base branch file', async () => {
   const ctx = await setupTest();
 
