@@ -6,9 +6,7 @@ import type { SecurityEntry } from './types';
 
 export interface NamedTestClaims {
   body: string;
-
-  // the paths the change leaves out that the whole pull request changes or a merge from the base adds
-  touched: readonly string[];
+  pullRequestAndMergePaths: readonly string[];
   headPaths: readonly string[];
 }
 
@@ -192,7 +190,7 @@ function collectNamedMissingTests(
     ...files.flatMap((entry) =>
       entry.isContext ? [] : [entry.file.path, entry.file.oldPath ?? entry.file.path],
     ),
-    ...claims.touched,
+    ...claims.pullRequestAndMergePaths,
   ]);
 
   const named = [

@@ -189,7 +189,7 @@ export async function runStaticStage(options: RunStaticStageOptions): Promise<St
   const findings = [
     ...collectTestFindings(all, slices.security, {
       body: options.body,
-      touched: [
+      pullRequestAndMergePaths: [
         ...(change.baseOnly ?? [])
           .filter((file) => file.status !== 'deleted')
           .map((file) => file.path),
