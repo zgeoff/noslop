@@ -2189,3 +2189,84 @@ test("it asks nothing about a fix whose commit's diff of the finding's file pass
   expect(stub.requests).toStrictEqual([]);
   expect(result.notReviewed).toStrictEqual([{ path: 'src/scan.ts', reason: 'too-large' }]);
 });
+
+test('it judges a fix whose commit touches 300 files within the call limit', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/scan.ts':
+          "import { splitHeader } from './split';\nexport const scan = (line: string) => splitHeader(line, '');\n",
+        'src/split.ts':
+          'export function splitHeader(line: string, separator: string) {\n  return line.split(separator);\n}\n',
+      },
+    },
+    {
+      message: 'Reject an empty separator and record a fixture per header',
+      files: {
+        'src/split.ts':
+          "export function splitHeader(line: string, separator: string) {\n  if (separator === '') {\n    throw new Error('empty separator');\n  }\n  return line.split(separator);\n}\n",
+        ...Object.fromEntries(
+          Array.from({ length: 300 }, (_, index) => [
+            `data/header-${String(index).padStart(3, '0')}.txt`,
+            'name: value\n'.repeat(20),
+          ]),
+        ),
+      },
+    },
+  ]);
+
+  const stub = buildStubAdapter({
+    'fix-1111111111111111': [
+      { fixed: true, reason: 'The split helper rejects an empty separator.' },
+    ],
+  });
+
+  const result = await runFixesOnlyReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/app',
+    pullRequest: { owner: 'example', repo: 'app', number: 9 },
+    base: repo.commits[0] ?? '',
+    head: repo.commits[1] ?? '',
+    mergeBase: repo.commits[0] ?? '',
+    title: 'Scan the header line',
+    configHash: 'hash',
+    fixes: [
+      {
+        id: '1111111111111111',
+        title: 'Reject an empty separator',
+        lens: 'correctness',
+        path: 'src/scan.ts',
+        line: 2,
+        comment: 'An empty separator splits the line into single characters.',
+        postedHead: repo.commits[0] ?? '',
+        commit: repo.commits[1] ?? '',
+      },
+    ],
+    maxFileChars: 10_000,
+    maxCallChars: 60_000,
+    adapter: stub.adapter,
+    tempDir: ctx.directory,
+    logger: ctx.logger,
+    body: '',
+    staticCheck: { config: BUILT_IN_DEFAULTS, linkedIssue: null, cacheDir: null },
+  });
+
+  expect(result.fixChecks).toStrictEqual([
+    {
+      findingID: '1111111111111111',
+      fixed: true,
+      reason: 'The split helper rejects an empty separator.',
+    },
+  ]);
+
+  const prompt = stub.requests[0]?.prompt ?? '';
+
+  expect(prompt.length).toBeLessThanOrEqual(60_000);
+  expect(prompt).toInclude("### The fix commit's diff of `src/split.ts`");
+  expect(prompt).toInclude("- The fix commit's diff of `data/header-299.txt`");
+  expect(prompt).toInclude("- The pull request's net diff");
+});

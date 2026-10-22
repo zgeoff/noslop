@@ -11,6 +11,7 @@ import type {
   UnjudgedFix,
 } from '@noslop/contract';
 import type { Runner } from '@noslop/runner';
+import { runConcurrently } from '@noslop/runner';
 import { z } from 'zod';
 import type { FixCheckPromptInput, FixEvidence } from './build-fix-check-prompt';
 import { buildFixCheckPrompt } from './build-fix-check-prompt';
@@ -327,6 +328,10 @@ interface FixCommit {
   headFiles: FixPart[];
 }
 
+// a fix commit can touch hundreds of files, and a git process for each one at once runs the host out
+// of processes
+const GIT_READS_AT_ONCE = 8;
+
 // the files a `fixed <sha>` answer's commit touched, or null for a commit the repo lacks, one the
 // pull request does not hold, or a root commit, so the call reads the pull request's net diff instead
 async function readFixCommit(input: FixChecksInput, commit: string): Promise<FixCommit | null> {
@@ -363,36 +368,34 @@ async function readFixCommit(input: FixChecksInput, commit: string): Promise<Fix
       return { path: path.join('\t'), isBinary: added === '-' };
     });
 
-  const parts = await Promise.all(
-    files.map(async (file) => {
-      const diff = await readGitText(input, [
-        '--literal-pathspecs',
-        'diff',
-        '--no-color',
-        '--no-ext-diff',
-        '--no-renames',
-        parent,
-        sha,
-        '--',
-        file.path,
-      ]);
+  const parts = await runConcurrently(files, GIT_READS_AT_ONCE, async (file) => {
+    const diff = await readGitText(input, [
+      '--literal-pathspecs',
+      'diff',
+      '--no-color',
+      '--no-ext-diff',
+      '--no-renames',
+      parent,
+      sha,
+      '--',
+      file.path,
+    ]);
 
-      const head = file.isBinary
+    const head = file.isBinary
+      ? null
+      : await input.runner.run(['git', 'show', `${input.head}:${file.path}`], {
+          cwd: input.repoDir,
+        });
+
+    const commitDiff: FixPart = { kind: 'commit-diff', path: file.path, text: diff };
+
+    const headFile: FixPart | null =
+      head === null || head.exitCode !== 0
         ? null
-        : await input.runner.run(['git', 'show', `${input.head}:${file.path}`], {
-            cwd: input.repoDir,
-          });
+        : { kind: 'head-file', path: file.path, text: head.stdout.replace(/\n$/u, '') };
 
-      const commitDiff: FixPart = { kind: 'commit-diff', path: file.path, text: diff };
-
-      const headFile: FixPart | null =
-        head === null || head.exitCode !== 0
-          ? null
-          : { kind: 'head-file', path: file.path, text: head.stdout.replace(/\n$/u, '') };
-
-      return { commitDiff, headFile };
-    }),
-  );
+    return { commitDiff, headFile };
+  });
 
   return {
     commit,
