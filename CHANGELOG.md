@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.4.18](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.17...@noslop/cli@0.4.18) (2026-10-22)
+
+### Bug Fixes
+
+- **github:** retry a server error on the summary and the check run
+  ([#122](https://github.com/zgeoff/noslop/issues/122))
+  ([4fd0f25](https://github.com/zgeoff/noslop/commit/4fd0f25507f8a40731e139fa7109354f850733bc))
+- **review:** judge a fixed &lt;sha&gt; answer from its commit's files
+  ([#126](https://github.com/zgeoff/noslop/issues/126))
+  ([93945eb](https://github.com/zgeoff/noslop/commit/93945ebaa84a8a91c1a0dff13a9f07991c4d4d12))
+
 ## [0.4.17](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.16...@noslop/cli@0.4.17) (2026-10-21)
 
 ### Bug Fixes
