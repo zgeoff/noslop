@@ -5,6 +5,7 @@ import type { GitHubConnection } from './create-github-connection';
 import { readGitHubCheck } from './read-github-check';
 import type { PullRequestState } from './read-pull-request-state';
 import { readPullRequestState } from './read-pull-request-state';
+import { withServerErrorRetry } from './with-server-error-retry';
 
 export const CHECK_NAME = 'noslop';
 
@@ -33,15 +34,18 @@ export async function runGitHubCheck(
     state,
   });
 
-  await connection.client.request('POST /repos/{owner}/{repo}/check-runs', {
-    owner: pr.owner,
-    repo: pr.repo,
-    name: CHECK_NAME,
-    head_sha: state.headSha,
-    status: 'completed',
-    conclusion: outcome.conclusion,
-    output: { title: outcome.title, summary: outcome.summary || outcome.title },
-  });
+  // a second check run on one head is harmless, because GitHub shows the latest run of a name
+  await withServerErrorRetry('noslop check run', connection.retryDelaysMs, () =>
+    connection.client.request('POST /repos/{owner}/{repo}/check-runs', {
+      owner: pr.owner,
+      repo: pr.repo,
+      name: CHECK_NAME,
+      head_sha: state.headSha,
+      status: 'completed',
+      conclusion: outcome.conclusion,
+      output: { title: outcome.title, summary: outcome.summary || outcome.title },
+    }),
+  );
 
   return outcome;
 }
