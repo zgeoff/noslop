@@ -2041,7 +2041,11 @@ test("it reads the pull request's net diff when the answer names a commit the ba
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
-    { message: 'base', files: { 'src/scan.ts': 'export const separator = "";\n' } },
+    { message: 'base', files: { 'README.md': '# Header scanner\n' } },
+    {
+      message: 'Scan the header line on the base',
+      files: { 'src/scan.ts': 'export const separator = "";\n' },
+    },
     {
       message: 'Reject an empty separator',
       files: { 'src/scan.ts': 'export const separator = ":";\n' },
@@ -2057,9 +2061,9 @@ test("it reads the pull request's net diff when the answer names a commit the ba
     repoDir: repo.path,
     repo: 'example/app',
     pullRequest: { owner: 'example', repo: 'app', number: 9 },
-    base: repo.commits[0] ?? '',
-    head: repo.commits[1] ?? '',
-    mergeBase: repo.commits[0] ?? '',
+    base: repo.commits[1] ?? '',
+    head: repo.commits[2] ?? '',
+    mergeBase: repo.commits[1] ?? '',
     title: 'Scan the header line',
     configHash: 'hash',
     fixes: [
@@ -2070,8 +2074,8 @@ test("it reads the pull request's net diff when the answer names a commit the ba
         path: 'src/scan.ts',
         line: 1,
         comment: 'An empty separator splits the line into single characters.',
-        postedHead: repo.commits[1] ?? '',
-        commit: repo.commits[0] ?? '',
+        postedHead: repo.commits[2] ?? '',
+        commit: repo.commits[1] ?? '',
       },
     ],
     maxFileChars: 10_000,
