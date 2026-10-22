@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { getLogger } from '@logtape/logtape';
 import { BUILT_IN_DEFAULTS } from '@noslop/config';
 import { createRunner } from '@noslop/runner';
-import { buildStubAdapter, createTestRepo } from '@noslop/testing';
+import { buildCountingRunner, buildStubAdapter, createTestRepo } from '@noslop/testing';
 import { runFixesOnlyReview } from './run-fixes-only-review';
 
 async function setupTest() {
@@ -2269,4 +2269,61 @@ test('it judges a fix whose commit touches 300 files within the call limit', asy
   expect(prompt).toInclude("### The fix commit's diff of `src/split.ts`");
   expect(prompt).toInclude("- The fix commit's diff of `data/header-299.txt`");
   expect(prompt).toInclude("- The pull request's net diff");
+});
+
+test('it runs at most 8 git processes at once across answers that each name a large fix commit', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const separator = "";\n' } },
+    ...['alpha', 'beta', 'gamma'].map((name) => ({
+      message: `Record the ${name} header fixtures`,
+      files: Object.fromEntries(
+        Array.from({ length: 10 }, (_, index) => [
+          `data/${name}-${index}.txt`,
+          `${name}: ${index}\n`,
+        ]),
+      ),
+    })),
+  ]);
+
+  const stub = buildStubAdapter({
+    'fix-1111111111111111': [{ fixed: false, reason: 'The separator is still empty.' }],
+    'fix-2222222222222222': [{ fixed: false, reason: 'The separator is still empty.' }],
+    'fix-3333333333333333': [{ fixed: false, reason: 'The separator is still empty.' }],
+  });
+
+  const counting = buildCountingRunner(ctx.runner);
+
+  const result = await runFixesOnlyReview({
+    runner: counting.runner,
+    repoDir: repo.path,
+    repo: 'example/app',
+    pullRequest: { owner: 'example', repo: 'app', number: 9 },
+    base: repo.commits[0] ?? '',
+    head: repo.commits[3] ?? '',
+    mergeBase: repo.commits[0] ?? '',
+    title: 'Scan the header line',
+    configHash: 'hash',
+    fixes: ['1111111111111111', '2222222222222222', '3333333333333333'].map((id, index) => ({
+      id,
+      title: 'Reject an empty separator',
+      lens: 'correctness',
+      path: 'src/scan.ts',
+      line: 1,
+      comment: 'An empty separator splits the line into single characters.',
+      postedHead: repo.commits[0] ?? '',
+      commit: repo.commits[index + 1] ?? '',
+    })),
+    maxFileChars: 10_000,
+    maxCallChars: 1_000_000,
+    adapter: stub.adapter,
+    tempDir: ctx.directory,
+    logger: ctx.logger,
+    body: '',
+    staticCheck: { config: BUILT_IN_DEFAULTS, linkedIssue: null, cacheDir: null },
+  });
+
+  expect(result.fixChecks).toHaveLength(3);
+  expect(counting.readPeak()).toBeLessThanOrEqual(8);
 });

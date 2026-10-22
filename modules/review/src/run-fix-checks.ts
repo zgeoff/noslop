@@ -105,8 +105,17 @@ export async function runFixChecks(input: FixChecksInput): Promise<FixChecksRun>
       ])
     : '';
 
+  const fixCommits = await readFixCommits(input);
+
   const outcomes = await Promise.all(
-    input.fixes.map((fix) => runFixCheck(input, { fix, diff, staticFindings })),
+    input.fixes.map((fix) =>
+      runFixCheck(input, {
+        fix,
+        diff,
+        staticFindings,
+        fixCommit: fix.commit === null ? null : (fixCommits.get(fix.commit) ?? null),
+      }),
+    ),
   );
 
   const tooLarge = new Set(outcomes.flatMap((outcome) => outcome.tooLargePath ?? []));
@@ -130,6 +139,131 @@ async function readGitText(input: FixChecksInput, args: readonly string[]): Prom
   return result.stdout.trim();
 }
 
+interface FixCommit {
+  // the commit as the answer names it
+  commit: string;
+
+  // its diff of each file it touched, from its first parent
+  commitDiffs: FixPart[];
+
+  // each file it touched, whole at the head, for each one the head holds as text
+  headFiles: FixPart[];
+}
+
+// one commit at a time, so the git reads of every answer share one limit, and each commit once
+async function readFixCommits(input: FixChecksInput): Promise<Map<string, FixCommit | null>> {
+  const fixCommits = new Map<string, FixCommit | null>();
+
+  for (const fix of input.fixes) {
+    if (fix.lens === 'static' || fix.commit === null || fixCommits.has(fix.commit)) {
+      continue;
+    }
+
+    const fixCommit = await readFixCommit(input, fix.commit);
+
+    fixCommits.set(fix.commit, fixCommit);
+  }
+
+  return fixCommits;
+}
+
+// a fix commit can touch hundreds of files, and a git process for each one at once runs the host out
+// of processes
+const GIT_READS_AT_ONCE = 8;
+
+// the files a `fixed <sha>` answer's commit touched, or null for a commit the repo lacks, one the
+// pull request does not hold, or a root commit, so the call reads the pull request's net diff instead
+async function readFixCommit(input: FixChecksInput, commit: string): Promise<FixCommit | null> {
+  const sha = await readCommitSha(input, `${commit}^{commit}`);
+
+  const parent = sha === null ? null : await readCommitSha(input, `${sha}^1`);
+
+  if (sha === null || parent === null) {
+    return null;
+  }
+
+  const isOnBranch = await probeAncestor(input, sha, input.head);
+  const isOnBase = await probeAncestor(input, sha, input.mergeBase);
+
+  if (!isOnBranch || isOnBase) {
+    return null;
+  }
+
+  const numstat = await readGitText(input, [
+    'diff',
+    '--numstat',
+    '-z',
+    '--no-renames',
+    parent,
+    sha,
+  ]);
+
+  const files = numstat
+    .split('\0')
+    .filter((entry) => entry !== '')
+    .map((entry) => {
+      const [added = '', , ...path] = entry.split('\t');
+
+      return { path: path.join('\t'), isBinary: added === '-' };
+    });
+
+  const parts = await runConcurrently(files, GIT_READS_AT_ONCE, async (file) => {
+    const diff = await readGitText(input, [
+      '--literal-pathspecs',
+      'diff',
+      '--no-color',
+      '--no-ext-diff',
+      '--no-renames',
+      parent,
+      sha,
+      '--',
+      file.path,
+    ]);
+
+    const head = file.isBinary
+      ? null
+      : await input.runner.run(['git', 'show', `${input.head}:${file.path}`], {
+          cwd: input.repoDir,
+        });
+
+    const commitDiff: FixPart = { kind: 'commit-diff', path: file.path, text: diff };
+
+    const headFile: FixPart | null =
+      head === null || head.exitCode !== 0
+        ? null
+        : { kind: 'head-file', path: file.path, text: head.stdout.replace(/\n$/u, '') };
+
+    return { commitDiff, headFile };
+  });
+
+  return {
+    commit,
+    commitDiffs: parts.map((part) => part.commitDiff),
+    headFiles: parts.flatMap((part) => part.headFile ?? []),
+  };
+}
+
+async function readCommitSha(input: FixChecksInput, revision: string): Promise<string | null> {
+  const result = await input.runner.run(['git', 'rev-parse', '--verify', '--quiet', revision], {
+    cwd: input.repoDir,
+  });
+
+  return result.exitCode === 0 ? result.stdout.trim() : null;
+}
+
+async function probeAncestor(
+  input: FixChecksInput,
+  commit: string,
+  descendant: string,
+): Promise<boolean> {
+  const result = await input.runner.run(
+    ['git', 'merge-base', '--is-ancestor', commit, descendant],
+    { cwd: input.repoDir },
+  );
+
+  return result.exitCode === 0;
+}
+
 interface FixCheckOutcome {
   check?: FixCheck;
   record?: CallRecord;
@@ -148,6 +282,9 @@ interface FixTarget {
 
   // the static findings the whole pull request holds at its head
   staticFindings: readonly Finding[];
+
+  // the files of the commit the answer names, or null when it names none the call can read
+  fixCommit: FixCommit | null;
 }
 
 async function runFixCheck(input: FixChecksInput, target: FixTarget): Promise<FixCheckOutcome> {
@@ -171,7 +308,7 @@ async function runFixCheck(input: FixChecksInput, target: FixTarget): Promise<Fi
 
   const code = await readHeadCode(input, fix);
 
-  const fixCommit = fix.commit === null ? null : await readFixCommit(input, fix.commit);
+  const fixCommit = target.fixCommit;
 
   const promptInput: Omit<FixCheckPromptInput, 'evidence'> = {
     title: fix.title,
@@ -315,114 +452,6 @@ async function readTracedLine(input: FixChecksInput, fix: AnsweredFix): Promise<
     hunks === null ? null : findHeadAnchor(hunks, { startLine: fix.line, endLine: fix.line });
 
   return traced?.startLine ?? null;
-}
-
-interface FixCommit {
-  // the commit as the answer names it
-  commit: string;
-
-  // its diff of each file it touched, from its first parent
-  commitDiffs: FixPart[];
-
-  // each file it touched, whole at the head, for each one the head holds as text
-  headFiles: FixPart[];
-}
-
-// a fix commit can touch hundreds of files, and a git process for each one at once runs the host out
-// of processes
-const GIT_READS_AT_ONCE = 8;
-
-// the files a `fixed <sha>` answer's commit touched, or null for a commit the repo lacks, one the
-// pull request does not hold, or a root commit, so the call reads the pull request's net diff instead
-async function readFixCommit(input: FixChecksInput, commit: string): Promise<FixCommit | null> {
-  const sha = await readCommitSha(input, `${commit}^{commit}`);
-
-  const parent = sha === null ? null : await readCommitSha(input, `${sha}^1`);
-
-  if (sha === null || parent === null) {
-    return null;
-  }
-
-  const isOnBranch = await probeAncestor(input, sha, input.head);
-  const isOnBase = await probeAncestor(input, sha, input.mergeBase);
-
-  if (!isOnBranch || isOnBase) {
-    return null;
-  }
-
-  const numstat = await readGitText(input, [
-    'diff',
-    '--numstat',
-    '-z',
-    '--no-renames',
-    parent,
-    sha,
-  ]);
-
-  const files = numstat
-    .split('\0')
-    .filter((entry) => entry !== '')
-    .map((entry) => {
-      const [added = '', , ...path] = entry.split('\t');
-
-      return { path: path.join('\t'), isBinary: added === '-' };
-    });
-
-  const parts = await runConcurrently(files, GIT_READS_AT_ONCE, async (file) => {
-    const diff = await readGitText(input, [
-      '--literal-pathspecs',
-      'diff',
-      '--no-color',
-      '--no-ext-diff',
-      '--no-renames',
-      parent,
-      sha,
-      '--',
-      file.path,
-    ]);
-
-    const head = file.isBinary
-      ? null
-      : await input.runner.run(['git', 'show', `${input.head}:${file.path}`], {
-          cwd: input.repoDir,
-        });
-
-    const commitDiff: FixPart = { kind: 'commit-diff', path: file.path, text: diff };
-
-    const headFile: FixPart | null =
-      head === null || head.exitCode !== 0
-        ? null
-        : { kind: 'head-file', path: file.path, text: head.stdout.replace(/\n$/u, '') };
-
-    return { commitDiff, headFile };
-  });
-
-  return {
-    commit,
-    commitDiffs: parts.map((part) => part.commitDiff),
-    headFiles: parts.flatMap((part) => part.headFile ?? []),
-  };
-}
-
-async function readCommitSha(input: FixChecksInput, revision: string): Promise<string | null> {
-  const result = await input.runner.run(['git', 'rev-parse', '--verify', '--quiet', revision], {
-    cwd: input.repoDir,
-  });
-
-  return result.exitCode === 0 ? result.stdout.trim() : null;
-}
-
-async function probeAncestor(
-  input: FixChecksInput,
-  commit: string,
-  descendant: string,
-): Promise<boolean> {
-  const result = await input.runner.run(
-    ['git', 'merge-base', '--is-ancestor', commit, descendant],
-    { cwd: input.repoDir },
-  );
-
-  return result.exitCode === 0;
 }
 
 // a pull request's net diff passes one file's limit long before its own files do, so the call then
