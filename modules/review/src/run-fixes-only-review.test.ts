@@ -2271,6 +2271,83 @@ test('it judges a fix whose commit touches 300 files within the call limit', asy
   expect(prompt).toInclude("- The pull request's net diff");
 });
 
+test('it gives the call the helper as the head holds it when a later commit undoes the fix', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/scan.ts':
+          "import { splitHeader } from './split';\nexport const scan = (line: string) => splitHeader(line, '');\n",
+        'src/split.ts':
+          'export function splitHeader(line: string, separator: string) {\n  return line.split(separator);\n}\n',
+      },
+    },
+    {
+      message: 'Reject an empty separator in the split helper',
+      files: {
+        'src/split.ts':
+          "export function splitHeader(line: string, separator: string) {\n  if (separator === '') {\n    throw new Error('empty separator');\n  }\n  return line.split(separator);\n}\n",
+      },
+    },
+    {
+      message: 'Drop the separator guard to split faster',
+      files: {
+        'src/split.ts':
+          'export function splitHeader(line: string, separator: string) {\n  return line.split(separator);\n}\n',
+      },
+    },
+  ]);
+
+  const stub = buildStubAdapter({
+    'fix-1111111111111111': [{ fixed: false, reason: 'A later commit removed the guard.' }],
+  });
+
+  const result = await runFixesOnlyReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/app',
+    pullRequest: { owner: 'example', repo: 'app', number: 9 },
+    base: repo.commits[0] ?? '',
+    head: repo.commits[2] ?? '',
+    mergeBase: repo.commits[0] ?? '',
+    title: 'Scan the header line',
+    configHash: 'hash',
+    fixes: [
+      {
+        id: '1111111111111111',
+        title: 'Reject an empty separator',
+        lens: 'correctness',
+        path: 'src/scan.ts',
+        line: 2,
+        comment: 'An empty separator splits the line into single characters.',
+        postedHead: repo.commits[0] ?? '',
+        commit: repo.commits[1] ?? '',
+      },
+    ],
+    maxFileChars: 10_000,
+    maxCallChars: 1_000_000,
+    adapter: stub.adapter,
+    tempDir: ctx.directory,
+    logger: ctx.logger,
+    body: '',
+    staticCheck: { config: BUILT_IN_DEFAULTS, linkedIssue: null, cacheDir: null },
+  });
+
+  expect(result.fixChecks).toStrictEqual([
+    { findingID: '1111111111111111', fixed: false, reason: 'A later commit removed the guard.' },
+  ]);
+
+  const prompt = stub.requests[0]?.prompt;
+
+  expect(prompt).toInclude("+  if (separator === '') {");
+
+  expect(prompt).toInclude(
+    '### The whole file `src/split.ts` at the head\n\n```text\nexport function splitHeader(line: string, separator: string) {\n  return line.split(separator);\n}\n```',
+  );
+});
+
 test('it runs at most 8 git processes at once across answers that each name a large fix commit', async () => {
   const ctx = await setupTest();
 
