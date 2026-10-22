@@ -357,6 +357,7 @@ function runDroppedFixChecks(
     body: options.body,
     fixes: options.fixes.answers.filter((fix) => !reported.has(fix.id)),
     maxFileChars: options.config.thresholds.maxFileChars,
+    maxCallChars: options.config.thresholds.maxCallChars,
     adapter: options.adapter,
     tempDir: options.tempDir,
     logger: options.logger,

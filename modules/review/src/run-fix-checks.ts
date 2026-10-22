@@ -12,9 +12,12 @@ import type {
 } from '@noslop/contract';
 import type { Runner } from '@noslop/runner';
 import { z } from 'zod';
+import type { FixCheckPromptInput, FixEvidence } from './build-fix-check-prompt';
 import { buildFixCheckPrompt } from './build-fix-check-prompt';
 import { checkStaticFix } from './check-static-fix';
 import { findHeadAnchor } from './find-head-anchor';
+import type { FixPart } from './format-fix-part';
+import { pickFixParts } from './pick-fix-parts';
 import { readLaterHunks } from './read-later-hunks';
 import type { StaticRecheckOptions } from './run-static-recheck';
 import { runStaticRecheck } from './run-static-recheck';
@@ -34,6 +37,9 @@ export interface AnsweredFix {
 
   // the head of the review that posted the finding, which a marker posted before the field lacks
   postedHead: string | null;
+
+  // the commit a `fixed <sha>` answer names, or null for a bare `fixed`
+  commit: string | null;
 }
 
 export interface FixChecksInput {
@@ -47,6 +53,7 @@ export interface FixChecksInput {
   body: string;
   fixes: readonly AnsweredFix[];
   maxFileChars: number;
+  maxCallChars: number;
   adapter: ReviewAdapter;
   tempDir: string;
   logger: Logger;
@@ -163,25 +170,25 @@ async function runFixCheck(input: FixChecksInput, target: FixTarget): Promise<Fi
 
   const code = await readHeadCode(input, fix);
 
-  // a pull request's net diff passes one file's limit long before its own files do, so the call then
-  // reads the diff of the finding's file alone
-  const isWholeDiff = target.diff.length <= input.maxFileChars;
+  const fixCommit = fix.commit === null ? null : await readFixCommit(input, fix.commit);
 
-  const diff = isWholeDiff
-    ? target.diff
-    : await readGitText(input, [
-        '--literal-pathspecs',
-        'diff',
-        '--no-color',
-        '--no-ext-diff',
-        '--no-renames',
-        input.mergeBase,
-        input.head,
-        '--',
-        fix.path,
-      ]);
+  const promptInput: Omit<FixCheckPromptInput, 'evidence'> = {
+    title: fix.title,
+    lens: fix.lens,
+    comment: fix.comment,
+    path: fix.path,
+    code: code.text,
+    isTraced: code.isTraced,
+    pullRequestTitle: input.title,
+    body: input.body,
+  };
 
-  if (code.text.length > input.maxFileChars || diff.length > input.maxFileChars) {
+  const evidence =
+    fixCommit === null
+      ? await readPullRequestEvidence(input, fix, target.diff)
+      : pickFixCommitEvidence(input, { fix, fixCommit, netDiff: target.diff, promptInput });
+
+  if (code.text.length > input.maxFileChars || evidence === null) {
     input.logger.warn(
       'the fix of {id} passes the file limit, so no call reads it cut and it stays unjudged',
       {
@@ -211,18 +218,7 @@ async function runFixCheck(input: FixChecksInput, target: FixTarget): Promise<Fi
     durationMs: 0,
   };
 
-  const prompt = buildFixCheckPrompt({
-    title: fix.title,
-    lens,
-    comment: fix.comment,
-    path: fix.path,
-    code: code.text,
-    isTraced: code.isTraced,
-    diff,
-    isWholeDiff,
-    pullRequestTitle: input.title,
-    body: input.body,
-  });
+  const prompt = buildFixCheckPrompt({ ...promptInput, evidence });
 
   try {
     const result = await input.adapter.runCall(
@@ -318,4 +314,168 @@ async function readTracedLine(input: FixChecksInput, fix: AnsweredFix): Promise<
     hunks === null ? null : findHeadAnchor(hunks, { startLine: fix.line, endLine: fix.line });
 
   return traced?.startLine ?? null;
+}
+
+interface FixCommit {
+  // the commit as the answer names it
+  commit: string;
+
+  // its diff of each file it touched, from its first parent
+  commitDiffs: FixPart[];
+
+  // each file it touched, whole at the head, for each one the head holds as text
+  headFiles: FixPart[];
+}
+
+// the files a `fixed <sha>` answer's commit touched, or null for a commit the repo lacks, one the
+// pull request does not hold, or a root commit, so the call reads the pull request's net diff instead
+async function readFixCommit(input: FixChecksInput, commit: string): Promise<FixCommit | null> {
+  const sha = await readCommitSha(input, `${commit}^{commit}`);
+
+  const parent = sha === null ? null : await readCommitSha(input, `${sha}^1`);
+
+  if (sha === null || parent === null) {
+    return null;
+  }
+
+  const isOnBranch = await probeAncestor(input, sha, input.head);
+  const isOnBase = await probeAncestor(input, sha, input.mergeBase);
+
+  if (!isOnBranch || isOnBase) {
+    return null;
+  }
+
+  const numstat = await readGitText(input, [
+    'diff',
+    '--numstat',
+    '-z',
+    '--no-renames',
+    parent,
+    sha,
+  ]);
+
+  const files = numstat
+    .split('\0')
+    .filter((entry) => entry !== '')
+    .map((entry) => {
+      const [added = '', , ...path] = entry.split('\t');
+
+      return { path: path.join('\t'), isBinary: added === '-' };
+    });
+
+  const parts = await Promise.all(
+    files.map(async (file) => {
+      const diff = await readGitText(input, [
+        '--literal-pathspecs',
+        'diff',
+        '--no-color',
+        '--no-ext-diff',
+        '--no-renames',
+        parent,
+        sha,
+        '--',
+        file.path,
+      ]);
+
+      const head = file.isBinary
+        ? null
+        : await input.runner.run(['git', 'show', `${input.head}:${file.path}`], {
+            cwd: input.repoDir,
+          });
+
+      const commitDiff: FixPart = { kind: 'commit-diff', path: file.path, text: diff };
+
+      const headFile: FixPart | null =
+        head === null || head.exitCode !== 0
+          ? null
+          : { kind: 'head-file', path: file.path, text: head.stdout.replace(/\n$/u, '') };
+
+      return { commitDiff, headFile };
+    }),
+  );
+
+  return {
+    commit,
+    commitDiffs: parts.map((part) => part.commitDiff),
+    headFiles: parts.flatMap((part) => part.headFile ?? []),
+  };
+}
+
+async function readCommitSha(input: FixChecksInput, revision: string): Promise<string | null> {
+  const result = await input.runner.run(['git', 'rev-parse', '--verify', '--quiet', revision], {
+    cwd: input.repoDir,
+  });
+
+  return result.exitCode === 0 ? result.stdout.trim() : null;
+}
+
+async function probeAncestor(
+  input: FixChecksInput,
+  commit: string,
+  descendant: string,
+): Promise<boolean> {
+  const result = await input.runner.run(
+    ['git', 'merge-base', '--is-ancestor', commit, descendant],
+    { cwd: input.repoDir },
+  );
+
+  return result.exitCode === 0;
+}
+
+// a pull request's net diff passes one file's limit long before its own files do, so the call then
+// reads the diff of the finding's file alone; null when that diff passes the file limit too
+async function readPullRequestEvidence(
+  input: FixChecksInput,
+  fix: AnsweredFix,
+  netDiff: string,
+): Promise<FixEvidence | null> {
+  const isWholeDiff = netDiff.length <= input.maxFileChars;
+
+  const diff = isWholeDiff
+    ? netDiff
+    : await readGitText(input, [
+        '--literal-pathspecs',
+        'diff',
+        '--no-color',
+        '--no-ext-diff',
+        '--no-renames',
+        input.mergeBase,
+        input.head,
+        '--',
+        fix.path,
+      ]);
+
+  return diff.length > input.maxFileChars ? null : { kind: 'pull-request', diff, isWholeDiff };
+}
+
+interface FixCommitTarget {
+  fix: AnsweredFix;
+  fixCommit: FixCommit;
+  netDiff: string;
+  promptInput: Omit<FixCheckPromptInput, 'evidence'>;
+}
+
+// the parts of the fix commit that fit the call limit, measured against a prompt that names every
+// part as left out; null when the fix commit's diff of the finding's file does not fit
+function pickFixCommitEvidence(input: FixChecksInput, target: FixCommitTarget): FixEvidence | null {
+  const netDiff: FixPart = { kind: 'net-diff', path: null, text: target.netDiff };
+  const all = [...target.fixCommit.commitDiffs, ...target.fixCommit.headFiles, netDiff];
+
+  const base = buildFixCheckPrompt({
+    ...target.promptInput,
+    evidence: { kind: 'fix-commit', commit: target.fixCommit.commit, parts: [], leftOut: all },
+  });
+
+  const picked = pickFixParts({
+    findingPath: target.fix.path,
+    commitDiffs: target.fixCommit.commitDiffs,
+    headFiles: target.fixCommit.headFiles,
+    netDiff,
+    maxFileChars: input.maxFileChars,
+    budget: input.maxCallChars - base.length,
+  });
+
+  return picked === null
+    ? null
+    : { kind: 'fix-commit', commit: target.fixCommit.commit, ...picked };
 }

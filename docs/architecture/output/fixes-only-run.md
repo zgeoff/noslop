@@ -5,23 +5,27 @@ review round. It runs whatever the pull request's history holds: a merge of the 
 squash of a lower layer, or no earlier review at all. It runs no lens over the diff, and it raises a
 finding only on what a merge commit wrote, under [the resolution check](#the-resolution-check). For
 each finding of a model lens whose latest disposition is `fixed`, it makes one small call that
-judges the finding at the pull request's head. A sha after `fixed` is only a hint, so a bare `fixed`
-gets the call too, and so does a sha that a rebase or a squash took off the branch. A finding of the
-static stage gets [its static check](#static-findings) in place of the call.
+judges the finding at the pull request's head. A sha after `fixed` points the call at
+[the fix commit](#the-fix-commit), but no verdict needs one, so a bare `fixed` gets the call too,
+and so does a sha that a rebase or a squash took off the branch. A finding of the static stage gets
+[its static check](#static-findings) in place of the call.
 
-The fix call reads the finding, its code at the head, the pull request's net diff from its merge
-base to the head, and the pull request's title and body as they stand when the run starts. It
-answers whether the pull request still holds the defect, with a one-line reason. A fix such as a new
-test in another file therefore gets judged on that test. A finding about the description gets judged
-on the edited title or body, since an edit to the description changes no commit. The run traces the
-finding's line from the head that posted the finding through the diff to the head: a hunk above the
-line moves it. The call then reads the code around the traced line. When the trace fails, because a
-later commit rewrote the line, the finding names no line, or the repo holds no commit of the head
-that posted it, the call reads the whole file at the head. Code that the diff deletes counts as
-moved only when the diff adds code in another file that does what the deleted code did, even
-reshaped. When the whole net diff passes the config's file limit, the call reads the diff of the
-finding's file alone, so a small file of a large pull request still gets its call. A fix whose own
-code or diff passes the file limit gets no call and no verdict, because a cut diff can hide the fix.
+With no fix commit to read, the fix call reads the finding, its code at the head, the pull request's
+net diff from its merge base to the head, and the pull request's title and body as they stand when
+the run starts. It answers whether the pull request still holds the defect, with a one-line reason.
+A fix such as a new test in another file therefore gets judged on that test. A finding about the
+description gets judged on the edited title or body, since an edit to the description changes no
+commit.
+
+The run traces the finding's line from the head that posted the finding through the diff to the
+head: a hunk above the line moves it. The call then reads the code around the traced line. When the
+trace fails, because a later commit rewrote the line, the finding names no line, or the repo holds
+no commit of the head that posted it, the call reads the whole file at the head. Code that the diff
+deletes counts as moved only when the diff adds code in another file that does what the deleted code
+did, even reshaped. When the whole net diff passes the config's file limit, the call reads the diff
+of the finding's file alone, so a small file of a large pull request still gets its call. A fix
+whose own code or diff passes the file limit gets no call and no verdict, because a cut diff can
+hide the fix.
 
 A fix with no verdict, from that file limit or from a failed call, is unjudged. The result lists it
 with the reason, and the summary shows it as not judged, never as not fixed. Its answer stays
@@ -48,6 +52,30 @@ reason. The summary marker keeps the findings the run judged fixed with its rang
 confirms no other fix, so a fix the run did not ask about stays unconfirmed, a `fixed` reply posted
 after the run included. The run keeps the count of reviews. It posts a finding comment only for a
 finding of a resolution check.
+
+## The fix commit
+
+A `fixed <sha>` answer whose commit the pull request holds gets a call that reads that commit,
+because a fix often lands in a helper or in a file that replaced the finding's file, and neither the
+code around the finding nor the diff of the finding's file shows it. Beside the finding, its code at
+the head and the description, the call reads these parts, most needed first:
+
+1. The commit's diff of the finding's file, from the commit's first parent.
+2. The commit's diff of each other file it touched.
+3. Each touched file whole at the head, the finding's file first. The call reads the head, not the
+   commit, because a later commit can undo the fix.
+4. The pull request's net diff, which shows a later commit that moved the fix.
+
+The call reads every part that fits the config's call limit. When they do not all fit, it leaves out
+the net diff first, then the largest whole files, then the largest diffs of other files. A part past
+the file limit is left out too, and a binary file has no whole copy. The prompt lists each part it
+left out, so the call counts a missing part as unread, never as a missing fix. The diff of the
+finding's file is never left out: when it passes the file limit or the call limit, the fix gets no
+call and stays unjudged. A file the commit removed has no whole copy, so its diff shows the removal
+and the files that replaced it show the fix.
+
+A commit the repo lacks, one the base already holds, and a root commit name no fix commit, so the
+call reads the net diff as for a bare `fixed`.
 
 ## Static findings
 

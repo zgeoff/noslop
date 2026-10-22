@@ -111,6 +111,7 @@ export async function runReviewCommand(values: ReviewValues, ctx: CLIContext): P
         configHash: loaded.hash,
         fixes: change.fixes,
         maxFileChars: loaded.config.thresholds.maxFileChars,
+        maxCallChars: loaded.config.thresholds.maxCallChars,
         adapter,
         tempDir,
         logger: ctx.logger,
@@ -457,6 +458,7 @@ async function readAnsweredFixes(
         line: thread.line,
         comment: thread.body.replace(/<!-- noslop:[\s\S]*?-->/u, '').trim(),
         postedHead: thread.marker.head ?? null,
+        commit: disposition.value === '' ? null : disposition.value,
       },
     ];
   });

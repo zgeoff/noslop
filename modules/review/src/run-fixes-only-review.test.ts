@@ -50,9 +50,11 @@ test('it lists the verdict of each fix check and raises no finding', async () =>
         line: 1,
         comment: 'An empty separator splits the line into single characters.',
         postedHead: null,
+        commit: null,
       },
     ],
     maxFileChars: 10_000,
+    maxCallChars: 1_000_000,
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
@@ -104,9 +106,11 @@ test('it confirms the fix of a finding about the body from the edited body, with
         line: 2,
         comment: 'The body says the scanner splits on a semicolon, but it splits on a colon.',
         postedHead: repo.commits[1] ?? '',
+        commit: null,
       },
     ],
     maxFileChars: 10_000,
+    maxCallChars: 1_000_000,
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
@@ -157,9 +161,11 @@ test('it keeps a finding about the body not fixed while the body still holds the
         line: 2,
         comment: 'The body says the scanner splits on a semicolon, but it splits on a colon.',
         postedHead: repo.commits[1] ?? '',
+        commit: null,
       },
     ],
     maxFileChars: 10_000,
+    maxCallChars: 1_000_000,
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
@@ -216,9 +222,11 @@ test("it gives the call the whole numbered file at the head and the pull request
         line: 2,
         comment: 'An empty separator splits the line into single characters.',
         postedHead: null,
+        commit: null,
       },
     ],
     maxFileChars: 10_000,
+    maxCallChars: 1_000_000,
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
@@ -286,9 +294,11 @@ test('it judges a fixed answer whose commit a rebase left off the branch at the 
         line: 1,
         comment: 'An empty separator splits the line into single characters.',
         postedHead: repo.commits[2] ?? '',
+        commit: null,
       },
     ],
     maxFileChars: 10_000,
+    maxCallChars: 1_000_000,
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
@@ -359,9 +369,11 @@ test('it judges a fixed answer whose commit a squash of the layer below replaced
         line: 2,
         comment: 'An empty separator splits the line into single characters.',
         postedHead: repo.commits[3] ?? '',
+        commit: null,
       },
     ],
     maxFileChars: 10_000,
+    maxCallChars: 1_000_000,
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
@@ -412,9 +424,11 @@ test('it judges a bare fixed answer, which names no commit, at the head', async 
         line: 1,
         comment: 'An empty separator splits the line into single characters.',
         postedHead: repo.commits[0] ?? '',
+        commit: null,
       },
     ],
     maxFileChars: 10_000,
+    maxCallChars: 1_000_000,
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
@@ -470,9 +484,11 @@ test("it traces the finding's line past the lines a later commit adds above it",
         line: 2,
         comment: 'An empty separator splits the line into single characters.',
         postedHead: repo.commits[1] ?? '',
+        commit: null,
       },
     ],
     maxFileChars: 10_000,
+    maxCallChars: 1_000_000,
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
@@ -525,9 +541,11 @@ test('it gives the call the whole file at the head when a later commit rewrote t
         line: 2,
         comment: 'An empty separator splits the line into single characters.',
         postedHead: repo.commits[1] ?? '',
+        commit: null,
       },
     ],
     maxFileChars: 10_000,
+    maxCallChars: 1_000_000,
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
@@ -574,9 +592,11 @@ test('it gives the call the whole file at the head when the repo holds no commit
         line: 2,
         comment: 'An empty separator splits the line into single characters.',
         postedHead: 'e'.repeat(40),
+        commit: null,
       },
     ],
     maxFileChars: 10_000,
+    maxCallChars: 1_000_000,
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
@@ -623,9 +643,11 @@ test("it judges a fix whose commit only adds a test in another file from that te
         line: 1,
         comment: 'No test covers the separator through the entry point.',
         postedHead: null,
+        commit: null,
       },
     ],
     maxFileChars: 10_000,
+    maxCallChars: 1_000_000,
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
@@ -689,9 +711,11 @@ test('it gives the call the net diff where a later commit moved the code and the
         comment:
           'An empty separator splits the line into single characters, and no test checks it.',
         postedHead: null,
+        commit: null,
       },
     ],
     maxFileChars: 10_000,
+    maxCallChars: 1_000_000,
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
@@ -749,9 +773,11 @@ test('it asks nothing about a fix whose file at the head passes the file limit, 
         line: 1,
         comment: 'An empty separator splits the line into single characters.',
         postedHead: null,
+        commit: null,
       },
     ],
     maxFileChars: 400,
+    maxCallChars: 1_000_000,
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
@@ -803,9 +829,11 @@ test('it asks nothing about a fix whose diff passes the file limit and names the
         line: 1,
         comment: 'An empty separator splits the line into single characters.',
         postedHead: null,
+        commit: null,
       },
     ],
     maxFileChars: 40,
+    maxCallChars: 1_000_000,
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
@@ -858,9 +886,11 @@ test("it reads the finding file's diff alone by its literal path, though the pat
         line: 1,
         comment: 'An empty separator splits the line into single characters.',
         postedHead: null,
+        commit: null,
       },
     ],
     maxFileChars: 1000,
+    maxCallChars: 1_000_000,
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
@@ -915,9 +945,11 @@ test("it gives the call the finding file's diff alone when the whole diff passes
         line: 1,
         comment: 'An empty separator splits the line into single characters.',
         postedHead: null,
+        commit: null,
       },
     ],
     maxFileChars: 1000,
+    maxCallChars: 1_000_000,
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
@@ -969,9 +1001,11 @@ test('it gives the call the diff of a fix in a file whose name git quotes', asyn
         line: 1,
         comment: 'No test covers the separator in the café locale.',
         postedHead: null,
+        commit: null,
       },
     ],
     maxFileChars: 10_000,
+    maxCallChars: 1_000_000,
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
@@ -1023,9 +1057,11 @@ test("it traces a finding in a file whose name is a glob through that one file's
         line: 1,
         comment: 'An empty separator splits the line into single characters.',
         postedHead: repo.commits[1] ?? '',
+        commit: null,
       },
     ],
     maxFileChars: 10_000,
+    maxCallChars: 1_000_000,
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
@@ -1070,9 +1106,11 @@ test('it lists no verdict and records the failed call when the call fails', asyn
         line: 1,
         comment: 'An empty separator splits the line into single characters.',
         postedHead: null,
+        commit: null,
       },
     ],
     maxFileChars: 10_000,
+    maxCallChars: 1_000_000,
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
@@ -1134,9 +1172,11 @@ test('it confirms the fix of a static finding that the static stage no longer re
         line: 4,
         comment: 'The test body holds no assertion.',
         postedHead: null,
+        commit: null,
       },
     ],
     maxFileChars: 10_000,
+    maxCallChars: 1_000_000,
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
@@ -1201,9 +1241,11 @@ test('it rejects the fix of a static finding that the static stage still reports
         line: 4,
         comment: 'The test body holds no assertion.',
         postedHead: null,
+        commit: null,
       },
     ],
     maxFileChars: 10_000,
+    maxCallChars: 1_000_000,
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
@@ -1265,6 +1307,7 @@ test('it judges 2 static findings with one title by their places when a fix remo
         line: 4,
         comment: 'The test body holds no assertion.',
         postedHead: repo.commits[1] ?? '',
+        commit: null,
       },
       {
         id: '280596d54d2e9243',
@@ -1274,9 +1317,11 @@ test('it judges 2 static findings with one title by their places when a fix remo
         line: 8,
         comment: 'The test body holds no assertion.',
         postedHead: repo.commits[1] ?? '',
+        commit: null,
       },
     ],
     maxFileChars: 10_000,
+    maxCallChars: 1_000_000,
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
@@ -1341,9 +1386,11 @@ test('it rejects the fix of a static finding whose fix rewrites the anchored lin
         line: 4,
         comment: 'The test body holds no assertion.',
         postedHead: repo.commits[1] ?? '',
+        commit: null,
       },
     ],
     maxFileChars: 10_000,
+    maxCallChars: 1_000_000,
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
@@ -1403,9 +1450,11 @@ test('it confirms the fix of a static finding whose fix deletes the test while a
         line: 4,
         comment: 'The test body holds no assertion.',
         postedHead: repo.commits[1] ?? '',
+        commit: null,
       },
     ],
     maxFileChars: 10_000,
+    maxCallChars: 1_000_000,
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
@@ -1448,6 +1497,7 @@ test('it runs with no fixed answer to check over a commit that no lens read, and
     configHash: 'hash',
     fixes: [],
     maxFileChars: 10_000,
+    maxCallChars: 1_000_000,
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
@@ -1491,6 +1541,7 @@ test('it runs with no fixed answer to check and no commit since the last review'
     configHash: 'hash',
     fixes: [],
     maxFileChars: 10_000,
+    maxCallChars: 1_000_000,
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
@@ -1538,9 +1589,11 @@ test('it runs the fix call of a fixed answer over a merge of a branch the base d
         line: 1,
         comment: 'An empty separator splits the line into single characters.',
         postedHead: null,
+        commit: null,
       },
     ],
     maxFileChars: 10_000,
+    maxCallChars: 1_000_000,
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
@@ -1591,9 +1644,11 @@ test('it runs the fix call of a fixed answer when a merge of the base came after
         line: 1,
         comment: 'An empty separator splits the line into single characters.',
         postedHead: null,
+        commit: null,
       },
     ],
     maxFileChars: 10_000,
+    maxCallChars: 1_000_000,
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
@@ -1653,6 +1708,7 @@ test('it records a resolution past the call limit as a failed call and lists non
     configHash: 'hash',
     fixes: [],
     maxFileChars: 10_000,
+    maxCallChars: 1_000_000,
     adapter: stub.adapter,
     tempDir: ctx.directory,
     logger: ctx.logger,
@@ -1678,4 +1734,458 @@ test('it records a resolution past the call limit as a failed call and lists non
   ]);
 
   expect(result.notReviewed).toStrictEqual([]);
+});
+
+test('it confirms a fix whose commit changes only a helper, from that helper read whole, though the net diff passes the file limit', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/scan.ts':
+          "import { splitHeader } from './split';\nexport const scan = (line: string) => splitHeader(line, '');\n",
+        'src/split.ts':
+          'export function splitHeader(line: string, separator: string) {\n  return line.split(separator);\n}\n',
+      },
+    },
+    { message: 'Add the header fixtures', files: { 'data/headers.txt': 'x'.repeat(2000) } },
+    {
+      message: 'Reject an empty separator in the split helper',
+      files: {
+        'src/split.ts':
+          "export function splitHeader(line: string, separator: string) {\n  if (separator === '') {\n    throw new Error('empty separator');\n  }\n  return line.split(separator);\n}\n",
+      },
+    },
+  ]);
+
+  const stub = buildStubAdapter({
+    'fix-1111111111111111': [
+      { fixed: true, reason: 'The split helper rejects an empty separator.' },
+    ],
+  });
+
+  const fixCommit = (repo.commits[2] ?? '').slice(0, 7);
+
+  const result = await runFixesOnlyReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/app',
+    pullRequest: { owner: 'example', repo: 'app', number: 9 },
+    base: repo.commits[1] ?? '',
+    head: repo.commits[2] ?? '',
+    mergeBase: repo.commits[0] ?? '',
+    title: 'Scan the header line',
+    configHash: 'hash',
+    fixes: [
+      {
+        id: '1111111111111111',
+        title: 'Reject an empty separator',
+        lens: 'correctness',
+        path: 'src/scan.ts',
+        line: 2,
+        comment: 'An empty separator splits the line into single characters.',
+        postedHead: repo.commits[1] ?? '',
+        commit: fixCommit,
+      },
+    ],
+    maxFileChars: 1000,
+    maxCallChars: 1_000_000,
+    adapter: stub.adapter,
+    tempDir: ctx.directory,
+    logger: ctx.logger,
+    body: '',
+    staticCheck: { config: BUILT_IN_DEFAULTS, linkedIssue: null, cacheDir: null },
+  });
+
+  expect(result.fixChecks).toStrictEqual([
+    {
+      findingID: '1111111111111111',
+      fixed: true,
+      reason: 'The split helper rejects an empty separator.',
+    },
+  ]);
+
+  const prompt = stub.requests[0]?.prompt;
+
+  expect(prompt).toInclude(`## The fix commit \`${fixCommit}\``);
+  expect(prompt).toInclude("### The fix commit's diff of `src/split.ts`");
+  expect(prompt).toInclude("+  if (separator === '') {");
+
+  expect(prompt).toInclude(
+    "### The whole file `src/split.ts` at the head\n\n```text\nexport function splitHeader(line: string, separator: string) {\n  if (separator === '') {\n    throw new Error('empty separator');\n  }\n  return line.split(separator);\n}\n```",
+  );
+
+  expect(prompt).toInclude("## Left out to fit the call\n\n- The pull request's net diff\n");
+});
+
+test("it confirms a fix whose commit removes the finding's file and moves the fixed code to a new file", async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'README.md': '# Header scanner\n' } },
+    {
+      message: 'Split the header line',
+      files: {
+        'src/scan.ts': 'export function splitHeader(line: string) {\n  return line.split("");\n}\n',
+      },
+    },
+    {
+      message: 'Move the header split to its own module',
+      files: {
+        'src/scan.ts': null,
+        'src/header-split.ts':
+          'export function splitHeader(line: string) {\n  return line.split(":");\n}\n',
+      },
+    },
+  ]);
+
+  const stub = buildStubAdapter({
+    'fix-1111111111111111': [{ fixed: true, reason: 'The moved split uses a colon.' }],
+  });
+
+  const result = await runFixesOnlyReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/app',
+    pullRequest: { owner: 'example', repo: 'app', number: 9 },
+    base: repo.commits[1] ?? '',
+    head: repo.commits[2] ?? '',
+    mergeBase: repo.commits[0] ?? '',
+    title: 'Split the header line',
+    configHash: 'hash',
+    fixes: [
+      {
+        id: '1111111111111111',
+        title: 'Reject an empty separator',
+        lens: 'correctness',
+        path: 'src/scan.ts',
+        line: 2,
+        comment: 'An empty separator splits the line into single characters.',
+        postedHead: repo.commits[1] ?? '',
+        commit: repo.commits[2] ?? '',
+      },
+    ],
+    maxFileChars: 10_000,
+    maxCallChars: 1_000_000,
+    adapter: stub.adapter,
+    tempDir: ctx.directory,
+    logger: ctx.logger,
+    body: '',
+    staticCheck: { config: BUILT_IN_DEFAULTS, linkedIssue: null, cacheDir: null },
+  });
+
+  expect(result.fixChecks).toStrictEqual([
+    { findingID: '1111111111111111', fixed: true, reason: 'The moved split uses a colon.' },
+  ]);
+
+  const prompt = stub.requests[0]?.prompt;
+
+  expect(prompt).toInclude('(the file is empty or absent at the head)');
+  expect(prompt).toInclude("### The fix commit's diff of `src/scan.ts`");
+  expect(prompt).toInclude('deleted file mode 100644');
+  expect(prompt).toInclude("### The fix commit's diff of `src/header-split.ts`");
+
+  expect(prompt).toInclude(
+    '### The whole file `src/header-split.ts` at the head\n\n```text\nexport function splitHeader(line: string) {\n  return line.split(":");\n}\n```',
+  );
+
+  expect(prompt).not.toInclude('### The whole file `src/scan.ts` at the head');
+});
+
+test('it keeps a fix not fixed when its commit changes no code the defect runs through', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'README.md': '# Header scanner\n' } },
+    {
+      message: 'Split the header line',
+      files: {
+        'src/scan.ts': 'export function splitHeader(line: string) {\n  return line.split("");\n}\n',
+      },
+    },
+    {
+      message: 'Describe the scanner',
+      files: { 'README.md': '# Header scanner\n\nSplits lines.\n' },
+    },
+  ]);
+
+  const stub = buildStubAdapter({
+    'fix-1111111111111111': [{ fixed: false, reason: 'The commit changes only the readme.' }],
+  });
+
+  const result = await runFixesOnlyReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/app',
+    pullRequest: { owner: 'example', repo: 'app', number: 9 },
+    base: repo.commits[1] ?? '',
+    head: repo.commits[2] ?? '',
+    mergeBase: repo.commits[0] ?? '',
+    title: 'Split the header line',
+    configHash: 'hash',
+    fixes: [
+      {
+        id: '1111111111111111',
+        title: 'Reject an empty separator',
+        lens: 'correctness',
+        path: 'src/scan.ts',
+        line: 2,
+        comment: 'An empty separator splits the line into single characters.',
+        postedHead: repo.commits[1] ?? '',
+        commit: repo.commits[2] ?? '',
+      },
+    ],
+    maxFileChars: 10_000,
+    maxCallChars: 1_000_000,
+    adapter: stub.adapter,
+    tempDir: ctx.directory,
+    logger: ctx.logger,
+    body: '',
+    staticCheck: { config: BUILT_IN_DEFAULTS, linkedIssue: null, cacheDir: null },
+  });
+
+  expect(result.fixChecks).toStrictEqual([
+    { findingID: '1111111111111111', fixed: false, reason: 'The commit changes only the readme.' },
+  ]);
+
+  const prompt = stub.requests[0]?.prompt;
+
+  expect(prompt).toInclude('2:   return line.split("");');
+  expect(prompt).toInclude("### The fix commit's diff of `README.md`");
+  expect(prompt).not.toInclude("### The fix commit's diff of `src/scan.ts`");
+});
+
+test('it keeps the call within the call limit for a large fix commit and names the parts it leaves out', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/scan.ts':
+          "import { splitHeader } from './split';\nexport const scan = (line: string) => splitHeader(line, '');\n",
+        'src/split.ts':
+          'export function splitHeader(line: string, separator: string) {\n  return line.split(separator);\n}\n',
+      },
+    },
+    {
+      message: 'Reject an empty separator and record the header fixtures',
+      files: {
+        'src/split.ts':
+          "export function splitHeader(line: string, separator: string) {\n  if (separator === '') {\n    throw new Error('empty separator');\n  }\n  return line.split(separator);\n}\n",
+        'data/headers.txt': 'name: value\n'.repeat(250),
+      },
+    },
+  ]);
+
+  const stub = buildStubAdapter({
+    'fix-1111111111111111': [
+      { fixed: true, reason: 'The split helper rejects an empty separator.' },
+    ],
+  });
+
+  const result = await runFixesOnlyReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/app',
+    pullRequest: { owner: 'example', repo: 'app', number: 9 },
+    base: repo.commits[0] ?? '',
+    head: repo.commits[1] ?? '',
+    mergeBase: repo.commits[0] ?? '',
+    title: 'Scan the header line',
+    configHash: 'hash',
+    fixes: [
+      {
+        id: '1111111111111111',
+        title: 'Reject an empty separator',
+        lens: 'correctness',
+        path: 'src/scan.ts',
+        line: 2,
+        comment: 'An empty separator splits the line into single characters.',
+        postedHead: repo.commits[0] ?? '',
+        commit: repo.commits[1] ?? '',
+      },
+    ],
+    maxFileChars: 10_000,
+    maxCallChars: 9000,
+    adapter: stub.adapter,
+    tempDir: ctx.directory,
+    logger: ctx.logger,
+    body: '',
+    staticCheck: { config: BUILT_IN_DEFAULTS, linkedIssue: null, cacheDir: null },
+  });
+
+  expect(result.fixChecks).toStrictEqual([
+    {
+      findingID: '1111111111111111',
+      fixed: true,
+      reason: 'The split helper rejects an empty separator.',
+    },
+  ]);
+
+  const prompt = stub.requests[0]?.prompt ?? '';
+
+  expect(prompt.length).toBeLessThanOrEqual(9000);
+  expect(prompt).toInclude("### The fix commit's diff of `src/split.ts`");
+  expect(prompt).toInclude('### The whole file `src/split.ts` at the head');
+  expect(prompt).toInclude("### The fix commit's diff of `data/headers.txt`");
+
+  expect(prompt).toInclude(
+    "## Left out to fit the call\n\n- The whole file `data/headers.txt` at the head\n- The pull request's net diff\n",
+  );
+});
+
+test("it reads the pull request's net diff when the answer names a commit the base already holds", async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const separator = "";\n' } },
+    {
+      message: 'Reject an empty separator',
+      files: { 'src/scan.ts': 'export const separator = ":";\n' },
+    },
+  ]);
+
+  const stub = buildStubAdapter({
+    'fix-1111111111111111': [{ fixed: true, reason: 'The separator is a colon now.' }],
+  });
+
+  await runFixesOnlyReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/app',
+    pullRequest: { owner: 'example', repo: 'app', number: 9 },
+    base: repo.commits[0] ?? '',
+    head: repo.commits[1] ?? '',
+    mergeBase: repo.commits[0] ?? '',
+    title: 'Scan the header line',
+    configHash: 'hash',
+    fixes: [
+      {
+        id: '1111111111111111',
+        title: 'Reject an empty separator',
+        lens: 'correctness',
+        path: 'src/scan.ts',
+        line: 1,
+        comment: 'An empty separator splits the line into single characters.',
+        postedHead: repo.commits[1] ?? '',
+        commit: repo.commits[0] ?? '',
+      },
+    ],
+    maxFileChars: 10_000,
+    maxCallChars: 1_000_000,
+    adapter: stub.adapter,
+    tempDir: ctx.directory,
+    logger: ctx.logger,
+    body: '',
+    staticCheck: { config: BUILT_IN_DEFAULTS, linkedIssue: null, cacheDir: null },
+  });
+
+  const prompt = stub.requests[0]?.prompt;
+
+  expect(prompt).toInclude("## The pull request's diff\n");
+  expect(prompt).not.toInclude('## The fix commit');
+});
+
+test("it reads the pull request's net diff when the answer names a commit the repo lacks", async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const separator = "";\n' } },
+    {
+      message: 'Reject an empty separator',
+      files: { 'src/scan.ts': 'export const separator = ":";\n' },
+    },
+  ]);
+
+  const stub = buildStubAdapter({
+    'fix-1111111111111111': [{ fixed: true, reason: 'The separator is a colon now.' }],
+  });
+
+  await runFixesOnlyReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/app',
+    pullRequest: { owner: 'example', repo: 'app', number: 9 },
+    base: repo.commits[0] ?? '',
+    head: repo.commits[1] ?? '',
+    mergeBase: repo.commits[0] ?? '',
+    title: 'Scan the header line',
+    configHash: 'hash',
+    fixes: [
+      {
+        id: '1111111111111111',
+        title: 'Reject an empty separator',
+        lens: 'correctness',
+        path: 'src/scan.ts',
+        line: 1,
+        comment: 'An empty separator splits the line into single characters.',
+        postedHead: repo.commits[1] ?? '',
+        commit: 'f'.repeat(40),
+      },
+    ],
+    maxFileChars: 10_000,
+    maxCallChars: 1_000_000,
+    adapter: stub.adapter,
+    tempDir: ctx.directory,
+    logger: ctx.logger,
+    body: '',
+    staticCheck: { config: BUILT_IN_DEFAULTS, linkedIssue: null, cacheDir: null },
+  });
+
+  const prompt = stub.requests[0]?.prompt;
+
+  expect(prompt).toInclude("## The pull request's diff\n");
+  expect(prompt).not.toInclude('## The fix commit');
+});
+
+test("it asks nothing about a fix whose commit's diff of the finding's file passes the file limit", async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const separator = "";\n' } },
+    {
+      message: 'Reject an empty separator and list the known headers',
+      files: {
+        'src/scan.ts': `export const separator = ":";\nexport const headers = ${JSON.stringify('name,'.repeat(200))};\n`,
+      },
+    },
+  ]);
+
+  const stub = buildStubAdapter({});
+
+  const result = await runFixesOnlyReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/app',
+    pullRequest: { owner: 'example', repo: 'app', number: 9 },
+    base: repo.commits[0] ?? '',
+    head: repo.commits[1] ?? '',
+    mergeBase: repo.commits[0] ?? '',
+    title: 'Scan the header line',
+    configHash: 'hash',
+    fixes: [
+      {
+        id: '1111111111111111',
+        title: 'Reject an empty separator',
+        lens: 'correctness',
+        path: 'src/scan.ts',
+        line: 1,
+        comment: 'An empty separator splits the line into single characters.',
+        postedHead: repo.commits[1] ?? '',
+        commit: repo.commits[1] ?? '',
+      },
+    ],
+    maxFileChars: 1100,
+    maxCallChars: 1_000_000,
+    adapter: stub.adapter,
+    tempDir: ctx.directory,
+    logger: ctx.logger,
+    body: '',
+    staticCheck: { config: BUILT_IN_DEFAULTS, linkedIssue: null, cacheDir: null },
+  });
+
+  expect(stub.requests).toStrictEqual([]);
+  expect(result.notReviewed).toStrictEqual([{ path: 'src/scan.ts', reason: 'too-large' }]);
 });

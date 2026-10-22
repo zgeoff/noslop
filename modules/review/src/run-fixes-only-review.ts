@@ -27,6 +27,7 @@ export interface FixesOnlyReviewInput {
   configHash: string;
   fixes: readonly AnsweredFix[];
   maxFileChars: number;
+  maxCallChars: number;
   adapter: ReviewAdapter;
   tempDir: string;
   logger: Logger;
@@ -56,6 +57,7 @@ export async function runFixesOnlyReview(input: FixesOnlyReviewInput): Promise<R
     body: input.body,
     fixes: input.fixes,
     maxFileChars: input.maxFileChars,
+    maxCallChars: input.maxCallChars,
     adapter: input.adapter,
     tempDir: input.tempDir,
     logger: input.logger,

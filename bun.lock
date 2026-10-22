@@ -214,6 +214,7 @@
         "@noslop/routing": "workspace:*",
         "@noslop/runner": "workspace:*",
         "@noslop/static-stage": "workspace:*",
+        "ts-pattern": "catalog:",
         "zod": "catalog:",
       },
       "devDependencies": {
