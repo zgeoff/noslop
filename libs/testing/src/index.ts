@@ -9,6 +9,7 @@ export * from './build-stub-app-key';
 export * from './build-stub-private-repo';
 export * from './create-stub-reply-during-write';
 export * from './build-stub-runner';
+export * from './build-stub-sleep';
 export * from './create-stub-cli';
 export * from './create-test-repo';
 export * from './github-collections';

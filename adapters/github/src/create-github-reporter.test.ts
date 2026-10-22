@@ -18,12 +18,14 @@ import { runGitHubCheck } from './run-github-check';
 
 function setupTest() {
   const privateKey = buildStubAppKey();
+  const sleep = mock((delayMs: number) => Promise.resolve(delayMs));
 
   const reporter = createGitHubReporter({
-    loadConnection: () => createGitHubConnection({ appID: 1, privateKey, installationID: 7 }),
+    loadConnection: () =>
+      createGitHubConnection({ appID: 1, privateKey, installationID: 7 }, null, sleep),
   });
 
-  return { reporter, logger: getLogger(['test']) };
+  return { reporter, sleep, logger: getLogger(['test']) };
 }
 
 test('it posts a review with an inline comment per finding, the summary, and a failing check', async () => {
@@ -1010,10 +1012,12 @@ test('it runs a queued post of a pull request after the post before it fails at 
   });
 
   githubServer.use(
-    http.post(
-      `${GITHUB_API_URL}/repos/:owner/:repo/issues/:number/comments`,
-      () => new HttpResponse(null, { status: 500 }),
-      { once: true },
+    ...Array.from({ length: 4 }, () =>
+      http.post(
+        `${GITHUB_API_URL}/repos/:owner/:repo/issues/:number/comments`,
+        () => new HttpResponse(null, { status: 500 }),
+        { once: true },
+      ),
     ),
   );
 
@@ -1038,7 +1042,11 @@ test('it runs a queued post of a pull request after the post before it fails at 
 
   const summaries = githubCollections.issueComments.all().map((comment) => comment.body);
 
-  expect(failed).toMatchObject({ status: 'rejected', reason: { status: 500 } });
+  expect(failed).toMatchObject({
+    status: 'rejected',
+    reason: { message: 'GitHub answered the summary comment with 500 on all 4 attempts' },
+  });
+
   expect(queued).toStrictEqual({ status: 'fulfilled', value: undefined });
   expect(summaries).toHaveLength(1);
   expect(summaries[0]).toInclude('"reviews":1,"reviewIDs":["review-b"]');
@@ -1055,10 +1063,12 @@ test('it keeps a later summary and its check when an earlier review that failed 
   });
 
   githubServer.use(
-    http.post(
-      `${GITHUB_API_URL}/repos/:owner/:repo/issues/:number/comments`,
-      () => new HttpResponse(null, { status: 500 }),
-      { once: true },
+    ...Array.from({ length: 4 }, () =>
+      http.post(
+        `${GITHUB_API_URL}/repos/:owner/:repo/issues/:number/comments`,
+        () => new HttpResponse(null, { status: 500 }),
+        { once: true },
+      ),
     ),
   );
 
@@ -1091,7 +1101,10 @@ test('it keeps a later summary and its check when an earlier review that failed 
 
   const summaries = githubCollections.issueComments.all().map((comment) => comment.body);
 
-  expect(failed).toMatchObject({ status: 500 });
+  expect(failed).toMatchObject({
+    message: 'GitHub answered the summary comment with 500 on all 4 attempts',
+  });
+
   expect(summaries).toHaveLength(1);
   expect(summaries[0]).toInclude('"reviews":1,"reviewIDs":["review-b"]');
   expect(summaries[0]).toInclude('"failedCalls":1');
@@ -1229,10 +1242,12 @@ test('it files a follow-up issue once when a post that opened it fails at the su
   }
 
   githubServer.use(
-    http.patch(
-      `${GITHUB_API_URL}/repos/:owner/:repo/issues/comments/:commentID`,
-      () => new HttpResponse(null, { status: 500 }),
-      { once: true },
+    ...Array.from({ length: 4 }, () =>
+      http.patch(
+        `${GITHUB_API_URL}/repos/:owner/:repo/issues/comments/:commentID`,
+        () => new HttpResponse(null, { status: 500 }),
+        { once: true },
+      ),
     ),
   );
 
@@ -1260,7 +1275,10 @@ test('it files a follow-up issue once when a post that opened it fails at the su
 
   await ctx.reporter.report(result, { logger: ctx.logger, options: {}, failedReporters: [] });
 
-  expect(failed).toMatchObject({ status: 500 });
+  expect(failed).toMatchObject({
+    message: 'GitHub answered the summary comment with 500 on all 4 attempts',
+  });
+
   expect(filedBeforeRetry).toStrictEqual(['Close the old file']);
 
   expect(githubCollections.issues.all().map((issue) => issue.title)).toStrictEqual([
@@ -2770,4 +2788,315 @@ test('it keeps the key of the last lens review when a fixes-only run moves the k
   expect(state.summary?.marker.key).not.toStrictEqual({
     files: { 'src/a.ts': '1111111111111111' },
   });
+});
+
+test('it posts the summary and the check run when GitHub answers the first summary post with 500', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'b'.repeat(40),
+  });
+
+  githubServer.use(
+    http.post(
+      `${GITHUB_API_URL}/repos/:owner/:repo/issues/:number/comments`,
+      () => new HttpResponse(JSON.stringify({ message: 'Server Error' }), { status: 500 }),
+      { once: true },
+    ),
+  );
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'b'.repeat(40),
+      findings: [],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const summaries = githubCollections.issueComments.all().map((comment) => comment.body);
+
+  expect(summaries).toHaveLength(1);
+  expect(summaries[0]).toStartWith('### noslop');
+
+  expect(githubCollections.checkRuns.all()).toMatchObject([
+    { name: 'noslop', headSha: 'b'.repeat(40), conclusion: 'success' },
+  ]);
+});
+
+test('it fails the post and names the summary comment when GitHub answers 500 on 4 attempts 1, 2 and 4 seconds apart', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'b'.repeat(40),
+  });
+
+  const answer = mock(
+    () => new HttpResponse(JSON.stringify({ message: 'Server Error' }), { status: 500 }),
+  );
+
+  githubServer.use(
+    http.post(`${GITHUB_API_URL}/repos/:owner/:repo/issues/:number/comments`, answer),
+  );
+
+  const failed = await ctx.reporter
+    .report(
+      buildMockReviewResult({
+        pullRequest: { owner: 'example', repo: 'app', number: 5 },
+        head: 'b'.repeat(40),
+        findings: [],
+      }),
+      { logger: ctx.logger, options: {}, failedReporters: [] },
+    )
+    .then(
+      () => null,
+      (error: unknown) => error,
+    );
+
+  expect(failed).toMatchObject({
+    message: 'GitHub answered the summary comment with 500 on all 4 attempts',
+    cause: { status: 500 },
+  });
+
+  expect(answer).toHaveBeenCalledTimes(4);
+  expect(ctx.sleep.mock.calls).toStrictEqual([[1000], [2000], [4000]]);
+  expect(githubCollections.issueComments.all()).toStrictEqual([]);
+  expect(githubCollections.checkRuns.all()).toStrictEqual([]);
+});
+
+test('it sends a summary post that GitHub refuses with 403 once, with no retry', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'b'.repeat(40),
+  });
+
+  const refuse = mock(
+    () =>
+      new HttpResponse(JSON.stringify({ message: 'You have exceeded a secondary rate limit' }), {
+        status: 403,
+      }),
+  );
+
+  githubServer.use(
+    http.post(`${GITHUB_API_URL}/repos/:owner/:repo/issues/:number/comments`, refuse),
+  );
+
+  const failed = await ctx.reporter
+    .report(
+      buildMockReviewResult({
+        pullRequest: { owner: 'example', repo: 'app', number: 5 },
+        head: 'b'.repeat(40),
+        findings: [],
+      }),
+      { logger: ctx.logger, options: {}, failedReporters: [] },
+    )
+    .then(
+      () => null,
+      (error: unknown) => error,
+    );
+
+  expect(failed).toMatchObject({ status: 403 });
+  expect(refuse).toHaveBeenCalledOnce();
+  expect(ctx.sleep).not.toHaveBeenCalled();
+});
+
+test('it edits the summary when GitHub answers the first edit of a later review with 500', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'c'.repeat(40),
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      reviewID: 'review-b',
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'b'.repeat(40),
+      findings: [],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  githubServer.use(
+    http.patch(
+      `${GITHUB_API_URL}/repos/:owner/:repo/issues/comments/:commentID`,
+      () => new HttpResponse(null, { status: 502 }),
+      { once: true },
+    ),
+  );
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      reviewID: 'review-c',
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'c'.repeat(40),
+      findings: [],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const summaries = githubCollections.issueComments.all().map((comment) => comment.body);
+
+  expect(summaries).toHaveLength(1);
+  expect(summaries[0]).toInclude('"reviewIDs":["review-b","review-c"]');
+  expect(githubCollections.checkRuns.all()).toHaveLength(2);
+});
+
+test('it sets the check run when GitHub answers the first check run post with 500', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'b'.repeat(40),
+  });
+
+  githubServer.use(
+    http.post(
+      `${GITHUB_API_URL}/repos/:owner/:repo/check-runs`,
+      () => new HttpResponse(null, { status: 500 }),
+      { once: true },
+    ),
+  );
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'b'.repeat(40),
+      findings: [],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  expect(githubCollections.checkRuns.all()).toMatchObject([
+    { name: 'noslop', headSha: 'b'.repeat(40), conclusion: 'success' },
+  ]);
+
+  expect(ctx.sleep.mock.calls).toStrictEqual([[1000]]);
+});
+
+test('it fails the post and names the check run when GitHub answers 500 on every attempt', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'b'.repeat(40),
+  });
+
+  githubServer.use(
+    http.post(
+      `${GITHUB_API_URL}/repos/:owner/:repo/check-runs`,
+      () => new HttpResponse(null, { status: 500 }),
+    ),
+  );
+
+  const result = buildMockReviewResult({
+    pullRequest: { owner: 'example', repo: 'app', number: 5 },
+    head: 'b'.repeat(40),
+    findings: [],
+  });
+
+  expect(
+    ctx.reporter.report(result, { logger: ctx.logger, options: {}, failedReporters: [] }),
+  ).rejects.toThrowWithMessage(
+    Error,
+    'GitHub answered the noslop check run with 500 on all 4 attempts',
+  );
+});
+
+test("it strikes a fixed finding's comment when GitHub answers the first edit with 500", async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'c'.repeat(40),
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    sha: 'b'.repeat(40),
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    sha: 'c'.repeat(40),
+    files: ['src/a.ts'],
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/a.ts',
+    lines: [1],
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'b'.repeat(40),
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const [thread] = githubCollections.reviewComments.all();
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    body: `fixed ${'c'.repeat(7)}`,
+    authorLogin: 'dev',
+    inReplyToID: thread?.id ?? null,
+  });
+
+  githubServer.use(
+    http.patch(
+      `${GITHUB_API_URL}/repos/:owner/:repo/pulls/comments/:commentID`,
+      () => new HttpResponse(null, { status: 503 }),
+      { once: true },
+    ),
+  );
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      base: 'b'.repeat(40),
+      head: 'c'.repeat(40),
+      findings: [],
+      fixChecks: [
+        { findingID: '1111111111111111', fixed: true, reason: 'The total counts every item.' },
+      ],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const struck = githubCollections.reviewComments.findFirst((query) =>
+    query.where({ id: thread?.id ?? -1 }),
+  );
+
+  expect(struck?.body).toStartWith('~~**P2 · Correctness** · Return the total of every item~~');
 });

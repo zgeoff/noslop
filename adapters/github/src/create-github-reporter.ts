@@ -28,6 +28,7 @@ import { readPullRequestState } from './read-pull-request-state';
 import { readThreadDispositions } from './read-thread-dispositions';
 import { runGitHubCheck } from './run-github-check';
 import type { SummaryMarker } from './summary-marker';
+import { withServerErrorRetry } from './with-server-error-retry';
 
 export interface GitHubReporterOptions {
   loadConnection: () => Promise<GitHubConnection>;
@@ -165,7 +166,7 @@ async function runReviewPost(
     }
   }
 
-  await updateFixedComments(client, pr, before.threads, confirmations);
+  await updateFixedComments(connection, pr, before.threads, confirmations);
 
   const after = await readPullRequestState(connection, pr);
 
@@ -194,7 +195,7 @@ async function runReviewPost(
   };
 
   await writeSummaryComment(
-    client,
+    connection,
     pr,
     before,
     formatSummaryComment(result, marker, { confirmations, posted: before.threads.length }, links),
@@ -386,7 +387,7 @@ async function createFollowUpIssue(
 // strikes the heading of each finding comment whose fix the review confirms, and restores a struck
 // comment whose fix no longer holds, around the same marker
 async function updateFixedComments(
-  client: GitHubClient,
+  connection: GitHubConnection,
   pr: PullRequestRef,
   threads: readonly FindingThread[],
   confirmations: readonly FixConfirmation[],
@@ -405,9 +406,17 @@ async function updateFixedComments(
 
     const params = { owner: pr.owner, repo: pr.repo, comment_id: thread.commentID, body };
 
-    await (thread.source === 'review'
-      ? client.request('PATCH /repos/{owner}/{repo}/pulls/comments/{comment_id}', params)
-      : client.request('PATCH /repos/{owner}/{repo}/issues/comments/{comment_id}', params));
+    await withServerErrorRetry('edit of a finding comment', connection.sleep, () =>
+      thread.source === 'review'
+        ? connection.client.request(
+            'PATCH /repos/{owner}/{repo}/pulls/comments/{comment_id}',
+            params,
+          )
+        : connection.client.request(
+            'PATCH /repos/{owner}/{repo}/issues/comments/{comment_id}',
+            params,
+          ),
+    );
   }
 }
 
@@ -483,22 +492,24 @@ function buildRunFields(
   };
 }
 
+// a summary that GitHub kept before it answered 500 leaves a second one on a retry, and a later read
+// takes the latest summary
 async function writeSummaryComment(
-  client: GitHubClient,
+  connection: GitHubConnection,
   pr: PullRequestRef,
   before: PullRequestState,
   body: string,
 ): Promise<void> {
-  if (before.summary === null) {
-    await createIssueComment(client, pr, body);
+  const summary = before.summary;
 
-    return;
-  }
-
-  await client.request('PATCH /repos/{owner}/{repo}/issues/comments/{comment_id}', {
-    owner: pr.owner,
-    repo: pr.repo,
-    comment_id: before.summary.commentID,
-    body,
-  });
+  await withServerErrorRetry('summary comment', connection.sleep, () =>
+    summary === null
+      ? createIssueComment(connection.client, pr, body)
+      : connection.client.request('PATCH /repos/{owner}/{repo}/issues/comments/{comment_id}', {
+          owner: pr.owner,
+          repo: pr.repo,
+          comment_id: summary.commentID,
+          body,
+        }),
+  );
 }

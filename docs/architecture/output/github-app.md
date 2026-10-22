@@ -107,6 +107,14 @@ it posts anything.
    and each failed call sit in a collapsed block.
 6. It sets the check run.
 
+The reporter sends the summary write, each edit of a finding comment, and the check run again when
+GitHub answers with a server error, after a wait that doubles each time and starts at the spacing
+GitHub asks for between writes. Once the waits run out, the post fails with an error that names the
+write, so the round reports a failed reporter. A response for GitHub's secondary rate limit fails
+the post with no retry, because GitHub asks for a wait of a minute or more. The reporter sends no
+other write again, because a write that GitHub saved before it failed would post a second finding
+comment or follow-up issue.
+
 ## State in markers
 
 Each comment the App posts ends with a hidden HTML comment that holds its kind and its state as
