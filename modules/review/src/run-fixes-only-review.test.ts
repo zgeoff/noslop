@@ -1891,6 +1891,7 @@ test("it confirms a fix whose commit removes the finding's file and moves the fi
   );
 
   expect(prompt).not.toInclude('### The whole file `src/scan.ts` at the head');
+  expect(prompt).toInclude('### The file `src/scan.ts`, which the head does not hold');
 });
 
 test('it keeps a fix not fixed when its commit changes no code the defect runs through', async () => {
@@ -2345,6 +2346,75 @@ test('it gives the call the helper as the head holds it when a later commit undo
 
   expect(prompt).toInclude(
     '### The whole file `src/split.ts` at the head\n\n```text\nexport function splitHeader(line: string, separator: string) {\n  return line.split(separator);\n}\n```',
+  );
+});
+
+test('it names a file the fix commit added and a later commit removed as absent at the head', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/scan.ts':
+          "export function splitHeader(line: string, separator: string) {\n  if (separator === '') {\n    throw new Error('empty separator');\n  }\n  return line.split(separator);\n}\n",
+      },
+    },
+    {
+      message: 'Test that an empty separator throws',
+      files: {
+        'src/scan.test.ts':
+          "test('it rejects an empty separator', () => {\n  expect(() => splitHeader('a:b', '')).toThrow();\n});\n",
+      },
+    },
+    { message: 'Drop the slow tests', files: { 'src/scan.test.ts': null } },
+  ]);
+
+  const stub = buildStubAdapter({
+    'fix-1111111111111111': [{ fixed: false, reason: 'A later commit removed the test.' }],
+  });
+
+  const result = await runFixesOnlyReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/app',
+    pullRequest: { owner: 'example', repo: 'app', number: 9 },
+    base: repo.commits[0] ?? '',
+    head: repo.commits[2] ?? '',
+    mergeBase: repo.commits[0] ?? '',
+    title: 'Scan the header line',
+    configHash: 'hash',
+    fixes: [
+      {
+        id: '1111111111111111',
+        title: 'Test the empty separator',
+        lens: 'tests',
+        path: 'src/scan.ts',
+        line: 2,
+        comment: 'No test covers the empty separator that `splitHeader` rejects.',
+        postedHead: repo.commits[0] ?? '',
+        commit: repo.commits[1] ?? '',
+      },
+    ],
+    maxFileChars: 10_000,
+    maxCallChars: 1_000_000,
+    adapter: stub.adapter,
+    tempDir: ctx.directory,
+    logger: ctx.logger,
+    body: '',
+    staticCheck: { config: BUILT_IN_DEFAULTS, linkedIssue: null, cacheDir: null },
+  });
+
+  expect(result.fixChecks).toStrictEqual([
+    { findingID: '1111111111111111', fixed: false, reason: 'A later commit removed the test.' },
+  ]);
+
+  const prompt = stub.requests[0]?.prompt;
+
+  expect(prompt).toInclude("+test('it rejects an empty separator', () => {");
+
+  expect(prompt).toInclude(
+    '### The file `src/scan.test.ts`, which the head does not hold\n\nA commit removed this file, so the head holds none of its code.',
   );
 });
 

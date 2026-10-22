@@ -63,7 +63,8 @@ the head and the description, the call reads these parts, most needed first:
 1. The commit's diff of the finding's file, from the commit's first parent.
 2. The commit's diff of each other file it touched.
 3. Each touched file whole at the head, the finding's file first. The call reads the head, not the
-   commit, because a later commit can undo the fix.
+   commit, because a later commit can undo the fix. A touched file the head lacks appears as absent,
+   so the call sees a test that a later commit deleted.
 4. The pull request's net diff, which shows a later commit that moved the fix.
 
 The call reads every part that fits the config's call limit. When they do not all fit, it leaves out
@@ -72,8 +73,7 @@ the file limit is left out too, and a binary file has no whole copy. The prompt 
 left out, so the call counts a missing part as unread, never as a missing fix. The diff of the
 finding's file is never left out: when it passes the file limit or the call limit, the fix gets no
 call and stays unjudged. A fix whose prompt passes the call limit before it holds any part gets no
-call either. A file the commit removed has no whole copy, so its diff shows the removal and the
-files that replaced it show the fix.
+call either. When the commit removed the finding's file, the files that replaced it show the fix.
 
 A commit the repo lacks, one the base already holds, and a root commit name no fix commit, so the
 call reads the net diff as for a bare `fixed`.

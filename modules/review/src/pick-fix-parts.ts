@@ -7,7 +7,7 @@ export interface FixPartsInput {
   // the fix commit's diff of each file it touched
   commitDiffs: readonly FixPart[];
 
-  // each file the fix commit touched, whole at the head, for each one the head holds as text
+  // each file the fix commit touched, whole at the head or as absent from it
   headFiles: readonly FixPart[];
   netDiff: FixPart;
   maxFileChars: number;

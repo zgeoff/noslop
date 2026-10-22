@@ -146,7 +146,8 @@ interface FixCommit {
   // its diff of each file it touched, from its first parent
   commitDiffs: FixPart[];
 
-  // each file it touched, whole at the head, for each one the head holds as text
+  // each file it touched, whole at the head when the head holds it as text, or as absent when the
+  // head lacks it
   headFiles: FixPart[];
 }
 
@@ -220,18 +221,9 @@ async function readFixCommit(input: FixChecksInput, commit: string): Promise<Fix
       file.path,
     ]);
 
-    const head = file.isBinary
-      ? null
-      : await input.runner.run(['git', 'show', `${input.head}:${file.path}`], {
-          cwd: input.repoDir,
-        });
-
     const commitDiff: FixPart = { kind: 'commit-diff', path: file.path, text: diff };
 
-    const headFile: FixPart | null =
-      head === null || head.exitCode !== 0
-        ? null
-        : { kind: 'head-file', path: file.path, text: head.stdout.replace(/\n$/u, '') };
+    const headFile = await readHeadFile(input, file);
 
     return { commitDiff, headFile };
   });
@@ -262,6 +254,31 @@ async function probeAncestor(
   );
 
   return result.exitCode === 0;
+}
+
+interface TouchedFile {
+  path: string;
+  isBinary: boolean;
+}
+
+// a touched file whole at the head, as absent when the head lacks it, or null for a binary file,
+// which has no text the call can read
+async function readHeadFile(input: FixChecksInput, file: TouchedFile): Promise<FixPart | null> {
+  const argv = file.isBinary
+    ? ['git', 'cat-file', '-e', `${input.head}:${file.path}`]
+    : ['git', 'show', `${input.head}:${file.path}`];
+
+  const head = await input.runner.run(argv, { cwd: input.repoDir });
+
+  if (head.exitCode !== 0) {
+    return { kind: 'absent-file', path: file.path, text: '' };
+  }
+
+  if (file.isBinary) {
+    return null;
+  }
+
+  return { kind: 'head-file', path: file.path, text: head.stdout.replace(/\n$/u, '') };
 }
 
 interface FixCheckOutcome {
