@@ -22,8 +22,13 @@ export interface FixParts {
 }
 
 // the parts a fix call reads, most needed first, with the largest part of each kind left out first;
-// null when the fix commit's diff of the finding's file does not fit
+// null when the prompt passes the budget with no part, or the fix commit's diff of the finding's
+// file does not fit
 export function pickFixParts(input: FixPartsInput): FixParts | null {
+  if (input.budget < 0) {
+    return null;
+  }
+
   const required = input.commitDiffs.filter((part) => part.path === input.findingPath);
 
   const otherDiffs = input.commitDiffs

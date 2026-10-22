@@ -93,3 +93,18 @@ test("it picks nothing when the fix commit's diff of the finding's file passes t
     }),
   ).toBeNull();
 });
+
+test("it picks nothing when the prompt passes the budget with no part, though the fix commit leaves the finding's file alone", () => {
+  expect(
+    pickFixParts({
+      findingPath: 'src/scan.ts',
+      commitDiffs: [
+        { kind: 'commit-diff', path: 'src/split.ts', text: '+  if (separator === "") throw;' },
+      ],
+      headFiles: [],
+      netDiff: { kind: 'net-diff', path: null, text: '' },
+      maxFileChars: 1000,
+      budget: -1,
+    }),
+  ).toBeNull();
+});

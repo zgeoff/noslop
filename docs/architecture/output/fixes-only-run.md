@@ -71,8 +71,9 @@ the net diff first, then the largest whole files, then the largest diffs of othe
 the file limit is left out too, and a binary file has no whole copy. The prompt lists each part it
 left out, so the call counts a missing part as unread, never as a missing fix. The diff of the
 finding's file is never left out: when it passes the file limit or the call limit, the fix gets no
-call and stays unjudged. A file the commit removed has no whole copy, so its diff shows the removal
-and the files that replaced it show the fix.
+call and stays unjudged. A fix whose prompt passes the call limit before it holds any part gets no
+call either. A file the commit removed has no whole copy, so its diff shows the removal and the
+files that replaced it show the fix.
 
 A commit the repo lacks, one the base already holds, and a root commit name no fix commit, so the
 call reads the net diff as for a bare `fixed`.
