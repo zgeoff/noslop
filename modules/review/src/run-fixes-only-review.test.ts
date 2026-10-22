@@ -2422,7 +2422,7 @@ test('it names a file the fix commit added and a later commit removed as absent 
   );
 });
 
-test('it runs at most 8 git processes at once across answers that each name a large fix commit', async () => {
+test('it runs at most 8 git processes at once across answers that name large fix commits and answers that name none', async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
@@ -2438,11 +2438,13 @@ test('it runs at most 8 git processes at once across answers that each name a la
     })),
   ]);
 
-  const stub = buildStubAdapter({
-    'fix-1111111111111111': [{ fixed: false, reason: 'The separator is still empty.' }],
-    'fix-2222222222222222': [{ fixed: false, reason: 'The separator is still empty.' }],
-    'fix-3333333333333333': [{ fixed: false, reason: 'The separator is still empty.' }],
-  });
+  const ids = Array.from({ length: 15 }, (_, index) => index.toString(16).padStart(16, 'a'));
+
+  const stub = buildStubAdapter(
+    Object.fromEntries(
+      ids.map((id) => [`fix-${id}`, [{ fixed: false, reason: 'The separator is still empty.' }]]),
+    ),
+  );
 
   const counting = buildCountingRunner(ctx.runner);
 
@@ -2456,7 +2458,7 @@ test('it runs at most 8 git processes at once across answers that each name a la
     mergeBase: repo.commits[0] ?? '',
     title: 'Scan the header line',
     configHash: 'hash',
-    fixes: ['1111111111111111', '2222222222222222', '3333333333333333'].map((id, index) => ({
+    fixes: ids.map((id, index) => ({
       id,
       title: 'Reject an empty separator',
       lens: 'correctness',
@@ -2464,7 +2466,7 @@ test('it runs at most 8 git processes at once across answers that each name a la
       line: 1,
       comment: 'An empty separator splits the line into single characters.',
       postedHead: repo.commits[0] ?? '',
-      commit: repo.commits[index + 1] ?? '',
+      commit: index < 3 ? (repo.commits[index + 1] ?? '') : null,
     })),
     maxFileChars: 10_000,
     maxCallChars: 1_000_000,
@@ -2475,6 +2477,6 @@ test('it runs at most 8 git processes at once across answers that each name a la
     staticCheck: { config: BUILT_IN_DEFAULTS, linkedIssue: null, cacheDir: null },
   });
 
-  expect(result.fixChecks).toHaveLength(3);
+  expect(result.fixChecks).toHaveLength(15);
   expect(counting.readPeak()).toBeLessThanOrEqual(8);
 });

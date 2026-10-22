@@ -11,7 +11,7 @@ import type {
   UnjudgedFix,
 } from '@noslop/contract';
 import type { Runner } from '@noslop/runner';
-import { runConcurrently } from '@noslop/runner';
+import { buildLimitedRunner } from '@noslop/runner';
 import { z } from 'zod';
 import type { FixCheckPromptInput, FixEvidence } from './build-fix-check-prompt';
 import { buildFixCheckPrompt } from './build-fix-check-prompt';
@@ -75,9 +75,15 @@ export interface FixChecksRun {
   notReviewed: NotReviewedFile[];
 }
 
+// a run can judge dozens of answers whose fix commits touch hundreds of files, and a process for each
+// read at once runs the host out of processes
+const PROCESSES_AT_ONCE = 8;
+
 // one call per `fixed` answer that judges the finding at the head, or the static stage again for a
 // static finding; a fix with no verdict, from a failed call or a file past the limit, stays unjudged
-export async function runFixChecks(input: FixChecksInput): Promise<FixChecksRun> {
+export async function runFixChecks(options: FixChecksInput): Promise<FixChecksRun> {
+  const input = { ...options, runner: buildLimitedRunner(options.runner, PROCESSES_AT_ONCE) };
+
   // the stage runs once for every static fix the run judges, and not at all for a run with none
   const hasStaticFix = input.fixes.some((fix) => fix.lens === 'static');
 
@@ -151,7 +157,7 @@ interface FixCommit {
   headFiles: FixPart[];
 }
 
-// one commit at a time, so the git reads of every answer share one limit, and each commit once
+// each commit once, however many answers name it
 async function readFixCommits(input: FixChecksInput): Promise<Map<string, FixCommit | null>> {
   const fixCommits = new Map<string, FixCommit | null>();
 
@@ -167,10 +173,6 @@ async function readFixCommits(input: FixChecksInput): Promise<Map<string, FixCom
 
   return fixCommits;
 }
-
-// a fix commit can touch hundreds of files, and a git process for each one at once runs the host out
-// of processes
-const GIT_READS_AT_ONCE = 8;
 
 // the files a `fixed <sha>` answer's commit touched, or null for a commit the repo lacks, one the
 // pull request does not hold, or a root commit, so the call reads the pull request's net diff instead
@@ -208,25 +210,27 @@ async function readFixCommit(input: FixChecksInput, commit: string): Promise<Fix
       return { path: path.join('\t'), isBinary: added === '-' };
     });
 
-  const parts = await runConcurrently(files, GIT_READS_AT_ONCE, async (file) => {
-    const diff = await readGitText(input, [
-      '--literal-pathspecs',
-      'diff',
-      '--no-color',
-      '--no-ext-diff',
-      '--no-renames',
-      parent,
-      sha,
-      '--',
-      file.path,
-    ]);
+  const parts = await Promise.all(
+    files.map(async (file) => {
+      const diff = await readGitText(input, [
+        '--literal-pathspecs',
+        'diff',
+        '--no-color',
+        '--no-ext-diff',
+        '--no-renames',
+        parent,
+        sha,
+        '--',
+        file.path,
+      ]);
 
-    const commitDiff: FixPart = { kind: 'commit-diff', path: file.path, text: diff };
+      const commitDiff: FixPart = { kind: 'commit-diff', path: file.path, text: diff };
 
-    const headFile = await readHeadFile(input, file);
+      const headFile = await readHeadFile(input, file);
 
-    return { commitDiff, headFile };
-  });
+      return { commitDiff, headFile };
+    }),
+  );
 
   return {
     commit,
