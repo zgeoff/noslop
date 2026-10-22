@@ -18,13 +18,14 @@ import { runGitHubCheck } from './run-github-check';
 
 function setupTest() {
   const privateKey = buildStubAppKey();
+  const sleep = mock((delayMs: number) => Promise.resolve(delayMs));
 
   const reporter = createGitHubReporter({
     loadConnection: () =>
-      createGitHubConnection({ appID: 1, privateKey, installationID: 7 }, null, [0, 0, 0]),
+      createGitHubConnection({ appID: 1, privateKey, installationID: 7 }, null, sleep),
   });
 
-  return { reporter, logger: getLogger(['test']) };
+  return { reporter, sleep, logger: getLogger(['test']) };
 }
 
 test('it posts a review with an inline comment per finding, the summary, and a failing check', async () => {
@@ -2826,7 +2827,7 @@ test('it posts the summary and the check run when GitHub answers the first summa
   ]);
 });
 
-test('it fails the post and names the summary comment when GitHub answers 500 on every attempt', async () => {
+test('it fails the post and names the summary comment when GitHub answers 500 on 4 attempts 1, 2 and 4 seconds apart', async () => {
   const ctx = setupTest();
 
   await githubCollections.pullRequests.create({
@@ -2836,11 +2837,12 @@ test('it fails the post and names the summary comment when GitHub answers 500 on
     headSha: 'b'.repeat(40),
   });
 
+  const answer = mock(
+    () => new HttpResponse(JSON.stringify({ message: 'Server Error' }), { status: 500 }),
+  );
+
   githubServer.use(
-    http.post(
-      `${GITHUB_API_URL}/repos/:owner/:repo/issues/:number/comments`,
-      () => new HttpResponse(JSON.stringify({ message: 'Server Error' }), { status: 500 }),
-    ),
+    http.post(`${GITHUB_API_URL}/repos/:owner/:repo/issues/:number/comments`, answer),
   );
 
   const failed = await ctx.reporter
@@ -2862,6 +2864,8 @@ test('it fails the post and names the summary comment when GitHub answers 500 on
     cause: { status: 500 },
   });
 
+  expect(answer).toHaveBeenCalledTimes(4);
+  expect(ctx.sleep.mock.calls).toStrictEqual([[1000], [2000], [4000]]);
   expect(githubCollections.issueComments.all()).toStrictEqual([]);
   expect(githubCollections.checkRuns.all()).toStrictEqual([]);
 });
@@ -2903,6 +2907,7 @@ test('it sends a summary post that GitHub refuses with 403 once, with no retry',
 
   expect(failed).toMatchObject({ status: 403 });
   expect(refuse).toHaveBeenCalledOnce();
+  expect(ctx.sleep).not.toHaveBeenCalled();
 });
 
 test('it edits the summary when GitHub answers the first edit of a later review with 500', async () => {
@@ -2980,6 +2985,8 @@ test('it sets the check run when GitHub answers the first check run post with 50
   expect(githubCollections.checkRuns.all()).toMatchObject([
     { name: 'noslop', headSha: 'b'.repeat(40), conclusion: 'success' },
   ]);
+
+  expect(ctx.sleep.mock.calls).toStrictEqual([[1000]]);
 });
 
 test('it fails the post and names the check run when GitHub answers 500 on every attempt', async () => {

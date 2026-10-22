@@ -406,7 +406,7 @@ async function updateFixedComments(
 
     const params = { owner: pr.owner, repo: pr.repo, comment_id: thread.commentID, body };
 
-    await withServerErrorRetry('edit of a finding comment', connection.retryDelaysMs, () =>
+    await withServerErrorRetry('edit of a finding comment', connection.sleep, () =>
       thread.source === 'review'
         ? connection.client.request(
             'PATCH /repos/{owner}/{repo}/pulls/comments/{comment_id}',
@@ -502,7 +502,7 @@ async function writeSummaryComment(
 ): Promise<void> {
   const summary = before.summary;
 
-  await withServerErrorRetry('summary comment', connection.retryDelaysMs, () =>
+  await withServerErrorRetry('summary comment', connection.sleep, () =>
     summary === null
       ? createIssueComment(connection.client, pr, body)
       : connection.client.request('PATCH /repos/{owner}/{repo}/issues/comments/{comment_id}', {

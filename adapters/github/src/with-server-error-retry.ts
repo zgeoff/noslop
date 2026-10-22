@@ -1,12 +1,14 @@
 // GitHub asks for at least one second between writes, so the first wait never goes under it; a 403 or
 // 429 of its secondary limits needs a wait of a minute or more, and is never retried here
-export const SERVER_ERROR_RETRY_DELAYS_MS: readonly number[] = [1000, 2000, 4000];
+const SERVER_ERROR_RETRY_DELAYS_MS: readonly number[] = [1000, 2000, 4000];
+
+export type Sleep = (delayMs: number) => Promise<unknown>;
 
 // sends a write again after each wait while GitHub answers it with a 5xx, and names the write and the
 // attempts once the waits run out
 export async function withServerErrorRetry(
   write: string,
-  delaysMs: readonly number[],
+  sleep: Sleep,
   send: () => Promise<unknown>,
 ): Promise<void> {
   let failures = 0;
@@ -23,7 +25,7 @@ export async function withServerErrorRetry(
         throw error;
       }
 
-      const delayMs = delaysMs[failures];
+      const delayMs = SERVER_ERROR_RETRY_DELAYS_MS[failures];
 
       failures += 1;
 
@@ -33,7 +35,7 @@ export async function withServerErrorRetry(
         });
       }
 
-      await Bun.sleep(delayMs);
+      await sleep(delayMs);
     }
   }
 }

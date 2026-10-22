@@ -35,7 +35,7 @@ export async function runGitHubCheck(
   });
 
   // a second check run on one head is harmless, because GitHub shows the latest run of a name
-  await withServerErrorRetry('noslop check run', connection.retryDelaysMs, () =>
+  await withServerErrorRetry('noslop check run', connection.sleep, () =>
     connection.client.request('POST /repos/{owner}/{repo}/check-runs', {
       owner: pr.owner,
       repo: pr.repo,
