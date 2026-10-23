@@ -224,7 +224,7 @@ and stored finding IDs in place of the hash of the lens, path, rule and title
 
 ## Delivery issues
 
-Each issue delivers the decisions it names. None exists yet.
+Each issue delivers the decisions it names.
 
 - **Judge a fix at the head** (decision 1). Deletes the rewrite reader, `read-fix-commits.ts`, the
   base-branch fix test, the fix base and the fix floors. The parser accepts a bare `fixed`, and the
