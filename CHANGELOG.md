@@ -2,10 +2,11 @@
 
 ## [0.4.19](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.18...@noslop/cli@0.4.19) (2026-10-23)
 
-
 ### Features
 
-* **eval:** score a lens a case expects to stay silent ([#128](https://github.com/zgeoff/noslop/issues/128)) ([41bec71](https://github.com/zgeoff/noslop/commit/41bec713dee227ae1aa407ff3159f8717446e958))
+- **eval:** score a lens a case expects to stay silent
+  ([#128](https://github.com/zgeoff/noslop/issues/128))
+  ([41bec71](https://github.com/zgeoff/noslop/commit/41bec713dee227ae1aa407ff3159f8717446e958))
 
 ## [0.4.18](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.17...@noslop/cli@0.4.18) (2026-10-22)
 
