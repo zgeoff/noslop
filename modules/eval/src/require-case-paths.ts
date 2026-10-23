@@ -13,7 +13,9 @@ export function requireCasePaths(corpusCase: Case, files: readonly string[]): vo
 
   const anchors = [
     ...corpusCase.findings.map((finding) => finding.anchor),
-    ...corpusCase.escapes.flatMap((escape) => (escape.anchor === undefined ? [] : [escape.anchor])),
+    ...[...corpusCase.escapes, ...(corpusCase.silences ?? [])].flatMap((expectation) =>
+      expectation.anchor === undefined ? [] : [expectation.anchor],
+    ),
   ];
 
   const missing = anchors

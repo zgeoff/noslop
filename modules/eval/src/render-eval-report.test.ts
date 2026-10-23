@@ -18,6 +18,8 @@ test('it renders the totals, the Light rule, each lens and the noise floor', () 
           matchedDisputed: 0,
           unlabelled: 1,
           escapesCaught: 1,
+          silences: 2,
+          silencesBroken: 1,
         },
       ],
       baselineTruePositives: 3,
@@ -26,6 +28,8 @@ test('it renders the totals, the Light rule, each lens and the noise floor', () 
       unlabelled: 1,
       escapesCaught: 1,
       escapesWithAnchor: 2,
+      silences: 2,
+      silencesBroken: 1,
       lightCases: 1,
       lightP1s: 0,
       lightEscapes: 0,
@@ -45,6 +49,8 @@ test('it renders the totals, the Light rule, each lens and the noise floor', () 
         unlabelled: 0,
         escapesCaught: 0,
         escapesWithAnchor: 2,
+        silences: 2,
+        silencesBroken: 0,
         lightCases: 0,
         lightP1s: 0,
         lightEscapes: 0,
@@ -67,6 +73,7 @@ test('it renders the totals, the Light rule, each lens and the noise floor', () 
     | Findings reported | 4 | 5 |
     | Findings with no label | 1 | 0 |
     | Escapes caught | 1 of 2 | 0 of 2 |
+    | Silences broken | 1 of 2 | 0 of 2 |
     | Calls | 5 | 2 |
     | New input tokens | 1000 | 0 |
     | Cached input tokens | 9000 | 0 |
@@ -80,9 +87,9 @@ test('it renders the totals, the Light rule, each lens and the noise floor', () 
 
     ## Per lens
 
-    | Lens | Baseline true positives | Repeated | Reported | Matched true | Matched false | Disputed | Unlabelled | Escapes caught |
-    | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-    | correctness | 3 | 2 | 4 | 2 | 1 | 0 | 1 | 1 |
+    | Lens | Baseline true positives | Repeated | Reported | Matched true | Matched false | Disputed | Unlabelled | Escapes caught | Silences broken |
+    | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+    | correctness | 3 | 2 | 4 | 2 | 1 | 0 | 1 | 1 | 1 of 2 |
 
     ## Noise floor
 
@@ -104,6 +111,8 @@ test('it leaves out the baseline column and the noise floor when the run has nei
       unlabelled: 0,
       escapesCaught: 0,
       escapesWithAnchor: 0,
+      silences: 0,
+      silencesBroken: 0,
       lightCases: 0,
       lightP1s: 0,
       lightEscapes: 0,

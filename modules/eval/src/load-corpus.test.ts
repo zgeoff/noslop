@@ -87,6 +87,76 @@ test('it loads the last reviewed head and the linked issue of a re-review case',
   ]);
 });
 
+test('it loads the silences a case expects, with and without an anchor', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(
+    join(ctx.directory, 'quiet', 'case.json'),
+    JSON.stringify({
+      id: 'quiet',
+      repo: '/repos/app',
+      base: 'a'.repeat(40),
+      head: 'b'.repeat(40),
+      title: 'feat: add the queue',
+      body: '',
+      findings: [],
+      escapes: [],
+      silences: [
+        { lens: 'intent', reason: 'The body names files an earlier push changed' },
+        {
+          lens: 'design',
+          anchor: { path: 'src/queue.ts', startLine: 3, endLine: 9 },
+          reason: 'The queue keeps the shape the issue asks for',
+        },
+      ],
+    }),
+  );
+
+  const cases = await loadCorpus(ctx.directory);
+
+  expect(cases).toStrictEqual([
+    {
+      id: 'quiet',
+      repo: '/repos/app',
+      base: 'a'.repeat(40),
+      head: 'b'.repeat(40),
+      title: 'feat: add the queue',
+      body: '',
+      findings: [],
+      escapes: [],
+      silences: [
+        { lens: 'intent', reason: 'The body names files an earlier push changed' },
+        {
+          lens: 'design',
+          anchor: { path: 'src/queue.ts', startLine: 3, endLine: 9 },
+          reason: 'The queue keeps the shape the issue asks for',
+        },
+      ],
+    },
+  ]);
+});
+
+test('it rejects a silence that names no lens a finding can carry', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(
+    join(ctx.directory, 'bad', 'case.json'),
+    JSON.stringify({
+      id: 'bad',
+      repo: '/repos/app',
+      base: 'a'.repeat(40),
+      head: 'b'.repeat(40),
+      title: 'feat: bad',
+      body: '',
+      findings: [],
+      escapes: [],
+      silences: [{ lens: 'description', reason: 'The body names files an earlier push changed' }],
+    }),
+  );
+
+  expect(loadCorpus(ctx.directory)).rejects.toThrowWithMessage(Error, /silences/u);
+});
+
 test('it rejects a last reviewed head that is not a full commit sha', async () => {
   const ctx = await setupTest();
 

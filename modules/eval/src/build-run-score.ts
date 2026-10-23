@@ -1,6 +1,7 @@
 import type { FindingLens, Tokens } from '@noslop/contract';
 import { mergeTokens } from '@noslop/contract';
-import type { Case } from './case';
+import type { Case, Silence } from './case';
+import type { ReportedFinding } from './collect-matches';
 import { collectMatches } from './collect-matches';
 import type { CaseRun } from './types';
 
@@ -19,6 +20,8 @@ export interface LensScore {
   matchedDisputed: number;
   unlabelled: number;
   escapesCaught: number;
+  silences: number;
+  silencesBroken: number;
 }
 
 export interface RunScore {
@@ -31,6 +34,8 @@ export interface RunScore {
   unlabelled: number;
   escapesCaught: number;
   escapesWithAnchor: number;
+  silences: number;
+  silencesBroken: number;
   lightCases: number;
   lightP1s: number;
   lightEscapes: number;
@@ -65,6 +70,8 @@ export function buildRunScore(
       matchedDisputed: 0,
       unlabelled: 0,
       escapesCaught: 0,
+      silences: 0,
+      silencesBroken: 0,
     };
 
     byLens.set(lens, created);
@@ -82,6 +89,8 @@ export function buildRunScore(
     unlabelled: 0,
     escapesCaught: 0,
     escapesWithAnchor: 0,
+    silences: 0,
+    silencesBroken: 0,
     lightCases: 0,
     lightP1s: 0,
     lightEscapes: 0,
@@ -166,6 +175,17 @@ export function buildRunScore(
       }
     }
 
+    // a failed review reports nothing, so its silence would pass without a lens having run
+    for (const silence of review.failed ? [] : (corpusCase.silences ?? [])) {
+      const score = getScore(silence.lens);
+      const broken = Number(isSilenceBroken(silence, review.findings, windowLines));
+
+      score.silences += 1;
+      score.silencesBroken += broken;
+      total.silences += 1;
+      total.silencesBroken += broken;
+    }
+
     if (review.depth === 'light') {
       total.lightCases += 1;
 
@@ -182,4 +202,21 @@ export function buildRunScore(
   );
 
   return total;
+}
+
+function isSilenceBroken(
+  silence: Silence,
+  findings: readonly ReportedFinding[],
+  windowLines: number,
+): boolean {
+  const fromLens = findings.filter((finding) => finding.lens === silence.lens);
+
+  if (silence.anchor === undefined) {
+    return fromLens.length > 0;
+  }
+
+  return (
+    collectMatches([{ lens: silence.lens, anchor: silence.anchor }], fromLens, windowLines).length >
+    0
+  );
 }

@@ -30,6 +30,9 @@ repo.
      `false-positive` or `disputed`.
    - `escapes`, the defects a review missed: each one a `defect`, `visibleInDiff`, and an `anchor`
      and a `lens` when you know them.
+   - `silences`, optional: the lenses the case expects to report no finding, such as a lens that
+     raised a false positive on the change. Each one is a `lens`, a `reason`, and an `anchor` when
+     the silence covers only the lines near it. A silence with no anchor covers the whole change.
 
 Label the findings a reference reviewer made on the change by what happened to each one, so the
 corpus records which findings were real.
@@ -111,6 +114,7 @@ The totals table counts, across all cases:
 - the labelled true positives the run repeated, out of all of them;
 - the findings reported, and how many matched no label;
 - the escapes caught, out of the escapes with an anchor;
+- the silences broken, out of the silences on cases that did not fail;
 - the calls, the four token counts, and the duration.
 
 `## Light rule` counts the cases noslop reviewed at Light and the labelled P1s and escapes in them.
@@ -119,16 +123,17 @@ Each one is a defect the cheapest review could let through, and
 
 `## Per lens` gives one row per lens. Read it column by column:
 
-| Column                  | Counts                                              |
-| ----------------------- | --------------------------------------------------- |
-| Baseline true positives | the true positives the corpus labels with this lens |
-| Repeated                | those the run matched with a finding of any lens    |
-| Reported                | the findings this lens reported                     |
-| Matched true            | its findings that matched a `true-positive` label   |
-| Matched false           | its findings that matched a `false-positive` label  |
-| Disputed                | its findings that matched a `disputed` label        |
-| Unlabelled              | its findings that matched no label                  |
-| Escapes caught          | the escapes its findings matched                    |
+| Column                  | Counts                                                                       |
+| ----------------------- | ---------------------------------------------------------------------------- |
+| Baseline true positives | the true positives the corpus labels with this lens                          |
+| Repeated                | those the run matched with a finding of any lens                             |
+| Reported                | the findings this lens reported                                              |
+| Matched true            | its findings that matched a `true-positive` label                            |
+| Matched false           | its findings that matched a `false-positive` label                           |
+| Disputed                | its findings that matched a `disputed` label                                 |
+| Unlabelled              | its findings that matched no label                                           |
+| Escapes caught          | the escapes its findings matched                                             |
+| Silences broken         | the silences of this lens that one of its findings broke, out of all of them |
 
 A lens that reports more and matches more false positives grew noisier. An unlabelled finding is
 unscored, not wrong: read a sample of them before you judge the lens, and label the real ones into
