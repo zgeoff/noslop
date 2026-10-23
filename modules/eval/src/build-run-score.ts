@@ -175,8 +175,14 @@ export function buildRunScore(
       }
     }
 
-    // a failed review reports nothing, so its silence would pass without a lens having run
-    for (const silence of review.failed ? [] : (corpusCase.silences ?? [])) {
+    // a lens whose call failed reports nothing, so its silence would pass without the lens having run
+    const scoredSilences = review.failed
+      ? []
+      : (corpusCase.silences ?? []).filter(
+          (silence) => !(review.failedLenses ?? []).includes(silence.lens),
+        );
+
+    for (const silence of scoredSilences) {
       const score = getScore(silence.lens);
       const broken = Number(isSilenceBroken(silence, review.findings, windowLines));
 

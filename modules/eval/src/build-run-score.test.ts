@@ -377,6 +377,61 @@ test('it scores an anchored silence as kept when its lens reports only off the a
   expect(score.silencesBroken).toBe(0);
 });
 
+test('it leaves a silence unscored when a call that carried its lens failed', () => {
+  const score = buildRunScore(
+    [
+      {
+        id: 'case-1',
+        repo: '/repos/app',
+        base: 'a'.repeat(40),
+        head: 'b'.repeat(40),
+        title: 'feat: drain the queue',
+        body: '',
+        findings: [],
+        escapes: [],
+        silences: [
+          { lens: 'intent', reason: 'The body names files an earlier push changed' },
+          { lens: 'correctness', reason: 'The drain order is the one the issue asks for' },
+        ],
+      },
+    ],
+    [
+      {
+        caseID: 'case-1',
+        review: {
+          findings: [],
+          failed: false,
+          tokens: { input: 0, cachedInput: 0, cacheWrite: 0, output: 0 },
+          durationMs: 0,
+          calls: 2,
+          depth: 'standard',
+          failedLenses: ['intent'],
+        },
+      },
+    ],
+    5,
+  );
+
+  expect(score.lenses).toStrictEqual([
+    {
+      lens: 'correctness',
+      baselineTruePositives: 0,
+      repeatedTruePositives: 0,
+      reported: 0,
+      matchedTruePositive: 0,
+      matchedFalsePositive: 0,
+      matchedDisputed: 0,
+      unlabelled: 0,
+      escapesCaught: 0,
+      silences: 1,
+      silencesBroken: 0,
+    },
+  ]);
+
+  expect(score.silences).toBe(1);
+  expect(score.silencesBroken).toBe(0);
+});
+
 test('it leaves the silences of a failed case unscored', () => {
   const score = buildRunScore(
     [

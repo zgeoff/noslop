@@ -1,4 +1,4 @@
-import type { Depth, Tokens } from '@noslop/contract';
+import type { Depth, FindingLens, Tokens } from '@noslop/contract';
 import type { Case } from './case';
 import type { ReportedFinding } from './collect-matches';
 
@@ -11,6 +11,10 @@ export interface CaseReview {
 
   // the depth noslop picked; a reference reviewer has none
   depth: Depth | null;
+
+  // the lenses of the calls that errored or timed out; a reference reviewer, and a run recorded
+  // before the field, names none
+  failedLenses?: FindingLens[] | undefined;
 
   // the findings noslop's Assemble dropped, with the reason; a reference reviewer drops none
   dropped?: DroppedFinding[] | undefined;

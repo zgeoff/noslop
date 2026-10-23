@@ -65,10 +65,11 @@ Each case that ends is written at once to `runs.json` in the out folder, which `
 which sits under the user's cache folder. A run cut short therefore keeps every case it finished.
 Each finding in it keeps its criterion and the rule it cites, so a run can count the findings that
 rest on each rule. A noslop case also keeps each finding Assemble dropped, with the reason and the
-rule and quote it cited, so a run shows whether the quote check drops real findings. The file is a
-recorded run, and a later eval reads it as a baseline or as half of a noise floor. When the run
-ends, the harness writes the report as Markdown and the score as JSON beside it, and prints one of
-them.
+rule and quote it cited, so a run shows whether the quote check drops real findings. It keeps the
+lenses of its calls that errored or timed out as well, so the score can tell a silent lens from one
+that never ran. The file is a recorded run, and a later eval reads it as a baseline or as half of a
+noise floor. When the run ends, the harness writes the report as Markdown and the score as JSON
+beside it, and prints one of them.
 
 No command runs a reference reviewer, so a baseline reaches the harness as a recorded run passed by
 path.
@@ -100,8 +101,8 @@ For each lens, the score holds:
 - The escapes its findings caught.
 - The silences the corpus expects of the lens, and how many of them it broke. A silence counts once,
   as kept or broken, however many findings break it, so it reads as a pass or a miss beside the
-  count of findings reported. A failed case scores none of its silences, because a review that
-  reported nothing would keep them all.
+  count of findings reported. A silence goes unscored on a failed case, and on a case where a call
+  that carried its lens errored or timed out, because a lens that never ran would keep it.
 
 A reported finding with no lens counts under `unknown`. The totals add the cases and failed cases,
 the calls, the new input, cached input, cache write and output tokens that

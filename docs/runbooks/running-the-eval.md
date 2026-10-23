@@ -114,7 +114,7 @@ The totals table counts, across all cases:
 - the labelled true positives the run repeated, out of all of them;
 - the findings reported, and how many matched no label;
 - the escapes caught, out of the escapes with an anchor;
-- the silences broken, out of the silences on cases that did not fail;
+- the silences broken, out of the silences whose lens ran;
 - the calls, the four token counts, and the duration.
 
 `## Light rule` counts the cases noslop reviewed at Light and the labelled P1s and escapes in them.
