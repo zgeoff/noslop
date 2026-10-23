@@ -10453,6 +10453,65 @@ test('it plans the intent call under --static for a case with a linked issue', a
   });
 });
 
+test('it records the lens of a failed call and leaves its silence unscored', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/a.ts': 'export const a = 1;\n' } },
+    { message: 'head', files: { 'src/a.ts': 'export const a = 2;\n' } },
+  ]);
+
+  await Bun.write(
+    join(ctx.directory, 'corpus', 'case-a', 'case.json'),
+    JSON.stringify({
+      id: 'case-a',
+      repo: repo.path,
+      base: repo.commits[0],
+      head: repo.commits[1],
+      title: 'Change a',
+      body: 'Changes src/a.ts and src/b.ts.',
+      linkedIssue: 'Set a to 2.',
+      findings: [],
+      escapes: [],
+      silences: [
+        { lens: 'intent', reason: 'The body names a file the change leaves alone on purpose' },
+        { lens: 'correctness', reason: 'Setting a to 2 is the change the issue asks for' },
+      ],
+    }),
+  );
+
+  const stub = buildStubAdapter({
+    correctness: [{ findings: { correctness: [] } }],
+    intent: [
+      { error: 'the model timed out' },
+      { error: 'the model timed out' },
+      { error: 'the model timed out' },
+    ],
+  });
+
+  await runCLI(
+    [
+      'eval',
+      '--corpus',
+      join(ctx.directory, 'corpus'),
+      '--out',
+      join(ctx.directory, 'out'),
+      '--depth',
+      'standard',
+    ],
+    ctx.buildContext(ctx.directory, stub.adapter),
+  );
+
+  const runs: unknown = await Bun.file(join(ctx.directory, 'out', 'runs.json')).json();
+  const score: unknown = await Bun.file(join(ctx.directory, 'out', 'score.json')).json();
+
+  expect(runs).toMatchObject([
+    { caseID: 'case-a', review: { failed: false, failedLenses: ['intent'] } },
+  ]);
+
+  expect(score).toMatchObject({ score: { silences: 1, silencesBroken: 0 } });
+});
+
 test('it plans every case at the depth that --depth names', async () => {
   const ctx = await setupTest();
 

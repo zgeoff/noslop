@@ -43,10 +43,14 @@ it as the [re-review](../output/github-app.md#re-review-and-fix-confirmation) of
 request, with the description left unjudged. A labelled finding holds its anchor, title, severity,
 the lens it belongs to when one fits, and its label: `true-positive`, `false-positive` or
 `disputed`. An escape holds the defect, whether the diff showed it, and its anchor and lens when
-they are known. Before a run, the harness checks that each labelled path names a file at the case's
-head, and it stops with the case and the paths when one does not, because a label on a missing file
-can never match. A case whose clone or head it cannot read skips the check, and the replay records
-that case as failed.
+they are known.
+
+A case may also hold silences, each a lens it expects to report no finding, with the reason and,
+when the silence holds only near some lines, an anchor. A silence turns a check against a false
+positive into a scored expectation. Before a run, the harness checks that each labelled path names a
+file at the case's head, and it stops with the case and the paths when one does not, because a label
+on a missing file can never match. A case whose clone or head it cannot read skips the check, and
+the replay records that case as failed.
 
 ## A run
 
@@ -61,10 +65,11 @@ Each case that ends is written at once to `runs.json` in the out folder, which `
 which sits under the user's cache folder. A run cut short therefore keeps every case it finished.
 Each finding in it keeps its criterion and the rule it cites, so a run can count the findings that
 rest on each rule. A noslop case also keeps each finding Assemble dropped, with the reason and the
-rule and quote it cited, so a run shows whether the quote check drops real findings. The file is a
-recorded run, and a later eval reads it as a baseline or as half of a noise floor. When the run
-ends, the harness writes the report as Markdown and the score as JSON beside it, and prints one of
-them.
+rule and quote it cited, so a run shows whether the quote check drops real findings. It keeps the
+lenses of its calls that errored or timed out as well, so the score can tell a silent lens from one
+that never ran. The file is a recorded run, and a later eval reads it as a baseline or as half of a
+noise floor. When the run ends, the harness writes the report as Markdown and the score as JSON
+beside it, and prints one of them.
 
 No command runs a reference reviewer, so a baseline reaches the harness as a recorded run passed by
 path.
@@ -79,6 +84,11 @@ findings' content, so the result never depends on the order a reviewer listed th
 with an anchor matches reported findings the same way. An escape with no anchor can never be caught,
 and it counts only toward the Light rule.
 
+A silence takes no part in that pairing, because one finding can break a silence and match a label
+at once. A finding breaks a silence when its lens is the silence's lens and, for a silence with an
+anchor, it sits on the anchor's file within the window. A silence with no anchor breaks on a finding
+of its lens anywhere in the change.
+
 ## The score
 
 For each lens, the score holds:
@@ -89,6 +99,10 @@ For each lens, the score holds:
   false positive or disputed.
 - The findings the lens reported that matched no label.
 - The escapes its findings caught.
+- The silences the corpus expects of the lens, and how many of them it broke. A silence counts once,
+  as kept or broken, however many findings break it, so it reads as a pass or a miss beside the
+  count of findings reported. A silence goes unscored on a failed case, and on a case where a call
+  that carried its lens errored or timed out, because a lens that never ran would keep it.
 
 A reported finding with no lens counts under `unknown`. The totals add the cases and failed cases,
 the calls, the new input, cached input, cache write and output tokens that

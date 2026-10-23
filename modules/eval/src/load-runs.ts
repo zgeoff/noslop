@@ -43,6 +43,7 @@ const caseRunSchema = z.strictObject({
     calls: z.int().nonnegative(),
     depth: depthSchema.nullable(),
     dropped: z.array(droppedSchema).optional(),
+    failedLenses: z.array(findingLensSchema).optional(),
   }),
 });
 

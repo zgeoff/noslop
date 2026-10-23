@@ -1,4 +1,4 @@
-import { lensIDSchema, severitySchema } from '@noslop/contract';
+import { findingLensSchema, lensIDSchema, severitySchema } from '@noslop/contract';
 import { z } from 'zod';
 
 const commitSchema = z.string().regex(/^[0-9a-f]{40}$/u);
@@ -30,6 +30,14 @@ export const escapeSchema = z.strictObject({
 
 export type Escape = z.infer<typeof escapeSchema>;
 
+export const silenceSchema = z.strictObject({
+  lens: findingLensSchema,
+  anchor: labelledFindingSchema.shape.anchor.optional(),
+  reason: z.string().min(1),
+});
+
+export type Silence = z.infer<typeof silenceSchema>;
+
 // one past change: the repo, its base and the reviewed head, and what a reference reviewer found
 // there, with each finding labelled by what happened to it
 export const caseSchema = z.strictObject({
@@ -50,6 +58,7 @@ export const caseSchema = z.strictObject({
   linkedIssue: z.string().min(1).optional(),
   findings: z.array(labelledFindingSchema),
   escapes: z.array(escapeSchema),
+  silences: z.array(silenceSchema).optional(),
 });
 
 export type Case = z.infer<typeof caseSchema>;

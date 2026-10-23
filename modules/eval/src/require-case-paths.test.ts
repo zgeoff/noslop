@@ -76,6 +76,35 @@ test('it rejects a case that labels a path naming no file at the head', () => {
   );
 });
 
+test('it rejects a case whose silence anchors a path naming no file at the head', () => {
+  expect(() => {
+    requireCasePaths(
+      {
+        id: 'case-a',
+        repo: 'repo',
+        base: 'a'.repeat(40),
+        head: 'b'.repeat(40),
+        title: 'Change the lanes',
+        body: '',
+        findings: [],
+        escapes: [],
+        silences: [
+          { lens: 'intent', reason: 'The body names the lanes an earlier push changed' },
+          {
+            lens: 'naming-shape-and-comments',
+            anchor: { path: 'src/lane-picker.ts', startLine: 2, endLine: 2 },
+            reason: 'The picker keeps the name of the library it wraps',
+          },
+        ],
+      },
+      ['src/lanes.ts'],
+    );
+  }).toThrowWithMessage(
+    Error,
+    'case case-a labels paths that name no file at its head: src/lane-picker.ts',
+  );
+});
+
 test('it leaves a case whose head files could not be read to the replay', () => {
   expect(() => {
     requireCasePaths(

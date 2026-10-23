@@ -43,6 +43,32 @@ test('it reads a recorded run of case reviews', async () => {
   expect(loaded).toStrictEqual(runs);
 });
 
+test('it reads the lenses of the calls that failed', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(
+    join(ctx.directory, 'run.json'),
+    JSON.stringify([
+      {
+        caseID: 'case-1',
+        review: {
+          findings: [],
+          failed: false,
+          tokens: { input: 0, cachedInput: 0, cacheWrite: 0, output: 0 },
+          durationMs: 1200,
+          calls: 2,
+          depth: 'standard',
+          failedLenses: ['intent', 'design'],
+        },
+      },
+    ]),
+  );
+
+  const runs = await loadRuns(join(ctx.directory, 'run.json'));
+
+  expect(runs[0]?.review.failedLenses).toStrictEqual(['intent', 'design']);
+});
+
 test('it reads the criterion and the rule of a taste finding', async () => {
   const ctx = await setupTest();
 

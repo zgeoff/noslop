@@ -33,8 +33,8 @@ export function renderEvalReport(input: EvalReportInput): string {
     '',
     '## Per lens',
     '',
-    '| Lens | Baseline true positives | Repeated | Reported | Matched true | Matched false | Disputed | Unlabelled | Escapes caught |',
-    '| --- | --- | --- | --- | --- | --- | --- | --- | --- |',
+    '| Lens | Baseline true positives | Repeated | Reported | Matched true | Matched false | Disputed | Unlabelled | Escapes caught | Silences broken |',
+    '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
     ...score.lenses.map((lens) => renderLensRow(lens)),
   ];
 
@@ -61,6 +61,7 @@ function renderTotals(score: RunScore, reference: RunScore | null): string[] {
     ['Findings reported', (item) => String(item.reported)],
     ['Findings with no label', (item) => String(item.unlabelled)],
     ['Escapes caught', (item) => `${item.escapesCaught} of ${item.escapesWithAnchor}`],
+    ['Silences broken', (item) => `${item.silencesBroken} of ${item.silences}`],
     ['Calls', (item) => String(item.calls)],
     ['New input tokens', (item) => String(item.tokens.input)],
     ['Cached input tokens', (item) => String(item.tokens.cachedInput)],
@@ -77,7 +78,7 @@ function renderTotals(score: RunScore, reference: RunScore | null): string[] {
 }
 
 function renderLensRow(lens: LensScore): string {
-  return `| ${lens.lens} | ${lens.baselineTruePositives} | ${lens.repeatedTruePositives} | ${lens.reported} | ${lens.matchedTruePositive} | ${lens.matchedFalsePositive} | ${lens.matchedDisputed} | ${lens.unlabelled} | ${lens.escapesCaught} |`;
+  return `| ${lens.lens} | ${lens.baselineTruePositives} | ${lens.repeatedTruePositives} | ${lens.reported} | ${lens.matchedTruePositive} | ${lens.matchedFalsePositive} | ${lens.matchedDisputed} | ${lens.unlabelled} | ${lens.escapesCaught} | ${lens.silencesBroken} of ${lens.silences} |`;
 }
 
 function formatRatio(value: number): string {

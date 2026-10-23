@@ -82,6 +82,7 @@ export function createNoslopReviewer(options: NoslopReviewerOptions): CaseReview
           durationMs: Math.round(performance.now() - started),
           calls: result.calls.length,
           depth: result.depth,
+          failedLenses: [...new Set(result.failedCalls.flatMap((call) => call.lenses))],
           dropped: result.dropped.map((item) => ({
             lens: item.lens,
             title: item.title,
