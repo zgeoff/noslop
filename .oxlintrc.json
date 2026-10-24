@@ -34,7 +34,10 @@
         "message": "A require function escapes no-restricted-imports; use import."
       }
     ],
-    "import/no-commonjs": "error"
+    "import/no-commonjs": "error",
+    // `*.model-api.test.ts` calls a live model; 0.6.4 skips a lane file, and 0.7.0 checks it
+    // against the lane's 120 s (GEO-1784)
+    "zgeoff/max-test-timeout": ["error", { "lanes": ["model-api"] }]
   },
   // the App server stands where an org's own relay stands, so it builds only on what @noslop/cli
   // publishes; its tests also reach the stand-ins of @noslop/testing
