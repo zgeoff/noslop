@@ -35,7 +35,6 @@ interface IssueRef {
   number: number;
 }
 
-// `#12` names an issue of the pull request's repo; `owner/repo#12` and an issue URL name any repo
 function parseIssueRef(value: string, pr: PullRequestRef): IssueRef | null {
   const token = value.split(/\s/u, 1)[0] ?? '';
 
