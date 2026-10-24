@@ -1,5 +1,6 @@
 import type { LensID } from '@noslop/contract';
 import type { ChangedFile } from '@noslop/static-stage';
+import { fillOtherLenses } from './fill-other-lenses';
 import { getLensPrompt } from './get-lens-prompt';
 import { renderCriteria } from './render-criteria';
 import { renderHunks } from './render-hunks';
@@ -33,7 +34,9 @@ export function buildResolutionPrompt(input: ResolutionPromptInput): string {
 
   const sections = [
     getLensPrompt('shared-header').replace('{{criteria}}', renderCriteria()),
-    ...RESOLUTION_LENSES.map((lens) => `# Lens: ${lens}\n\n${getLensPrompt(lens)}`),
+    ...RESOLUTION_LENSES.map(
+      (lens) => `# Lens: ${lens}\n\n${fillOtherLenses(getLensPrompt(lens), RESOLUTION_LENSES)}`,
+    ),
     RESOLUTION_TASK,
     'Answer with `sound`, `reason` and the findings lists, in JSON that matches the output schema.',
     '# Input',

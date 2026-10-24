@@ -48,3 +48,15 @@ test('it joins the header, the correctness and security lenses, the task, and th
     '### src/options.ts (modified)\n\n```diff\n@@ -1,1 +1,1 @@\n       - <<<<<<< ours\n     1 + export const retries = 3;\n```',
   );
 });
+
+test('it names security as the only other lens in the correctness exclusion and leaves no placeholder', () => {
+  const prompt = buildResolutionPrompt({
+    merge: 'c'.repeat(40),
+    parents: ['a'.repeat(40), 'b'.repeat(40)],
+    conflicted: [],
+    files: [],
+  });
+
+  expect(prompt).toInclude('2. A concern of another lens in this review: security.');
+  expect(prompt).not.toInclude('{{');
+});
