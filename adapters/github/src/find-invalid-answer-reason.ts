@@ -2,21 +2,15 @@ import type { Disposition } from '@noslop/contract';
 import type { FindingMarker } from './finding-marker';
 
 export interface AnswerEvidence {
-  // the ids of the findings the latest review still reports
   reported: readonly string[];
 
-  // each `<finding id>:<commit>` that a fix call confirmed
   confirmed: readonly string[];
 
-  // the values of the `deferred` dispositions whose issue exists
   existingIssues: ReadonlySet<string>;
 
-  // the findings whose `fixed <commit>` answer names a commit the head holds and the latest review
-  // never read
   unread: ReadonlySet<string>;
 }
 
-// the reason a finding's latest answer leaves it open; null when the answer holds
 export function findInvalidAnswerReason(
   finding: FindingMarker,
   disposition: Disposition | undefined,
@@ -46,8 +40,6 @@ function findFixedReason(
   commit: string,
   evidence: AnswerEvidence,
 ): string | null {
-  // a review that never read the fix judged the code before it, so its report and its silence count
-  // for nothing
   if (evidence.unread.has(finding.id)) {
     return null;
   }
@@ -56,10 +48,8 @@ function findFixedReason(
     return 'the re-review still finds it';
   }
 
-  // the sha is only a hint, so one the branch no longer holds fails nothing here
   const fix = commit === '' ? 'the fix' : `the commit ${commit}`;
 
-  // only a fix call's verdict, which the summary keeps, confirms a fix
   if (!evidence.confirmed.includes(`${finding.id}:${commit}`)) {
     return `no re-review has read ${fix} yet`;
   }

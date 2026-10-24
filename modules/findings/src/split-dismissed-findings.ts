@@ -1,7 +1,5 @@
 import type { DismissedFinding, Finding } from '@noslop/contract';
 
-// a finding of this review, or a finding answered `not-a-defect`, with the code its anchor holds at its
-// own head; null when the code cannot be read
 export interface QuotedFinding<Item> {
   finding: Item;
   code: string | null;
@@ -11,20 +9,15 @@ export interface DismissedFindingsInput {
   findings: readonly QuotedFinding<Finding>[];
   dismissed: readonly QuotedFinding<DismissedFinding>[];
 
-  // the most lines between the anchors of a new finding and an answered one that still match
   maxLines: number;
 }
 
 export interface DismissedFindingsSplit {
   kept: Finding[];
 
-  // each dropped finding with the ID of the answered finding it matches
   dismissed: { finding: Finding; answeredID: string }[];
 }
 
-// splits off each finding that matches one the author answered `not-a-defect`: the same ID, or the
-// same file, criterion and rule with an anchor nearby or the same code; a P1 or security finding, and
-// an answered finding whose marker holds no criterion, match by the ID alone
 export function splitDismissedFindings(input: DismissedFindingsInput): DismissedFindingsSplit {
   const kept: Finding[] = [];
   const dismissed: DismissedFindingsSplit['dismissed'] = [];
@@ -70,8 +63,6 @@ function isAnsweredBy(
   return isNearby(finding, earlier, maxLines) || hasSameCode(item.code, answered.code);
 }
 
-// a P1 or security finding near an answered one may be a second, real defect, so only an answer to its
-// own ID drops it
 function isOwnIDOnly(finding: Finding): boolean {
   return finding.severity === 'P1' || finding.criterion === 'security-defect';
 }
@@ -90,8 +81,6 @@ function isNearby(finding: Finding, earlier: DismissedFinding, maxLines: number)
   return gap <= maxLines;
 }
 
-// the code of 2 anchors matches when it holds the same lines with the indentation, the runs of spaces
-// and the blank lines left out, so a moved or re-indented line still matches
 function hasSameCode(code: string | null, other: string | null): boolean {
   const left = normalizeCode(code);
 

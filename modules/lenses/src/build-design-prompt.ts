@@ -7,27 +7,19 @@ import { renderHunks } from './render-hunks';
 import type { LeftOutFile } from './render-left-out';
 import { renderLeftOut } from './render-left-out';
 
-// the task is what the pull request states, so the design pass reads its title and body and never a
-// linked issue, whatever tracker the issue lives in
 export interface DesignPromptInput {
   title: string;
   body: string;
 
-  // the findings of this review, after the merge pass
   findings: readonly Finding[];
   files: readonly ChangedFile[];
   leftOut: readonly LeftOutFile[];
   base: string;
   head: string;
 
-  // the path, in the model's working directory, of a file that holds the rendered hunks when they pass
-  // the call limit; the prompt then names that file in their place, so a model whose only tools read
-  // files still reads every hunk, and the call leaves no part of the pull request out
   hunksFile: string | null;
 }
 
-// the prompt of the design pass: the shared header, the design lens, and its input, with the
-// findings as JSON, so the model reads which logic each finding patches
 export function buildDesignPrompt(input: DesignPromptInput): string {
   const sections = [
     getLensPrompt('shared-header').replace('{{criteria}}', renderCriteria()),

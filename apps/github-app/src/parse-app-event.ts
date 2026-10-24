@@ -1,7 +1,5 @@
 import { z } from 'zod';
 
-// what the App does for one webhook delivery: review a pull request's new head, or set its check
-// again after a reply
 export interface AppEvent {
   kind: 'review' | 'check';
   owner: string;
@@ -11,8 +9,6 @@ export interface AppEvent {
 }
 
 const REVIEW_ACTIONS = new Set(['opened', 'synchronize', 'reopened', 'ready_for_review']);
-
-// an edit or a deletion can change a disposition as much as a new comment can
 const COMMENT_ACTIONS = new Set(['created', 'edited', 'deleted']);
 
 const ownerSchema = z.looseObject({ login: z.string() });
@@ -26,9 +22,6 @@ const payloadSchema = z.looseObject({
   issue: z.looseObject({ number: z.int(), pull_request: z.looseObject({}).optional() }).optional(),
 });
 
-// a delivery as an App event, or null for one the App leaves be: another event, a draft, a comment
-// on an issue that is no pull request, or a comment a bot wrote, the App's own included; a pull
-// request a bot opened or pushed is reviewed, since agents open most of them
 export function parseAppEvent(name: string, payload: unknown): AppEvent | null {
   const parsed = payloadSchema.safeParse(payload);
 

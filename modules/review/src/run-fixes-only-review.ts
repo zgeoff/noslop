@@ -15,12 +15,9 @@ export interface FixesOnlyReviewInput {
   repo: string;
   pullRequest: PullRequestRef;
 
-  // where the range of merges the run checks starts: the head of the last review, or the merge base
-  // when no review's head is on the branch; and the pull request's head now
   base: string;
   head: string;
 
-  // the merge base of the pull request, where its net diff starts
   mergeBase: string;
   title: string;
   body: string;
@@ -33,17 +30,11 @@ export interface FixesOnlyReviewInput {
   logger: Logger;
   now?: () => Date;
 
-  // with it, the run also checks the resolution of each merge commit among the new commits whose tree
-  // differs from the tree `git merge-tree` builds from its parents; without it, the run checks no merge
   resolution?: ResolutionCheckOptions;
 
-  // what the static stage reads to judge the fix of a static finding over the whole pull request
   staticCheck: StaticRecheckOptions;
 }
 
-// a run after the last review round with no lens over the change: each `fixed` answer gets one call
-// that judges the finding at the head, or the static stage again for a static finding, and the fix
-// checks list each verdict, so no fix confirms through silence; only a merge raises a finding
 export async function runFixesOnlyReview(input: FixesOnlyReviewInput): Promise<ReviewResult> {
   const now = input.now ?? (() => new Date());
   const startedAt = now().toISOString();
@@ -84,7 +75,6 @@ export async function runFixesOnlyReview(input: FixesOnlyReviewInput): Promise<R
     repo: input.repo,
     pullRequest: input.pullRequest,
 
-    // a fix call reads the pull request's whole net diff, so its range starts at the merge base
     base: input.mergeBase,
     head: input.head,
     title: input.title,

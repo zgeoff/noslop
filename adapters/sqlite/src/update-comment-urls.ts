@@ -1,7 +1,5 @@
 import type { Store } from './load-store';
 
-// records the link to each finding's comment, by finding ID, on every row of that finding in the
-// reviews of the pull request, so the latest review's row links the thread an earlier review opened
 export async function updateCommentURLs(
   store: Store,
   repo: string,

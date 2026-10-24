@@ -11,8 +11,6 @@ export interface ParsedFile {
 const HUNK_HEADER =
   /^@@ -(?<oldStart>\d+)(?:,(?<oldLines>\d+))? \+(?<newStart>\d+)(?:,(?<newLines>\d+))? @@/u;
 
-// reads the output of `git diff --no-prefix` into one entry per file, each with its hunks and the old
-// and new line number of every line
 export function parseDiff(diff: string): ParsedFile[] {
   const files: ParsedFile[] = [];
   let file: ParsedFile | null = null;
@@ -108,7 +106,6 @@ function getClosingQuote(text: string): number {
   return text.length - 1;
 }
 
-// each key is the character git writes after a backslash, so the table maps characters, not names
 const ESCAPES: ReadonlyMap<string, string> = new Map([
   ['n', '\n'],
   ['t', '\t'],

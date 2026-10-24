@@ -3,8 +3,6 @@ import { join } from 'node:path';
 import type { Case } from './case';
 import { caseSchema } from './case';
 
-// a corpus is a folder with one folder per case, each holding its labels in case.json; cases load in
-// name order so 2 runs replay them in the same order
 export async function loadCorpus(corpusDir: string): Promise<Case[]> {
   const entries = await readdir(corpusDir, { withFileTypes: true });
 

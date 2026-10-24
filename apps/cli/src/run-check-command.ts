@@ -16,9 +16,6 @@ export interface CheckValues {
   readOnly: boolean;
 }
 
-// sets the noslop check run again from what GitHub holds and records the dispositions in the store,
-// exiting 0 whatever the check concludes, since the check run carries it; read-only, it writes
-// neither, so the exit code carries the conclusion
 export async function runCheckCommand(values: CheckValues, ctx: CLIContext): Promise<number> {
   const number = Number(values.pr);
   const [owner, name] = values.repo.split('/');
@@ -54,7 +51,6 @@ export async function runCheckCommand(values: CheckValues, ctx: CLIContext): Pro
   return values.readOnly && outcome.conclusion !== 'success' ? 1 : 0;
 }
 
-// the typed replies of the pull request go to the store, so yield and noise per lens count them
 async function writePullRequestDispositions(
   ctx: CLIContext,
   pullRequest: PullRequestRef,
@@ -85,8 +81,6 @@ async function writePullRequestDispositions(
   }
 }
 
-// a read-only check sets no check run, so its text output carries each line of the check run's
-// summary that the title does not hold
 function formatCheckOutput(outcome: PullRequestCheck, values: CheckValues): string {
   if (values.json) {
     return `${JSON.stringify(outcome, null, 2)}\n`;

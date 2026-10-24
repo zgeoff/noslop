@@ -1,5 +1,4 @@
-// a prompt page imported with `type: 'text'` is its text, which the bundler inlines, so a bundled CLI
-// reads no prompt file at run time
+// Bun imports a file with `type: 'text'` as a string of its contents and inlines it in a bundle.
 declare module '*.md' {
   const text: string;
   export default text;

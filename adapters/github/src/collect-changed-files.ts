@@ -1,4 +1,3 @@
-// the paths whose patch id differs between 2 keys, a file only one of them holds among them
 export function collectChangedFiles(
   before: Readonly<Record<string, string>>,
   after: Readonly<Record<string, string>>,

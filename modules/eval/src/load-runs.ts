@@ -17,7 +17,6 @@ const reportedSchema = z.strictObject({
   rule: z.string().min(1).optional(),
 });
 
-// a run recorded before the cache counts holds none, and its input count holds the cached share
 const tokensSchema = z.strictObject({
   input: z.int().nonnegative(),
   cachedInput: z.int().nonnegative().default(0),
@@ -47,7 +46,6 @@ const caseRunSchema = z.strictObject({
   }),
 });
 
-// reads a recorded run: the JSON list of case runs that an earlier eval run wrote
 export async function loadRuns(path: string): Promise<CaseRun[]> {
   const raw: unknown = await Bun.file(path).json();
 

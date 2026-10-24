@@ -19,7 +19,6 @@ export interface MergePassInput {
   callID: string;
   depth: Depth;
 
-  // the lenses of the review in route order, which the call's record lists
   lenses: readonly LensID[];
   tempDir: string;
   logger: Logger;
@@ -33,9 +32,6 @@ export interface MergePass {
 const groupSchema = z.array(z.string());
 const mergeOutputSchema = z.strictObject({ groups: z.array(groupSchema) });
 
-// one call that groups the findings which report one defect, after Assemble's own merge; it runs on
-// a review with 2 or more model findings, reads no code, and keeps the findings as they are when it
-// fails, since a repeat costs the reader less than a lost finding
 export async function runMergePass(input: MergePassInput): Promise<MergePass> {
   const modelFindings = input.findings.filter((finding) => finding.lens !== 'static');
 

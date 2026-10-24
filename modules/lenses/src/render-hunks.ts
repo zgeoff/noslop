@@ -3,8 +3,6 @@ import type { ChangedFile } from '@noslop/static-stage';
 const NUMBER_WIDTH = 6;
 const MARKERS = { added: '+', deleted: '-', context: ' ' } as const;
 
-// renders each file's hunks with the head line number beside every line the head holds, so a lens
-// anchors a finding to the numbers it reads; a deleted line has no head number
 export function renderHunks(files: readonly ChangedFile[]): string {
   return files
     .map((file) => {

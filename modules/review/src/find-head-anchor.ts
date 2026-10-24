@@ -5,9 +5,6 @@ export interface LineSpan {
   endLine: number;
 }
 
-// the span's lines after the hunks, shifted by each hunk above them; null when a hunk changes a line
-// of the span or adds a line inside it; a hunk that adds lines only, with no old line, adds them after
-// its start line
 export function findHeadAnchor<Span extends LineSpan>(
   hunks: readonly LaterHunk[],
   anchor: Span,
@@ -15,6 +12,7 @@ export function findHeadAnchor<Span extends LineSpan>(
   let shift = 0;
 
   for (const hunk of hunks) {
+    // a hunk that only adds lines adds them after its old start
     const oldEnd = hunk.oldLines === 0 ? hunk.oldStart : hunk.oldStart + hunk.oldLines - 1;
     const isAbove = oldEnd < anchor.startLine;
 

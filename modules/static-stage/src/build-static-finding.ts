@@ -11,8 +11,6 @@ export interface StaticFindingFields {
   fix?: string;
 }
 
-// a direct finding reads its fact from the code, so it is CONFIRMED, and its severity follows from
-// its criterion like any lens finding's
 export function buildStaticFinding(fields: StaticFindingFields): ModelFinding {
   return {
     title: fields.title,

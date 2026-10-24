@@ -53,7 +53,6 @@ export interface RunReviewOptions {
   adapter: ReviewAdapter;
   logger: Logger;
 
-  // the review's own folder, which the caller creates and deletes
   tempDir: string;
   cacheDir: string | null;
   title: string;
@@ -61,12 +60,8 @@ export interface RunReviewOptions {
   linkedIssue: string | null;
   pullRequest: PullRequestRef | null;
 
-  // the review covers only part of the pull request, what changed since an earlier review of it; a
-  // review without it covers the whole change
   isIncremental?: boolean;
 
-  // the merge base of an incremental review's pull request, so the review keeps to the files the pull
-  // request changes and never reviews what a merge from the base branch brought in
   mergeBase?: string;
   paths?: readonly string[];
   isPush: boolean;
@@ -75,22 +70,14 @@ export interface RunReviewOptions {
   author?: string;
   now?: () => Date;
 
-  // the model of the merge pass; with none, the pass runs on the adapter's own model
   mergeModel?: string | null;
 
-  // a depth that replaces the one the risk score picks, which the eval sets to compare depths
   depth?: Depth | null;
 
-  // the first review of a pull request runs the design pass after the merge pass; a later review and a
-  // review of a local change run none
   isFirstPullRequestReview?: boolean;
 
-  // the findings of earlier reviews that the author answered `not-a-defect`; the review drops each new
-  // finding that matches one, so an answered finding never comes back under a new ID
   dismissedFindings?: readonly DismissedFinding[];
 
-  // the open `fixed` answers of a pull request, and its merge base, where the diff a fix call reads
-  // starts; the review makes a fix call for each answer whose finding it no longer reports
   fixes?: FixCallOptions;
 }
 
@@ -106,13 +93,9 @@ interface PassContext {
   worktree: string;
   staticRaw: RawFinding[];
 
-  // the rules that apply to the change: every rule but a reference's, which needs a changed path
-  // that one of its globs matches
   rules: readonly Rule[] | null;
 }
 
-// runs the pipeline on one change: the static stage, routing, the calls, and Assemble; the calls
-// read a detached worktree of the head, which the review removes whether it passes or fails
 export async function runReview(options: RunReviewOptions): Promise<ReviewRun> {
   const now = options.now ?? (() => new Date());
   const startedAt = now().toISOString();
@@ -213,9 +196,6 @@ interface Passes {
   design: DesignPass | null;
 }
 
-// one call per fired lens group, at the effort of the route's depth, then Assemble, the merge pass
-// and, on the first review of a pull request, the design pass; the worktree lives until the design
-// pass ends, and a review that runs neither a lens call nor the design pass needs none
 async function runPasses(ctx: PassContext): Promise<Passes> {
   const isDesignDue =
     ctx.options.config.designPass.enabled && ctx.options.isFirstPullRequestReview === true;
@@ -301,8 +281,6 @@ function buildAssembled(ctx: PassContext, batches: readonly CallBatch[]): Assemb
   });
 }
 
-// the first of name, name-2 and so on that no planned call holds, since a config can name a group
-// `merge` or `design`
 function pickPassID(ctx: PassContext, name: string): string {
   const taken = new Set(ctx.route.calls.map((call) => call.callID));
 
@@ -336,8 +314,6 @@ function runBatch(ctx: PassContext, calls: readonly PlannedCall[]): Promise<Call
   });
 }
 
-// a fix call for each `fixed` answer whose finding the review no longer reports; a finding it reports
-// again stays open with no call, since the report is the verdict
 function runDroppedFixChecks(
   options: RunReviewOptions,
   findings: readonly Finding[],
@@ -370,16 +346,12 @@ function runDroppedFixChecks(
   });
 }
 
-// the fired lenses that a call ran, in the route's order; a call whose files each overflow a call
-// alone runs no part, so its lenses never ran and the store counts none of them
 function collectRunLenses(lenses: readonly LensID[], records: readonly CallRecord[]): LensID[] {
   const ran = new Set(records.flatMap((record) => record.lenses));
 
   return lenses.filter((lens) => ran.has(lens));
 }
 
-// the files the call batch left out, as too large or as data, and each data file of the change, which
-// no call reads either, so a route that runs no call still lists them
 function collectNotReviewed(ctx: PassContext, batches: readonly CallBatch[]): NotReviewedFile[] {
   const listed = batches.flatMap((batch) => batch.notReviewed);
 
@@ -391,8 +363,6 @@ function collectNotReviewed(ctx: PassContext, batches: readonly CallBatch[]): No
     .filter((file) => !paths.has(file.path) && globs.some((glob) => glob.match(file.path)))
     .map((file): NotReviewedFile => ({ path: file.path, reason: 'data' }));
 
-  // a data file, or one whose hunks pass the file limit, that only a merge from the base branch
-  // changes stays listed, so a fix commit that reaches it confirms nothing, as when the change held it
   const maxFileChars = ctx.options.config.thresholds.maxFileChars;
 
   const baseOnly = (ctx.change.baseOnly ?? []).flatMap((file): NotReviewedFile[] => {

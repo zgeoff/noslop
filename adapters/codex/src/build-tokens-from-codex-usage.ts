@@ -1,10 +1,11 @@
 import type { Tokens } from '@noslop/contract';
 import { z } from 'zod';
 
-// a CLI older than the cache write count leaves it out
 export const codexUsageSchema = z.looseObject({
   input_tokens: z.int(),
   cached_input_tokens: z.int(),
+
+  // A Codex CLI older than the cache write count leaves it out.
   cache_write_input_tokens: z.int().default(0),
   output_tokens: z.int(),
 });

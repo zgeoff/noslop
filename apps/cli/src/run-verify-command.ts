@@ -7,8 +7,6 @@ export interface VerifyValues {
   json: boolean;
 }
 
-// checks the review result in a file against its pull request on GitHub; it exits 0 when the result
-// verifies, and the thrown mismatch exits 1
 export async function runVerifyCommand(values: VerifyValues, ctx: CLIContext): Promise<number> {
   const input = await loadResultFile(ctx, values.file);
   const result = await verifyReviewResult(input, ctx.loadGitHubConnection);

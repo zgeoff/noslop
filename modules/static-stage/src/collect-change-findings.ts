@@ -17,21 +17,15 @@ export interface ChangeFindingInputs {
   manifests: readonly PackageManifest[];
   baseManifests: ReadonlyMap<string, PackageManifest>;
 
-  // the base text of each changed path the checks compare with its base, keyed by its base path
   baseTexts: ReadonlyMap<string, string>;
   consumerManifests: readonly ConsumerManifest[];
   config: ReviewConfig;
   linkedIssue: string | null;
   isSync: boolean;
 
-  // the pull request comes from an account the config names as a sync's, so a change beside the
-  // synced copies, such as a manifest the sync also edits, does not make it a hand edit
   isSyncAuthor: boolean;
 }
 
-// the direct findings about the change as a whole: a version bump a consumer's range refuses, a schema
-// bound above a published limit, an edit to a synced copy outside a sync, a format-only hunk the
-// linked issue does not cover, and a change that needs a version bump the change lacks
 export function collectChangeFindings(inputs: ChangeFindingInputs): ModelFinding[] {
   return [
     ...collectRefusedBumps(inputs),
@@ -46,7 +40,6 @@ function collectRefusedBumps(inputs: ChangeFindingInputs): ModelFinding[] {
   return inputs.manifests.flatMap((manifest) => {
     const before = inputs.baseManifests.get(manifest.path);
 
-    // only a manifest the change edits, at a version other than its base version, is a bump
     if (
       manifest.name === null ||
       manifest.version === null ||
@@ -146,8 +139,6 @@ function collectSyncedEdits(inputs: ChangeFindingInputs): ModelFinding[] {
     );
 }
 
-// the sync that delivers a workflow caller pins its call to the sync's own ref, so a change that only
-// moves that ref in a workflow file left at its path keeps the copy in step with the next sync
 function isWorkflowPinOnly(entry: AnalyzedFile, baseText: string | null): boolean {
   return (
     entry.file.status === 'modified' &&
@@ -180,8 +171,6 @@ function tryParseYAML(text: string): { ok: true; value: unknown } | { ok: false 
 
 const WORKFLOW_CALL = /^[^\s@/]+\/[^\s@/]+\/\.github\/workflows\/[^\s@]+\.ya?ml@\S+$/u;
 
-// drops the ref from each `jobs.<id>.uses` that calls a workflow in another repo; a step's `uses`
-// names an action, whose pin the sync leaves alone, so it keeps its ref
 function normalizeCallRefs(document: unknown): unknown {
   if (!isRecord(document) || !isRecord(document['jobs'])) {
     return document;
@@ -204,8 +193,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-// a parse drops comments and layout, so each changed line must also be a `uses:` line whose text
-// outside the ref stays the same
+// a YAML parse drops comments and layout, so each changed line must also be a `uses:` line whose
+// text outside the ref stays the same
 function hasOnlyCallLineChanges(entry: AnalyzedFile): boolean {
   return (
     entry.file.hunks.length > 0 &&
@@ -226,7 +215,6 @@ function hasOnlyCallLineChanges(entry: AnalyzedFile): boolean {
   );
 }
 
-// a `uses:` line that calls a reusable workflow in another repo, as the line with its ref dropped
 function findWorkflowCall(text: string): string | null {
   // a quoted call ends at its closing quote, and YAML starts a comment only at a # after whitespace,
   // so a # inside the quotes or inside a bare ref belongs to the ref
@@ -299,7 +287,7 @@ function collectStrayFormatHunks(inputs: ChangeFindingInputs): ModelFinding[] {
   });
 }
 
-// drops the whitespace outside quoted text, so a change inside a string literal is never format-only
+// whitespace inside a string literal is part of its value, so a change there is never format-only
 function normalizeSpace(text: string): string {
   return text.replaceAll(
     /(?<quoted>"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`)|\s+/gu,
@@ -332,7 +320,6 @@ function collectMissingBumps(inputs: ChangeFindingInputs): ModelFinding[] {
   );
 
   return [...needing.values()].flatMap((manifest) => {
-    // a manifest the change leaves alone keeps its version; one the change adds is a new package
     const before = changed.has(manifest.path) ? inputs.baseManifests.get(manifest.path) : manifest;
 
     if (before === undefined || before.version !== manifest.version) {

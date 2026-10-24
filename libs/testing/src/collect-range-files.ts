@@ -1,5 +1,3 @@
-// the files a range of commits changes, as GitHub's compare lists them: each path once, and a file
-// renamed over the range names the path it had at the range's base
 export function collectRangeFiles(
   range: readonly { files: string[]; renames: Record<string, string> }[],
 ): { filename: string; status?: string; previous_filename?: string }[] {

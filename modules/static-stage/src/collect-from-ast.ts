@@ -1,7 +1,6 @@
 import type { ASTNode } from './ast-node';
 import { isASTNode } from './ast-node';
 
-// visits every node depth-first, with the chain of nodes above it, nearest last
 export function collectFromAST(
   root: ASTNode,
   visit: (node: ASTNode, ancestors: readonly ASTNode[]) => void,

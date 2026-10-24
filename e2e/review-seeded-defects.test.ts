@@ -7,8 +7,8 @@ import { reviewResultSchema } from '@noslop/contract';
 import { createRunner } from '@noslop/runner';
 import { createTestRepo } from '@noslop/testing';
 
-// the journey calls a real model CLI, so it runs only when NOSLOP_E2E_ADAPTER names the adapter to
-// use, codex or claude; Bun 1.4.2's skipIf takes a boolean read at collection time
+// Bun 1.4.2's skipIf takes a boolean read at collection time, so the adapter is read once
+// at module load.
 const ADAPTER = Bun.env['NOSLOP_E2E_ADAPTER'];
 
 async function setupTest() {

@@ -1,6 +1,5 @@
 import type { Tokens } from './tokens';
 
-// adds up what several calls or reviews spent, count by count
 export function mergeTokens(parts: readonly Tokens[]): Tokens {
   return {
     input: parts.reduce((total, part) => total + part.input, 0),

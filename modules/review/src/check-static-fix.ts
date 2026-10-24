@@ -6,20 +6,15 @@ export interface StaticFixCheckInput {
   repoDir: string;
   head: string;
 
-  // the answered finding as its comment keeps it: the line it anchors to at the head that posted it
   findingID: string;
   title: string;
   path: string;
   line: number | null;
   postedHead: string | null;
 
-  // the static findings of the whole pull request at the head
   findings: readonly Finding[];
 }
 
-// a static finding holds while the stage reports a finding with its title at its own place; the place
-// decides, not the ID, since Assemble numbers 2 findings with one title by their order, so fixing the
-// first hands its ID to the second
 export async function checkStaticFix(input: StaticFixCheckInput): Promise<FixCheck> {
   const same = input.findings.filter(
     (finding) => finding.anchor.path === input.path && finding.title === input.title,
@@ -48,8 +43,6 @@ export async function checkStaticFix(input: StaticFixCheckInput): Promise<FixChe
       };
 }
 
-// whether a finding at the head sits on the lines that hold the posted line now; a finding with no
-// posted line or head, or a diff git cannot read, counts as reported, since nothing tells it apart
 async function probeReportedAtPlace(
   input: StaticFixCheckInput,
   same: readonly Finding[],
@@ -91,8 +84,6 @@ async function probeReportedAtPlace(
 const HUNK_HEADER =
   /^@@ -(?<oldStart>\d+)(?:,(?<oldCount>\d+))? \+(?<newStart>\d+)(?:,(?<newCount>\d+))? @@/gmu;
 
-// the head lines that hold a line of the posting head: the line itself, moved by the hunks above it,
-// or the lines a hunk wrote in its place; null when a hunk deleted it and wrote nothing
 function findHeadLines(diff: string, line: number): { start: number; end: number } | null {
   let offset = 0;
 

@@ -4,9 +4,6 @@ export const dispositionKindSchema = z.enum(['fixed', 'not-a-defect', 'deferred'
 
 export type DispositionKind = z.infer<typeof dispositionKindSchema>;
 
-// the first line of the author's reply in a finding's thread, parsed; `value` holds the commit a
-// `fixed` reply names as a hint, empty for a bare `fixed`, the issue for `deferred`, and the reason
-// for the other 2 kinds
 export const dispositionSchema = z
   .strictObject({
     findingID: z.string().regex(/^[0-9a-f]{16}$/u),

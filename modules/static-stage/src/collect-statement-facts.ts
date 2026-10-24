@@ -9,8 +9,6 @@ import { getNodeText } from './get-node-text';
 import { isCallMatch } from './is-call-match';
 import { isFunctionNode } from './is-function-node';
 
-// records each throw with its nearest catch, each catch, each call left to run detached, and each
-// guard: a throw or an early return under an if, or an invariant call
 export function collectStatementFacts(
   node: ASTNode,
   ancestors: readonly ASTNode[],
@@ -78,8 +76,6 @@ function findNearestCatch(
   return null;
 }
 
-// `void run()`, and a `.then` chain left as a statement, run with nobody awaiting them; the catch the
-// chain ends in, if any, is the one that sees their failure
 function collectDetached(expression: ASTNode | null, line: number, ctx: AnalyzeContext): void {
   if (expression === null) {
     return;
@@ -160,7 +156,6 @@ function pickGuardKind(statement: ASTNode): 'throw' | 'early-return' | null {
   return statement.type === 'ReturnStatement' ? 'early-return' : null;
 }
 
-// the names a condition reads, without the property names of its member reads
 function collectNames(condition: ASTNode): string[] {
   const names = new Set<string>();
 

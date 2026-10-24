@@ -17,16 +17,11 @@ export interface CallBatchPlanInput extends SharedPromptInput {
 export interface CallBatchPlan {
   parts: CallPart[];
 
-  // each changed file that no part reads, once
   notReviewed: NotReviewedFile[];
 
-  // each changed file that a part reads while the calls of other lenses leave it out, once, with
-  // those lenses
   notReviewedByLens: LensNotReviewedFile[];
 }
 
-// the parts every planned call of a review runs as, each with an ID no other call or part holds, the
-// files that no part reads, and the files that only some lenses read
 export function planCallBatch(input: CallBatchPlanInput): CallBatchPlan {
   const taken = new Set(input.calls.map((call) => call.callID));
 
@@ -58,8 +53,6 @@ export function planCallBatch(input: CallBatchPlanInput): CallBatchPlan {
 
   const parts = planned.flatMap((item) => item.parts);
 
-  // a file one call leaves out can be read by another call, so a file is not reviewed only when no
-  // part of any call puts its hunks in a prompt
   const read = new Set(
     parts.flatMap((part) => {
       const kinds = new Set(part.call.lenses.flatMap((lens) => LENS_INPUTS[lens].hunks));
@@ -82,8 +75,6 @@ export function planCallBatch(input: CallBatchPlanInput): CallBatchPlan {
   };
 }
 
-// a lens runs in one call, so the files that call leaves out are the files the lens never reads; a
-// file no part reads is listed as not reviewed already, so it stays off this list
 function collectLensNotReviewed(
   calls: readonly PlannedCall[],
   planned: readonly { notReviewed: readonly NotReviewedFile[] }[],

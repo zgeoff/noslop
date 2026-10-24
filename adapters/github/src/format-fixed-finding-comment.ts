@@ -5,9 +5,6 @@ const FINDING_MARKER_START = '<!-- noslop:finding ';
 const ORIGINAL_OPEN = '<details><summary>Original finding</summary>\n\n';
 const ORIGINAL_CLOSE = '\n</details>\n';
 
-// a finding comment as its fix stands: with a confirmed fix commit, the heading struck through, the
-// commit, and the posted comment collapsed under them; with none, the comment as posted, so a fix that
-// stops holding opens the finding again; the marker stays byte for byte either way
 export function formatFixedFindingComment(
   body: string,
   marker: FindingMarker,

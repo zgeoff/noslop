@@ -79,7 +79,6 @@ test('it replays cases at once and keeps their order when a later case ends firs
     depth: 'standard',
   };
 
-  // case-1 waits until a case has ended, so case-2 always ends first
   const firstEnd = Promise.withResolvers<null>();
 
   const waits: Record<string, Promise<null>> = {

@@ -1,7 +1,6 @@
 import type { ReviewResult } from '@noslop/contract';
 import { REVIEW_OUTPUT_VERSION } from '@noslop/contract';
 
-// a Light review of one commit with one call and no findings
 export function buildMockReviewResult(overrides: Partial<ReviewResult> = {}): ReviewResult {
   return {
     version: REVIEW_OUTPUT_VERSION,

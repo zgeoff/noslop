@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# One-time local publish of @noslop/cli: npm sets up trusted publishing (OIDC)
-# only for a package that exists on the registry. Every later release is
-# published by .github/workflows/main.yml.
+# npm sets up trusted publishing (OIDC) only for a package that already exists on the
+# registry, so the first publish runs locally.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."

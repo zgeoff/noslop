@@ -2,9 +2,6 @@ import type { Reporter, ReviewConfig, ReviewResult } from '@noslop/contract';
 import type { CLIContext } from './cli-context';
 import { getStorePath } from './get-store-path';
 
-// runs the listed reporters in order, and a reporter that runs last after them, so it sees which ones
-// failed; a failed reporter is logged and the rest still run; a json reporter with no path is left
-// out, because the command prints the result to stdout itself
 export async function runReporters(
   result: ReviewResult,
   config: ReviewConfig,

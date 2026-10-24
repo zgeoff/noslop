@@ -14,8 +14,6 @@ import { createGitHubConnectionLoader } from './create-github-connection-loader'
 import { createJSONReporter } from './create-json-reporter';
 import { makeCommentURLRecorder } from './make-comment-url-recorder';
 
-// the context the installed CLI runs in: the real runner, the user's cache and data folders, stdout
-// and stderr, and the adapters and reporters noslop ships
 export function createCLIContext(env: Readonly<Record<string, string | undefined>>): CLIContext {
   const runner = createRunner();
   const cacheDir = join(resolveXDGDir(env['XDG_CACHE_HOME'], ['.cache']), 'noslop');
@@ -30,8 +28,8 @@ export function createCLIContext(env: Readonly<Record<string, string | undefined
   const loadGitHubConnection = github.load;
   const logger = getLogger(['noslop']);
 
-  // a run with no sqlite reporter wrote no finding rows to link, and opening the store would create a
-  // file the config never asked for
+  // Opening a SQLite store creates its file, so a run with no sqlite reporter records no comment
+  // links rather than make a store the config never asked for.
   const reporters: Record<string, (storePath: string | null) => Reporter> = {
     json: () => createJSONReporter(writeStdout),
     sqlite: () =>
@@ -71,8 +69,8 @@ export function createCLIContext(env: Readonly<Record<string, string | undefined
   };
 }
 
-// the XDG base directory spec ignores an empty or relative value, so the folder under the home
-// directory stands in for it
+// The XDG base directory spec ignores an empty or relative value, so the folder under the home
+// directory stands in for it.
 function resolveXDGDir(value: string | undefined, fallback: readonly string[]): string {
   return value !== undefined && isAbsolute(value) ? value : join(homedir(), ...fallback);
 }

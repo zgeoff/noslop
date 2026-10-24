@@ -7,9 +7,6 @@ import { getFields } from './get-fields';
 import { getNodeText } from './get-node-text';
 import { isFunctionNode } from './is-function-node';
 
-// records the imports, the exports, the declared types with their keys, the `any` types and the calls
-// that return `any`, the config reads, and the security facts a declaration shows: an allow-or-deny
-// function, a row mapper, a credential path and text placed into a model's instructions
 export function collectDeclarationFacts(
   node: ASTNode,
   ancestors: readonly ASTNode[],

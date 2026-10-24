@@ -16,13 +16,10 @@ export interface CallPromptInput {
   body: string;
   linkedIssue: string | null;
 
-  // the changed files the call leaves out, so a lens never reports their missing hunks
   leftOut: readonly LeftOutFile[];
   base: string;
   head: string;
 
-  // a re-review of a pull request covers only the commits since its last reviewed head, while its
-  // title and body still describe the whole pull request
   isIncremental: boolean;
 }
 
@@ -32,9 +29,6 @@ const INCREMENTAL_NOTE = [
   'Do not report that the title or the body misdescribes the change, names a file the change does not touch, or claims work the diff does not show.',
 ].join('\n\n');
 
-// joins the shared header, one section per lens in the order given, and the input the lenses read:
-// the pull request, the hunks of the files in the call, each slice once and cut to those files, and
-// the rules file when a lens reads it, and the changed files the call leaves out
 export function buildCallPrompt(input: CallPromptInput): string {
   const lensInputs = input.lenses.map((lens) => LENS_INPUTS[lens]);
 
@@ -52,13 +46,9 @@ export function buildCallPrompt(input: CallPromptInput): string {
     '# Input',
     `The change runs from commit ${input.base} to commit ${input.head}.`,
 
-    // every lens reads the pull request and its issue, because each one must tell a change made on
-    // purpose from a defect
     `## Pull request\n\nTitle: ${input.title}\n\n${input.body.trim() || 'The body is empty.'}`,
   ];
 
-  // the diff of a re-review leaves out what an earlier review read, so a file or a claim the body
-  // names can look missing from it; the first review of the pull request judges the description
   if (input.isIncremental) {
     sections.push(INCREMENTAL_NOTE);
   }
@@ -96,8 +86,6 @@ function renderRules(rules: CallPromptInput['rules']): string {
   return ['## Rules file', ...rules.map((rule) => `### ${rule.name}\n\n${rule.body}`)].join('\n\n');
 }
 
-// a slice that is a list keeps the items on the call's files; the comment density covers the whole
-// change and stays whole
 function collectSliceItems(slice: Slices[keyof Slices], paths: ReadonlySet<string>): unknown {
   if (!Array.isArray(slice)) {
     return slice;

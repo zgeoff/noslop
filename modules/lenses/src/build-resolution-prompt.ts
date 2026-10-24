@@ -4,18 +4,14 @@ import { getLensPrompt } from './get-lens-prompt';
 import { renderCriteria } from './render-criteria';
 import { renderHunks } from './render-hunks';
 
-// a resolution check reads for a side's change that the merge lost and for a defect that its own lines
-// add, which the correctness and security lenses report
 export const RESOLUTION_LENSES = ['correctness', 'security'] as const satisfies readonly LensID[];
 
 export interface ResolutionPromptInput {
   merge: string;
   parents: readonly [string, string];
 
-  // the files git could not merge on its own, as `git merge-tree` names them
   conflicted: readonly string[];
 
-  // the change from the tree `git merge-tree` builds to the merge commit's tree
   files: readonly ChangedFile[];
 }
 
@@ -29,8 +25,6 @@ const RESOLUTION_TASK = [
   '5. The pull request names no rules file here, so report no taste finding.',
 ].join('\n\n');
 
-// joins the shared header, the correctness and security lenses, the resolution task and the hunks of
-// the change the merge itself wrote, so the call judges the resolution and nothing the merge brought in
 export function buildResolutionPrompt(input: ResolutionPromptInput): string {
   const conflicted =
     input.conflicted.length === 0

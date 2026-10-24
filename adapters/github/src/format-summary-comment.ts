@@ -9,24 +9,18 @@ export interface FixConfirmation {
   id: string;
   title: string;
 
-  // the sha the `fixed` disposition names, empty for a bare `fixed`
   commit: string;
 
   status: 'fixed' | 'not-fixed' | 'unjudged';
 
-  // the fix call's reason, or why no call judged the fix, on a fix the review leaves unconfirmed
   failure?: string;
 }
 
-// the fixes a re-review judged, and how many findings earlier reviews posted
 export interface FixStatus {
   confirmations: readonly FixConfirmation[];
   posted: number;
 }
 
-// the summary comment, written for a person: the count and risk of this review's findings, its failed
-// calls, the files it did not review, each fix and merge resolution it judged, a table that links each
-// finding to its comment, then the review's details collapsed and the marker the next run reads
 export function formatSummaryComment(
   result: ReviewResult,
   marker: SummaryMarker,
@@ -113,8 +107,6 @@ export function formatSummaryComment(
 
 const SEVERITIES: readonly Severity[] = ['P1', 'P2', 'P3'];
 
-// "2 findings, both P2", "3 findings: 1 P1, 2 P3", "all 2 findings fixed" once every finding an
-// earlier review posted is, or "no findings", which a re-review writes as "no new findings"
 function formatHeadline(findings: readonly Finding[], fixes: FixStatus, reviews: number): string {
   const fixed = fixes.confirmations.filter((item) => item.status === 'fixed').length;
 
@@ -147,7 +139,6 @@ function formatHeadline(findings: readonly Finding[], fixes: FixStatus, reviews:
   return `${total}: ${counts.map(([severity, count]) => `${count} ${severity}`).join(', ')}`;
 }
 
-// high with any P1 or any finding in a marked risk class, medium with any P2, and low otherwise
 function pickRisk(findings: readonly Finding[]): 'high' | 'medium' | 'low' {
   if (findings.some((finding) => finding.severity === 'P1' || finding.riskClass !== undefined)) {
     return 'high';
@@ -166,7 +157,6 @@ const NOT_REVIEWED_REASONS: Readonly<Record<NotReviewedFile['reason'], string>> 
 const NOT_REVIEWED_SHOWN = 20;
 const PATH_SHOWN = 200;
 
-// a file left out of every call is named, so a reader sees what the review did not cover
 function formatNotReviewed(files: readonly NotReviewedFile[]): string {
   const count = files.length === 1 ? '1 file' : `${files.length} files`;
   const rest = files.length - NOT_REVIEWED_SHOWN;

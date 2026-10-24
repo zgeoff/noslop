@@ -9,9 +9,6 @@ export interface FunctionSlices {
   events: { path: string; startLine: number; endLine: number }[];
 }
 
-// cuts each file's facts down to the changed code: the functions a changed line falls in, and the
-// guards, throws and catches on added lines; the writes are every write in a changed function, so a
-// lens sees the writes a new one sits beside
 export function buildFunctionSlices(files: readonly AnalyzedFile[]): FunctionSlices {
   const slices: FunctionSlices = { functions: [], guards: [], throws: [], writes: [], events: [] };
 
@@ -122,7 +119,6 @@ export function buildFunctionSlices(files: readonly AnalyzedFile[]): FunctionSli
   return slices;
 }
 
-// follows a name to the value it was declared from, at most 2 steps back
 function resolveOrigin(
   name: string,
   declarations: ReadonlyMap<string, { origin: ValueOrigin; from: string | null }> | undefined,

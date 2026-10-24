@@ -2,8 +2,6 @@ import type { CLIContext } from './cli-context';
 import { loadRepoConfig } from './load-repo-config';
 import { resolveRepoDir } from './resolve-repo-dir';
 
-// prints the merged config of the repo that holds the working directory, with the file each key
-// comes from
 export async function runConfigCommand(json: boolean, ctx: CLIContext): Promise<number> {
   const repoDir = await resolveRepoDir(ctx);
   const loaded = await loadRepoConfig(ctx, repoDir);
@@ -32,7 +30,6 @@ export async function runConfigCommand(json: boolean, ctx: CLIContext): Promise<
     lines.push(`${key} (${loaded.sources[key] ?? 'built-in'}): ${JSON.stringify(value)}`);
   }
 
-  // a rules file the repo lacks loads no rule without failing, so the command names each one
   for (const label of loaded.missingRules) {
     lines.push(`rules file not in this repo, so no rules from it: ${label}`);
   }

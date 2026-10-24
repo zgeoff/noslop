@@ -6,14 +6,11 @@ export interface ReviewedInput {
   summary: SummaryMarker | null;
   currentHead: string;
 
-  // the key of the pull request's net change at the current head
   currentKey: NetChangeKey;
 }
 
-// the most changed files the check names
 const NAMED_FILES = 5;
 
-// a marker with a key counts for each head with the same net change
 export function findUnreviewedReason(input: ReviewedInput): string | null {
   const summary = input.summary;
   const missing = `No noslop review for this commit, ${input.currentHead.slice(0, 12)}.`;

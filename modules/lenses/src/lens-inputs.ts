@@ -2,7 +2,6 @@ import type { LensID } from '@noslop/contract';
 import type { FileKind, Slices } from '@noslop/static-stage';
 
 export interface LensInput {
-  // the kinds of changed file whose hunks the lens reads; an empty list reads no hunks
   hunks: readonly FileKind[];
   slices: readonly (keyof Slices)[];
   rules: boolean;
@@ -10,8 +9,6 @@ export interface LensInput {
 
 const CHANGED_CODE: readonly FileKind[] = ['code', 'test', 'config', 'infra', 'other'];
 
-// what each lens reads beside its prompt section; a call joins the inputs of its lenses, and each
-// slice appears once however many of them read it
 export const LENS_INPUTS: Readonly<Record<LensID, LensInput>> = {
   correctness: { hunks: CHANGED_CODE, slices: ['functions'], rules: false },
   'failure-handling-and-observability': {

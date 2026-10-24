@@ -3,9 +3,6 @@ import type { AnalyzedFile } from './analyzed-file';
 import type { BaseFunction } from './load-base-index';
 import type { FunctionEntry, ReuseEntry } from './types';
 
-// for each new function, the base functions closest to it: half the score is the overlap of the name
-// tokens, and half the overlap of the calls and literals; a function with no candidate at the minimum
-// score is left out, so the reuse lens fires only on a real match
 export function buildReuseSlice(
   functions: readonly FunctionEntry[],
   files: readonly AnalyzedFile[],

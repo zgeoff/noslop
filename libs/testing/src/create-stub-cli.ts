@@ -4,15 +4,12 @@ import { z } from 'zod';
 import type { StubCLIScript } from './run-stub-cli';
 
 export interface StubCLI {
-  // the executable to run in place of the real CLI
   path: string;
   readRecord: () => Promise<{ args: string[]; stdin: string }>;
 }
 
 const recordSchema = z.strictObject({ args: z.array(z.string()), stdin: z.string() });
 
-// writes an executable in the directory that runs the stub CLI with the script, so a test hands the
-// adapter a path where it would name the real CLI
 export async function createStubCLI(
   directory: string,
   script: Omit<StubCLIScript, 'recordPath'>,
@@ -40,7 +37,6 @@ export async function createStubCLI(
   };
 }
 
-// a single-quoted shell word, with each quote inside it closed, escaped and reopened
 function formatShellWord(value: string): string {
   return `'${value.replaceAll("'", String.raw`'\''`)}'`;
 }

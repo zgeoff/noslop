@@ -54,7 +54,6 @@ test('it starts no task after one rejects, and rejects once the running tasks se
   const started: number[] = [];
   const settled: number[] = [];
 
-  // task 1 rejects at once, and the others wait on the gate
   const waits: Record<number, Promise<null>> = {
     1: Promise.reject(new Error('the first task failed')),
   };
@@ -77,7 +76,6 @@ test('it starts no task after one rejects, and rejects once the running tasks se
 test('it rejects with the first error when 2 running tasks reject', () => {
   const second = Promise.withResolvers<null>();
 
-  // task 1 rejects at once, and task 2 rejects only after the test releases it
   const waits: Record<number, Promise<null>> = {
     1: Promise.reject(new Error('the first task failed')),
     2: second.promise,

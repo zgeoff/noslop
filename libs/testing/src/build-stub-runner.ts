@@ -15,8 +15,6 @@ export interface StubRunner {
   runs: RecordedRun[];
 }
 
-// a stand-in for the process runner: each run takes the first unused answer whose argv starts with
-// the answer's argv, and a run with no answer left rejects, so a test sees every spawn it did not plan
 export function buildStubRunner(answers: readonly StubAnswer[]): StubRunner {
   const unused = [...answers];
   const runs: RecordedRun[] = [];

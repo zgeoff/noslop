@@ -72,7 +72,6 @@ test('it verifies a result when the base config names the App of the keys', asyn
 
   await Bun.write(join(directory, 'review.json'), '{ "github": { "app": "noslop-review" } }\n');
 
-  // the hash a review records when it loads the same config from its checkout
   const loaded = await loadConfig({ repoDir: directory });
 
   await githubCollections.pullRequests.create({

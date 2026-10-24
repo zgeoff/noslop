@@ -6,12 +6,9 @@ export interface ConfigLayer {
 export interface MergedLayers {
   value: Record<string, unknown>;
 
-  // the source of each leaf, by its dotted key path; an array is one leaf
   sources: Record<string, string>;
 }
 
-// merges each layer over the ones before it by 3 rules: objects merge by key, arrays replace, and null
-// removes the key the layers before it set
 export function mergeConfigLayers(layers: readonly ConfigLayer[]): MergedLayers {
   let merged: MergedLayers = { value: {}, sources: {} };
 
@@ -41,7 +38,6 @@ function mergeObject(
       continue;
     }
 
-    // a new object merges against an empty one, so a null inside it removes its key too
     if (isPlainObject(next)) {
       const inherited = isPlainObject(current)
         ? { value: current, sources: pickSourcesUnder(sources, path) }
@@ -49,7 +45,6 @@ function mergeObject(
 
       const child = mergeObject(inherited, next, source, path);
 
-      // an empty object is a leaf of its own; once it holds keys, its keys are the leaves
       const childSources =
         Object.keys(child.value).length === 0
           ? { [path]: source }

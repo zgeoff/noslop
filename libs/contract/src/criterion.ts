@@ -1,8 +1,6 @@
 import { z } from 'zod';
 import type { Severity } from './severity';
 
-// each criterion is one row of the severity table, so a finding's severity follows from the criterion
-// its lens names
 export const criterionSchema = z.enum([
   'security-defect',
   'data-loss',

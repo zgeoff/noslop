@@ -34,9 +34,6 @@ export interface AssembledFindings {
   dropped: { raw: RawFinding; reason: DropReason }[];
 }
 
-// applies the finding rules to the raw output of the calls: a finding off the diff, a taste finding
-// without a known rule and a PLAUSIBLE finding without its fact are dropped, and 2 findings of one
-// defect at one anchor merge into the one with the higher severity
 export function buildFindings(input: AssembleInput): AssembledFindings {
   const files = new Map(input.files.map((file) => [file.path, file]));
 
@@ -96,7 +93,6 @@ function buildFinding(
     isGlobMatch(anchor.path, input.config.riskClasses[name]?.paths ?? []),
   );
 
-  // an optional key appears only with a value, so 2 equal findings compare equal
   const parsed = findingSchema.safeParse({
     id: buildFindingID(raw.lens, anchor.path, cited ?? model.criterion, title),
     lens: raw.lens,
@@ -120,7 +116,6 @@ function buildFinding(
   return parsed.success ? parsed.data : 'invalid';
 }
 
-// the head lines of each hunk, its context lines included, are the diff a finding may anchor to
 function isInHunks(file: ChangedFile, startLine: number, endLine: number): boolean {
   return file.hunks.some(
     (hunk) =>
@@ -128,8 +123,6 @@ function isInHunks(file: ChangedFile, startLine: number, endLine: number): boole
   );
 }
 
-// the static stage's own reading of the changed lines, so a finding and a direct finding anchor to
-// the same head line for each deletion
 function isOnChangedLine(
   file: ChangedFile,
   startLine: number,
@@ -148,8 +141,6 @@ function isOnChangedLine(
   return false;
 }
 
-// one defect reported at 2 separate places of a file hashes to one ID, so each place after the first,
-// in anchor order, hashes its place number into its ID and every ID stays unique in the review
 function buildUniqueIDs(findings: readonly Finding[]): Finding[] {
   const seen = new Map<string, number>();
 
@@ -173,8 +164,6 @@ function buildPlacedFinding(finding: Finding, place: number): Finding {
 
 const SEVERITY_RANK = { P1: 0, P2: 1, P3: 2 } as const;
 
-// 2 findings are one defect when their anchors overlap and their titles say the same thing; the
-// merged finding keeps the higher severity
 function mergeDuplicates(findings: readonly Finding[], thresholds: Thresholds): Finding[] {
   const merged: Finding[] = [];
 
@@ -197,9 +186,6 @@ function mergeDuplicates(findings: readonly Finding[], thresholds: Thresholds): 
   );
 }
 
-// a reordered or shorter wording of one defect merges, but a title that swaps a word, such as request
-// for response, can name another defect; a test finding asks for a test where a fix finding asks for
-// a fix, so the 2 kinds never merge
 function isSameDefect(left: Finding, right: Finding, thresholds: Thresholds): boolean {
   const overlaps =
     left.anchor.path === right.anchor.path &&

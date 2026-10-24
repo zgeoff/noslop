@@ -162,7 +162,6 @@ test('it reads the token use of a review from the session of the thread it start
     ].join('\n'),
   );
 
-  // the stub writes no session, so the session file is dated after the review starts
   const later = new Date(Date.now() + 60_000);
 
   await utimes(childFile, later, later);
@@ -283,7 +282,6 @@ test('it removes the session files of its own review and never another run', asy
     '{"type":"session_meta","payload":{"id":"t_other_child","parent_thread_id":"t_other"}}',
   );
 
-  // the stub writes no session, so each session file is dated after the review starts
   const later = new Date(Date.now() + 60_000);
 
   await utimes(join(day, 'rollout-parent.jsonl'), later, later);

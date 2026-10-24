@@ -2,7 +2,6 @@ import { z } from 'zod';
 import { effortSchema } from './effort';
 import { lensIDSchema } from './lens-id';
 
-// each key carries a description, which the generated JSON Schema of review.json shows in an editor
 export const stackPatternSchema = z.strictObject({
   calls: z
     .array(z.string().min(1))
@@ -187,7 +186,6 @@ export const rulesFileSchema = z.strictObject({
 
 export type RulesFile = z.infer<typeof rulesFileSchema>;
 
-// the merged config: every key holds a value once the built-in defaults sit under the repo's file
 export const reviewConfigSchema = z.strictObject({
   rules: z
     .array(rulesFileSchema)
@@ -235,8 +233,6 @@ export const reviewConfigSchema = z.strictObject({
     .partialRecord(lensIDSchema, lensOverrideSchema)
     .describe('Overrides for each lens, by lens id'),
 
-  // a lens that no call lists runs in a call of its own under the lens's name, so a call named
-  // after a lens must list that lens, or the two calls would share one ID
   calls: z
     .record(z.string(), z.array(lensIDSchema))
     .superRefine((calls, ctx) => {
@@ -297,7 +293,6 @@ export const reviewConfigSchema = z.strictObject({
     .array(z.string().min(1))
     .describe('Path globs whose change needs a version bump in the package that owns them'),
 
-  // a layer that sets the slug to null removes it, so a missing slug means none
   github: z
     .strictObject({
       app: z
@@ -320,7 +315,6 @@ export type ReviewConfig = z.infer<typeof reviewConfigSchema>;
 
 export type StackPatternKind = keyof ReviewConfig['stack'];
 
-// a review.json: every key is optional, and null removes the key it would inherit
 export const reviewConfigFileSchema = z.looseObject({
   extends: z.string().min(1).optional(),
 });

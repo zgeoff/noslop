@@ -6,8 +6,6 @@ import { findingSchema } from './finding';
 import { callLensSchema, lensIDSchema } from './lens-id';
 import { tokensSchema } from './tokens';
 
-// changes only with a breaking change to the output, so a consumer that pins a CLI version reads one
-// shape
 export const REVIEW_OUTPUT_VERSION = 7;
 const commitSchema = z.string().regex(/^[0-9a-f]{40}$/u);
 
@@ -34,8 +32,6 @@ export const failedCallSchema = z.strictObject({
 
 export type FailedCall = z.infer<typeof failedCallSchema>;
 
-// a changed file that no call read: a match of the config's data globs, or a file too large for a
-// call
 export const notReviewedFileSchema = z.strictObject({
   path: z.string().min(1),
   reason: z.enum(['data', 'too-large']),
@@ -43,9 +39,6 @@ export const notReviewedFileSchema = z.strictObject({
 
 export type NotReviewedFile = z.infer<typeof notReviewedFileSchema>;
 
-// a file that the calls of the listed lenses did not read, such as a changed file another call read,
-// or the file of an earlier design finding on a review that ran no design call, so a reporter reads no
-// silence of those lenses on it as a fix
 export const lensNotReviewedFileSchema = z.strictObject({
   path: z.string().min(1),
   lenses: z.array(callLensSchema).min(1),
@@ -65,8 +58,6 @@ export const pullRequestRefSchema = z.strictObject({
 
 export type PullRequestRef = z.infer<typeof pullRequestRefSchema>;
 
-// a fix call's word on one `fixed` answer: whether the head still holds the finding, and the one-line
-// reason
 export const fixCheckSchema = z.strictObject({
   findingID: z.string().regex(/^[0-9a-f]{16}$/u),
   fixed: z.boolean(),
@@ -82,16 +73,11 @@ export const unjudgedFixSchema = z.strictObject({
 
 export type UnjudgedFix = z.infer<typeof unjudgedFixSchema>;
 
-// a fixes-only run's word on one merge commit whose tree differs from the tree `git merge-tree` builds
-// from its parents: whether what the merge itself wrote, its conflict resolutions and hand edits,
-// keeps the change of each side and adds no defect, and the one-line reason
 export const resolutionCheckSchema = z.strictObject({
   merge: commitSchema,
   sound: z.boolean(),
   reason: z.string().min(1),
 
-  // the findings the check raised on the resolution, so a reader tells a verdict its findings carry
-  // from one that only the verdict reports
   findingIDs: z.array(z.string().regex(/^[0-9a-f]{16}$/u)),
 });
 
@@ -117,15 +103,11 @@ export const reviewResultSchema = z.strictObject({
   notReviewedByLens: z.array(lensNotReviewedFileSchema),
   configHash: z.string().min(1),
 
-  // set only on a fixes-only run, which runs no lens, so it is no review round
   fixesOnly: z.literal(true).optional(),
 
-  // the verdict of each fix call: a fixes-only run's, or a review's for each `fixed` answer whose
-  // finding it no longer reported; only a verdict confirms a fix, never a finding's absence
   fixChecks: z.array(fixCheckSchema).optional(),
   unjudgedFixes: z.array(unjudgedFixSchema).optional(),
 
-  // set only on a fixes-only run that judged a merge in its range; a clean merge gets no check
   resolutionChecks: z.array(resolutionCheckSchema).optional(),
   startedAt: z.iso.datetime(),
   endedAt: z.iso.datetime(),

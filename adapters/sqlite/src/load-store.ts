@@ -108,9 +108,6 @@ const STORE_MIGRATIONS: Record<string, Migration> = {
     },
   },
 
-  // a finding ID is unique within one repo only, so each disposition keys on the repo too; a row the
-  // store held before takes the repo of the reviews that reported its finding when they name one repo,
-  // and no repo otherwise, so it applies to no finding until noslop check reads its source again
   '0002-dispositions-by-repo': {
     up: async (db) => {
       await db.schema
@@ -143,15 +140,12 @@ const STORE_MIGRATIONS: Record<string, Migration> = {
     },
   },
 
-  // each call reads the whole change, so a call record has no chunk
   '0003-calls-without-chunks': {
     up: async (db) => {
       await db.schema.alterTable('calls').dropColumn('chunk').execute();
     },
   },
 
-  // a call counts the input it read from the provider's cache apart from its new input; a row the
-  // store held before has no cache counts, and its input count holds the cached share
   '0004-calls-with-cache-counts': {
     up: async (db) => {
       await db.schema
@@ -166,16 +160,12 @@ const STORE_MIGRATIONS: Record<string, Migration> = {
     },
   },
 
-  // a review runs at the depth routing picks, with no step-up, so a review row has no depth it
-  // stepped up from
   '0005-reviews-without-step-up': {
     up: async (db) => {
       await db.schema.alterTable('reviews').dropColumn('stepped_up_from').execute();
     },
   },
 
-  // each finding Assemble dropped, as its call gave it, so a query shows whether a rule such as the
-  // quote check drops real findings
   '0006-dropped-findings': {
     up: async (db) => {
       await db.schema
@@ -197,9 +187,6 @@ const STORE_MIGRATIONS: Record<string, Migration> = {
     },
   },
 
-  // 2 pull requests of one repo can report findings that share an ID, so each disposition keys on the
-  // pull request whose thread held it; a row the store held before keeps none, and the key reads no
-  // pull request as 0, a number no pull request takes, so those rows stay unique among themselves
   '0007-dispositions-by-pull-request': {
     up: async (db) => {
       await db.schema
@@ -223,14 +210,14 @@ const STORE_MIGRATIONS: Record<string, Migration> = {
       await db.schema.dropTable('dispositions').execute();
       await sql`ALTER TABLE dispositions_by_pull_request RENAME TO dispositions`.execute(db);
 
+      // SQLite treats each NULL in a unique index as distinct, so the key reads a missing pull
+      // request as 0, which no pull request takes.
       await sql`
         CREATE UNIQUE INDEX dispositions_key
         ON dispositions (repo, COALESCE(pull_request, 0), finding_id, source, at)`.execute(db);
     },
   },
 
-  // the link to the comment the github reporter posted for a finding, so a query row links its
-  // thread; a row the store held before has none
   '0008-findings-with-comment-urls': {
     up: async (db) => {
       await db.schema.alterTable('findings').addColumn('comment_url', 'text').execute();
@@ -239,13 +226,9 @@ const STORE_MIGRATIONS: Record<string, Migration> = {
 };
 
 export interface LoadStoreOptions {
-  // the noslop version that opens the store, which a schema error names
   version?: string;
 }
 
-// opens the store at the path, creating the file and its folder when they do not exist, and applies
-// each migration it lacks; it throws before it changes a store whose schema is newer than this
-// noslop, which can neither read nor write it; the caller destroys the store when it is done
 export async function loadStore(path: string, options: LoadStoreOptions = {}): Promise<Store> {
   await mkdir(dirname(path), { recursive: true });
 
@@ -283,10 +266,8 @@ export async function loadStore(path: string, options: LoadStoreOptions = {}): P
   return store;
 }
 
-// migration names sort in the order they apply, so the greatest name is the newest migration
 const NEWEST_MIGRATION = Object.keys(STORE_MIGRATIONS).toSorted().at(-1) ?? '';
 
-// a store that no noslop has opened holds no migration table, so any noslop may open it
 function requireKnownSchema(database: Database, version: string | undefined): void {
   const table = database
     .query<{ name: string }, []>(

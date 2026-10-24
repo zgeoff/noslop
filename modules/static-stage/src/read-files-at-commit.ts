@@ -1,9 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import type { Runner } from '@noslop/runner';
 
-// reads many files at one commit through a single NUL-delimited `git cat-file --batch`; git answers in
-// input order, each file after a header with a fresh marker and each missing path with a `missing`
-// line, so the parse knows what each next answer starts with; a path the commit lacks is left out
+// `git cat-file --batch` answers in input order, each file after a header and each missing path
+// with a `missing` line, so the parse knows what each next answer starts with
 export async function readFilesAtCommit(
   runner: Runner,
   repoDir: string,

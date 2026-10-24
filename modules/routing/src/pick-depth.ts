@@ -2,8 +2,6 @@ import type { Depth } from '@noslop/contract';
 import { isGlobMatch } from '@noslop/static-stage';
 import type { RouteInput } from './types';
 
-// checks Deep first, then Light, and every other change is Standard; every threshold comes from the
-// config, so 2 runs on one change pick one depth
 export function pickDepth(input: RouteInput): Depth {
   const signals = input.signals;
   const thresholds = input.config.thresholds;
@@ -36,7 +34,6 @@ export function pickDepth(input: RouteInput): Depth {
     input.slices.writes.some((write) => write.eventsBeside.length > 0) ||
     (input.slices.writes.length > 0 && input.slices.events.length > 0);
 
-  // an infra change deploys or provisions, so its effect reaches past what its line count shows
   if (
     signals.riskClasses.length === 0 &&
     !hasRiskSlice &&
@@ -52,9 +49,6 @@ export function pickDepth(input: RouteInput): Depth {
   return 'standard';
 }
 
-// a marked risk class makes the change Deep only when enough of the change sits in the class's own
-// paths; a class marked by a detector alone, or by a path the change barely touches, fires the lenses
-// it forces at Standard
 function hasWeightyRiskClass(input: RouteInput): boolean {
   return input.signals.riskClasses.some((name) => {
     const riskClass = input.config.riskClasses[name];
@@ -67,8 +61,6 @@ function hasWeightyRiskClass(input: RouteInput): boolean {
   });
 }
 
-// a deletion in a path that a risk class forces a lens on counts whether or not the class is marked
-// by its detectors
 function countForcedPathDeletions(input: RouteInput): number {
   const forcedPaths = Object.values(input.config.riskClasses)
     .filter((riskClass) => riskClass.forces.length > 0)

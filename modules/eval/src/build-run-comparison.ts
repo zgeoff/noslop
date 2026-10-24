@@ -7,12 +7,9 @@ export interface RunComparison {
   findingsSecond: number;
   matched: number;
 
-  // matched findings over the union of both runs' findings: 1 when the runs agree on every finding
   agreement: number;
 }
 
-// compares 2 runs of one reviewer on the same cases, which measures its run-to-run variance: the noise
-// floor below which a difference between 2 configs means nothing
 export function buildRunComparison(
   first: readonly CaseRun[],
   second: readonly CaseRun[],

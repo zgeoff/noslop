@@ -12,16 +12,10 @@ export interface ReadChangeOptions {
   head: string;
   config: ReviewConfig;
 
-  // the merge base of a pull request whose base is an earlier head of it; the change keeps only the
-  // files the pull request changes since its merge base, so a merge from the base branch brings in no
-  // file the pull request never touched
   mergeBase?: string;
   paths?: readonly string[];
 }
 
-// reads the change between 2 commits through git, resolving each ref to its full commit so every line
-// reference cites a pinned commit; the files the config marks generated, lockfiles among them, are
-// left out of the change and listed apart
 export async function readChange(options: ReadChangeOptions): Promise<Change> {
   const base = await resolveCommit(options, options.base);
   const head = await resolveCommit(options, options.head);
@@ -51,7 +45,6 @@ export async function readChange(options: ReadChangeOptions): Promise<Change> {
       continue;
     }
 
-    // a generated file is never read, whichever side changes it, so it stays out of the left-out files
     if (isGlobMatch(parsed.path, options.config.generated)) {
       excluded.push(parsed.path);
       continue;
@@ -60,8 +53,6 @@ export async function readChange(options: ReadChangeOptions): Promise<Change> {
     const lines = parsed.hunks.flatMap((hunk) => hunk.lines);
     const kind = pickFileKind(parsed.path, options.config);
 
-    // a rename keeps either side the pull request changes, so a deletion of its own survives a rename
-    // whose new path only the base branch changed
     if (owned !== null && !owned.has(parsed.path) && !owned.has(parsed.oldPath ?? parsed.path)) {
       baseOnly.push({
         ...parsed,

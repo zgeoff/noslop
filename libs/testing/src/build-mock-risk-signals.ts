@@ -1,6 +1,5 @@
 import type { RiskSignals } from '@noslop/contract';
 
-// the signals of a small change in one package that marks nothing
 export function buildMockRiskSignals(overrides: Partial<RiskSignals> = {}): RiskSignals {
   return {
     riskClasses: [],

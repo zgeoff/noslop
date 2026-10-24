@@ -1,6 +1,5 @@
 import type { ChangedFile } from '@noslop/contract';
 
-// one modified code file with one added line, the smallest change routing reads
 export function buildMockChangedFile(overrides: Partial<ChangedFile> = {}): ChangedFile {
   return {
     path: 'src/a.ts',

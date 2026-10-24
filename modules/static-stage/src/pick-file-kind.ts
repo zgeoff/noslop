@@ -10,8 +10,7 @@ const TEST_PATH =
 
 const CONFIG_EXTENSION = /\.(?:json|jsonc|ya?ml|toml|ini|env|conf)$/u;
 
-// sorts a changed path into the kind that routing reads; instruction files come before prose, because
-// an agent instruction file is also Markdown
+// an agent instruction file is also Markdown, so instruction files match before prose
 export function pickFileKind(path: string, config: ReviewConfig): FileKind {
   if (isGlobMatch(path, config.instructions)) {
     return 'instructions';

@@ -47,9 +47,6 @@ export interface StaticStageResult {
   files: AnalyzedFile[];
 }
 
-// reads the changed files at the head commit, walks each one once, and cuts the facts down to the
-// slices, the direct findings and the risk signals; every read goes through git at a pinned commit,
-// so the stage never depends on the state of a working tree
 export async function runStaticStage(options: RunStaticStageOptions): Promise<StaticStageResult> {
   const change = options.change;
 
@@ -86,9 +83,6 @@ export async function runStaticStage(options: RunStaticStageOptions): Promise<St
       entry.analysis?.security.some((item) => item.part === 'allow-deny-check') === true,
   );
 
-  // the base side of each changed manifest, of each deleted code file, whose exports leave with it,
-  // of each modified workflow file, which the synced-copy check compares as YAML, and of each changed
-  // file that holds an access check, whose body the hostile-input check compares
   const basePaths = [
     ...change.files
       .filter(
@@ -251,8 +245,6 @@ async function readTreePaths(options: RunStaticStageOptions, commit: string): Pr
   return result.stdout.split('\0').filter((path) => path !== '');
 }
 
-// the unchanged files a check reads beside the change: the test file beside each changed source, and
-// every instruction file an agent loads beside a changed one
 function collectContextPaths(
   files: readonly ChangedFile[],
   headPaths: readonly string[],
@@ -263,7 +255,6 @@ function collectContextPaths(
   const instructions = headPaths.filter((path) => isGlobMatch(path, config.instructions));
 
   for (const file of files) {
-    // a test of a source sits beside it or in a __tests__ folder beside it, as .test or .spec
     if (file.kind === 'code') {
       const stem = basename(file.path).replace(/\.[cm]?[jt]sx?$/u, '.');
       const directory = dirname(file.path);
@@ -309,7 +300,6 @@ function buildAnalyzedFile(
   };
 }
 
-// the body of each access check at the base side of a changed file, keyed by the file's head path
 function collectBaseChecks(
   files: readonly AnalyzedFile[],
   baseTexts: ReadonlyMap<string, string>,

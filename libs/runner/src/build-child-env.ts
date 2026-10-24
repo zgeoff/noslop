@@ -1,6 +1,6 @@
-// the variables of `git rev-parse --local-env-vars` that point git at one repo whatever folder it
-// runs in, as the GIT_DIR a git hook sets does; the config variables stay, because a caller passes
-// git settings such as an auth header through them
+// A git hook sets GIT_DIR and its kin, which point git at one repo whatever folder it runs in.
+// The GIT_CONFIG variables stay, because callers pass git settings such as an auth header
+// through them.
 const GIT_REPO_VARIABLES = [
   'GIT_ALTERNATE_OBJECT_DIRECTORIES',
   'GIT_OBJECT_DIRECTORY',
@@ -16,8 +16,6 @@ const GIT_REPO_VARIABLES = [
   'GIT_COMMON_DIR',
 ] as const;
 
-// the environment a child process starts with: the given one without the git repo variables, so a
-// git the child runs finds its repo from its own working directory
 export function buildChildEnv(
   env: Readonly<Record<string, string | undefined>>,
 ): Record<string, string | undefined> {

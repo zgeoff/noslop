@@ -17,8 +17,6 @@ const JSON_ARG = {
   description: 'Print the JSON output to stdout and nothing else',
 } as const;
 
-// runs one noslop command with the given arguments and returns its exit code; an error the command
-// throws prints to stderr and exits 1
 export async function runCLI(argv: readonly string[], ctx: CLIContext): Promise<number> {
   let code = 0;
 
@@ -306,8 +304,8 @@ export async function runCLI(argv: readonly string[], ctx: CLIContext): Promise<
       ),
   });
 
-  // gunshi prints argument errors to stdout and then throws them, so it prints none, and the errors
-  // go to stderr here; stdout under --json holds only the JSON output
+  // gunshi prints argument errors to stdout and then throws them, so its own rendering is off and
+  // the catch writes them to stderr; stdout under --json holds only the JSON output.
   try {
     await cli([...argv], main, {
       name: 'noslop',

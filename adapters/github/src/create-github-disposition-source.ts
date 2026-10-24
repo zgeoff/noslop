@@ -7,7 +7,6 @@ export interface GitHubDispositionSourceOptions {
   loadConnection: () => Promise<GitHubConnection>;
 }
 
-// the typed replies in the finding threads of a pull request, as dispositions for the findings store
 export function createGitHubDispositionSource(
   options: GitHubDispositionSourceOptions,
 ): DispositionSource {

@@ -5,8 +5,6 @@ import { formatMarker } from './format-marker';
 import { parseDisposition } from './parse-disposition';
 import type { FindingThread } from './read-pull-request-state';
 
-// answers each free-text reply in a finding thread once, with the accepted forms, because free text is
-// no disposition; the answer's marker names the reply, so a later run leaves it be
 export async function createFormsReplies(
   client: GitHubClient,
   pr: PullRequestRef,

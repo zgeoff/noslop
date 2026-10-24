@@ -6,8 +6,6 @@ import { getFields } from './get-fields';
 import { isFunctionNode } from './is-function-node';
 import type { ValueOrigin } from './types';
 
-// records each function with its name, parameters and cyclomatic complexity: 1, plus 1 for each
-// branch, loop, catch, switch case and logical operator in its own body, not in a nested function
 export function collectFunctionFacts(
   node: ASTNode,
   ancestors: readonly ASTNode[],

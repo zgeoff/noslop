@@ -1,8 +1,5 @@
 import type { GitHubConnection } from './create-github-connection';
 
-// the connection that trusts the comments of the App the config names by its slug; a token or
-// anonymous connection learns the App's login only this way, and a connection made from the App's
-// keys refuses a slug that names another App, since its own comments would then hold no state
 export function buildTrustedConnection(
   connection: GitHubConnection,
   appSlug: string | null,

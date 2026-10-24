@@ -3654,7 +3654,6 @@ test('it confirms a fixed reply under --fixes-only from the merge base when a re
     inReplyToID: thread.id,
   });
 
-  // the key the review wrote, of the same file GitHub lists after the rebase
   const key = buildNetChangeKey({
     head: repo.commits[2] ?? '',
     isWhole: true,
@@ -3779,7 +3778,6 @@ test('it runs the fix call under --fixes-only when a rebase changed the patch of
     inReplyToID: thread.id,
   });
 
-  // the key the review wrote, before the rebase brought in the parser
   const key = buildNetChangeKey({
     head: repo.commits[2] ?? '',
     isWhole: true,
@@ -3876,7 +3874,6 @@ test('it runs the fix call of a bare fixed reply under --fixes-only on a stacked
     inReplyToID: thread.id,
   });
 
-  // the key the review wrote while the layer below was the base
   const key = buildNetChangeKey({
     head: repo.commits[2] ?? '',
     isWhole: true,
@@ -4075,7 +4072,6 @@ test('it confirms a fixed reply under --fixes-only that names a fix commit the r
     inReplyToID: thread.id,
   });
 
-  // the key the review wrote, of the same file GitHub lists after the rebase
   const key = buildNetChangeKey({
     head: repo.commits[2] ?? '',
     isWhole: true,
@@ -4863,7 +4859,6 @@ test('it confirms a fixed reply to a static finding under --fixes-only when its 
     lines: [1, 2, 3, 4, 5, 6],
   });
 
-  // the ID the static stage gives the unasserted test
   const thread = await githubCollections.reviewComments.create({
     owner: 'example',
     repo: 'app',
@@ -5086,7 +5081,6 @@ test('it rejects a fixed reply to a static finding under --fixes-only when the s
     lines: [1, 2, 3, 4, 5, 6],
   });
 
-  // the ID the static stage gives the unasserted test
   const thread = await githubCollections.reviewComments.create({
     owner: 'example',
     repo: 'app',
@@ -5216,7 +5210,6 @@ test('it rejects a fixed reply to a static finding under --fixes-only when a reb
     blobSha: '1'.repeat(40),
   });
 
-  // the finding sits on the test's line at the head that posted it, before the rebase
   const thread = await githubCollections.reviewComments.create({
     owner: 'example',
     repo: 'app',
@@ -5237,7 +5230,6 @@ test('it rejects a fixed reply to a static finding under --fixes-only when a reb
     inReplyToID: thread.id,
   });
 
-  // the key the review wrote, of the same file GitHub lists after the rebase
   const key = buildNetChangeKey({
     head: repo.commits[2] ?? '',
     isWhole: true,
@@ -5345,7 +5337,6 @@ test('it rejects a fixed reply to a format-only finding under --fixes-only by th
     lines: [1, 10],
   });
 
-  // the ID the static stage gives the format-only hunk
   const thread = await githubCollections.reviewComments.create({
     owner: 'example',
     repo: 'app',
@@ -5768,7 +5759,6 @@ test('it confirms no fixed reply posted after a --fixes-only review that never c
     body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":2,"reported":["1111111111111111","2222222222222222"],"failedCalls":0} -->`,
   });
 
-  // a second finding whose fix the first fixes-only run checks
   const checked = await githubCollections.reviewComments.create({
     owner: 'example',
     repo: 'app',
@@ -5898,7 +5888,6 @@ test('it keeps a fixed reply posted after 2 --fixes-only reviews open until a --
     body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":2,"reported":["1111111111111111","2222222222222222","3333333333333333"],"failedCalls":0} -->`,
   });
 
-  // a finding whose fix the first fixes-only run checks
   const first = await githubCollections.reviewComments.create({
     owner: 'example',
     repo: 'app',
@@ -5919,7 +5908,6 @@ test('it keeps a fixed reply posted after 2 --fixes-only reviews open until a --
     inReplyToID: first.id,
   });
 
-  // a finding whose fix the second fixes-only run checks
   const second = await githubCollections.reviewComments.create({
     owner: 'example',
     repo: 'app',
@@ -6087,7 +6075,6 @@ test('it runs --fixes-only with no fixed answer to check, and the summary stays 
     inReplyToID: thread.id,
   });
 
-  // the summary of a fixes-only run that confirmed the fix
   await githubCollections.issueComments.create({
     owner: 'example',
     repo: 'app',
@@ -6184,7 +6171,6 @@ test('it confirms a fixed reply posted after a --fixes-only run that found no fi
     body: `<!-- noslop:finding {"id":"1111111111111111","title":"Reject an empty separator","path":"src/scan.ts","lens":"correctness","severity":"P2","riskClass":null,"writtenByChange":true,"head":"${repo.commits[1] ?? ''}"} -->`,
   });
 
-  // the summary of the round that posted the finding
   await githubCollections.issueComments.create({
     owner: 'example',
     repo: 'app',
@@ -6345,14 +6331,12 @@ test('it confirms a fixed reply posted after a clean rebase under --fixes-only, 
     body: `<!-- noslop:finding {"id":"2222222222222222","title":"Name the separator","path":"src/scan.ts","lens":"design","severity":"P2","riskClass":null,"writtenByChange":true,"head":"${repo.commits[2] ?? ''}"} -->`,
   });
 
-  // the key the run wrote, of the same file GitHub lists after the rebase
   const key = buildNetChangeKey({
     head: repo.commits[3] ?? '',
     isWhole: true,
     files: [{ filename: 'src/scan.ts', status: 'modified', sha: '1'.repeat(40) }],
   });
 
-  // the summary of a fixes-only run that confirmed the first fix before the rebase
   await githubCollections.issueComments.create({
     owner: 'example',
     repo: 'app',
@@ -6485,7 +6469,6 @@ test('it confirms a fixed reply at a rewritten sha under --fixes-only when a len
     lines: [1],
   });
 
-  // the reply that named the fix before the rebase is gone, and this one names the rewritten commit
   const tested = await githubCollections.reviewComments.create({
     owner: 'example',
     repo: 'app',
@@ -6526,8 +6509,6 @@ test('it confirms a fixed reply at a rewritten sha under --fixes-only when a len
     inReplyToID: named.id,
   });
 
-  // newest first: a fixes-only run after the rebase, the second lens round, a fixes-only run that
-  // read the first fix before the rebase, and the first lens round
   await githubCollections.issueComments.create({
     owner: 'example',
     repo: 'app',
@@ -6652,7 +6633,6 @@ test('it confirms a fixed reply at a rewritten sha under --fixes-only after 2 re
     lines: [1],
   });
 
-  // the reply that named the fix before the second rebase is gone, and this one names its rewrite
   const thread = await githubCollections.reviewComments.create({
     owner: 'example',
     repo: 'app',
@@ -6673,8 +6653,6 @@ test('it confirms a fixed reply at a rewritten sha under --fixes-only after 2 re
     inReplyToID: thread.id,
   });
 
-  // newest first: a fixes-only run that carried the review onto the second rebase, a fixes-only run
-  // that read the fix after the first rebase, and the lens round
   await githubCollections.issueComments.create({
     owner: 'example',
     repo: 'app',
@@ -6829,7 +6807,6 @@ test('it confirms a fixed reply at a rewritten sha under --fixes-only after 2 ca
     inReplyToID: dismissed.id,
   });
 
-  // the reply that named the fix before the second rebase is gone, and this one names its rewrite
   const thread = await githubCollections.reviewComments.create({
     owner: 'example',
     repo: 'app',
@@ -6850,8 +6827,6 @@ test('it confirms a fixed reply at a rewritten sha under --fixes-only after 2 ca
     inReplyToID: thread.id,
   });
 
-  // newest first: 2 fixes-only runs that each carried the review onto a rebase, a fixes-only run that
-  // read the fix before the rebases, and the lens round
   await githubCollections.issueComments.create({
     owner: 'example',
     repo: 'app',
@@ -6959,7 +6934,6 @@ test('it judges a --fixes-only fix from the last lens review and passes the chec
     inReplyToID: thread.id,
   });
 
-  // the summary of a fixes-only run at the fix whose call failed, after a lens review of the head before
   await githubCollections.issueComments.create({
     owner: 'example',
     repo: 'app',
@@ -9356,7 +9330,6 @@ test('it fails a read-only check with exit 1 under the job token, and writes not
     body: `<!-- noslop:finding {"id":"1111111111111111","title":"Sum every item","path":"src/total.ts","lens":"correctness","severity":"P2","riskClass":null,"writtenByChange":true,"head":"${'b'.repeat(40)}"} -->`,
   });
 
-  // a free-text reply, which a check with the App's keys answers with the accepted forms
   await githubCollections.reviewComments.create({
     owner: 'example',
     repo: 'app',

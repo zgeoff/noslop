@@ -28,9 +28,6 @@ export interface FileSlices {
 
 const MIGRATION_PATH = /(?:^|\/)migrations?\//u;
 
-// cuts the facts that belong to whole files, or to single lines, down to the change; `headPaths`
-// holds every path at the head commit, so an instruction file lists the instruction files an agent
-// loads beside it and a relative import resolves to the file it names
 export function buildFileSlices(
   files: readonly AnalyzedFile[],
   headPaths: readonly string[],
@@ -206,8 +203,8 @@ function collectLineFacts(entry: AnalyzedFile, slices: FileSlices): void {
   }
 }
 
-// the directive of an oxlint or eslint disable comment, whose rule names follow it and end at the
-// `--` before the reason
+// an oxlint or eslint disable directive lists its rule names after it and ends them at the `--`
+// before the reason
 const DISABLE_DIRECTIVE =
   /^\s*(?:oxlint|eslint)-disable(?:-next-line|-line)?\s+(?<rules>[^]*?)(?:\s--|$)/u;
 
@@ -242,8 +239,6 @@ function collectTypeClaims(
     }
   }
 
-  // an entry anchors to a line, and the lens reads the whole line, so a line with 2 `any` claims of
-  // one kind holds one entry of that kind
   for (const line of new Set(analysis.anyTypes)) {
     if (entry.lines.added.has(line)) {
       slices.typeClaims.push({

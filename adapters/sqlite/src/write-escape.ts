@@ -4,7 +4,6 @@ import type { Store } from './load-store';
 export interface Escape {
   repo: string;
 
-  // the issue that reports the defect, and the head commit of the change that caused it
   issue: string;
   head: string;
   lens: string | null;
@@ -15,8 +14,6 @@ export interface Escape {
   recordedAt: string;
 }
 
-// records a defect that a review missed, so recall per lens counts it and a later review of its file
-// reads it as a past escape; returns the escape's id
 export async function writeEscape(store: Store, escape: Escape): Promise<string> {
   const escapeID = randomUUID();
 

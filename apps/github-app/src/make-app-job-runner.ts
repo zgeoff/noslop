@@ -10,8 +10,6 @@ interface AppJobDependencies {
   mintToken: (installationID: number) => Promise<string>;
 }
 
-// the job the server's queue runs for each event: the installed `noslop` bin under the repo's own
-// Bun config, with the App's keys from the server's environment
 export function makeAppJobRunner(
   env: AppServerEnv,
   deps: AppJobDependencies,

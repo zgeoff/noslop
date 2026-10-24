@@ -8,23 +8,17 @@ import type { SummaryMarker } from './summary-marker';
 export interface CheckOutcomeInput {
   findings: readonly FindingMarker[];
 
-  // every disposition of the pull request, oldest first; a finding's latest one counts
   dispositions: readonly Disposition[];
   summary: SummaryMarker | null;
   currentHead: string;
 
-  // the key of the pull request's net change at the current head
   currentKey: NetChangeKey;
 
-  // the values of the `deferred` dispositions whose issue exists
   existingIssues: ReadonlySet<string>;
 
-  // the findings whose `fixed <commit>` answer names a commit the head holds and the latest review
-  // never read
   unread: ReadonlySet<string>;
   failedReporters: readonly string[];
 
-  // the App's finding comments whose marker noslop cannot read
   unreadable: number;
 }
 
@@ -40,13 +34,9 @@ export interface CheckOutcome {
   summary: string;
   open: OpenFinding[];
 
-  // whether the reviews read the net change at the current head
   reviewed: boolean;
 }
 
-// the noslop check passes when the reviews read the net change at the current head, no call or
-// reporter failed, the summary holds no rejected merge resolution, and every posted finding holds a
-// valid disposition
 export function buildCheckOutcome(input: CheckOutcomeInput): CheckOutcome {
   const latest = new Map(input.dispositions.map((item) => [item.findingID, item]));
 

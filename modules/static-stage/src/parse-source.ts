@@ -13,8 +13,7 @@ export interface ParsedSource {
 
 const PARSEABLE = /\.(?:[cm]?[jt]sx?)$/u;
 
-// parses one TypeScript or JavaScript file with oxc; any other file has no syntax tree, so it returns
-// null, and a file with syntax errors still yields the tree oxc recovered
+// oxc recovers a tree from a file with syntax errors, so the errors are no reason to return null
 export function parseSource(path: string, text: string): ParsedSource | null {
   if (!PARSEABLE.test(path)) {
     return null;

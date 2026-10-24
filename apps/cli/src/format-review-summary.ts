@@ -1,7 +1,5 @@
 import type { ReviewResult } from '@noslop/contract';
 
-// the review for a person: what ran, then each finding with its anchor, then each failed call and
-// each file no call read
 export function formatReviewSummary(result: ReviewResult): string {
   const lines = [
     `noslop reviewed ${result.head.slice(0, 12)} at ${result.depth} with ${result.calls.length} calls`,
@@ -34,8 +32,8 @@ export function formatReviewSummary(result: ReviewResult): string {
   return `${lines.join('\n')}\n`;
 }
 
-// a path comes from the change under review, so each control character, such as a line break or a
-// terminal escape, prints as an escape and never reaches the terminal raw
+// A path comes from the change under review, and a raw control character such as a terminal escape
+// would act on the reader's terminal.
 function formatPath(path: string): string {
   return path.replaceAll(
     /\p{Cc}/gu,

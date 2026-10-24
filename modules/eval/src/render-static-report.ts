@@ -2,8 +2,6 @@ import type { StaticScore } from './build-static-score';
 
 const DEPTHS = ['light', 'standard', 'deep'] as const;
 
-// the static depth replay as Markdown: the cases, labels and calls at each depth, every labelled P1 or
-// escape at Light, and the calls each case plans
 export function renderStaticReport(score: StaticScore): string {
   const depthRows = DEPTHS.map((depth) => {
     const totals = score.depths[depth];

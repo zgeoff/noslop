@@ -1,7 +1,5 @@
 import type { AdapterOptions, ReviewAdapter } from '@noslop/contract';
 
-// an adapter with the config's options for it: its timeout replaces the adapter's own, and its model
-// runs each call whose lens names no model of its own
 export function buildConfiguredAdapter(
   adapter: ReviewAdapter,
   options: AdapterOptions,

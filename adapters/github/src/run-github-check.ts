@@ -12,12 +12,9 @@ export const CHECK_NAME = 'noslop';
 export interface GitHubCheckOptions {
   failedReporters: readonly string[];
 
-  // the state a caller already read; read again from GitHub when absent
   state?: PullRequestState;
 }
 
-// sets the noslop check run on the pull request's head from what GitHub holds: it answers free-text
-// replies, then posts the outcome of the check
 export async function runGitHubCheck(
   connection: GitHubConnection,
   pr: PullRequestRef,

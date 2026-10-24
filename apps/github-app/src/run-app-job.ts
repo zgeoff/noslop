@@ -6,22 +6,17 @@ import type { AppEvent } from './parse-app-event';
 export interface AppJobOptions {
   runner: Runner;
 
-  // the `noslop` bin that @noslop/cli installs, which the job runs with Bun
   cliPath: string;
 
   // the Bun config the CLI runs under, so Bun never loads a reviewed repo's bunfig and its preloads
   bunConfigPath: string;
 
-  // the folder that holds a clone of each repo the App reviews
   reposDir: string;
   appID: number;
   privateKey: string;
   mintToken: (installationID: number) => Promise<string>;
 }
 
-// runs one App event through the noslop CLI: a review fetches the pull request into the repo's clone
-// and reviews it, posting through the App; a check sets the check run again; the installation token
-// reaches git through the environment, so it never lands in a command line or the clone's config
 export async function runAppJob(event: AppEvent, options: AppJobOptions): Promise<void> {
   const repo = `${event.owner}/${event.repo}`;
 
@@ -35,8 +30,6 @@ export async function runAppJob(event: AppEvent, options: AppJobOptions): Promis
   const clone = join(options.reposDir, event.owner, event.repo);
   const isCloned = existsSync(join(clone, '.git'));
 
-  // a check runs in the repo's clone when one exists, so it reads the repo's config and records the
-  // dispositions in the store that the repo's reviews went to
   if (event.kind === 'check') {
     await runChecked(
       options.runner,
@@ -71,7 +64,6 @@ export async function runAppJob(event: AppEvent, options: AppJobOptions): Promis
     { cwd: clone, env: gitEnv },
   );
 
-  // the review reads its config from the clone's files, so they follow the default branch
   await runChecked(
     options.runner,
     ['git', 'checkout', '--quiet', '--force', '--detach', 'origin/HEAD'],

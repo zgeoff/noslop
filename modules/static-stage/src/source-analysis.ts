@@ -11,7 +11,6 @@ interface FunctionFacts {
   calls: string[];
   literals: string[];
 
-  // each local name the function declares, with where its value comes from
   declarations: Map<string, { origin: ValueOrigin; from: string | null }>;
 }
 
@@ -54,11 +53,9 @@ interface TypeDeclaration {
   endLine: number;
   exported: boolean;
 
-  // false when the type takes keys from elsewhere, through extends, an intersection or a mapped type
   isComplete: boolean;
 }
 
-// everything the one walk of a file collects; the slices cut it down to the changed lines
 export interface SourceAnalysis {
   path: string;
   functions: FunctionFacts[];
@@ -67,15 +64,12 @@ export interface SourceAnalysis {
   guards: GuardFacts[];
   throws: ThrowFacts[];
 
-  // a security fact spans its whole declaration, so a change inside an access check keeps it; an
-  // access check also holds its body's text, which a rename of the check leaves alone
   security: { line: number; endLine: number; part: SecurityPart; detail: string; body?: string }[];
   imports: { source: string; names: string[]; line: number }[];
   exports: { name: string; line: number; endLine: number }[];
   types: TypeDeclaration[];
   typeTests: { typeName: string; key: string; line: number }[];
 
-  // the line of each `any` type the file writes, and of each `JSON.parse` call, whose result is `any`
   anyTypes: number[];
   jsonParses: number[];
   schemaBounds: { property: string; max: number; line: number }[];

@@ -4,8 +4,6 @@ const SERVER_ERROR_RETRY_DELAYS_MS: readonly number[] = [1000, 2000, 4000];
 
 export type Sleep = (delayMs: number) => Promise<unknown>;
 
-// sends a write again after each wait while GitHub answers it with a 5xx, and names the write and the
-// attempts once the waits run out
 export async function withServerErrorRetry(
   write: string,
   sleep: Sleep,

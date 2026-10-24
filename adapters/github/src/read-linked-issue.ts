@@ -4,8 +4,6 @@ import type { GitHubConnection } from './create-github-connection';
 // the closing keywords GitHub reads in a pull request body, before an issue of the same repo
 const LINKED_ISSUE = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(?<number>\d+)\b/iu;
 
-// the issue a pull request body links with a closing keyword, as its number, title and body for the
-// intent lens; null when the body links none or the issue does not exist
 export async function readLinkedIssue(
   connection: GitHubConnection,
   pr: PullRequestRef,

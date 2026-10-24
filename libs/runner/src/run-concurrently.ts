@@ -1,6 +1,3 @@
-// runs the task on each item with at most `limit` tasks running at once, and returns the results in
-// the order of the items, whatever order the tasks end in; after a task rejects, no new task starts,
-// and the run rejects with that error once the tasks already running settle
 export async function runConcurrently<Item, Result>(
   items: readonly Item[],
   limit: number,
@@ -11,8 +8,6 @@ export async function runConcurrently<Item, Result>(
   }
 
   const results: Result[] = [];
-
-  // the workers share one iterator, so each item is taken once
   const queue = items.entries();
   const failure: { error: unknown; failed: boolean } = { error: null, failed: false };
 
@@ -34,7 +29,6 @@ export async function runConcurrently<Item, Result>(
       (error: unknown) => ({ ok: false as const, error }),
     );
 
-    // the first rejection is the one the run reports; a later one only stops its own worker
     if (!outcome.ok) {
       if (!failure.failed) {
         failure.failed = true;

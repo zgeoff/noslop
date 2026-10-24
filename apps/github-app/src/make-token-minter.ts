@@ -1,6 +1,5 @@
 import { App } from '@octokit/app';
 
-// a function that mints an installation's access token as the App, for git to fetch the repo with
 export function makeTokenMinter(
   appID: number,
   privateKey: string,

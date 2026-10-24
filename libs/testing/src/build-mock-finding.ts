@@ -1,6 +1,5 @@
 import type { Finding } from '@noslop/contract';
 
-// a CONFIRMED P2 correctness finding on the first line of a file the change wrote, from the light call
 export function buildMockFinding(overrides: Partial<Finding> = {}): Finding {
   return {
     id: '0123456789abcdef',

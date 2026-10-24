@@ -1,4 +1,5 @@
-// the store's rows, as SQLite holds them: a list or an object is JSON text, and a boolean is 0 or 1
+// SQLite has no list, object or boolean type, so a list or an object is JSON text, and a
+// boolean is 0 or 1.
 export interface StoreTables {
   reviews: ReviewRow;
   calls: CallRow;
@@ -61,12 +62,10 @@ export interface FindingRow {
   risk_class: string | null;
   fix: string | null;
 
-  // the depth, model and effort of the call that reported it; null for a direct finding
   depth: string;
   model: string | null;
   effort: string | null;
 
-  // the link to the finding's comment on its pull request; null until the github reporter posts it
   comment_url: string | null;
 }
 
@@ -94,7 +93,6 @@ export interface DispositionRow {
   source: string;
   at: string;
 
-  // the pull request whose thread held the reply; null for a row from before the store kept it
   pull_request: number | null;
 }
 
@@ -102,7 +100,6 @@ export interface EscapeRow {
   escape_id: string;
   repo: string;
 
-  // the issue that reports the defect, and the head commit of the change that caused it
   issue: string;
   head: string;
   lens: string | null;

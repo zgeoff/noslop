@@ -1,6 +1,5 @@
 import type { Reporter } from '@noslop/contract';
 
-// writes the review result as JSON to the file its options name, or through the given writer
 export function createJSONReporter(write: (text: string) => void): Reporter {
   return {
     id: 'json',

@@ -2,9 +2,6 @@ import type { Depth, Effort, LensID } from '@noslop/contract';
 import { effortSchema } from '@noslop/contract';
 import type { PlannedCall, RouteInput } from './types';
 
-// groups the fired lenses into calls by the config's grouping, one call per group at every depth but
-// Light, where one call holds them all; a lens with a model of its own runs in a call of its own; each
-// call reads the whole change, so a reviewer always sees every hunk its lenses read
 export function planCalls(
   input: RouteInput,
   lenses: readonly LensID[],
@@ -59,7 +56,6 @@ function buildGroups(input: RouteInput, lenses: readonly LensID[], depth: Depth)
     groups.push({ callID, lenses: inCall });
   }
 
-  // a fired lens that no call names runs in a call of its own
   for (const lens of lenses) {
     if (!placed.has(lens)) {
       groups.push({ callID: lens, lenses: [lens] });
@@ -69,7 +65,6 @@ function buildGroups(input: RouteInput, lenses: readonly LensID[], depth: Depth)
   return groups;
 }
 
-// one call runs on one model, so a lens whose config names a model leaves its call for one of its own
 function splitByModel(group: CallGroup, input: RouteInput): CallGroup[] {
   const byModel = new Map<string, LensID[]>();
 
@@ -95,7 +90,6 @@ const DEPTH_EFFORT: Readonly<Record<Depth, Effort>> = {
   deep: 'high',
 };
 
-// a call runs at the highest effort that any of its lenses asks for
 function pickEffort(lenses: readonly LensID[], depth: Depth, input: RouteInput): Effort {
   const efforts = lenses.map((lens) => input.config.lenses[lens]?.effort ?? DEPTH_EFFORT[depth]);
   const ranked = effortSchema.options;

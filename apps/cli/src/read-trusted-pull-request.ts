@@ -11,12 +11,10 @@ export interface TrustedPullRequest {
   state: PullRequestState;
 }
 
-// the reads of one pull request whose base branch changes between them before the review gives up
 const MAX_BASE_READS = 3;
 
-// the config loads from the base branch's tip, as verify does, since GitHub's base commit lags it; it
-// names the App whose comments hold state, so it loads before the comments are read, and a pull
-// request retargeted between the two reads reads both again
+// GitHub's base commit for a pull request lags the base branch's tip, so the config loads from the
+// tip.
 export async function readTrustedPullRequest(
   ctx: CLIContext,
   repoDir: string,

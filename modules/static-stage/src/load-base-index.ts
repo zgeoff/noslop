@@ -29,9 +29,6 @@ export interface LoadBaseIndexOptions {
   cacheDir: string | null;
 }
 
-// every exported function at the base commit, each with a fingerprint of the calls it makes and the
-// literals it holds; the index depends only on the base commit and the stack patterns, so it is cached
-// under a key built from both
 export async function loadBaseIndex(options: LoadBaseIndexOptions): Promise<BaseFunction[]> {
   const key = new Bun.CryptoHasher('sha256')
     .update(`${options.base}\n${JSON.stringify(options.config.stack)}`)

@@ -138,8 +138,6 @@ test('it gives up when the pull request is retargeted between the reads each tim
     sha: repo.commits[0] ?? '',
   });
 
-  // each attempt reads the base branch, then the state, and the base branch differs between the two
-  // every time
   const refs = ['main', 'release', 'main', 'release', 'main', 'release'];
 
   githubServer.use(

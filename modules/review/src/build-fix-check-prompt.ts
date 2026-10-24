@@ -2,9 +2,6 @@ import { match } from 'ts-pattern';
 import type { FixPart } from './format-fix-part';
 import { formatFixPart } from './format-fix-part';
 
-// what a fix call reads beside the finding's code: the pull request's net diff, or only the finding
-// file's part of it when the whole diff passes the file limit; or, for an answer that names a fix
-// commit the pull request holds, the parts that commit touched
 export type FixEvidence =
   | { kind: 'pull-request'; diff: string; isWholeDiff: boolean }
   | { kind: 'fix-commit'; commit: string; parts: readonly FixPart[]; leftOut: readonly FixPart[] };

@@ -1,7 +1,6 @@
 import { basename } from 'node:path';
 import type { CLIContext } from './cli-context';
 
-// owner/repo from the origin remote's URL, or the folder name when the repo has no remote
 export async function readRepoName(ctx: CLIContext, repoDir: string): Promise<string> {
   const result = await ctx.runner.run(['git', 'remote', 'get-url', 'origin'], { cwd: repoDir });
 

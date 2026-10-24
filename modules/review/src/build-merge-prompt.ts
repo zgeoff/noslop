@@ -1,7 +1,5 @@
 import type { Finding } from '@noslop/contract';
 
-// the prompt of the merge pass, which reads the findings alone and returns the groups of IDs that
-// report one defect; it never sees the code, so it judges each pair by what the findings say
 export function buildMergePrompt(findings: readonly Finding[]): string {
   return [
     'The findings below come from separate reviewers of one change, and some report the same defect.',

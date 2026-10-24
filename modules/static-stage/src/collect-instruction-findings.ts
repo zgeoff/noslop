@@ -5,8 +5,6 @@ import type { InstructionsEntry } from './types';
 
 const VAGUE_WORDING = /\b(?<word>prefer|usually|where sensible|consider)\b/iu;
 
-// the direct findings about agent instruction files: a new rule sentence that another instruction
-// file loaded beside it already holds, and a new rule that leaves the agent a vague choice
 export function collectInstructionFindings(
   files: readonly AnalyzedFile[],
   instructions: readonly InstructionsEntry[],
@@ -71,8 +69,6 @@ export function collectInstructionFindings(
 
 const MIN_RULE_WORDS = 5;
 
-// a rule sentence is a sentence of a line with the list marker and the Markdown emphasis gone,
-// lowercased; a sentence of fewer than a few words is a heading or a label, never a rule
 function splitRuleSentences(text: string): string[] {
   return text
     .split('\n')

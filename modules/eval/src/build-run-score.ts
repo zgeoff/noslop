@@ -8,12 +8,9 @@ import type { CaseRun } from './types';
 export interface LensScore {
   lens: FindingLens | 'unknown';
 
-  // the baseline: true positives the corpus labels with this lens, and how many of them the run
-  // repeated with a finding of any lens
   baselineTruePositives: number;
   repeatedTruePositives: number;
 
-  // what this lens reported, split by the label of the corpus finding each one matched
   reported: number;
   matchedTruePositive: number;
   matchedFalsePositive: number;
@@ -44,8 +41,6 @@ export interface RunScore {
   calls: number;
 }
 
-// scores one reviewer's runs against the labelled corpus, per lens, so a lens is measured on its own
-// even when a call bundled it with others
 export function buildRunScore(
   cases: readonly Case[],
   runs: readonly CaseRun[],
@@ -175,7 +170,6 @@ export function buildRunScore(
       }
     }
 
-    // a lens whose call failed reports nothing, so its silence would pass without the lens having run
     const scoredSilences = review.failed
       ? []
       : (corpusCase.silences ?? []).filter(

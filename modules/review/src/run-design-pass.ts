@@ -22,7 +22,6 @@ export interface DesignPassInput {
   body: string;
   findings: readonly Finding[];
 
-  // the files of the whole pull request since its merge base, and the commits it runs between
   files: readonly ChangedFile[];
   base: string;
   head: string;
@@ -32,8 +31,6 @@ export interface DesignPassInput {
   callID: string;
   depth: Depth;
 
-  // the worktree of the head, which the model reads to check the approach it proposes, and which
-  // holds the hunks file when the hunks pass the call limit
   worktree: string;
   tempDir: string;
   logger: Logger;
@@ -46,15 +43,9 @@ export interface DesignPass {
   failed: FailedCall | null;
 }
 
-// the most findings the design pass reports, since it judges one approach: the pull request's
 const MAX_DESIGN_FINDINGS = 1;
-
-// a failed attempt is retried once, as a lens call is
 const ATTEMPTS = 2;
 
-// one call after the merge pass that asks whether a better approach meets the task the pull request
-// states; Assemble checks its finding against the whole pull request; a pass that fails twice is a
-// failed call of the review, as a lens call is, so the review confirms no fix, a design fix included
 export async function runDesignPass(input: DesignPassInput): Promise<DesignPass> {
   const started = performance.now();
 
@@ -137,9 +128,6 @@ export async function runDesignPass(input: DesignPassInput): Promise<DesignPass>
   };
 }
 
-// the prompt with the hunks of every file but the data files, which no call reads; when that whole
-// prompt passes the call limit, the hunks go to a file in the worktree that the prompt names, which
-// every adapter's read tools open, so the design call leaves out no part of the pull request
 async function writeDesignPrompt(input: DesignPassInput): Promise<string> {
   const globs = input.config.data.map((glob) => new Bun.Glob(glob));
   const isData = (file: ChangedFile) => globs.some((glob) => glob.match(file.path));
@@ -159,8 +147,8 @@ async function writeDesignPrompt(input: DesignPassInput): Promise<string> {
     return inline;
   }
 
-  // a folder that mkdtemp creates holds a name no checked-out path holds, so the hunks file never
-  // replaces a file of the repo; the review removes the worktree, the folder with it, after the pass
+  // mkdtemp adds a random suffix, so the folder's name matches no checked-out path and the hunks
+  // file never replaces a file of the repo
   const directory = await mkdtemp(join(input.worktree, '.noslop-design-'));
 
   const hunksFile = join(relative(input.worktree, directory), 'hunks.md');

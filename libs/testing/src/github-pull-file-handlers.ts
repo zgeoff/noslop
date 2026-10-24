@@ -13,8 +13,6 @@ interface PullParams {
 // GitHub lists at most 3,000 files of a pull request
 const LISTED_FILES = 3000;
 
-// a pull request with the count of the files it changes, and the files of its diff, in pages, as
-// GitHub lists them
 export const githubPullFileHandlers = [
   http.get<PullParams>(`${GITHUB_API_URL}/repos/:owner/:repo/pulls/:number`, (info) => {
     const pull = githubCollections.pullRequests.findFirst((query) =>

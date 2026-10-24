@@ -8,9 +8,6 @@ export interface AppServerOptions {
   onEvent: (event: AppEvent) => void;
 }
 
-// the App's webhook endpoint: it checks each delivery's signature against the shared secret, hands a
-// delivery the App acts on to the queue, and answers at once, because GitHub gives a delivery only a
-// few seconds before it counts as failed
 export function createAppServer(options: AppServerOptions) {
   const webhooks = new Webhooks({ secret: options.webhookSecret });
 
@@ -36,6 +33,8 @@ export function createAppServer(options: AppServerOptions) {
           return new Response(null, { status: 204 });
         }
 
+        // GitHub counts a delivery as failed when no answer comes within a few seconds, so the
+        // endpoint answers before the job runs.
         options.onEvent(event);
 
         return new Response('queued', { status: 202 });

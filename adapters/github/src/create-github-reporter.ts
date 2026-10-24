@@ -33,13 +33,9 @@ import { withServerErrorRetry } from './with-server-error-retry';
 export interface GitHubReporterOptions {
   loadConnection: () => Promise<GitHubConnection>;
 
-  // keeps the link to each finding's comment, by finding ID, once the post and its check are done
   recordCommentURLs?: (pr: PullRequestRef, links: ReadonlyMap<string, string>) => Promise<void>;
 }
 
-// posts one pull request review with an inline comment per new finding, the summary, then the check
-// run; a finding outside the diff goes to an issue comment, and after the one re-check a non-security
-// finding in code the change did not write goes to a follow-up issue
 export function createGitHubReporter(options: GitHubReporterOptions): Reporter {
   return {
     id: 'github',
@@ -60,12 +56,8 @@ export function createGitHubReporter(options: GitHubReporterOptions): Reporter {
   };
 }
 
-// the posts in flight in this process, by pull request, each one the tail of that pull request's chain
 const postChains = new Map<string, Promise<void>>();
 
-// runs one post of a pull request at a time in this process, in the order they came, so 2 posts of
-// one review cannot both find no follow-up issue and both file one; a failed post leaves the next one
-// to run
 async function withPullRequestLock(key: string, post: () => Promise<void>): Promise<void> {
   const previous = postChains.get(key) ?? Promise.resolve();
   const current = runAfter(previous, post);
@@ -87,8 +79,6 @@ async function runAfter(previous: Promise<void>, post: () => Promise<void>): Pro
   await post();
 }
 
-// the next post of the pull request runs once this one ends, failed or not; only the caller of a
-// failed post sees its failure
 async function waitForEnd(post: Promise<void>): Promise<void> {
   await Promise.allSettled([post]);
 }
@@ -101,7 +91,6 @@ async function runReviewPost(
 ): Promise<void> {
   const connection = await options.loadConnection();
 
-  // a post under a token writes markers under the token's login, and no later review trusts them
   if (connection.auth !== 'app') {
     throw new Error(
       'the github reporter posts as the App: set NOSLOP_GITHUB_APP_ID, NOSLOP_GITHUB_APP_PRIVATE_KEY and NOSLOP_GITHUB_APP_INSTALLATION_ID',
@@ -119,8 +108,6 @@ async function runReviewPost(
   const plan = planReviewPost({ summary: before.summary?.marker ?? null, posted }, result);
   const reported = collectReported(result);
 
-  // a retry of an earlier review leaves the later summary in place and only sets the check again
-  // from the current answers
   if (!plan.writesSummary) {
     await runCheck(connection, pr, result.head, ctx);
 
@@ -206,8 +193,6 @@ async function runReviewPost(
   await options.recordCommentURLs?.(pr, links);
 }
 
-// the findings the review counts as reported: a fix it judged not fixed counts as reported again, and
-// a finding it dropped as answered `not-a-defect` counts as reported, so it confirms no fix of it
 function collectReported(result: ReviewResult): string[] {
   const rejected = (result.fixChecks ?? []).filter((check) => !check.fixed);
 
@@ -238,8 +223,8 @@ async function runCheck(
   });
 }
 
-// one review holds every inline comment; when GitHub refuses a line outside the diff, each comment is
-// posted alone, and the ones it still refuses come back
+// GitHub refuses the whole review when one comment's line is outside the diff, so on that refusal
+// each comment is posted alone.
 async function createReviewComments(
   client: GitHubClient,
   pr: PullRequestRef,
@@ -329,8 +314,6 @@ function formatUnanchoredComment(finding: Finding, head: string): string {
   ].join('\n');
 }
 
-// the follow-ups that no issue of the App files yet: a retry after a post that failed past its issues,
-// such as on the summary write, finds each issue the first attempt opened by its marker
 async function loadUnfiledFollowUps(
   connection: GitHubConnection,
   pr: PullRequestRef,
@@ -384,8 +367,6 @@ async function createFollowUpIssue(
   });
 }
 
-// strikes the heading of each finding comment whose fix the review confirms, and restores a struck
-// comment whose fix no longer holds, around the same marker
 async function updateFixedComments(
   connection: GitHubConnection,
   pr: PullRequestRef,
@@ -470,7 +451,6 @@ function buildRunFields(
 ): RunFields {
   const lensHead = findLensHead(previous);
 
-  // a marker written before the lens review's own key holds only the key of its own head
   const lensKey =
     previous?.lensKey ??
     (lensHead !== null && lensHead === previous?.head ? previous.key : undefined);

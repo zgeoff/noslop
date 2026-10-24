@@ -8,8 +8,6 @@ export interface FindingListInput extends AnswerEvidence {
   dispositions: readonly Disposition[];
 }
 
-// a finding whose latest answer the check would not accept is open, so a gate counts open findings
-// alone
 export function buildFindingList(input: FindingListInput): FindingList {
   const latest = new Map(input.dispositions.map((item) => [item.findingID, item]));
 

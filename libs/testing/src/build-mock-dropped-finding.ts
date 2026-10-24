@@ -1,7 +1,5 @@
 import type { DroppedFinding } from '@noslop/contract';
 
-// a taste finding from the light call that Assemble dropped because its quote is not in the rules
-// file
 export function buildMockDroppedFinding(overrides: Partial<DroppedFinding> = {}): DroppedFinding {
   return {
     lens: 'naming-shape-and-comments',

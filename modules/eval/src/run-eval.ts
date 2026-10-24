@@ -10,16 +10,11 @@ export interface RunEvalOptions {
   runner: Runner;
   workDir: string;
 
-  // how many cases replay at once
   parallel: number;
 
-  // called as each case ends, in the order the cases end
   onCase?: (run: CaseRun) => void;
 }
 
-// replays each case at its head, in a detached worktree of the case's repo that the run removes after,
-// so the repo's own checkout never moves; a case that cannot be checked out or reviewed is recorded as
-// failed, and the run goes on; the runs keep the order of the cases, whatever order they end in
 export function runEval(options: RunEvalOptions): Promise<CaseRun[]> {
   return runConcurrently(options.cases, options.parallel, async (corpusCase) => {
     const worktree = resolve(join(options.workDir, `${corpusCase.id}-${options.reviewer.id}`));

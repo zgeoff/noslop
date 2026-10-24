@@ -3,8 +3,6 @@ import type { GitHubClient } from './create-github-connection';
 import { parseDisposition } from './parse-disposition';
 import type { FindingThread } from './read-pull-request-state';
 
-// the typed replies of each finding thread as dispositions, oldest first; a reply whose first line is
-// free text is none; whether an author owns the repo comes from their admin permission on it
 export async function readThreadDispositions(
   client: GitHubClient,
   pr: PullRequestRef,

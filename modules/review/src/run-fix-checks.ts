@@ -23,23 +23,18 @@ import { readLaterHunks } from './read-later-hunks';
 import type { StaticRecheckOptions } from './run-static-recheck';
 import { runStaticRecheck } from './run-static-recheck';
 
-// a finding whose latest answer is `fixed`, as its comment on the pull request keeps it
 export interface AnsweredFix {
   id: string;
   title: string;
   lens: FindingLens;
   path: string;
 
-  // the line the comment anchors to, or null for a finding outside the diff
   line: number | null;
 
-  // the finding as posted: its title, body, fix, lens, criterion and rule
   comment: string;
 
-  // the head of the review that posted the finding, which a marker posted before the field lacks
   postedHead: string | null;
 
-  // the commit a `fixed <sha>` answer names, or null for a bare `fixed`
   commit: string | null;
 }
 
@@ -48,7 +43,6 @@ export interface FixChecksInput {
   repoDir: string;
   head: string;
 
-  // the merge base of the pull request, where its net diff starts
   mergeBase: string;
   title: string;
   body: string;
@@ -59,7 +53,6 @@ export interface FixChecksInput {
   tempDir: string;
   logger: Logger;
 
-  // what the static stage reads to judge the fix of a static finding over the whole pull request
   staticCheck: StaticRecheckOptions;
 }
 
@@ -68,10 +61,8 @@ export interface FixChecksRun {
   records: CallRecord[];
   failedCalls: FailedCall[];
 
-  // each fix with no verdict, from a failed call or a file past the limit
   unjudged: UnjudgedFix[];
 
-  // each finding's file whose code or diff passes the file limit, so no call judged its fix
   notReviewed: NotReviewedFile[];
 }
 
@@ -79,12 +70,8 @@ export interface FixChecksRun {
 // read at once runs the host out of processes
 const PROCESSES_AT_ONCE = 8;
 
-// one call per `fixed` answer that judges the finding at the head, or the static stage again for a
-// static finding; a fix with no verdict, from a failed call or a file past the limit, stays unjudged
 export async function runFixChecks(options: FixChecksInput): Promise<FixChecksRun> {
   const input = { ...options, runner: buildLimitedRunner(options.runner, PROCESSES_AT_ONCE) };
-
-  // the stage runs once for every static fix the run judges, and not at all for a run with none
   const hasStaticFix = input.fixes.some((fix) => fix.lens === 'static');
 
   const staticFindings = hasStaticFix
@@ -99,7 +86,6 @@ export async function runFixChecks(options: FixChecksInput): Promise<FixChecksRu
       })
     : [];
 
-  // every file, since the fix of a finding can sit in another file, such as a test it asks for
   const diff = input.fixes.some((fix) => fix.lens !== 'static')
     ? await readGitText(input, [
         'diff',
@@ -146,18 +132,13 @@ async function readGitText(input: FixChecksInput, args: readonly string[]): Prom
 }
 
 interface FixCommit {
-  // the commit as the answer names it
   commit: string;
 
-  // its diff of each file it touched, from its first parent
   commitDiffs: FixPart[];
 
-  // each file it touched, whole at the head when the head holds it as text, or as absent when the
-  // head lacks it
   headFiles: FixPart[];
 }
 
-// each commit once, however many answers name it
 async function readFixCommits(input: FixChecksInput): Promise<Map<string, FixCommit | null>> {
   const fixCommits = new Map<string, FixCommit | null>();
 
@@ -174,8 +155,6 @@ async function readFixCommits(input: FixChecksInput): Promise<Map<string, FixCom
   return fixCommits;
 }
 
-// the files a `fixed <sha>` answer's commit touched, or null for a commit the repo lacks, one the
-// pull request does not hold, or a root commit, so the call reads the pull request's net diff instead
 async function readFixCommit(input: FixChecksInput, commit: string): Promise<FixCommit | null> {
   const sha = await readCommitSha(input, `${commit}^{commit}`);
 
@@ -265,8 +244,6 @@ interface TouchedFile {
   isBinary: boolean;
 }
 
-// a touched file whole at the head, as absent when the head lacks it, or null for a binary file,
-// which has no text the call can read
 async function readHeadFile(input: FixChecksInput, file: TouchedFile): Promise<FixPart | null> {
   const argv = file.isBinary
     ? ['git', 'cat-file', '-e', `${input.head}:${file.path}`]
@@ -298,13 +275,10 @@ const fixCheckOutputSchema = z.strictObject({ fixed: z.boolean(), reason: z.stri
 interface FixTarget {
   fix: AnsweredFix;
 
-  // the pull request's net diff at the head
   diff: string;
 
-  // the static findings the whole pull request holds at its head
   staticFindings: readonly Finding[];
 
-  // the files of the commit the answer names, or null when it names none the call can read
   fixCommit: FixCommit | null;
 }
 
@@ -419,12 +393,9 @@ async function runFixCheck(input: FixChecksInput, target: FixTarget): Promise<Fi
   }
 }
 
-// the lines above and below the traced line that the call reads, so it sees the code around the
-// finding and no more
 const CONTEXT_LINES = 20;
 
 interface HeadCode {
-  // the numbered lines the call reads; empty for a file the head does not hold
   text: string;
   isTraced: boolean;
 }
@@ -440,7 +411,8 @@ async function readHeadCode(input: FixChecksInput, fix: AnsweredFix): Promise<He
 
   const line = await readTracedLine(input, fix);
 
-  // the newline that ends the file starts no line of its own
+  // a text file's last line ends with a newline by convention, which a split would read as one more
+  // empty line
   const lines = result.stdout.replace(/\n$/u, '').split('\n');
   const first = line === null ? 1 : Math.max(1, line - CONTEXT_LINES);
   const last = line === null ? lines.length : line + CONTEXT_LINES;
@@ -475,8 +447,6 @@ async function readTracedLine(input: FixChecksInput, fix: AnsweredFix): Promise<
   return traced?.startLine ?? null;
 }
 
-// a pull request's net diff passes one file's limit long before its own files do, so the call then
-// reads the diff of the finding's file alone; null when that diff passes the file limit too
 async function readPullRequestEvidence(
   input: FixChecksInput,
   fix: AnsweredFix,
@@ -508,8 +478,6 @@ interface FixCommitTarget {
   promptInput: Omit<FixCheckPromptInput, 'evidence'>;
 }
 
-// the parts of the fix commit that fit the call limit, measured against a prompt that names every
-// part as left out; null when the fix commit's diff of the finding's file does not fit
 function pickFixCommitEvidence(input: FixChecksInput, target: FixCommitTarget): FixEvidence | null {
   const netDiff: FixPart = { kind: 'net-diff', path: null, text: target.netDiff };
   const all = [...target.fixCommit.commitDiffs, ...target.fixCommit.headFiles, netDiff];

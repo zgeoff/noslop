@@ -11,8 +11,6 @@ import type { ParsedSource } from './parse-source';
 import type { SourceAnalysis } from './source-analysis';
 import { buildSourceAnalysis } from './source-analysis';
 
-// walks the syntax tree once, and each collector reads every node; the imports are read first, so a
-// call on an imported name knows its source wherever the import sits
 export function collectSourceFacts(
   parsed: ParsedSource,
   stack: ReviewConfig['stack'],
@@ -25,6 +23,8 @@ export function collectSourceFacts(
     importSources: new Map(),
   };
 
+  // an import binds its name for the whole module wherever it sits, so the imports are read before
+  // the walk
   for (const statement of getFields(parsed.program, 'body')) {
     if (statement.type !== 'ImportDeclaration') {
       continue;

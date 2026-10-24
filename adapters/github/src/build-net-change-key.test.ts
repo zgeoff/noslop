@@ -99,8 +99,6 @@ test('it keeps the key of a file across a clean rebase and a conflict-free merge
     return diff.stdout.slice(diff.stdout.indexOf('@@')).trimEnd();
   };
 
-  // each net change starts at the merge base: the first commit before the base moved, the moved base
-  // after a rebase onto it or a merge of it
   const patches = await Promise.all([readPatch(0, 1), readPatch(2, 3), readPatch(2, 4)]);
 
   const keys = patches.map((patch) =>

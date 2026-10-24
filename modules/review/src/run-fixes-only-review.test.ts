@@ -1164,7 +1164,6 @@ test('it confirms the fix of a static finding that the static stage no longer re
     configHash: 'hash',
     fixes: [
       {
-        // the ID the static stage gives the unasserted test
         id: 'f3a135d185244d40',
         title: 'Test "it splits on the separator" asserts nothing',
         lens: 'static',
@@ -1233,7 +1232,6 @@ test('it rejects the fix of a static finding that the static stage still reports
     configHash: 'hash',
     fixes: [
       {
-        // the ID the static stage gives the unasserted test
         id: 'f3a135d185244d40',
         title: 'Test "it splits on the separator" asserts nothing',
         lens: 'static',
@@ -1299,7 +1297,6 @@ test('it judges 2 static findings with one title by their places when a fix remo
     configHash: 'hash',
     fixes: [
       {
-        // the IDs the static stage gives the first and the second unasserted test
         id: 'f3a135d185244d40',
         title: 'Test "it splits on the separator" asserts nothing',
         lens: 'static',
@@ -1378,7 +1375,6 @@ test('it rejects the fix of a static finding whose fix rewrites the anchored lin
     configHash: 'hash',
     fixes: [
       {
-        // the ID the static stage gives the first unasserted test
         id: 'f3a135d185244d40',
         title: 'Test "it splits on the separator" asserts nothing',
         lens: 'static',
@@ -1442,7 +1438,6 @@ test('it confirms the fix of a static finding whose fix deletes the test while a
     configHash: 'hash',
     fixes: [
       {
-        // the ID the static stage gives the first unasserted test, which the remaining test takes
         id: 'f3a135d185244d40',
         title: 'Test "it splits on the separator" asserts nothing',
         lens: 'static',
