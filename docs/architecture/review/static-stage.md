@@ -45,8 +45,10 @@ A slice is the part of the stage's facts that one lens concern reads, such as th
 new throws, and the contract package (`@noslop/contract`) holds its shape. The stage keeps a fact
 only when it touches the change: the functions a changed line falls in, the guards, throws and
 config reads on added lines, every write in a changed function so a lens sees the writes a new one
-sits beside, and the security facts on touched lines. [The lenses](./lenses.md) covers which lens
-reads which slice.
+sits beside, and the security facts on touched lines. A catch clause counts as a throw on a touched
+line when the change adds a line inside its block or deletes lines there, so a catch that loses its
+rollback or rethrow still reaches the failure-handling lens. [The lenses](./lenses.md) covers which
+lens reads which slice.
 
 The stack patterns in [your own rules](../config/your-own-rules.md) decide what counts as a write,
 an I/O call, an event, a transaction, an invariant or a request-path call. The stage matches each

@@ -1,8 +1,50 @@
 import { expect, test } from 'bun:test';
+import type { LensID } from '@noslop/contract';
 import { buildCallPrompt } from './build-call-prompt';
+
+function setupTest() {
+  const slices = {
+    functions: [],
+    reuse: [],
+    guards: [],
+    throws: [],
+    writes: [],
+    security: [],
+    edges: [],
+    config: [],
+    tests: [],
+    instructions: [],
+    prose: [],
+    typeClaims: [],
+    scripts: [],
+    comments: { commentLines: 0, codeLines: 0, perThousand: 0, target: 120 },
+    interfaces: [],
+    migrations: [],
+    events: [],
+  };
+
+  const buildCorrectnessPrompt = (reviewLenses: readonly LensID[]) =>
+    buildCallPrompt({
+      lenses: ['correctness'],
+      reviewLenses,
+      files: [],
+      slices,
+      rules: null,
+      title: 'fix: change save',
+      body: '',
+      linkedIssue: null,
+      leftOut: [],
+      base: 'a'.repeat(40),
+      head: 'b'.repeat(40),
+      isIncremental: false,
+    });
+
+  return { buildCorrectnessPrompt };
+}
 
 test('it joins the header, each lens section in order and each slice once', () => {
   const prompt = buildCallPrompt({
+    reviewLenses: [],
     lenses: ['naming-shape-and-comments', 'architecture-and-boundaries'],
     files: [
       {
@@ -137,6 +179,7 @@ test('it joins the header, each lens section in order and each slice once', () =
 
 test('it tells the lenses to report no rule finding when the repo names no rules file', () => {
   const prompt = buildCallPrompt({
+    reviewLenses: [],
     lenses: ['tests'],
     files: [],
     slices: {
@@ -175,6 +218,7 @@ test('it tells the lenses to report no rule finding when the repo names no rules
 
 test('it tells the lenses not to judge the description on an incremental review', () => {
   const prompt = buildCallPrompt({
+    reviewLenses: [],
     lenses: ['intent'],
     files: [],
     slices: {
@@ -213,6 +257,7 @@ test('it tells the lenses not to judge the description on an incremental review'
 
 test('it leaves the description check to the lenses on a full review', () => {
   const prompt = buildCallPrompt({
+    reviewLenses: [],
     lenses: ['intent'],
     files: [],
     slices: {
@@ -249,6 +294,7 @@ test('it leaves the description check to the lenses on a full review', () => {
 
 test('it writes a hostile left-out file name as inert code in the prompt', () => {
   const prompt = buildCallPrompt({
+    reviewLenses: [],
     lenses: ['intent'],
     files: [],
     slices: {
@@ -300,6 +346,7 @@ test('it writes a hostile left-out file name as inert code in the prompt', () =>
 
 test('it lists the files the call leaves out with the reason for each', () => {
   const prompt = buildCallPrompt({
+    reviewLenses: [],
     lenses: ['intent'],
     files: [],
     slices: {
@@ -345,4 +392,40 @@ test('it lists the files the call leaves out with the reason for each', () => {
       '',
     ].join('\n'),
   );
+});
+
+test('it names only the concerns of the other lenses the review runs', () => {
+  const ctx = setupTest();
+
+  const prompt = ctx.buildCorrectnessPrompt([
+    'correctness',
+    'security',
+    'failure-handling-and-observability',
+    'tests',
+  ]);
+
+  expect(prompt).toIncludeMultiple([
+    '2. A concern of another lens in this review: security, failure handling.',
+    '3. A behaviour the change makes on purpose',
+  ]);
+});
+
+test('it drops the other-lens item and renumbers when none of the four lenses runs', () => {
+  const ctx = setupTest();
+  const prompt = ctx.buildCorrectnessPrompt(['correctness', 'tests']);
+
+  expect(prompt).toIncludeMultiple([
+    'Do not report:\n\n1. Style, naming or comments.\n2. A behaviour the change makes on purpose',
+  ]);
+
+  expect(prompt).not.toInclude('another lens');
+});
+
+test('it never lets a placeholder reach the prompt', () => {
+  const ctx = setupTest();
+
+  expect([
+    ctx.buildCorrectnessPrompt([]),
+    ctx.buildCorrectnessPrompt(['correctness', 'deploy-and-config']),
+  ]).toSatisfyAll((prompt: string) => !prompt.includes('{{'));
 });

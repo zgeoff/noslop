@@ -48,6 +48,11 @@ When a lens reads the rules file and the repo names none, the prompt says so and
 report no finding that rests on a rule. A lens prompt states no rule of its own, and a finding that
 rests on a rule quotes that file under 0003, so the prompt keeps the model from inventing one.
 
+The correctness page tells the model to leave the concerns of other lenses alone. The builder fills
+that item with the concerns of the lenses that the whole review runs, across every call, and drops
+the item when none of security, concurrency, failure handling, and deploy and config runs. The
+prompt never defers to a lens that does not run.
+
 ## The design lens
 
 The design lens asks whether a better approach meets the pull request's task, so an author does not

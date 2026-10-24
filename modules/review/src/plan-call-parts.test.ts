@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test';
 import { buildCallPrompt } from '@noslop/lenses';
 import { buildMockChangedFile, buildMockSlices } from '@noslop/testing';
+import type { CallPartsInput } from './plan-call-parts';
 import { planCallParts } from './plan-call-parts';
 
 test('it keeps a call whole when its prompt fits the limit', () => {
@@ -16,6 +17,7 @@ test('it keeps a call whole when its prompt fits the limit', () => {
       files: [file],
     },
     shared: {
+      reviewLenses: ['correctness'],
       slices: buildMockSlices(),
       rules: null,
       title: 'feat: add a',
@@ -39,7 +41,8 @@ test('it keeps a call whole when its prompt fits the limit', () => {
 });
 
 test('it splits a call over the limit into parts that each fit, with every file in one part', () => {
-  const shared = {
+  const shared: CallPartsInput['shared'] = {
+    reviewLenses: ['correctness'],
     slices: buildMockSlices(),
     rules: null,
     title: 'feat: add the tables',
@@ -105,7 +108,8 @@ test('it splits a call over the limit into parts that each fit, with every file 
 });
 
 test('it splits a call with many data files by the reasons its part prompts list', () => {
-  const shared = {
+  const shared: CallPartsInput['shared'] = {
+    reviewLenses: ['correctness'],
     slices: buildMockSlices(),
     rules: null,
     title: 'feat: add the tables',
@@ -185,7 +189,8 @@ test('it splits a call with many data files by the reasons its part prompts list
 });
 
 test('it keeps a file whose own part prompt fits the limit exactly', () => {
-  const shared = {
+  const shared: CallPartsInput['shared'] = {
+    reviewLenses: ['correctness'],
     slices: buildMockSlices(),
     rules: null,
     title: 'feat: add the tables',
@@ -256,7 +261,8 @@ test('it keeps a file whose own part prompt fits the limit exactly', () => {
 });
 
 test('it names the files of the other parts in each part prompt', () => {
-  const shared = {
+  const shared: CallPartsInput['shared'] = {
+    reviewLenses: ['correctness'],
     slices: buildMockSlices(),
     rules: null,
     title: 'feat: add the tables',
@@ -312,7 +318,8 @@ test('it names the files of the other parts in each part prompt', () => {
 });
 
 test('it sends each part the hunks and slice items of its own files only', () => {
-  const shared = {
+  const shared: CallPartsInput['shared'] = {
+    reviewLenses: ['correctness'],
     slices: buildMockSlices({
       functions: [
         {
@@ -410,7 +417,8 @@ test('it sends each part the hunks and slice items of its own files only', () =>
 });
 
 test('it gives a later part an ID that no configured call holds', () => {
-  const shared = {
+  const shared: CallPartsInput['shared'] = {
+    reviewLenses: ['correctness'],
     slices: buildMockSlices(),
     rules: null,
     title: 'feat: add the tables',
@@ -479,6 +487,7 @@ test('it leaves a file that matches a data glob out of the call and lists it', (
       files: [code, corpus],
     },
     shared: {
+      reviewLenses: ['correctness'],
       slices: buildMockSlices(),
       rules: null,
       title: 'chore: refresh the corpus',
@@ -529,6 +538,7 @@ test('it leaves out a file whose hunks pass the file limit and lists it as too l
       files: [code, big],
     },
     shared: {
+      reviewLenses: ['correctness'],
       slices: buildMockSlices(),
       rules: null,
       title: 'feat: add the table',
@@ -562,6 +572,7 @@ test('it counts the slice items of a file toward the file limit', () => {
       files: [code, parser],
     },
     shared: {
+      reviewLenses: ['correctness'],
       slices: buildMockSlices({
         functions: [
           {
@@ -595,7 +606,8 @@ test('it counts the slice items of a file toward the file limit', () => {
 });
 
 test('it lists a file that overflows a call alone as too large in the review and in the prompt', () => {
-  const shared = {
+  const shared: CallPartsInput['shared'] = {
+    reviewLenses: ['correctness'],
     slices: buildMockSlices(),
     rules: null,
     title: 'feat: add the table',
@@ -653,7 +665,8 @@ test('it lists a file that overflows a call alone as too large in the review and
 });
 
 test('it runs no part and lists every file when each file overflows a call alone', () => {
-  const shared = {
+  const shared: CallPartsInput['shared'] = {
+    reviewLenses: ['correctness'],
     slices: buildMockSlices(),
     rules: null,
     title: 'feat: add the tables',
@@ -723,6 +736,7 @@ test('it runs the call whole when the input around the files overflows alone', (
       files: [file],
     },
     shared: {
+      reviewLenses: ['correctness'],
       slices: buildMockSlices(),
       rules: null,
       title: 'feat: add a',

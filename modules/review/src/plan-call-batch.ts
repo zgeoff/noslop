@@ -5,7 +5,7 @@ import type { PlannedCall } from '@noslop/routing';
 import type { CallPart, CallPartsInput } from './plan-call-parts';
 import { planCallParts } from './plan-call-parts';
 
-type SharedPromptInput = CallPartsInput['shared'];
+type SharedPromptInput = Omit<CallPartsInput['shared'], 'reviewLenses'>;
 
 export interface CallBatchPlanInput extends SharedPromptInput {
   calls: readonly PlannedCall[];
@@ -25,10 +25,15 @@ export interface CallBatchPlan {
 export function planCallBatch(input: CallBatchPlanInput): CallBatchPlan {
   const taken = new Set(input.calls.map((call) => call.callID));
 
+  const reviewLenses = LENS_IDS.filter((lens) =>
+    input.calls.some((call) => call.lenses.includes(lens)),
+  );
+
   const planned = input.calls.map((call) => {
     const parts = planCallParts({
       call,
       shared: {
+        reviewLenses,
         slices: input.slices,
         rules: input.rules,
         title: input.title,

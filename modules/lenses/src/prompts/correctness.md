@@ -31,8 +31,7 @@ Check each candidate:
 Do not report:
 
 1. Style, naming or comments.
-2. A concern of another lens in this call: security, concurrency, failure handling, deploy and
-   config.
+2. A concern of another lens in this review: {{otherLenses}}.
 3. A behaviour the change makes on purpose, as its diff, title or linked issue states.
 
 Severity: P1 for a wrong result on the main path, or data loss, corruption or an outcome that cannot
