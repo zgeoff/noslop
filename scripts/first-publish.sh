@@ -5,12 +5,15 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-npm whoami >/dev/null || { echo "not logged in to npm; run: npm login" >&2; exit 1; }
+npm whoami > /dev/null || {
+  echo "not logged in to npm; run: npm login" >&2
+  exit 1
+}
 
 name=$(jq -r .name apps/cli/package.json)
 version=$(jq -r .version apps/cli/package.json)
 
-if npm view "$name" version >/dev/null 2>&1; then
+if npm view "$name" version > /dev/null 2>&1; then
   echo "$name already exists on npm; releases go through CI, not this script" >&2
   exit 1
 fi
@@ -19,7 +22,7 @@ bun install --frozen-lockfile
 bun scripts/write-cli-package.ts
 (cd apps/cli/dist && rm -f ./*.tgz && bun pm pack && npm publish ./*.tgz --access public)
 
-cat <<EOF
+cat << EOF
 
 published $name@$version
 
