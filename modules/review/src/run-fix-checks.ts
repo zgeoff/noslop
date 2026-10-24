@@ -411,7 +411,8 @@ async function readHeadCode(input: FixChecksInput, fix: AnsweredFix): Promise<He
 
   const line = await readTracedLine(input, fix);
 
-  // git show ends the file with a newline, which a split would read as one more empty line
+  // a text file's last line ends with a newline by convention, which a split would read as one more
+  // empty line
   const lines = result.stdout.replace(/\n$/u, '').split('\n');
   const first = line === null ? 1 : Math.max(1, line - CONTEXT_LINES);
   const last = line === null ? lines.length : line + CONTEXT_LINES;
