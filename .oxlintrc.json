@@ -96,7 +96,8 @@
       }
     },
     // integration/ holds flows across several packages, run in process in the unit run, so its
-    // files sit beside no single module; the shared rule exempts only e2e/ and evals/ so far
+    // files sit beside no single module; this override goes away with oxlint-config 0.7.0
+    // (GEO-1760), whose rule exempts integration/ itself
     {
       "files": ["integration/**/*.test.ts"],
       "rules": {

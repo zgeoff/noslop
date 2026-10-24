@@ -2,9 +2,9 @@
 
 noslop is one Bun workspace, and every check CI runs also runs on your machine through
 `bun run check`. This runbook sets up a clone, runs the checks and the git hooks, runs the CLI from
-source against another repo, and runs the model eval. [0014](../decisions/0014-the-code-layout.md)
-records the layout of the workspace, and [0016](../decisions/0016-the-stack.md) records the
-libraries it builds on.
+source against another repo, and runs the model-api lane.
+[0014](../decisions/0014-the-code-layout.md) records the layout of the workspace, and
+[0016](../decisions/0016-the-stack.md) records the libraries it builds on.
 
 ## Set up a clone
 
@@ -84,28 +84,26 @@ to noslop's `bunfig.toml`, so a reviewed repo's code never runs beside the App's
 
 Add `--verbose` to see the debug log on stderr. Every other flag is in `noslop <command> --help`.
 
-## Run the model eval
+## Run the model-api lane
 
 `integration/` holds the flows that cross several packages in one process, and every test run runs
 them. The relay flow sends a review from a developer's context through a local relay, which verifies
 and posts it, against the stand-in GitHub API and a stub model.
 
-`evals/` holds the journeys that call a live model. The seeded-defects journey builds a small repo
-with seeded defects, runs a real review on it with a real model CLI, and checks that the findings
-land at anchors in the diff. Bun skips it unless `NOSLOP_E2E_ADAPTER` is set to an adapter.
+`evals/` runs under the unit rules, so the default test run runs its files. A journey that calls a
+live model is a `.model-api.test.ts` file: it belongs to the model-api lane, which the default run
+leaves out. The seeded-defects journey builds a small repo with seeded defects, runs a real review
+on it with a real model CLI, and checks that the findings land at anchors in the diff.
 
 1. Sign in to the model CLI you will use, `codex` or `claude`.
-2. Run the eval with that adapter:
+2. Run the model-api lane with that adapter:
 
    ```bash
-   NOSLOP_E2E_ADAPTER=codex bun test ./evals
+   NOSLOP_MODEL_API_ADAPTER=codex bun run test:model-api
    ```
 
-   Expect `1 pass` and `0 fail`. The seeded-defects review calls the model, so it can run for many
-   minutes, and it uses that account's quota.
-
-Without the variable, `bun test ./evals` prints `1 skip`, and the test step of `bun run check`
-counts the seeded-defects journey as skipped.
+   Expect `1 pass` and `0 fail`. The seeded-defects review calls the model, so it can run for up to
+   30 minutes, and it uses that account's quota. Without the variable, the lane fails.
 
 ## Build the npm package
 
