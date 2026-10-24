@@ -106,7 +106,7 @@ test('it reports a dropped rollback and an injection sink at anchors in the diff
     {
       cwd: repo.path,
       env: { XDG_CACHE_HOME: join(ctx.directory, 'cache') },
-      timeoutMs: 1_800_000,
+      timeoutMs: 90_000,
     },
   );
 
@@ -134,4 +134,4 @@ test('it reports a dropped rollback and an injection sink at anchors in the diff
       finding.anchor.startLine <= 6 &&
       finding.anchor.endLine >= 3,
   );
-}, 1_800_000);
+}, 100_000);

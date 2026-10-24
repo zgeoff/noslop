@@ -35,8 +35,7 @@
       }
     ],
     "import/no-commonjs": "error",
-    // `*.model-api.test.ts` calls a live model; 0.6.4 skips a lane file, and 0.7.0 checks it
-    // against the lane's 120 s (GEO-1784)
+    // `*.model-api.test.ts` calls a live model, so it runs in its own lane under the lane's 120 s
     "zgeoff/max-test-timeout": ["error", { "lanes": ["model-api"] }]
   },
   // the App server stands where an org's own relay stands, so it builds only on what @noslop/cli
