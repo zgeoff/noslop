@@ -34,6 +34,7 @@ test('it runs each part of a split call and records it under its own ID', async 
   );
 
   const base = buildCallPrompt({
+    reviewLenses: ['correctness'],
     lenses: ['correctness'],
     files: [],
     slices: buildMockSlices(),

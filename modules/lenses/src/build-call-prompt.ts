@@ -1,5 +1,6 @@
 import type { LensID } from '@noslop/contract';
 import type { ChangedFile, Slices } from '@noslop/static-stage';
+import { fillOtherLenses } from './fill-other-lenses';
 import { getLensPrompt } from './get-lens-prompt';
 import { LENS_INPUTS } from './lens-inputs';
 import { renderCriteria } from './render-criteria';
@@ -9,6 +10,7 @@ import { renderLeftOut } from './render-left-out';
 
 export interface CallPromptInput {
   lenses: readonly LensID[];
+  reviewLenses: readonly LensID[];
   files: readonly ChangedFile[];
   slices: Slices;
   rules: readonly { name: string; body: string }[] | null;
@@ -42,7 +44,9 @@ export function buildCallPrompt(input: CallPromptInput): string {
 
   const sections = [
     getLensPrompt('shared-header').replace('{{criteria}}', renderCriteria()),
-    ...input.lenses.map((lens) => `# Lens: ${lens}\n\n${getLensPrompt(lens)}`),
+    ...input.lenses.map(
+      (lens) => `# Lens: ${lens}\n\n${fillOtherLenses(getLensPrompt(lens), input.reviewLenses)}`,
+    ),
     '# Input',
     `The change runs from commit ${input.base} to commit ${input.head}.`,
 

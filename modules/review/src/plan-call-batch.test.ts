@@ -20,6 +20,7 @@ test('it gives each part of a split call an ID that no other call of the review 
   );
 
   const base = buildCallPrompt({
+    reviewLenses: ['correctness'],
     lenses: ['correctness'],
     files: [],
     slices: buildMockSlices(),
