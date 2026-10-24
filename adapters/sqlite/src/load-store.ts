@@ -5,6 +5,7 @@ import type { SqliteDatabase, SqliteStatement } from 'kysely';
 import { Kysely, SqliteDialect, sql } from 'kysely';
 import type { Migration } from 'kysely/migration';
 import { Migrator } from 'kysely/migration';
+import { z } from 'zod';
 import type { StoreTables } from './store-tables';
 
 export type Store = Kysely<StoreTables>;
@@ -267,21 +268,22 @@ export async function loadStore(path: string, options: LoadStoreOptions = {}): P
 }
 
 const NEWEST_MIGRATION = Object.keys(STORE_MIGRATIONS).toSorted().at(-1) ?? '';
+const NamedRowSchema = z.object({ name: z.string() });
 
 function requireKnownSchema(database: Database, version: string | undefined): void {
-  const table = database
-    .query<{ name: string }, []>(
-      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'kysely_migration'",
-    )
-    .get();
+  const table = NamedRowSchema.nullable().parse(
+    database
+      .query("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'kysely_migration'")
+      .get(),
+  );
 
   if (table === null) {
     return;
   }
 
-  const newest = database
-    .query<{ name: string }, []>('SELECT name FROM kysely_migration ORDER BY name DESC LIMIT 1')
-    .get();
+  const newest = NamedRowSchema.nullable().parse(
+    database.query('SELECT name FROM kysely_migration ORDER BY name DESC LIMIT 1').get(),
+  );
 
   if (newest === null || newest.name <= NEWEST_MIGRATION) {
     return;

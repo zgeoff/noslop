@@ -4,6 +4,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { buildMockFinding, buildMockReviewResult } from '@noslop/testing';
+import { z } from 'zod';
 import { loadStore } from './load-store';
 import { writeReview } from './write-review';
 
@@ -207,9 +208,9 @@ test('it refuses a store migrated past the newest migration it knows and leaves 
     reopened.close();
   });
 
-  const names = reopened
-    .query<{ name: string }, []>('SELECT name FROM kysely_migration ORDER BY name')
-    .all()
+  const names = z
+    .array(z.object({ name: z.string() }))
+    .parse(reopened.query('SELECT name FROM kysely_migration ORDER BY name').all())
     .map((row) => row.name);
 
   expect(names.at(-1)).toBe('9999-a-later-schema');

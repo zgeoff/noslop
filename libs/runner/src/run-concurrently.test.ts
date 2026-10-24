@@ -29,16 +29,33 @@ test('it returns the results in the order of the items when later tasks end firs
 });
 
 test('it runs no more tasks at once than the limit', async () => {
-  const counts = { running: 0, most: 0 };
+  const items = [1, 2, 3, 4, 5, 6];
+  const gates = items.map(() => Promise.withResolvers<null>());
+  const starts = items.map(() => Promise.withResolvers<null>());
 
-  await runConcurrently([1, 2, 3, 4, 5, 6], 2, async () => {
-    counts.running += 1;
-    counts.most = Math.max(counts.most, counts.running);
+  const running = new Set<number>();
 
-    await Bun.sleep(5);
+  const counts = { most: 0 };
 
-    counts.running -= 1;
+  const run = runConcurrently(items, 2, async (_item, index) => {
+    running.add(index);
+
+    counts.most = Math.max(counts.most, running.size);
+    starts[index]?.resolve(null);
+
+    await gates[index]?.promise;
+
+    running.delete(index);
   });
+
+  // each ended task frees one slot, so the task 2 places on starts next
+  for (const [index, gate] of gates.entries()) {
+    gate.resolve(null);
+
+    await starts[index + 2]?.promise;
+  }
+
+  await run;
 
   expect(counts.most).toBe(2);
 });
