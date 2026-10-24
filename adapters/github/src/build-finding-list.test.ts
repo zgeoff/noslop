@@ -57,6 +57,7 @@ test('it counts a fixed answer as fixed only when a fix call confirmed that answ
         severity: 'P2',
         state: 'fixed',
         author: 'dev',
+        reason: null,
       },
       {
         id: '2222222222222222',
@@ -64,6 +65,7 @@ test('it counts a fixed answer as fixed only when a fix call confirmed that answ
         severity: 'P3',
         state: 'open',
         author: 'dev',
+        reason: 'no re-review has read the commit 5d6e7f8 yet',
       },
     ],
   });
@@ -116,6 +118,85 @@ test('it reads the latest answer of a finding, and its author', () => {
         severity: 'P2',
         state: 'accepted-risk',
         author: 'maintainer',
+        reason: null,
+      },
+    ],
+  });
+});
+
+test('it lists a fixed answer whose commit no fix check has read as open, with the reason', () => {
+  expect(
+    buildFindingList({
+      findings: [
+        {
+          id: '1111111111111111',
+          title: 'Reject an empty separator',
+          path: 'src/scan.ts',
+          lens: 'correctness',
+          severity: 'P2',
+          riskClass: null,
+          writtenByChange: true,
+        },
+      ],
+      dispositions: [
+        {
+          findingID: '1111111111111111',
+          kind: 'fixed',
+          value: '1a2b3c4',
+          author: 'dev',
+          authorIsOwner: false,
+          source: 'github',
+          at: '2026-10-20T10:00:00Z',
+        },
+      ],
+      reported: [],
+      confirmed: [],
+      existingIssues: new Set(),
+      unread: new Set(['1111111111111111']),
+    }),
+  ).toStrictEqual({
+    findings: [
+      {
+        id: '1111111111111111',
+        path: 'src/scan.ts',
+        severity: 'P2',
+        state: 'open',
+        author: 'dev',
+        reason: 'no fix check has read the commit 1a2b3c4 yet',
+      },
+    ],
+  });
+});
+
+test('it lists a finding with no answer as open, with the reason', () => {
+  expect(
+    buildFindingList({
+      findings: [
+        {
+          id: '1111111111111111',
+          title: 'Reject an empty separator',
+          path: 'src/scan.ts',
+          lens: 'correctness',
+          severity: 'P2',
+          riskClass: null,
+          writtenByChange: true,
+        },
+      ],
+      dispositions: [],
+      reported: [],
+      confirmed: [],
+      existingIssues: new Set(),
+      unread: new Set(),
+    }),
+  ).toStrictEqual({
+    findings: [
+      {
+        id: '1111111111111111',
+        path: 'src/scan.ts',
+        severity: 'P2',
+        state: 'open',
+        author: null,
+        reason: 'no disposition',
       },
     ],
   });
