@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.20](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.19...@noslop/cli@0.4.20) (2026-10-24)
+
+### Bug Fixes
+
+- **github:** keep a fixed answer open until a fix call reads its commit
+  ([#135](https://github.com/zgeoff/noslop/issues/135))
+  ([5465807](https://github.com/zgeoff/noslop/commit/5465807a86047d147d4f62fa1cb374f1e50530aa))
+
 ## [0.4.19](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.18...@noslop/cli@0.4.19) (2026-10-23)
 
 ### Features
