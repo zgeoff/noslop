@@ -1,9 +1,6 @@
 import type { Disposition } from '@noslop/contract';
 import type { Store } from './load-store';
 
-// records each disposition a source read in the repo, as owner/name, from the threads of the pull
-// request; a disposition the store holds already, from the same source at the same time, is left as it
-// is, so reading one thread twice records it once
 export async function writeDispositions(
   store: Store,
   repo: string,

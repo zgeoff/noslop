@@ -1,15 +1,11 @@
 import type { Finding, ReviewResult } from '@noslop/contract';
 import type { SummaryMarker } from './summary-marker';
 
-// what the pull request already holds before a post: the summary marker of the latest review, and
-// the id of each finding a comment or a follow-up issue already carries
 export interface PostPrior {
   summary: SummaryMarker | null;
   posted: ReadonlySet<string>;
 }
 
-// a post either writes a review in full, or only sets the check again and leaves the later summary;
-// a post that writes nothing posts no finding
 export interface PostPlan {
   writesSummary: boolean;
   reviews: number;
@@ -18,12 +14,8 @@ export interface PostPlan {
   followUps: Finding[];
 }
 
-// a re-review after this many reviews of one pull request is past the one re-check
 const RECHECKED_REVIEWS = 2;
 
-// the post a result makes from what the pull request holds; a retry of a review that started before
-// the one the summary shows, counted or not, only sets the check again, and a marker without a start
-// time orders only the reviews it counted
 export function planReviewPost(prior: PostPrior, result: ReviewResult): PostPlan {
   const counted = prior.summary?.reviewIDs ?? [];
   const isRepost = counted.includes(result.reviewID);
@@ -39,9 +31,6 @@ export function planReviewPost(prior: PostPrior, result: ReviewResult): PostPlan
     };
   }
 
-  // a retry after a failed request is the same review, so it never moves a pull request toward the
-  // re-check limit; a fixes-only run, and a review that ran no lens and raised nothing, such as one of
-  // a head whose every patch an earlier review read, is no review round either
   const isRound =
     !isRepost &&
     result.fixesOnly !== true &&

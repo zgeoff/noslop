@@ -7,8 +7,6 @@ import { githubCollections } from './github-collections';
 import { toPage } from './to-page';
 
 export const GITHUB_API_URL = 'https://api.github.com';
-
-// the login GitHub gives the App's own comments in the stand-in
 export const STUB_APP_LOGIN = 'noslop-review[bot]';
 
 type Data<Route extends keyof Endpoints> = Endpoints[Route]['response']['data'];
@@ -58,8 +56,8 @@ interface CheckRunInput {
   output?: { title?: string; summary?: string; text?: string };
 }
 
-// the routes the GitHub adapter calls, answered from the stand-in's collections; the literal routes
-// come before their parameterised siblings on purpose, because MSW matches in registration order
+// The literal routes come before their parameterised siblings because MSW matches handlers in
+// registration order.
 export const githubHandlers = [
   http.post(`${GITHUB_API_URL}/app/installations/:installationID/access_tokens`, () =>
     HttpResponse.json(
@@ -105,8 +103,6 @@ export const githubHandlers = [
     },
   ),
 
-  // the pull request commits after the base up to the head, oldest first, as GitHub's compare lists
-  // the commits a merge of the head would bring onto the base
   http.get<RepoParams & { basehead: string }>(
     `${GITHUB_API_URL}/repos/:owner/:repo/compare/:basehead`,
     (info) => {
@@ -384,7 +380,6 @@ export const githubHandlers = [
     return HttpResponse.json({ number: issue.number, title: issue.title }, { status: 201 });
   }),
 
-  // every issue of the repo, open or closed, as GitHub pages them
   http.get<RepoParams>(`${GITHUB_API_URL}/repos/:owner/:repo/issues`, (info) => {
     const issues = githubCollections.issues.findMany((query) =>
       query.where({ owner: info.params.owner, repo: info.params.repo }),

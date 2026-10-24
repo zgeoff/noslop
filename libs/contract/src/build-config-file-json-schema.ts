@@ -3,9 +3,6 @@ import { reviewConfigSchema, rulesFileSchema } from './review-config';
 
 type JSONSchema = Record<string, unknown>;
 
-// the JSON Schema of one review.json: the merged config's schema with every key optional and null
-// allowed at every level, since a file is a layer that objects merge into and null removes a key
-// from; `extends`, the editor's `$schema` key and the short forms of `rules` are added
 export function buildConfigFileJSONSchema(): JSONSchema {
   const merged = z.toJSONSchema(reviewConfigSchema, { io: 'input' });
   const rulesFile = z.toJSONSchema(rulesFileSchema, { io: 'input' });
@@ -47,8 +44,6 @@ export function buildConfigFileJSONSchema(): JSONSchema {
   };
 }
 
-// an object's keys turn optional and each takes null; a record's values relax too, because a layer
-// merges into each entry of an inherited record
 function buildFileObjectSchema(schema: JSONSchema): JSONSchema {
   const { required: _required, ...rest } = schema;
   const properties = isJSONSchema(rest['properties']) ? rest['properties'] : null;

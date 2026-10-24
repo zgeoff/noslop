@@ -1,9 +1,6 @@
 import type { DroppedFinding } from '@noslop/contract';
 import type { AssembledFindings, DismissedFindingsSplit } from '@noslop/findings';
 
-// the findings a review dropped, as the result lists them: each one a finding rule threw away, with
-// the rule and the quote it cited, so the store shows whether the quote check drops real findings,
-// then each one that matched a finding answered `not-a-defect`, with the ID of that finding
 export function buildDroppedFindings(
   assembled: AssembledFindings['dropped'],
   dismissed: DismissedFindingsSplit['dismissed'],

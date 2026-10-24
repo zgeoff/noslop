@@ -14,7 +14,6 @@ export interface StoreQueryValues {
   since: string | undefined;
 }
 
-// runs one named query on the store that the config's sqlite reporter writes, and prints its rows
 export async function runStoreQueryCommand(
   values: StoreQueryValues,
   ctx: CLIContext,
@@ -54,8 +53,6 @@ export async function runStoreQueryCommand(
 const PULL_REQUEST = /^[1-9]\d*$/u;
 const ISO_TIME = /^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2}))?$/u;
 
-// the filters the flags give; a time with an offset turns to UTC, the form the store's times take, so
-// the query compares them as text
 function parseFilters(values: StoreQueryValues): StoreQueryFilters {
   const filters: StoreQueryFilters = {};
 

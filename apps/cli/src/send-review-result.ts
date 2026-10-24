@@ -10,9 +10,6 @@ export interface SendDependencies {
   logger: Logger;
 }
 
-// posts a review result as the App through the GitHub reporter, so a retry of one result counts as one
-// review and files no follow-up issue twice; it verifies the result first and refuses one that does
-// not verify, unless the caller turns verification off
 export async function sendReviewResult(
   input: unknown,
   deps: SendDependencies,

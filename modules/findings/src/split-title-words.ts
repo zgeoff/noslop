@@ -1,7 +1,5 @@
 import { normalizeTitle } from './normalize-title';
 
-// the words a title's meaning rests on: no articles, prepositions, joining words or single letters,
-// and a long word without its common ending, so `replaces` and `replacing` count as one word
 const STOP_WORDS = new Set([
   'a',
   'an',

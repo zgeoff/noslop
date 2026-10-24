@@ -6,13 +6,10 @@ import { z } from 'zod';
 import { buildTokensFromCodexUsage, codexUsageSchema } from './build-tokens-from-codex-usage';
 
 export interface ReviewSessionQuery {
-  // the folder that holds the user's Codex config and its sessions folder
   codexHome: string;
 
-  // the thread that `codex exec review` started, from its first event
   threadID: string;
 
-  // when the review started, in epoch milliseconds; a session file written before it is another run's
   since: number;
 }
 
@@ -32,16 +29,13 @@ const tokenCountSchema = z.looseObject({
 export interface ReviewSession {
   tokens: Tokens;
 
-  // the session files of the review thread and of each thread it started
   files: string[];
 
-  // whether Codex wrote a session for a thread the review started, which holds the review's tokens
   hasReviewThread: boolean;
 }
 
 // `codex exec review` runs the review in a subagent thread and reports no token use for it, so the
-// tokens come from the session files Codex writes for the review thread and each thread it started;
-// Codex files a session under the local date it began, and a thread's last count holds its total
+// tokens come from the session files Codex writes per thread. A thread's last count is its total.
 export async function loadReviewSession(query: ReviewSessionQuery): Promise<ReviewSession> {
   const candidates = await readSessionFiles(query);
 
@@ -89,7 +83,8 @@ const DAY_MS = 86_400_000;
 async function readSessionFiles(query: ReviewSessionQuery): Promise<string[]> {
   const files: string[] = [];
 
-  // the day before covers a local date behind the review's own start
+  // Codex files a session under the local date it began, and the day before covers a date behind
+  // the review's own start.
   for (let day = query.since - DAY_MS; day <= Date.now() + DAY_MS; day += DAY_MS) {
     const date = new Date(day);
 

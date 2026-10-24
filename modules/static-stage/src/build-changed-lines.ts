@@ -1,11 +1,8 @@
 import type { ChangedFile } from './types';
 
 export interface ChangedLines {
-  // the head lines the change added or rewrote
   added: Set<number>;
 
-  // the added lines, plus the head line at which each deleted line sat, so a unit that only lost
-  // lines still counts as changed
   touched: Set<number>;
 }
 

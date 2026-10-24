@@ -3,9 +3,6 @@ import type { LoadStoreOptions } from './load-store';
 import { loadStore } from './load-store';
 import { writeReview } from './write-review';
 
-// the reporter that records each review in the store at its options' path, or at the given default;
-// a failed open or write names the review whose record it lost, since the reporters after it, such
-// as the GitHub check, still run and the review leaves no other trace of the loss
 export function createSQLiteReporter(
   defaultPath: string,
   options: LoadStoreOptions = {},

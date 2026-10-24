@@ -28,23 +28,17 @@ export interface ChangedFile {
   deletedLines: number;
 }
 
-// the change between 2 commits, with generated files and lockfiles left out
 export interface Change {
   base: string;
   head: string;
   files: ChangedFile[];
   excluded: string[];
 
-  // the files of an incremental review's new commits that only a merge from the base branch changes,
-  // which the change leaves out
   baseOnly?: ChangedFile[];
 
-  // the paths the whole pull request changes since its merge base, both paths of a rename among them,
-  // which an incremental review's change can leave out
   pullRequestPaths?: string[];
 }
 
-// a place in a file at the reviewed head
 export interface SourceLocation {
   path: string;
   startLine: number;
@@ -67,7 +61,6 @@ export interface ReuseEntry {
   candidates: { name: string; location: SourceLocation; score: number }[];
 }
 
-// where a guard's condition value comes from, traced 1 or 2 steps back
 export type ValueOrigin =
   | 'parameter'
   | 'call'
@@ -147,15 +140,12 @@ export interface CommentDensity {
   target: number;
 }
 
-// a line the change adds that claims a type the type checker cannot confirm: a disable comment for a
-// rule that bans type assertions, an `any` type, or a call whose result is typed `any`
 export interface TypeClaimEntry {
   location: SourceLocation;
   kind: 'cast-disable' | 'any-type' | 'any-value';
   detail: string;
 }
 
-// what routing reads to fire the lenses and pick the depth
 export interface RiskSignals {
   riskClasses: string[];
   detectors: string[];
@@ -167,7 +157,6 @@ export interface RiskSignals {
   pastEscapes: string[];
 }
 
-// the static stage's output that the lenses read, one part per lens concern
 export interface Slices {
   functions: FunctionEntry[];
   reuse: ReuseEntry[];
@@ -183,7 +172,6 @@ export interface Slices {
   comments: CommentDensity;
   typeClaims: TypeClaimEntry[];
 
-  // each script the change adds that no package.json script and no workflow names
   scripts: string[];
   interfaces: SourceLocation[];
   migrations: string[];

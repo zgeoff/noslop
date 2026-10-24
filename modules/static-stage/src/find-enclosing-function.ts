@@ -1,7 +1,6 @@
 import type { AnalyzeContext } from './analyze-context';
 import type { ASTNode } from './ast-node';
 
-// the index of the function nearest above the node, or null at module level
 export function findEnclosingFunction(
   ancestors: readonly ASTNode[],
   ctx: AnalyzeContext,

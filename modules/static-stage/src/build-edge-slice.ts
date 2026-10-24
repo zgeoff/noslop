@@ -9,9 +9,6 @@ export interface EdgeInputs {
   config: ReviewConfig;
 }
 
-// each changed export, schema bound and package manifest whose package another package uses: a
-// workspace package that depends on it, or a consumer in the config that pins it; a change nothing
-// consumes is no edge, so the cross-repo lens stays off
 export function buildEdgeSlice(inputs: EdgeInputs): EdgeEntry[] {
   const edges: EdgeEntry[] = [];
 

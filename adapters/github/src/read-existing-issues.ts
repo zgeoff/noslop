@@ -1,7 +1,6 @@
 import type { Disposition, PullRequestRef } from '@noslop/contract';
 import type { GitHubClient } from './create-github-connection';
 
-// the values of the `deferred` dispositions whose issue GitHub holds
 export async function readExistingIssues(
   client: GitHubClient,
   pr: PullRequestRef,

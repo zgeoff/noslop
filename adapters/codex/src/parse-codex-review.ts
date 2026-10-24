@@ -6,8 +6,6 @@ import type { ReportedFinding } from '@noslop/eval';
 const FINDING_LINE =
   /^- \[P(?<priority>[0-3])\] (?<title>.+?) — (?<path>.+):(?<start>\d+)(?:-(?<end>\d+))?$/u;
 
-// reads the findings out of the review text, with each path made relative to the reviewed worktree; a
-// P0 counts as P1, because noslop's scale has no level above P1
 export function parseCodexReview(text: string, worktree: string): ReportedFinding[] {
   const findings: ReportedFinding[] = [];
 

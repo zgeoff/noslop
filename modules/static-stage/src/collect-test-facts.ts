@@ -17,8 +17,6 @@ const TEST_CALLS = new Set([
 
 const TABLE_CALLS = new Set(['test.each()', 'it.each()']);
 
-// records each test with its title, whether its body asserts anything, and a fingerprint of its body,
-// so 2 tests with one body match
 export function collectTestFacts(node: ASTNode, name: string, ctx: AnalyzeContext): void {
   const isTable = TABLE_CALLS.has(name);
 
@@ -75,7 +73,6 @@ function hasAssertion(body: ASTNode, ctx: AnalyzeContext): boolean {
   return found;
 }
 
-// a chain such as `expect(x).toBe(1)` has a callee with no static name, so the walk reads its root
 function hasAssertionRoot(node: ASTNode): boolean {
   let current: unknown = node;
 
@@ -96,8 +93,6 @@ function hasAssertionRoot(node: ASTNode): boolean {
   return false;
 }
 
-// the body's syntax tree as a list of node types, names and literal values, so layout and comments
-// never count and a changed literal always does
 function buildBodyFingerprint(body: ASTNode): string {
   const tokens: string[] = [];
 

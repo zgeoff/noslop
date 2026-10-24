@@ -5,13 +5,8 @@ import type { Sleep } from './with-server-error-retry';
 
 export type GitHubClient = Octokit;
 
-// how a client reaches GitHub: as the App's installation, with a token from the environment, or with
-// no credential, which reads only public repos
 export type GitHubAuth = 'app' | 'token' | 'anonymous';
 
-// a client and the login of the App whose comments hold noslop's state, so noslop reads back only the
-// state that App wrote; the App's keys give its login, and with no keys noslop trusts no comment until
-// the config names the App; the wait before each retry of a write that GitHub answers with a 5xx
 export interface GitHubConnection {
   client: GitHubClient;
   auth: GitHubAuth;

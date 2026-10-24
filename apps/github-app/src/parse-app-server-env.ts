@@ -6,7 +6,6 @@ export interface AppServerEnv {
   webhookSecret: string;
   port: number;
 
-  // the folder that holds a clone of each repo the App reviews
   reposDir: string;
 }
 
@@ -18,8 +17,6 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().positive().default(3000),
 });
 
-// the App server's settings from its environment; a key that is missing or malformed throws with
-// the key's name, so the server never starts half configured
 export function parseAppServerEnv(env: Readonly<Record<string, string | undefined>>): AppServerEnv {
   const parsed = envSchema.safeParse(env);
 

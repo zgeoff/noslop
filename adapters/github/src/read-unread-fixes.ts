@@ -2,16 +2,12 @@ import type { Disposition, PullRequestRef } from '@noslop/contract';
 import type { GitHubClient } from './create-github-connection';
 
 export interface UnreadFixesInput {
-  // every disposition of the pull request, oldest first; a finding's latest one counts
   dispositions: readonly Disposition[];
 
-  // the head the latest review read, or null before any review
   reviewHead: string | null;
   head: string;
 }
 
-// the findings whose latest answer is `fixed <commit>` with a commit the pull request's head holds and
-// the latest review's head does not, so that review never read the fix
 export async function readUnreadFixes(
   client: GitHubClient,
   pr: PullRequestRef,
@@ -28,7 +24,6 @@ export async function readUnreadFixes(
   const commits = new Map<string, boolean>();
 
   for (const disposition of latest.values()) {
-    // a bare `fixed` names no commit, so nothing shows which review read its fix
     if (disposition.kind !== 'fixed' || disposition.value === '') {
       continue;
     }
@@ -87,7 +82,8 @@ async function probeAncestor(
 
     return response.data.status === 'ahead' || response.data.status === 'identical';
   } catch (error) {
-    // a commit the repo does not hold, or one with no history in common with the head
+    // GitHub's compare answers 404 or 422 for a commit the repo does not hold, or for one with no
+    // history in common with the head.
     if (isMissingCommit(error)) {
       return false;
     }

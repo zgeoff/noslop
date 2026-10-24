@@ -1,6 +1,5 @@
-// a path comes from the change under review, so it can hold Markdown, a mention, a marker, a line
-// break or text meant for a model; each control character and angle bracket becomes an escape, and a
-// code span whose backtick fence is longer than any backtick run inside it wraps the path
+// A Markdown code span closes at the first backtick run as long as its fence, so the fence is one
+// backtick longer than any run in the path.
 export function formatPathCode(path: string): string {
   const escaped = path.replaceAll(
     /[\p{Cc}<>]/gu,

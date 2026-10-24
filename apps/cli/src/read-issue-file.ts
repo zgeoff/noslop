@@ -1,6 +1,5 @@
 import { resolve } from 'node:path';
 
-// a relative path resolves against the working directory, as the shell that passed it does
 export async function readIssueFile(cwd: string, path: string): Promise<string> {
   const file = Bun.file(resolve(cwd, path));
 

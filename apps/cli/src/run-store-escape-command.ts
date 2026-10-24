@@ -17,8 +17,6 @@ export interface EscapeValues {
 
 const LINES = /^(?<start>\d+)(?:-(?<end>\d+))?$/u;
 
-// records a defect that a review missed in the store, from the issue that reports it and the head of
-// the change that caused it; recall per lens counts it, and later reviews of its file read it
 export async function runStoreEscapeCommand(
   values: EscapeValues,
   ctx: CLIContext,

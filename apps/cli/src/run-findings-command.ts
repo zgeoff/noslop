@@ -33,8 +33,6 @@ export async function runFindingsCommand(values: FindingsValues, ctx: CLIContext
     setAppSlug: ctx.setGitHubAppSlug,
   });
 
-  // a gate that reads the list counts its open findings, so a list that leaves a finding out would
-  // pass a pull request whose finding noslop could not read
   if (trusted.state.unreadable > 0) {
     throw new Error(
       `${trusted.state.unreadable} finding comments of the pull request hold a marker noslop cannot read, so it lists no finding`,

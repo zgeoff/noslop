@@ -2,8 +2,6 @@ import type { DismissedFinding, DispositionKind } from '@noslop/contract';
 import { parseDisposition } from './parse-disposition';
 import type { FindingThread } from './read-pull-request-state';
 
-// each posted finding whose latest typed reply is `not-a-defect`, so a later review drops a new finding
-// that matches it; a free-text reply after the answer leaves the answer standing
 export function collectDismissedFindings(threads: readonly FindingThread[]): DismissedFinding[] {
   return threads
     .filter((thread) => findLatestKind(thread) === 'not-a-defect')

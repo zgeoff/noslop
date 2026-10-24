@@ -12,8 +12,6 @@ const manifestSchema = z.looseObject({
   scripts: z.record(z.string(), z.string()).optional(),
 });
 
-// reads a package.json into the fields the edge slice, the version checks and the script slice use; a file that is not
-// a JSON object gives null, so one broken manifest leaves the others readable
 export function parsePackageManifest(path: string, text: string): PackageManifest | null {
   const parsed = manifestSchema.safeParse(parseJSON(text));
 

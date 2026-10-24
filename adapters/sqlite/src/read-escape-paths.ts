@@ -1,6 +1,5 @@
 import type { Store } from './load-store';
 
-// the files of a repo where a defect escaped review before, each once, for the past-escape signal
 export async function readEscapePaths(store: Store, repo: string): Promise<string[]> {
   const rows = await store
     .selectFrom('escapes')

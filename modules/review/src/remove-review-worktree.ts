@@ -1,7 +1,5 @@
 import type { ReviewWorktreeOptions } from './create-review-worktree';
 
-// a worktree that git cannot remove leaves an entry in the repo's worktree list, so the review
-// logs it for the user to prune
 export async function removeReviewWorktree(options: ReviewWorktreeOptions): Promise<void> {
   const result = await options.runner.run(
     ['git', 'worktree', 'remove', '--force', options.worktree],

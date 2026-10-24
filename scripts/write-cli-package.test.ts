@@ -9,7 +9,6 @@ async function setupTest() {
 
   onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  // the repo's TypeScript, which checks a project that installs the packed package
   const tsc = join(import.meta.dir, '..', 'node_modules', '.bin', 'tsc');
 
   return { directory, tsc };

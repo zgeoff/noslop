@@ -7,8 +7,6 @@ const pathsSchema = z.array(z.string());
 const renamesSchema = z.record(z.string(), z.string());
 const patchesSchema = z.record(z.string(), z.string());
 
-// the state of the stand-in GitHub API: each collection holds one kind of record the API serves, and
-// a test seeds the records its case needs
 export const githubCollections = {
   pullRequests: new Collection({
     schema: z.object({
@@ -24,9 +22,6 @@ export const githubCollections = {
     }),
   }),
 
-  // the commits of a pull request, oldest first, with the files each one changes, the renames among
-  // them and each file's patch; a commit off the branch, such as one a rebase rewrote, GitHub still
-  // serves by its sha but lists among no pull request's commits
   pullCommits: new Collection({
     schema: z.object({
       owner: z.string().default('example'),
@@ -35,23 +30,20 @@ export const githubCollections = {
       sha: z.string().default(buildSha),
       files: pathsSchema.default(buildNoPaths),
 
-      // the path each renamed file had before the commit, by its path after it
       renames: renamesSchema.default(buildNoRenames),
 
-      // the patch GitHub gives of each changed file, by its path; a file without one gets no patch
       patches: patchesSchema.default(buildNoPatches),
 
-      // a commit off the branch keeps a line of history of its own, which diverges from the branch
+      // GitHub still serves a commit that a rebase rewrote by its sha, but lists it among no pull
+      // request's commits.
       isOnBranch: z.boolean().default(true),
 
-      // a commit of the base branch that a merge brought into the pull request: it is on the branch,
-      // but GitHub's commit list of the pull request leaves it out
+      // GitHub's commit list of a pull request leaves out a base commit that a merge brought in.
       isFromBase: z.boolean().default(false),
     }),
   }),
 
-  // the files of a pull request's diff: the lines that take a review comment, on the head side, and
-  // the entry GitHub lists for the file; a file with no patch, such as a binary one, gets none
+  // GitHub gives no patch for some files, such as a binary one.
   pullFiles: new Collection({
     schema: z.object({
       owner: z.string().default('example'),
@@ -90,8 +82,7 @@ export const githubCollections = {
       line: z.int().default(1),
       startLine: z.int().nullable().default(null),
 
-      // the lines at the commit the comment was posted on, which GitHub keeps when a later push moves
-      // the comment; null when the comment has not moved since
+      // GitHub keeps a comment's lines at the commit it was posted on when a later push moves it.
       originalLine: z.int().nullable().default(null),
       originalStartLine: z.int().nullable().default(null),
       body: z.string().default(() => faker.lorem.sentence()),
@@ -127,7 +118,6 @@ export const githubCollections = {
     }),
   }),
 
-  // a user's permission on a repo; a user with no record is not a collaborator
   collaborators: new Collection({
     schema: z.object({
       owner: z.string().default('example'),
@@ -152,7 +142,6 @@ export const githubCollections = {
     }),
   }),
 
-  // the commit each branch of a repo points at
   branches: new Collection({
     schema: z.object({
       owner: z.string().default('example'),
@@ -162,7 +151,6 @@ export const githubCollections = {
     }),
   }),
 
-  // a file in a repo at a ref, for the contents endpoint
   files: new Collection({
     schema: z.object({
       owner: z.string().default('example'),

@@ -4,8 +4,6 @@ export type SlicesOverrides = Partial<Omit<Slices, 'comments'>> & {
   comments?: Partial<CommentDensity>;
 };
 
-// empty slices, as the static stage gives a change it finds nothing in; routing is deterministic, so
-// every default is fixed
 export function buildMockSlices(overrides: SlicesOverrides = {}): Slices {
   return {
     functions: [],

@@ -1,7 +1,5 @@
 import type { ReviewConfig } from '@noslop/contract';
 
-// the config a repo with no review.json gets: every generic lens, the default call grouping, the
-// shared risk classes and no rules file; every path and pattern here is generic to any stack
 export const BUILT_IN_DEFAULTS: ReviewConfig = {
   rules: null,
   adapter: null,

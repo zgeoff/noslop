@@ -6,9 +6,6 @@ import { formatMarker } from './format-marker';
 export const DISPOSITION_FORMS =
   'Reply with one of these as the first line: `fixed` or `fixed <sha>`, `not-a-defect <reason>`, `deferred <issue>` or `accepted-risk <reason>`.';
 
-// the comment for one finding, written for a person: the heading, the body, a PLAUSIBLE finding's fact
-// and the fix, then the reply forms and the id, lens, criterion and rule collapsed, and last the
-// marker with the head of the review that posts it
 export function formatFindingComment(finding: Finding, head: string): string {
   const lines = [
     formatFindingHeading(finding.severity, finding.lens, finding.title),

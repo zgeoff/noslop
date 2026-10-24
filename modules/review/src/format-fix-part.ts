@@ -1,16 +1,12 @@
 import { match } from 'ts-pattern';
 
-// one piece of what a fix call reads beside the finding's code when the answer names its fix commit
 export interface FixPart {
   kind: 'commit-diff' | 'head-file' | 'absent-file' | 'net-diff';
 
-  // the file the part shows, or null for the pull request's net diff
   path: string | null;
   text: string;
 }
 
-// the block a fix call reads for a part, or the line that names it among the parts left out to fit
-// the call
 export function formatFixPart(part: FixPart, isLeftOut: boolean): string {
   const name = match(part.kind)
     .with('commit-diff', () => `The fix commit's diff of \`${part.path}\``)

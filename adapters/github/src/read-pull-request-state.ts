@@ -15,23 +15,17 @@ export interface Reply {
   at: string;
 }
 
-// one posted finding and the replies to it; a finding GitHub could not anchor in the diff sits in an
-// issue comment, and a reply to it is an issue comment whose first line starts with its id
 export interface FindingThread {
   source: 'review' | 'issue';
   commentID: number;
 
-  // the comment as posted, so a confirmed fix rewrites it around the same marker
   body: string;
   marker: FindingMarker;
 
-  // the last line and the first line the comment anchors to at the head that posted it, or null for a
-  // finding outside the diff; a comment on one line starts on its last line
   line: number | null;
   startLine: number | null;
   replies: Reply[];
 
-  // the replies noslop already answered with the accepted forms
   answered: Set<number>;
 }
 
@@ -40,14 +34,12 @@ export interface PullRequestState {
   body: string;
   author: string;
 
-  // the branch the pull request merges into
   baseRef: string;
   baseSha: string;
   headSha: string;
   threads: FindingThread[];
   summary: { commentID: number; marker: SummaryMarker } | null;
 
-  // the App's comments that hold a finding marker noslop cannot read, so the check fails closed
   unreadable: number;
 }
 
@@ -60,9 +52,6 @@ interface GitHubComment {
   created_at?: string;
 }
 
-// everything noslop keeps on a pull request, read back from GitHub: each finding thread
-// with its replies, and the summary of the latest review; only a comment by noslop's own App holds
-// state, and a comment by anyone else, another bot included, is a reply
 export async function readPullRequestState(
   connection: GitHubConnection,
   pr: PullRequestRef,

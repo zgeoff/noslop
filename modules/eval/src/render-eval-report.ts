@@ -5,15 +5,11 @@ export interface EvalReportInput {
   reviewer: string;
   score: RunScore;
 
-  // a reference reviewer's recorded run, scored on the same cases
   reference: { reviewer: string; score: RunScore } | null;
 
-  // 2 runs of the reference reviewer on the same cases, compared with each other
   noiseFloor: RunComparison | null;
 }
 
-// the eval run as Markdown: the totals, the Light rule, one row per lens, and the noise floor that a
-// difference between 2 configs must clear
 export function renderEvalReport(input: EvalReportInput): string {
   const score = input.score;
   const columns = [input.reviewer, input.reference?.reviewer].filter((name) => name !== undefined);

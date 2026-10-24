@@ -1,6 +1,3 @@
-// Builds the npm package of the CLI into a folder of its own: the CLI bundle, the library entries
-// with their declarations, a manifest with no workspace dependencies, and the README and LICENSE.
-// The workspace keeps running the CLI from its source.
 import { cp, mkdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { build } from 'tsdown';
@@ -17,7 +14,6 @@ const EXTERNAL = ['oxc-parser'] as const;
 // The library entries leave zod to npm, so a caller's schemas and the declarations share one zod.
 const LIBRARY_EXTERNAL = ['zod'] as const;
 
-// Each subpath export of the package, by the CLI source file it builds from.
 const LIBRARY_ENTRIES = {
   '.': 'index',
   './contract': 'contract',
@@ -99,9 +95,6 @@ export async function writeCLIPackage(outDir: string): Promise<CLIPackageManifes
   return manifest;
 }
 
-// tsdown bundles each entry's declarations with tsrs's emit, inlining the workspace
-// packages they reach, so the published types import nothing but zod; its tsconfig sits at the repo
-// root, because TypeScript writes a declaration outside the tsconfig's folder beside its source
 async function writeDeclarations(outDir: string, entryNames: readonly string[]): Promise<void> {
   await build({
     config: false,
@@ -113,6 +106,9 @@ async function writeDeclarations(outDir: string, entryNames: readonly string[]):
     fixedExtension: false,
     clean: false,
     logLevel: 'warn',
+
+    // TypeScript writes a declaration for a file outside the tsconfig's folder beside its source,
+    // so the declarations' tsconfig sits at the repo root.
     tsconfig: join(REPO_DIR, 'tsconfig.cli-types.json'),
     dts: {
       emitDtsOnly: true,
@@ -123,7 +119,8 @@ async function writeDeclarations(outDir: string, entryNames: readonly string[]):
       alwaysBundle: [/^@noslop\//u],
       neverBundle: [...LIBRARY_EXTERNAL],
 
-      // the contract's types name LogTape's logger, which the published bundle does not depend on
+      // npm installs no LogTape for a user of the published package, so the declarations carry
+      // the logger type that the contract's types name.
       dts: {
         alwaysBundle: [/^@noslop\//u, '@logtape/logtape'],
         neverBundle: [...LIBRARY_EXTERNAL],

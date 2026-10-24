@@ -10,8 +10,6 @@ const KEYS = [
   'NOSLOP_GITHUB_APP_INSTALLATION_ID',
 ] as const;
 
-// the App's installation from the environment; null when none of its keys is set, and an error when
-// only some are; a private key written on one line keeps its line breaks as `\n`
 export function parseGitHubAppEnv(
   env: Readonly<Record<string, string | undefined>>,
 ): GitHubAppCredentials | null {
@@ -30,6 +28,8 @@ export function parseGitHubAppEnv(
 
   return {
     appID: parseID(KEYS[0], appID ?? ''),
+
+    // A private key written on one line in an environment variable holds its line breaks as `\n`.
     privateKey: (privateKey ?? '').replaceAll(String.raw`\n`, '\n'),
     installationID: parseID(KEYS[2], installationID ?? ''),
   };

@@ -27,7 +27,6 @@ async function setupTest() {
     NOSLOP_GITHUB_APP_INSTALLATION_ID: '7',
   };
 
-  // the org's relay: it verifies the result a developer's review sends, then posts it as the App
   const relay = Bun.serve({
     port: 0,
     routes: {
@@ -58,7 +57,6 @@ async function setupTest() {
     XDG_DATA_HOME: join(directory, 'data'),
   };
 
-  // the developer's machine holds the relay's secret and no App key; CI holds the App's keys
   const developerEnv = { ...folders, RELAY_SECRET: 'relay-secret' };
   const ciEnv = { ...folders, ...appEnv };
 

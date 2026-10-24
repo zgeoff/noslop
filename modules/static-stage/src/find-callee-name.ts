@@ -1,8 +1,6 @@
 import type { ASTNode } from './ast-node';
 import { findField } from './find-field';
 
-// the dotted name a call or `new` targets, such as `db.insertInto` or `Bun.write`; null for a callee
-// with no static name, such as a computed member or a call on a call's result
 export function findCalleeName(node: ASTNode): string | null {
   const callee = findField(node, 'callee');
 

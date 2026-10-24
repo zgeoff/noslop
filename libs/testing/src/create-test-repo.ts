@@ -5,18 +5,12 @@ import { buildChildEnv } from '@noslop/runner';
 export interface TestCommit {
   message: string;
 
-  // each path's content after the commit; null removes the file
   files: Readonly<Record<string, string | null>>;
 
-  // each symlink's target after the commit, as the link stores it
   links?: Readonly<Record<string, string>>;
 
-  // the index of the earlier commit this one follows, in place of the one before it, so a test can
-  // build a second line of history, such as commits on a base branch
   parent?: number;
 
-  // the index of an earlier commit this one merges in as its second parent, or a list of them for an
-  // octopus merge; the files apply on top of the merged tree, and they resolve a conflict the merge left
   merged?: number | readonly number[];
 
   date?: string;
@@ -28,14 +22,13 @@ export interface TestRepo {
   commits: string[];
 }
 
-// creates a git repo at the path with one commit per entry, in order, and returns each commit's sha;
-// git runs without the git repo variables, so a test that runs inside a git hook, which sets GIT_DIR,
-// never commits into the hook's repo
 export async function createTestRepo(
   path: string,
   commits: readonly TestCommit[],
 ): Promise<TestRepo> {
-  // a shell of its own, since setting the env of Bun.$ changes it for every caller
+  // A git hook sets GIT_DIR, so git runs without the repo variables or a test inside a hook would
+  // commit into the hook's repo. The shell is a new one because setting the env of Bun.$ changes
+  // it for every caller.
   const env = buildChildEnv(process.env);
 
   const $ = new Bun.$.Shell().env(env);
@@ -51,8 +44,6 @@ export async function createTestRepo(
       await $`git -C ${path} checkout -q --detach ${getCommit(shas, commit.parent)}`.quiet();
     }
 
-    // a merge with a conflict stops with the conflict markers in place, and the entry's files resolve
-    // it; a merge that git could not start leaves no MERGE_HEAD
     if (commit.merged !== undefined) {
       const indexes = typeof commit.merged === 'number' ? [commit.merged] : commit.merged;
       const merged = indexes.map((index) => getCommit(shas, index));
@@ -62,6 +53,8 @@ export async function createTestRepo(
           .nothrow()
           .quiet();
 
+      // A conflicted merge exits non-zero but leaves MERGE_HEAD, so MERGE_HEAD, not the exit code,
+      // tells whether git started the merge.
       const pending = await $`git -C ${path} rev-parse -q --verify MERGE_HEAD`.nothrow().quiet();
 
       if (pending.exitCode !== 0) {

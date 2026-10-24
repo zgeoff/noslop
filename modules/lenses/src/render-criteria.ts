@@ -21,7 +21,6 @@ const CRITERION_COVERS: Readonly<Record<Criterion, string>> = {
   'noisy-log': 'A log on a hot or success path that adds noise',
 };
 
-// the criteria table of the shared header, one row per criterion with the severity it sets
 export function renderCriteria(): string {
   const rows = criterionSchema.options.map(
     (criterion) =>

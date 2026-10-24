@@ -7,13 +7,9 @@ import { readTrustedState } from './read-trusted-state';
 export type PullRequestCheck = CheckOutcome;
 
 export interface CheckPullRequestOptions {
-  // true reads the outcome and writes nothing to GitHub, so a CI job checks with its own token
   readOnly: boolean;
 }
 
-// sets the noslop check run of a pull request from what GitHub holds, with no new review, so a reply
-// in a finding thread passes or fails the check; read-only, it returns the same outcome and sets
-// nothing
 export async function checkPullRequest(
   pr: PullRequestRef,
   loader: GitHubConnectionLoader,

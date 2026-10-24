@@ -13,8 +13,6 @@ export interface ReportedFinding {
   title: string;
   severity: Severity;
 
-  // what noslop names for a finding, so a run can count taste findings and the rules they cite; a
-  // baseline reviewer, and a run recorded before the fields, names neither
   criterion?: Criterion | undefined;
   rule?: string | undefined;
 }
@@ -44,9 +42,6 @@ interface MatchState {
   assigned: Map<number, Candidate>;
 }
 
-// a target matches one reported finding on its path within the window: closest pairs first, then pairs
-// whose lenses agree, then augmenting paths for as many matches as the window allows; ties break on
-// content, so the result never depends on the order the findings were listed in
 export function collectMatches(
   targets: readonly MatchTarget[],
   reported: readonly ReportedFinding[],
@@ -132,8 +127,6 @@ function buildKey(finding: MatchTarget): string {
   return `${normalizePath(anchor.path)}:${String(anchor.startLine).padStart(8, '0')}:${String(anchor.endLine).padStart(8, '0')}:${finding.lens ?? ''}`;
 }
 
-// gives the target a free reported finding, or moves the finding it wants to another target that can
-// take a different one; false when no such path exists
 function tryAugmentPath(target: number, state: MatchState, visited: Set<number>): boolean {
   for (const candidate of state.byTarget.get(target) ?? []) {
     if (visited.has(candidate.reported)) {

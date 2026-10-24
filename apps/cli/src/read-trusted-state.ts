@@ -9,8 +9,6 @@ export interface TrustedState {
   state: PullRequestState;
 }
 
-// a token knows no App, so the comments it trusts are those of the App the base branch's config
-// names; the config loads from the branch's tip, as verify loads it
 export async function readTrustedState(
   pr: PullRequestRef,
   loader: GitHubConnectionLoader,

@@ -5,14 +5,12 @@ import type { StaticRun } from './run-static-eval';
 export interface DepthTotals {
   cases: number;
 
-  // the true positives labelled P1 that the cases at this depth hold
   labelledP1s: number;
   escapes: number;
   groupCalls: number;
   maxCalls: number;
 }
 
-// a labelled P1 or an escape on a case that routed to Light, which Light reviews with the least effort
 export interface LightMiss {
   caseID: string;
   kind: 'p1' | 'escape';
@@ -34,8 +32,6 @@ export interface StaticScore {
   perCase: CaseCalls[];
 }
 
-// counts the cases, labels and planned calls at each depth, and lists every labelled P1 and escape that
-// falls at Light, each a case the Light rule must keep out of Light
 export function buildStaticScore(cases: readonly Case[], runs: readonly StaticRun[]): StaticScore {
   const byID = new Map(cases.map((item) => [item.id, item]));
 

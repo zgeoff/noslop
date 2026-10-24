@@ -10,10 +10,8 @@ import { countCodexTokens } from './count-codex-tokens';
 export interface CodexAdapterOptions {
   runner: Runner;
 
-  // the Codex executable, `codex` on the path unless a caller names another
   command?: string;
 
-  // the folder that holds the user's Codex config, whose developer instructions the adapter extends
   codexHome?: string;
 }
 
@@ -21,9 +19,6 @@ export interface CodexAdapterOptions {
 // start of the ID; mkdtemp's random suffix keeps 2 folders apart
 const CALL_ID_IN_DIR = 64;
 
-// runs a call on `codex exec` in its read-only sandbox, with the output schema on Codex's own schema
-// flag; the call's prompt goes on stdin, and noslop's instructions follow the user's own developer
-// instructions, so a user's setup keeps applying
 export function createCodexAdapter(options: CodexAdapterOptions): ReviewAdapter {
   const adapter: ReviewAdapter = {
     id: 'codex',
@@ -78,9 +73,8 @@ async function runCodexCall<Output>(
 
   const userConfig = await readCodexConfig(join(readCodexHome(options), 'config.toml'));
 
-  // an MCP server runs outside the sandbox, so each one the user's or the reviewed repo's config
-  // names is turned off; the repo's own instructions stay out, because the change under review
-  // writes them
+  // Codex runs an MCP server outside its sandbox, so a server that either config names is turned
+  // off.
   const repoConfig = await readCodexConfig(join(call.cwd, '.codex', 'config.toml'));
 
   const servers = [
@@ -93,7 +87,7 @@ async function runCodexCall<Output>(
   const instructions = (userConfig.developer_instructions ?? '').trim();
 
   // Codex reads a `-c` key path segment by segment and takes no quoted segment, so a server with any
-  // other name cannot be turned off, and the call refuses to start
+  // other name cannot be turned off.
   const unsafe = servers.find((name) => !BARE_KEY.test(name));
 
   if (unsafe !== undefined) {

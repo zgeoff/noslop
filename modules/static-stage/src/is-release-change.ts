@@ -4,8 +4,6 @@ import type { ChangedFile } from '@noslop/contract';
 
 const CHANGELOG = /(?:^|\/)CHANGELOG(?:\.[a-z]+)?$/iu;
 
-// a release bump touches only changelogs and the top-level version of package manifests, so each
-// manifest, read whole at both commits, differs in its version and in nothing else
 export function isReleaseChange(
   files: readonly ChangedFile[],
   baseTexts: ReadonlyMap<string, string>,

@@ -5,12 +5,8 @@ import type { PullRequestRef } from '@noslop/contract';
 import type { GitHubConnection } from '@noslop/github';
 import { createGitHubFileReader } from '@noslop/github';
 
-// the folder the base branch's files stand at while its config loads with no checkout; the hash
-// takes each local rules path relative to it, as it takes one relative to a checkout
 const BASE_BRANCH_DIR = '/base-branch';
 
-// the config of one commit of the pull request's repo, read through GitHub's contents API with no
-// checkout, so a push during the load cannot mix the files of 2 commits
 export function loadCommitConfig(
   loadConnection: () => Promise<GitHubConnection>,
   pr: PullRequestRef,
@@ -25,8 +21,6 @@ export function loadCommitConfig(
   });
 }
 
-// a file inside the base branch's folder reads from the commit on GitHub; a file outside it, such as
-// a rules file on the reviewer's own machine, reads as missing, because the relay cannot see it
 function makeCommitFileReader(
   readRemoteFile: ReadRemoteFile,
   pr: PullRequestRef,

@@ -12,8 +12,6 @@ export interface Runner {
   run: (argv: readonly string[], options: RunOptions) => Promise<RunResult>;
 }
 
-// the one place the App spawns a process, git or the noslop CLI, so a test replaces every spawn by
-// passing a stand-in runner
 export function createProcessRunner(): Runner {
   return { run: runProcess };
 }

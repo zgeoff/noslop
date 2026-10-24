@@ -1,8 +1,6 @@
 import type { z } from 'zod';
 import type { MarkerKind } from './format-marker';
 
-// the state a comment's hidden noslop marker holds; null when the comment holds no marker of that kind,
-// or one that does not match the schema
 export function parseMarker<Schema extends z.ZodType>(
   kind: MarkerKind,
   schema: Schema,

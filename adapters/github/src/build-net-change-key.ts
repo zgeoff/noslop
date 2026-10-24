@@ -1,7 +1,6 @@
 import { formatMarker } from './format-marker';
 import type { NetChangeKey } from './net-change-key';
 
-// the fields of GitHub's entry for a pull request file that the key reads
 export interface PullRequestFile {
   filename: string;
   status: string;
@@ -14,17 +13,13 @@ export interface NetChangeKeyInput {
   head: string;
   files: readonly PullRequestFile[];
 
-  // false when GitHub listed fewer files than the pull request changes
   isWhole: boolean;
 }
 
-// the most characters of patch ids the summary marker keeps, as the marker writes them with its
-// escapes, so they, the kept review ranges and the summary's table fit under GitHub's comment limit
+// GitHub refuses a comment past its length limit, and the summary comment holds these ids beside its
+// table, so the cap counts the ids as the marker writes them, escapes included.
 const KEY_CHARS = 20_000;
 
-// one patch id per changed file, so a rebase or a merge of the base that leaves a file's patch alone
-// leaves its id alone; a file with no patch keys on its blob, and a list that is not whole, or one too
-// long for the marker, keys on the head
 export function buildNetChangeKey(input: NetChangeKeyInput): NetChangeKey {
   if (!input.isWhole) {
     return { head: input.head };

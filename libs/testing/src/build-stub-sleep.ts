@@ -1,11 +1,8 @@
-// a sleep that ends only when the test wakes it, so a test controls when each wait is over
 export interface StubSleep {
   sleep: (delayMs: number) => Promise<void>;
 
-  // resolves with the delay of the next sleep once it starts, in the order the sleeps started
   nextSleep: () => Promise<number>;
 
-  // ends the oldest sleep still running
   wake: () => void;
 }
 

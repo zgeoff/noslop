@@ -7,8 +7,6 @@ export type ConfigLocation =
 const GITHUB_SPEC =
   /^github:(?<owner>[\w.-]+)\/(?<repo>[\w.-]+)(?:\/(?<path>[^@]+))?(?:@(?<ref>.+))?$/u;
 
-// resolves an `extends` or `rules` value against the file that names it: a path is relative to that
-// file, and `github:<owner>/<repo>[/<path>][@<ref>]` names a file in a repo, review.json by default
 export function parseConfigLocation(
   value: string,
   from: ConfigLocation,

@@ -31,13 +31,9 @@ export interface ReviewPlan {
   routeInput: RouteInput;
   route: Route;
 
-  // the most calls the review can make before a call over the prompt limit splits into parts: the
-  // planned calls and the passes its depth can add
   maxCalls: number;
 }
 
-// the part of a review that needs no model: the change, the static stage and the route, so the depth
-// and the planned calls of a change can be read without running a call
 export async function planReview(options: PlanReviewOptions): Promise<ReviewPlan> {
   const change = await readChange({
     runner: options.runner,
@@ -81,7 +77,6 @@ export async function planReview(options: PlanReviewOptions): Promise<ReviewPlan
   return { change, stage, routeInput, route, maxCalls: countMaxCalls(route, options) };
 }
 
-// the merge pass can follow any calls
 function countMaxCalls(route: Route, options: PlanReviewOptions): number {
   if (route.calls.length === 0) {
     return 0;

@@ -13,25 +13,17 @@ export interface NoslopReviewerOptions {
   loaded: LoadedConfig;
   adapter: ReviewAdapter;
 
-  // the depth every case is reviewed at, in place of the one the risk score picks
   depth: Depth | null;
 
-  // the folder that holds each case's own temp folder
   tempDir: string;
 
-  // the config with its `repo:` rules read from the case's repo, as a live review of that repo reads
-  // them
   loadCaseConfig: (caseRepo: string) => Promise<LoadedConfig>;
 }
 
-// noslop as a reviewer under test: each case runs the whole pipeline on the case's repo at its base and
-// head, with the config under test, and a case with a last reviewed head runs as a re-review of the
-// push since it; a case fails when the pipeline throws or every call fails
 export function createNoslopReviewer(options: NoslopReviewerOptions): CaseReviewer {
   return {
     id: `noslop-${options.adapter.id}`,
 
-    // the pipeline checks out the case's head in a worktree of its own
     needsWorktree: false,
     reviewCase: async (corpusCase) => {
       const tempDir = await mkdtemp(join(options.tempDir, `${corpusCase.id}-`));

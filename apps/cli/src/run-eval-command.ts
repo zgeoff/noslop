@@ -30,22 +30,15 @@ export interface EvalValues {
   adapter: string | undefined;
   json: boolean;
 
-  // keep the cases that the out folder's runs file holds, and replay only the rest
   resume: boolean;
 
-  // plan each case with no model call, under the static depth replay
   static: boolean;
 
-  // the depth every case is reviewed at, in place of the one the risk score picks
   depth: string | undefined;
 }
 
-// a reported finding matches a labelled one on the same path within this many lines
 const WINDOW_LINES = 5;
 
-// replays the first cases of the corpus through noslop with the working directory's config, and
-// writes the runs to the out folder as each case ends; a recorded baseline run scores beside noslop's,
-// and 2 recorded runs of the reference reviewer give the noise floor
 export async function runEvalCommand(values: EvalValues, ctx: CLIContext): Promise<number> {
   const all = await loadCorpus(resolve(ctx.cwd, values.corpus));
 
@@ -116,8 +109,6 @@ export async function runEvalCommand(values: EvalValues, ctx: CLIContext): Promi
         count: run.review.failed ? 'failed' : run.review.findings.length,
       });
 
-      // a synchronous write in the corpus's order, so the file on disk always holds the cases that
-      // ended, in the same order whatever order they ended in
       const ordered = cases.flatMap((item) => done.filter((ended) => ended.caseID === item.id));
 
       writeFileSync(join(outDir, 'runs.json'), JSON.stringify(ordered, null, 2));
@@ -152,8 +143,6 @@ export async function runEvalCommand(values: EvalValues, ctx: CLIContext): Promi
   return 0;
 }
 
-// the runs an earlier replay into the same out folder finished, for the cases of this replay; a
-// folder with no runs file holds none
 function parseDepthFlag(value: string | undefined): Depth | null {
   if (value === undefined) {
     return null;
@@ -182,7 +171,6 @@ async function loadReference(
   return runs.filter((run) => caseIDs.has(run.caseID));
 }
 
-// takes the 2 recorded runs as one value, their paths joined by a comma
 async function loadNoiseFloor(
   paths: string | undefined,
   ctx: CLIContext,

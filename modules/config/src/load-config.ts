@@ -11,22 +11,16 @@ import { parseConfigLocation } from './parse-config-location';
 
 export type GithubLocation = Extract<ConfigLocation, { kind: 'github' }>;
 
-// reads one file from a remote config repo, read-only; null when the file does not exist
 export type ReadRemoteFile = (location: GithubLocation) => Promise<string | null>;
 
-// reads one local file of the chain or its rules; null when the file does not exist
 export type ReadLocalFile = (path: string) => Promise<string | null>;
 
 export interface LoadConfigOptions {
   repoDir: string;
   readRemoteFile?: ReadRemoteFile;
 
-  // reads the local files, such as from one commit instead of the working tree; the filesystem
-  // unless given
   readLocalFile?: ReadLocalFile;
 
-  // the repo that `repo:` rules paths read from, which the eval sets to each case's repo; the repo
-  // of the config unless given
   rulesRepoDir?: string;
 }
 
@@ -36,8 +30,6 @@ export interface LoadedConfig {
   chain: string[];
   rules: Rule[] | null;
 
-  // the labels of the `repo:` files and references the repo lacks, which hold no rule, each once;
-  // a reference its file never names is left out
   missingRules: string[];
 
   hash: string;
@@ -45,8 +37,6 @@ export interface LoadedConfig {
 
 export const BUILT_IN_SOURCE = 'built-in';
 
-// starts from the built-in defaults and merges each file of the extends chain over them, from the root
-// parent down to the repo's own review.json; a cycle in the chain fails the load
 export async function loadConfig(options: LoadConfigOptions): Promise<LoadedConfig> {
   const files = await readChain(options);
 
@@ -68,7 +58,6 @@ export async function loadConfig(options: LoadConfigOptions): Promise<LoadedConf
     sources['rules'] = rulesLayer.source;
   }
 
-  // a nullable key that a layer removed means none, as in the defaults
   for (const [key, fallback] of Object.entries(BUILT_IN_DEFAULTS)) {
     if (fallback === null && !(key in value)) {
       value[key] = null;
@@ -91,7 +80,6 @@ export async function loadConfig(options: LoadConfigOptions): Promise<LoadedConf
   );
 
   for (const source of rules ?? []) {
-    // a missing file and an empty one hash apart, so a file that appears changes the hash
     hash.update(`\n${source.label}\n${source.text === null ? 'missing' : `text\n${source.text}`}`);
   }
 
@@ -148,7 +136,7 @@ async function readChain(options: LoadConfigOptions): Promise<ChainFile[]> {
     const value = parseConfigFile(text, label);
     const parent = value['extends'];
 
-    // `$schema` points an editor at the generated JSON Schema of review.json and sets nothing
+    // Editors read `$schema` to find the JSON Schema of review.json; it sets no config value.
     delete value['extends'];
     delete value['$schema'];
 
@@ -212,8 +200,6 @@ function parseConfigFile(text: string, label: string): Record<string, unknown> {
   return { ...value };
 }
 
-// each path resolves against the file that names it and keeps its written form as its label; a
-// `repo:` path resolves at load time against the reviewed repo, which a shared config cannot know
 function resolveRulesFiles(raw: unknown, from: ConfigLocation): unknown[] {
   return (Array.isArray(raw) ? raw : [raw]).map((entry: unknown) => resolveRulesFile(entry, from));
 }
@@ -244,8 +230,6 @@ function resolveRulesFile(entry: unknown, from: ConfigLocation): unknown {
   };
 }
 
-// a label reaches prompts, rule names and finding IDs, so an absolute path gives only its file name,
-// which keeps a machine's folders out of them
 function buildRulesLabel(path: string): string {
   if (path.startsWith('github:')) {
     return path;
@@ -258,9 +242,6 @@ function buildRulesLabel(path: string): string {
   return isAbsolute(path) ? basename(path) : normalize(path);
 }
 
-// rules add up down the extends chain, since each is taste a repo adds to: a file's list appends to
-// the one it inherits, an entry for an inherited path replaces that entry, and null drops the list;
-// null when no file names rules
 function mergeRulesLayers(files: readonly ChainFile[]): { rules: unknown; source: string } | null {
   let merged: { rules: unknown[] | null; source: string } | null = null;
 
@@ -311,17 +292,12 @@ function isSamePath(left: unknown, right: unknown): boolean {
 interface RulesSource {
   label: string;
 
-  // null for a `repo:` file or a reference that the repo lacks
   text: string | null;
   paths: readonly string[] | null;
 
-  // false for a reference that the repo was not meant to hold
   isExpected: boolean;
 }
 
-// a reference's label sits beside its file's label, so one reference name under 2 files stays apart;
-// a repo syncs only the skills and references it needs, so a `repo:` file or a reference it lacks
-// holds no rule, and any other missing file fails the load
 async function readRulesSources(
   files: readonly RulesFile[],
   options: LoadConfigOptions,
@@ -360,8 +336,8 @@ async function readRulesSources(
 
   let fileText: string | null = null;
 
-  // a sync that leaves a reference out of a repo drops the section of its file that links it, so a
-  // reference the file's text never names is one the repo was not meant to hold
+  // The sync that copies skills into a repo drops the section that links a reference it leaves out,
+  // so a reference the file's text never names was not meant to be in the repo.
   return sources.map((source, index) => {
     const text = texts[index] ?? null;
 
@@ -378,7 +354,6 @@ async function readRulesSources(
   });
 }
 
-// the chain has resolved each path but a `repo:` one against the file that names it already
 function resolveRulesLocation(path: string, options: LoadConfigOptions): ConfigLocation {
   if (path.startsWith(REPO_PREFIX)) {
     const inner = requireInnerPath(path.slice(REPO_PREFIX.length), 'repo: path');
@@ -393,8 +368,6 @@ function resolveRulesLocation(path: string, options: LoadConfigOptions): ConfigL
   return { kind: 'local', path };
 }
 
-// a repo: path stays inside the reviewed repo and a reference beside its file, so neither reads a
-// file of the host, and neither puts a host folder into a rule's name
 function requireInnerPath(path: string, kind: string): string {
   const inner = normalize(path);
 
@@ -405,8 +378,6 @@ function requireInnerPath(path: string, kind: string): string {
   return inner;
 }
 
-// a resolved local rules path holds the checkout's folder, so the hash takes it relative to the repo,
-// and 2 checkouts of one commit hash alike wherever each one sits
 function buildHashedConfig(config: ReviewConfig, repoDir: string): ReviewConfig {
   const root = resolve(repoDir);
 
@@ -424,8 +395,6 @@ function isLocalRulesPath(path: string): boolean {
   return !path.startsWith('github:') && !path.startsWith(REPO_PREFIX);
 }
 
-// each file is one rule under its label, whole: a skill's headings were written for agents, so they
-// mark no rule, and a finding cites its rule by a quote from the file instead
 function buildRules(source: RulesSource): Rule[] {
   const text = source.text?.trim() ?? '';
 

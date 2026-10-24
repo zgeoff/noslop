@@ -10,9 +10,6 @@ export interface NamedTestClaims {
   headPaths: readonly string[];
 }
 
-// the direct findings about tests: a new test with no assertion, 2 tests with one body, a type test
-// on a key its type lacks, an allow-or-deny check whose body changed and whose tests hold no table of
-// hostile inputs, and a test file the pull request body claims that the whole pull request does not add
 export function collectTestFindings(
   files: readonly AnalyzedFile[],
   security: readonly SecurityEntry[],
@@ -113,7 +110,6 @@ function collectMissingTypeKeys(files: readonly AnalyzedFile[]): ModelFinding[] 
         return [];
       }
 
-      // a type that takes keys from elsewhere has keys the walk cannot list
       if (!declared.isComplete || declared.keys.includes(typeTest.key)) {
         return [];
       }
@@ -176,8 +172,6 @@ function collectUntabledChecks(
   });
 }
 
-// the slice keeps the walk's order, so the ordinal among the checks with one place and detail picks
-// the check's own fact, and a copy of a base check's body counts as new once it outnumbers the base
 function hasChangedBody(
   check: SecurityEntry,
   ordinal: number,
@@ -219,8 +213,6 @@ function isSameCheckPlace(left: SecurityEntry, right: SecurityEntry): boolean {
   );
 }
 
-// a name starts where its path starts and holds the glob characters of a pattern, so a pattern such as
-// src/*/index.test.ts never yields the partial name /index.test.ts
 const TEST_PATH_IN_TEXT = /(?<![\w./*?{}\]-])[\w./*?{}-]+\.(?:test|spec)\.[cm]?[jt]sx?(?![\w-])/gu;
 const GLOB_CHARACTERS = /[*?{}]/u;
 

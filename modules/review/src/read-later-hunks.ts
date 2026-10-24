@@ -14,9 +14,6 @@ export interface LaterHunk {
   newLines: number;
 }
 
-// the hunks with no context lines of the file's change between 2 commits, or null when git cannot
-// diff them, such as for a commit the repo lacks; a path is a file's own name, never a glob, and a
-// rename reads as a deletion
 export async function readLaterHunks(input: LaterHunksInput): Promise<LaterHunk[] | null> {
   const result = await input.runner.run(
     [

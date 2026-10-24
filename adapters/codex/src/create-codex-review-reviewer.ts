@@ -13,16 +13,11 @@ export interface CodexReviewReviewerOptions {
   tempDir: string;
   timeoutMs: number;
 
-  // the Codex executable, `codex` on the path unless a caller names another
   command?: string;
 
-  // the folder that holds the user's Codex config and the sessions Codex writes
   codexHome?: string;
 }
 
-// the reference reviewer: `codex review` of the case's change, read-only in the reviewed worktree; its
-// runs on the corpus record the baseline and measure the noise floor; Codex keeps the review's
-// session files, because the review's token use is in them alone, and the reviewer removes them
 export function createCodexReviewReviewer(options: CodexReviewReviewerOptions): CaseReviewer {
   return {
     id: 'codex-review',
@@ -66,7 +61,6 @@ export function createCodexReviewReviewer(options: CodexReviewReviewerOptions): 
               since,
             });
 
-      // the review's own session files go, whether it ended or failed, and no other run's file does
       await Promise.all(session?.files.map((file) => rm(file, { force: true })) ?? []);
 
       if (!failed && session?.hasReviewThread !== true) {

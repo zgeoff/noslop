@@ -4,8 +4,6 @@ export interface WebhookReporterOptions {
   env: Readonly<Record<string, string | undefined>>;
 }
 
-// sends the review result as JSON to the configured URL; with a secret header, the header carries the
-// value of the configured environment variable, so the secret stays out of the config file
 export function createWebhookReporter(options: WebhookReporterOptions): Reporter {
   return {
     id: 'webhook',

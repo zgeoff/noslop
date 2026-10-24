@@ -10,7 +10,7 @@ async function setupTest() {
 
   onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  // a shell whose git never reads the GIT_DIR of a git hook that runs these tests
+  // A git hook sets GIT_DIR, so the shell's git runs without the repo variables.
   return { directory, $: new Bun.$.Shell().env(buildChildEnv(process.env)) };
 }
 

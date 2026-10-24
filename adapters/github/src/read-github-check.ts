@@ -13,8 +13,6 @@ export interface GitHubCheckInput {
   state: PullRequestState;
 }
 
-// the outcome of the check from what GitHub holds, with no write: it reads every disposition, checks
-// each deferral's issue, and passes or fails the check
 export async function readGitHubCheck(
   connection: GitHubConnection,
   pr: PullRequestRef,

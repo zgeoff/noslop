@@ -2,15 +2,12 @@ import type { LensID, SpecialChange } from '@noslop/contract';
 import { LENS_IDS } from '@noslop/contract';
 import type { RouteInput } from './types';
 
-// the lenses a special change runs in place of the triggers; a sync and a release run the static
-// checks alone, and a direct push routes like any other change
 const SPECIAL_LENSES: Readonly<Record<Exclude<SpecialChange, 'direct-push'>, readonly LensID[]>> = {
   sync: [],
   release: [],
   'docs-only': ['documentation', 'instructions'],
 };
 
-// each lens's trigger, read from the slices and the changed paths alone
 const TRIGGERS: Readonly<Record<LensID, (input: RouteInput) => boolean>> = {
   correctness: (input) =>
     input.change.files.some((file) => file.kind === 'code' || file.kind === 'test'),
@@ -49,8 +46,6 @@ const TRIGGERS: Readonly<Record<LensID, (input: RouteInput) => boolean>> = {
       input.config.thresholds.docsMinLines,
 };
 
-// fires correctness on any change that holds code, every other lens on its trigger, and every lens a
-// marked risk class forces on; a lens the config turns off stays off unless a risk class forces it
 export function pickLenses(input: RouteInput, special: SpecialChange | null): LensID[] {
   const forced = new Set(
     input.signals.riskClasses.flatMap((name) => input.config.riskClasses[name]?.forces ?? []),
@@ -59,7 +54,6 @@ export function pickLenses(input: RouteInput, special: SpecialChange | null): Le
   const candidates =
     special === null || special === 'direct-push' ? LENS_IDS : SPECIAL_LENSES[special];
 
-  // a docs-only change runs the documentation lens on any prose it changes, whatever its size
   const fired = new Set(
     candidates.filter(
       (lens) =>

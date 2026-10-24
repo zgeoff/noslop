@@ -8,8 +8,6 @@ import type { NetChangeKey } from './net-change-key';
 const PULL_FILES_PER_PAGE = 100;
 const PULL_FILE_PAGES = 30;
 
-// the key of a pull request's net change at a head, from the patches GitHub lists for its files; the
-// list is of the pull request's head now, so a head that moved on keys on the head it was given
 export async function readNetChangeKey(
   client: GitHubClient,
   pr: PullRequestRef,
@@ -39,6 +37,8 @@ export async function readNetChangeKey(
     pull_number: pr.number,
   });
 
+  // GitHub lists the files of the pull request's head now, so a head that moved on keys on the head
+  // it was given.
   if (pull.data.head.sha !== head) {
     return { head };
   }
@@ -46,7 +46,6 @@ export async function readNetChangeKey(
   return buildNetChangeKey({ head, files, isWhole: files.length === pull.data.changed_files });
 }
 
-// GitHub's entry holds more fields than the key reads
 function toPullRequestFile(file: PullRequestFile): PullRequestFile {
   return {
     filename: file.filename,

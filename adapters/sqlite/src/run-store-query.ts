@@ -15,18 +15,13 @@ export const STORE_QUERY_NAMES = [
 
 export type StoreQueryName = (typeof STORE_QUERY_NAMES)[number];
 
-// the reviews a query reads; only `findings-by-pr` reads them, and an absent filter keeps every review
 export interface StoreQueryFilters {
   repo?: string;
   pullRequest?: number;
 
-  // an ISO time; a review that ended before it is left out
   since?: string;
 }
 
-// each finding of a repo counts once, under its latest disposition, and at the depth of the first
-// review that reported it; 2 reviews of one change that report one defect share its ID; a review
-// that ends after a `fixed` disposition and still reports the finding reopens it
 const OUTCOMES = sql`
   latest AS (
     SELECT repo, finding_id, kind, at FROM (
@@ -60,7 +55,6 @@ const QUERIES: Record<
   StoreQueryName,
   (filters: StoreQueryFilters) => RawBuilder<Record<string, unknown>>
 > = {
-  // the share of each lens's findings that end fixed, and the share that end not a defect
   'yield-by-lens': () => sql`
     WITH ${OUTCOMES}
     SELECT
@@ -75,7 +69,6 @@ const QUERIES: Record<
     GROUP BY lens
     ORDER BY lens`,
 
-  // the same shares at each depth, by the depth of the first review that reported each finding
   'yield-by-depth': () => sql`
     WITH ${OUTCOMES}
     SELECT
@@ -90,8 +83,6 @@ const QUERIES: Record<
     GROUP BY depth
     ORDER BY depth`,
 
-  // each open finding of each change's latest review, the most severe first; a pull request is one
-  // change, and a local branch, which has no pull request, is one change per base
   'open-findings': () => sql`
     WITH ${OUTCOMES},
     last_reviews AS (
@@ -120,7 +111,6 @@ const QUERIES: Record<
     WHERE outcomes.kind = 'open'
     ORDER BY findings.severity, reviews.repo, findings.path, findings.start_line`,
 
-  // what the calls at each depth cost, from the calls table
   'cost-by-depth': () => sql`
     SELECT
       depth,
@@ -135,7 +125,6 @@ const QUERIES: Record<
     GROUP BY depth
     ORDER BY depth`,
 
-  // each escape, with whether its lens ran on the change that caused it and what that lens reported
   'recall-by-lens': () => sql`
     SELECT
       escapes.lens AS lens,
@@ -155,8 +144,6 @@ const QUERIES: Record<
     GROUP BY escapes.lens
     ORDER BY escapes.lens`,
 
-  // each escape at the depth of the latest review of the change that caused it, with whether its lens
-  // ran there and reported on its file; an escape on a change no review saw has no depth
   'recall-by-depth': () => sql`
     WITH reviewed AS (
       SELECT escapes.*, (
@@ -179,8 +166,6 @@ const QUERIES: Record<
     GROUP BY reviews.depth
     ORDER BY reviews.depth`,
 
-  // each finding Assemble dropped, newest review first, with the rule and quote a taste finding cited,
-  // so a reader can check a quote the rules file did not hold against the file
   'dropped-findings': () => sql`
     SELECT
       reviews.repo AS repo,
@@ -196,9 +181,6 @@ const QUERIES: Record<
     FROM dropped_findings JOIN reviews USING (review_id)
     ORDER BY reviews.ended_at DESC, reviews.review_id, dropped_findings.rowid`,
 
-  // each finding of each pull request once, from the latest review that reported it, with the latest
-  // disposition of its own pull request as given, or of none, and the outcome `open-findings` gives
-  // it; the comment link comes from any review of the pull request, whatever the time filter keeps
   'findings-by-pr': (filters) => sql`
     WITH reported AS (
       SELECT * FROM (
@@ -264,7 +246,6 @@ const QUERIES: Record<
       reported.start_line, reported.finding_id`,
 };
 
-// runs one of the store's named queries; a reader pins the CLI version and reads the same row shape
 export async function runStoreQuery(
   store: Store,
   name: StoreQueryName,
@@ -275,8 +256,6 @@ export async function runStoreQuery(
   return result.rows;
 }
 
-// whether a lens ran in a review: the review lists the routed lenses its calls ran, and a lens that
-// routing never picks, such as the design lens, shows only in the lenses of the call that carried it
 function buildLensRan(
   reviewID: RawBuilder<unknown>,
   reviewLenses: RawBuilder<unknown>,

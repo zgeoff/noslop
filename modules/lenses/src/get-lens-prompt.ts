@@ -15,7 +15,8 @@ import security from './prompts/security.md' with { type: 'text' };
 import sharedHeader from './prompts/shared-header.md' with { type: 'text' };
 import tests from './prompts/tests.md' with { type: 'text' };
 
-// the pages are imported as text, so a bundle of the CLI holds every prompt and reads no file
+// The bundled CLI ships without the prompt files, so the pages are imported as text for the bundler
+// to inline.
 const PAGES: Record<CallLens | 'shared-header', string> = {
   'architecture-and-boundaries': architectureAndBoundaries,
   'concurrency-and-data-integrity': concurrencyAndDataIntegrity,
@@ -34,8 +35,6 @@ const PAGES: Record<CallLens | 'shared-header', string> = {
   tests,
 };
 
-// a prompt page holds a header that noslop reads and the model never sees, then the prompt under its
-// `## Prompt` heading; the model gets the prompt alone
 export function getLensPrompt(id: CallLens | 'shared-header'): string {
   const page = PAGES[id];
   const start = page.indexOf('\n## Prompt\n');

@@ -38,23 +38,16 @@ export const silenceSchema = z.strictObject({
 
 export type Silence = z.infer<typeof silenceSchema>;
 
-// one past change: the repo, its base and the reviewed head, and what a reference reviewer found
-// there, with each finding labelled by what happened to it
 export const caseSchema = z.strictObject({
   id: z.string().min(1),
   repo: z.string().min(1),
   base: commitSchema,
   head: commitSchema,
 
-  // the head an earlier review of the pull request covered; a case that names one is a re-review of
-  // the push from it to the head, so it replays as an incremental review of that push alone, while
-  // the base, the title and the body still describe the whole pull request
   reviewedHead: commitSchema.optional(),
   title: z.string(),
   body: z.string(),
 
-  // the text of the issue the change closes, which the intent lens reads; a case without one runs
-  // no intent lens
   linkedIssue: z.string().min(1).optional(),
   findings: z.array(labelledFindingSchema),
   escapes: z.array(escapeSchema),

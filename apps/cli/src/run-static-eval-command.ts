@@ -9,9 +9,6 @@ import { loadRepoConfig } from './load-repo-config';
 import { resolveRepoDir } from './resolve-repo-dir';
 import type { EvalValues } from './run-eval-command';
 
-// plans each case with the working directory's config and no model call, and writes the depth, the
-// labels and the planned calls of every case to the out folder; a label's anchor plays no part, so
-// the cases need no check of their paths
 export async function runStaticEvalCommand(
   cases: readonly Case[],
   values: EvalValues,

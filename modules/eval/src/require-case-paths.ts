@@ -1,9 +1,6 @@
 import type { Case } from './case';
 import { normalizePath } from './normalize-path';
 
-// throws when a labelled path names no file at the case's head, because a label on a missing file can
-// never match and would score as a miss; a case whose head files could not be read is left to the
-// replay, which records it as failed
 export function requireCasePaths(corpusCase: Case, files: readonly string[]): void {
   if (files.length === 0) {
     return;

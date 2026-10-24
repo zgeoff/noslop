@@ -14,8 +14,6 @@ export interface RiskSignalInputs {
   pastEscapes: readonly string[];
 }
 
-// the signals routing reads to fire lenses and pick the depth; a risk class is marked when a changed
-// path matches its globs or one of its detectors fires on a slice
 export function buildRiskSignals(inputs: RiskSignalInputs): RiskSignals {
   const paths = inputs.change.files.map((file) => file.path);
   const detectors = collectFiredDetectors(inputs.slices);

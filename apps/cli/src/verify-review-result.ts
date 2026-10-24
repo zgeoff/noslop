@@ -4,9 +4,6 @@ import type { GitHubConnection } from '@noslop/github';
 import { readBranchHead, readPullRequestState } from '@noslop/github';
 import { loadCommitConfig } from './load-commit-config';
 
-// parses a review result and checks it against its pull request on GitHub: it must review the head,
-// under a config whose hash matches the config on the base branch, so a relay posts only a review the
-// repo enforces; it throws and names each mismatch
 export async function verifyReviewResult(
   input: unknown,
   loadConnection: () => Promise<GitHubConnection>,
@@ -20,9 +17,6 @@ export async function verifyReviewResult(
 
   const connection = await loadConnection();
   const state = await readPullRequestState(connection, pr);
-
-  // every file reads from the one commit the branch points at now, so a push to the base branch while
-  // the config loads cannot mix files of 2 commits
   const baseCommit = await readBranchHead(connection, pr, state.baseRef);
   const loaded = await loadCommitConfig(loadConnection, pr, baseCommit);
 
@@ -40,8 +34,6 @@ export async function verifyReviewResult(
     );
   }
 
-  // a review without the App's keys trusted the comments of the App the base config names, so only
-  // that App may post its result
   const appSlug = loaded.config.github.app;
 
   if (connection.auth === 'app' && appSlug !== null && connection.appLogin !== `${appSlug}[bot]`) {

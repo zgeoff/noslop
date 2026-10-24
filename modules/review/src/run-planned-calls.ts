@@ -29,15 +29,12 @@ export interface CallBatchInput {
   body: string;
   linkedIssue: string | null;
 
-  // the base and head commits that every line reference cites
   base: string;
   head: string;
   isIncremental: boolean;
 
-  // how many calls run at once
   parallel: number;
 
-  // the config's data globs and the size limits that split a call into parts
   data: readonly string[];
   maxCallChars: number;
   maxFileChars: number;
@@ -48,16 +45,11 @@ export interface CallBatch {
   failed: FailedCall[];
   raw: RawFinding[];
 
-  // each changed file that no call read, once
   notReviewed: NotReviewedFile[];
 
-  // each changed file that a call read while the calls of other lenses left it out, once
   notReviewedByLens: LensNotReviewedFile[];
 }
 
-// runs the planned calls, each as parts that fit the prompt limit, up to the parallel limit at once;
-// a failed call retries once, a call that fails twice is recorded as failed, and the records keep the
-// planned order whatever order the calls end in
 export async function runPlannedCalls(input: CallBatchInput): Promise<CallBatch> {
   const plan = planCallBatch(input);
   const parts = plan.parts;

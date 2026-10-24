@@ -7,19 +7,14 @@ export interface DismissedFindingsOptions {
   runner: Runner;
   repoDir: string;
 
-  // the commit the findings anchor to
   head: string;
   findings: readonly Finding[];
 
-  // the posted findings whose latest answer is `not-a-defect`
   dismissed: readonly DismissedFinding[];
 
-  // the config's `dismissedMaxLines`
   maxLines: number;
 }
 
-// splits off each finding that matches one answered `not-a-defect`, comparing the code each anchor
-// holds at its own head; a review with no such answer reads no code
 export async function readDismissedFindings(
   options: DismissedFindingsOptions,
 ): Promise<DismissedFindingsSplit> {
@@ -64,7 +59,6 @@ export async function readDismissedFindings(
   return splitDismissedFindings({ findings: quoted, dismissed, maxLines: options.maxLines });
 }
 
-// the lines of a file at a commit; null when git cannot show it, such as a commit a force push dropped
 async function readFileLines(
   options: DismissedFindingsOptions,
   commit: string,

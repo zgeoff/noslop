@@ -6,16 +6,11 @@ import type { Runner } from '@noslop/runner';
 import type { CLIContext } from './cli-context';
 
 export interface RepoConfigOptions {
-  // the repo that `repo:` rules read from, when it is not the reviewed repo
   rulesRepoDir?: string;
 
-  // the commit whose files the config reads in place of the working tree
   commit?: string;
 }
 
-// the repo's merged config; a `github:` extends reads its file through GitHub, `repo:` rules read
-// from the rules repo when one is given, and a commit's files stand in for the working tree when a
-// commit is given
 export function loadRepoConfig(
   ctx: CLIContext,
   repoDir: string,
@@ -31,12 +26,9 @@ export function loadRepoConfig(
   });
 }
 
-// the most symlinks one read follows, as a kernel bounds a path lookup, so a link cycle fails
+// Linux bounds a path lookup at 40 symlinks, so a link cycle fails at the same bound.
 const MAX_LINK_HOPS = 40;
 
-// a file inside the repo reads from the commit, so an edit the change makes to the config takes no
-// part in its own review; a file outside the repo, such as one in a rules repo, reads from disk, and
-// so does a symlink of the commit that points outside the repo
 function makeCommitFileReader(runner: Runner, repoDir: string, commit: string): ReadLocalFile {
   const readCommitFile = async (path: string, hops: number): Promise<string | null> => {
     const inner = relative(repoDir, path);
@@ -90,7 +82,6 @@ interface TreeEntry {
   object: string;
 }
 
-// one entry of the commit's tree; null when the commit holds nothing at the path
 async function readTreeEntry(
   runner: Runner,
   repoDir: string,

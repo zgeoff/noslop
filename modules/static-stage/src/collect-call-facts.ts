@@ -19,8 +19,6 @@ const STACK_KINDS: readonly StackPatternKind[] = [
   'events',
 ];
 
-// records each call with the stack patterns it matches, and the facts that only a call shows: a test,
-// a type test, a schema bound, an injection sink and the request path
 export function collectCallFacts(
   node: ASTNode,
   ancestors: readonly ASTNode[],
@@ -137,8 +135,6 @@ function collectSchemaBound(
   const property = ancestors.findLast((ancestor) => ancestor.type === 'Property');
   const key = property === undefined ? null : findField(property, 'key');
   const keyName = key?.['name'] ?? key?.['value'];
-
-  // a chain can span lines, so the bound sits on the line of its own `.max`
   const callee = findField(node, 'callee');
   const maxToken = (callee === null ? null : findField(callee, 'property')) ?? node;
 
@@ -207,8 +203,6 @@ function collectSink(node: ASTNode, name: string, ctx: AnalyzeContext): void {
   }
 }
 
-// a value that is not a literal written in the code: a template with expressions, a concatenation, or
-// a name, member or call whose value the code receives
 function isBuiltFromInput(node: ASTNode | null): boolean {
   if (node === null) {
     return false;

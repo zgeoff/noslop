@@ -7,7 +7,6 @@ export interface ReviewedKey {
   key?: NetChangeKey | undefined;
 }
 
-// a marker written before the key holds none, so it matches only its own head
 export function findChangedPaths(
   reviewed: ReviewedKey,
   currentHead: string,

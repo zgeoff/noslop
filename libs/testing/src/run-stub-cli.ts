@@ -1,6 +1,3 @@
-// a stand-in for a model CLI: it records its arguments and stdin, writes the scripted last message to
-// the file after the output flag, prints the scripted output and exits with the scripted code, all
-// from the JSON script that NOSLOP_STUB_SCRIPT names
 import { z } from 'zod';
 
 const scriptSchema = z.strictObject({

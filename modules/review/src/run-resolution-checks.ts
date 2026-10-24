@@ -26,8 +26,6 @@ import type { LaterHunk } from './read-later-hunks';
 import { readLaterHunks } from './read-later-hunks';
 import { removeReviewWorktree } from './remove-review-worktree';
 
-// what a resolution check needs beyond a fixes-only run's own input: the config the review reads and
-// the findings answered `not-a-defect`, which a resolution finding must not raise again
 export interface ResolutionCheckOptions {
   config: ReviewConfig;
   dismissedFindings: readonly DismissedFinding[];
@@ -37,7 +35,6 @@ export interface ResolutionChecksInput extends ResolutionCheckOptions {
   runner: Runner;
   repoDir: string;
 
-  // the range whose merge commits the run checks
   base: string;
   head: string;
   adapter: ReviewAdapter;
@@ -61,9 +58,6 @@ interface ResolutionOutcome {
   failedCall?: FailedCall;
 }
 
-// one call per merge of the range whose tree differs from the tree `git merge-tree` builds from its
-// parents, over the diff from that tree to the merge's, so it judges only what the merge wrote; the
-// merges run one at a time, each in a worktree of its own
 export async function runResolutionChecks(
   input: ResolutionChecksInput,
 ): Promise<ResolutionChecksRun> {
@@ -82,7 +76,6 @@ export async function runResolutionChecks(
     outcomes.push(outcome);
   }
 
-  // 2 merges can resolve one file alike, and a finding ID names one comment
   const findings = new Map<string, Finding>();
 
   for (const finding of outcomes.flatMap((outcome) => outcome.findings ?? [])) {
@@ -117,9 +110,6 @@ async function readGitText(input: ResolutionChecksInput, args: readonly string[]
   return result.stdout.trim();
 }
 
-// the check of one merge: none for a clean merge, a not-sound verdict with no call for a merge of
-// more than 2 parents, which `git merge-tree` cannot rebuild, and otherwise one call over the diff
-// from the rebuilt tree to the merge's tree
 async function runResolutionCheck(
   input: ResolutionChecksInput,
   merge: string,
@@ -129,6 +119,7 @@ async function runResolutionCheck(
   const parents = listed.split(' ').slice(1);
   const [first, second] = parents;
 
+  // `git merge-tree` merges exactly 2 commits, so it cannot rebuild a merge of more parents
   if (parents.length !== 2 || first === undefined || second === undefined) {
     const reason = `noslop rebuilds a merge of 2 parents only, and this merge has ${parents.length}`;
 
@@ -164,8 +155,6 @@ async function runResolutionCheck(
       merge: merge.slice(0, 12),
     });
 
-    // the skipped call counts as failed, so the run is partial: the check fails, and the next
-    // fixes-only run starts from the head before this one and checks the merge again
     const reason = 'the resolution passes the call limit, so no call read it';
 
     return {
@@ -183,17 +172,15 @@ async function runResolutionCheck(
 interface RebuiltMerge {
   tree: string;
 
-  // the files git could not merge on its own
   conflicted: string[];
 }
 
-// the tree git builds from the 2 parents, conflict markers in each file it could not merge, and those
-// files; `-z` ends each name with a NUL and turns off git's quoting of an unusual name
 async function readMergeTree(
   input: ResolutionChecksInput,
   first: string,
   second: string,
 ): Promise<RebuiltMerge> {
+  // `-z` ends each name with a NUL and turns off git's quoting of an unusual name
   const args = ['merge-tree', '--write-tree', '-z', '--name-only', '--no-messages', first, second];
 
   const result = await input.runner.run(['git', ...args], { cwd: input.repoDir });
@@ -208,8 +195,8 @@ async function readMergeTree(
   return { tree: tree.trim(), conflicted };
 }
 
-// the change reads between 2 commits, so the rebuilt tree gets a commit of its own; git writes it to
-// the repo's objects, no ref names it, and git's garbage collection removes it
+// git keeps the commit in the repo's objects with no ref naming it, and its garbage collection
+// removes it, so the check deletes nothing
 async function createRebuiltMergeCommit(
   input: ResolutionChecksInput,
   tree: string,
@@ -254,8 +241,6 @@ const resolutionOutputSchema = z.strictObject({
   }),
 });
 
-// the call reads a worktree of the merge, and its findings keep to the lines of the resolution diff;
-// a finding that matches one answered `not-a-defect` drops, as in a review
 async function runResolutionCall(
   input: ResolutionChecksInput,
   call: ResolutionCall,
@@ -317,8 +302,6 @@ async function runResolutionCall(
       config: input.config,
     });
 
-    // the merge chose each line of its resolution, a side's line it kept as context among them, so a
-    // finding on it is the merge's own and never a follow-up after the re-check
     const answered = await readDismissedFindings({
       runner: input.runner,
       repoDir: input.repoDir,
@@ -330,9 +313,6 @@ async function runResolutionCall(
 
     const placed = await loadHeadFindings(input, call.merge, answered.kept);
 
-    // a resolution that raises a finding is no sound one, whatever the call's own verdict says, and a
-    // not-sound verdict that rests only on findings the author answered `not-a-defect` holds; a
-    // finding that Assemble dropped has no answer, so it keeps the verdict
     const isAnswered =
       assembled.findings.length > 0 &&
       assembled.dropped.length === 0 &&
@@ -371,9 +351,6 @@ async function runResolutionCall(
   }
 }
 
-// the reporter posts each finding at the pull request's head, so each anchor moves from the merge's
-// lines to the same lines at the head; a finding whose lines a later commit rewrote or renamed keeps
-// its anchor at the merge, which it names, and posts outside the diff
 async function loadHeadFindings(
   input: ResolutionChecksInput,
   merge: string,

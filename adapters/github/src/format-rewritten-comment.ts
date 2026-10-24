@@ -1,8 +1,6 @@
 import type { Finding } from '@noslop/contract';
 import { formatFindingComment } from './format-finding-comment';
 
-// a finding whose lines a commit after its own commit rewrote names that commit and the lines there,
-// and its marker keeps that commit as its head, so a later answer reads the lines it anchored to
 export function formatRewrittenComment(finding: Finding, head: string): string {
   const commit = finding.anchorCommit ?? head;
   const anchor = `\`${finding.anchor.path}:${finding.anchor.startLine}-${finding.anchor.endLine}\``;

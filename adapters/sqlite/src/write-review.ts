@@ -1,9 +1,6 @@
 import type { ReviewResult } from '@noslop/contract';
 import type { Store } from './load-store';
 
-// writes one review with its calls, findings and dropped findings in one transaction, so a reader
-// never sees a review without its findings; each finding keeps the depth, model and effort of the call
-// that reported it
 export async function writeReview(store: Store, result: ReviewResult): Promise<void> {
   const calls = new Map(result.calls.map((call) => [call.id, call]));
 

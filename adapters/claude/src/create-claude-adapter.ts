@@ -6,13 +6,9 @@ import { z } from 'zod';
 export interface ClaudeAdapterOptions {
   runner: Runner;
 
-  // the Claude Code executable, `claude` on the path unless a caller names another
   command?: string;
 }
 
-// runs a call on `claude -p` with read tools alone and the schema on Claude Code's own flag; noslop's
-// instructions append to the system prompt, and the user's settings files stay unread, so no hook or
-// MCP server of theirs runs inside a review
 export function createClaudeAdapter(options: ClaudeAdapterOptions): ReviewAdapter {
   const adapter: ReviewAdapter = {
     id: 'claude',
@@ -24,7 +20,6 @@ export function createClaudeAdapter(options: ClaudeAdapterOptions): ReviewAdapte
   return adapter;
 }
 
-// the only tools the model gets; none of them writes, runs a command or reaches the network
 const READ_TOOLS = 'Read,Grep,Glob';
 
 const NOSLOP_INSTRUCTIONS = [
@@ -67,6 +62,9 @@ async function runClaudeCall<Output>(
     READ_TOOLS,
     '--effort',
     adapter.efforts[call.effort],
+
+    // Claude Code runs the hooks and MCP servers that its settings files name, so a review reads
+    // none of those files.
     '--setting-sources',
     '',
     '--strict-mcp-config',
