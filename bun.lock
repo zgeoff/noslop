@@ -79,6 +79,7 @@
       "dependencies": {
         "@noslop/contract": "workspace:*",
         "kysely": "catalog:",
+        "zod": "catalog:",
       },
       "devDependencies": {
         "@logtape/logtape": "catalog:",
