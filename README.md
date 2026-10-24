@@ -24,8 +24,7 @@ DIY AI code review pipeline. Front loaded static analysis feeding multi-lens rev
 bun add -g @noslop/cli
 ```
 
-noslop runs on [Bun](https://bun.sh) and needs the Codex CLI or the Claude Code CLI on your `PATH`,
-signed in.
+noslop runs on [Bun](https://bun.sh) and needs a signed-in Codex or Claude Code CLI on your `PATH`.
 
 ## Supported model CLIs
 
@@ -34,9 +33,8 @@ signed in.
 
 ## Features
 
-- **A static stage before any model**: one parse of the change finds what code can decide, and
-  routes each lens to the slice it needs. See
-  [the static stage](docs/architecture/review/static-stage.md).
+- **A static stage before any model**: one parse finds what code can decide and routes each lens to
+  its slice. See [the static stage](docs/architecture/review/static-stage.md).
 - **Lenses by trigger**: correctness on every change, every other lens only when the change calls
   for it. See [routing and depth](docs/architecture/review/routing-and-depth.md).
 - **Depth by risk**: a small change gets a light review, and a change to a risk class a deep one.
@@ -52,10 +50,10 @@ signed in.
 
 ## Configuration
 
-A repo works with no config. A `review.json` at the repo root sets your rules files, your stack's
-patterns and your risk classes, and can extend a shared config repo; `noslop config` prints the
-merged result. [The reviewer config](docs/architecture/config/review-config.md) covers how it
-merges, and the [JSON Schema](docs/reference/review.schema.json) lists every key.
+A repo works with no config. A root `review.json` sets your rules files, stack patterns and risk
+classes, and can extend a shared config; `noslop config` prints the merged result. The
+[reviewer config](docs/architecture/config/review-config.md) covers the merge, and the
+[JSON Schema](docs/reference/review.schema.json) lists every key.
 
 ## Documentation
 
