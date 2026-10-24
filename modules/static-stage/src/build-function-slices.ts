@@ -1,4 +1,5 @@
 import type { AnalyzedFile } from './analyzed-file';
+import type { ChangedLines } from './build-changed-lines';
 import type { FunctionEntry, GuardEntry, ThrowEntry, ValueOrigin, WriteEntry } from './types';
 
 export interface FunctionSlices {
@@ -73,7 +74,7 @@ export function buildFunctionSlices(files: readonly AnalyzedFile[]): FunctionSli
     }
 
     for (const thrown of analysis.throws) {
-      if (!entry.lines.added.has(thrown.line)) {
+      if (!isThrowChanged(thrown, entry.lines)) {
         continue;
       }
 
@@ -130,4 +131,24 @@ function resolveOrigin(
   }
 
   return current?.origin ?? 'unknown';
+}
+
+interface ThrownLines {
+  line: number;
+  endLine: number;
+  kind: string;
+}
+
+// A catch clause counts as changed when its own line is added, or when a line inside its block is
+// added or a deletion sits inside it. A deleted rethrow or rollback exists only on the base side,
+// so the enclosing catch stands for it.
+function isThrowChanged(thrown: ThrownLines, lines: ChangedLines): boolean {
+  if (lines.added.has(thrown.line)) {
+    return true;
+  }
+
+  return (
+    thrown.kind === 'catch' &&
+    [...lines.touched].some((line) => line > thrown.line && line <= thrown.endLine)
+  );
 }

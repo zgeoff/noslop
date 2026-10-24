@@ -21,12 +21,19 @@ export function collectStatementFacts(
 
     ctx.analysis.throws.push({
       line,
+      endLine: line,
       kind: 'throw',
       type: argument?.type === 'NewExpression' ? findCalleeName(argument) : null,
       catchLine: findNearestCatch(node, ancestors, ctx),
     });
   } else if (node.type === 'CatchClause') {
-    ctx.analysis.throws.push({ line, kind: 'catch', type: null, catchLine: line });
+    ctx.analysis.throws.push({
+      line,
+      endLine: ctx.parsed.getLine(node.end),
+      kind: 'catch',
+      type: null,
+      catchLine: line,
+    });
   } else if (node.type === 'ExpressionStatement') {
     collectDetached(findField(node, 'expression'), line, ctx);
   } else if (node.type === 'IfStatement') {
@@ -100,6 +107,7 @@ function collectDetached(expression: ASTNode | null, line: number, ctx: AnalyzeC
 
   ctx.analysis.throws.push({
     line,
+    endLine: line,
     kind: 'detached',
     type: null,
     catchLine: name.endsWith('.catch') ? line : null,

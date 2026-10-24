@@ -566,3 +566,32 @@ test.each([
 
   expect(route.depth).toBe(row.depth);
 });
+
+test('it fires the failure-handling lens for a catch block the change edits', () => {
+  const route = buildRoute({
+    change: {
+      base: 'a'.repeat(40),
+      head: 'b'.repeat(40),
+      files: [buildMockChangedFile()],
+      excluded: [],
+    },
+    slices: buildMockSlices({
+      throws: [
+        {
+          location: { path: 'src/a.ts', startLine: 4, endLine: 4 },
+          kind: 'catch',
+          type: null,
+          nearestCatch: { path: 'src/a.ts', startLine: 4, endLine: 4 },
+        },
+      ],
+    }),
+    signals: buildMockRiskSignals(),
+    config: BUILT_IN_DEFAULTS,
+    linkedIssue: null,
+    isSync: false,
+    isRelease: false,
+    isPush: false,
+  });
+
+  expect(route.lenses).toStrictEqual(['correctness', 'failure-handling-and-observability']);
+});

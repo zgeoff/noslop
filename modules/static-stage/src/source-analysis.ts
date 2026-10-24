@@ -42,6 +42,7 @@ interface GuardFacts {
 interface ThrowFacts {
   line: number;
   kind: 'throw' | 'catch' | 'detached';
+  endLine: number;
   type: string | null;
   catchLine: number | null;
 }
