@@ -17,6 +17,7 @@ export const listedFindingSchema = z.strictObject({
   severity: severitySchema,
   state: findingStateSchema,
   author: z.string().nullable(),
+  reason: z.string().nullable(),
 });
 
 export type ListedFinding = z.infer<typeof listedFindingSchema>;

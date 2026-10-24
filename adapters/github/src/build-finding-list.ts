@@ -1,4 +1,4 @@
-import type { Disposition, FindingList, FindingState } from '@noslop/contract';
+import type { Disposition, FindingList } from '@noslop/contract';
 import type { AnswerEvidence } from './find-invalid-answer-reason';
 import { findInvalidAnswerReason } from './find-invalid-answer-reason';
 import type { FindingMarker } from './finding-marker';
@@ -14,18 +14,15 @@ export function buildFindingList(input: FindingListInput): FindingList {
   return {
     findings: input.findings.map((finding) => {
       const disposition = latest.get(finding.id);
-
-      const state: FindingState =
-        disposition === undefined || findInvalidAnswerReason(finding, disposition, input) !== null
-          ? 'open'
-          : disposition.kind;
+      const reason = findInvalidAnswerReason(finding, disposition, input);
 
       return {
         id: finding.id,
         path: finding.path,
         severity: finding.severity,
-        state,
+        state: disposition === undefined || reason !== null ? 'open' : disposition.kind,
         author: disposition?.author ?? null,
+        reason,
       };
     }),
   };

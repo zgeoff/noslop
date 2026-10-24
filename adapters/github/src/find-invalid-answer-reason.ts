@@ -40,21 +40,18 @@ function findFixedReason(
   commit: string,
   evidence: AnswerEvidence,
 ): string | null {
-  if (evidence.unread.has(finding.id)) {
-    return null;
+  const fix = commit === '' ? 'the fix' : `the commit ${commit}`;
+  const isConfirmed = evidence.confirmed.includes(`${finding.id}:${commit}`);
+
+  if (evidence.unread.has(finding.id) && !isConfirmed) {
+    return `no fix check has read ${fix} yet`;
   }
 
   if (evidence.reported.includes(finding.id)) {
     return 'the re-review still finds it';
   }
 
-  const fix = commit === '' ? 'the fix' : `the commit ${commit}`;
-
-  if (!evidence.confirmed.includes(`${finding.id}:${commit}`)) {
-    return `no re-review has read ${fix} yet`;
-  }
-
-  return null;
+  return isConfirmed ? null : `no re-review has read ${fix} yet`;
 }
 
 function findDeferredReason(

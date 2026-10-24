@@ -7562,18 +7562,48 @@ test('it lists each finding of a pull request with its state and the author of i
         severity: 'P1',
         state: 'fixed',
         author: 'dev',
+        reason: null,
       },
-      { id: '2222222222222222', path: 'src/scan.ts', severity: 'P2', state: 'open', author: 'dev' },
+      {
+        id: '2222222222222222',
+        path: 'src/scan.ts',
+        severity: 'P2',
+        state: 'open',
+        author: 'dev',
+        reason: 'no re-review has read the commit 5d6e7f8 yet',
+      },
       {
         id: '3333333333333333',
         path: 'src/scan.ts',
         severity: 'P2',
         state: 'not-a-defect',
         author: 'dev',
+        reason: null,
       },
-      { id: '4444444444444444', path: 'src/scan.ts', severity: 'P3', state: 'open', author: 'dev' },
-      { id: '5555555555555555', path: 'src/scan.ts', severity: 'P3', state: 'open', author: 'dev' },
-      { id: '6666666666666666', path: 'src/scan.ts', severity: 'P2', state: 'open', author: null },
+      {
+        id: '4444444444444444',
+        path: 'src/scan.ts',
+        severity: 'P3',
+        state: 'open',
+        author: 'dev',
+        reason: 'the change wrote this code, so it takes fixed, not-a-defect or accepted-risk',
+      },
+      {
+        id: '5555555555555555',
+        path: 'src/scan.ts',
+        severity: 'P3',
+        state: 'open',
+        author: 'dev',
+        reason: 'only a repo owner gives accepted-risk',
+      },
+      {
+        id: '6666666666666666',
+        path: 'src/scan.ts',
+        severity: 'P2',
+        state: 'open',
+        author: null,
+        reason: 'no disposition',
+      },
     ],
   });
 
@@ -7650,13 +7680,21 @@ test('it lists an accepted-risk finding as open when its author has no admin per
 
   expect(list).toStrictEqual({
     findings: [
-      { id: '1111111111111111', path: 'src/scan.ts', severity: 'P2', state: 'open', author: 'dev' },
+      {
+        id: '1111111111111111',
+        path: 'src/scan.ts',
+        severity: 'P2',
+        state: 'open',
+        author: 'dev',
+        reason: 'only a repo owner gives accepted-risk',
+      },
       {
         id: '2222222222222222',
         path: 'src/scan.ts',
         severity: 'P2',
         state: 'accepted-risk',
         author: 'maintainer',
+        reason: null,
       },
     ],
   });
@@ -7725,13 +7763,21 @@ test('it lists a deferred finding as open while its issue does not exist', async
 
   expect(list).toStrictEqual({
     findings: [
-      { id: '1111111111111111', path: 'src/scan.ts', severity: 'P3', state: 'open', author: 'dev' },
+      {
+        id: '1111111111111111',
+        path: 'src/scan.ts',
+        severity: 'P3',
+        state: 'open',
+        author: 'dev',
+        reason: 'the issue #12 does not exist',
+      },
       {
         id: '2222222222222222',
         path: 'src/scan.ts',
         severity: 'P3',
         state: 'deferred',
         author: 'dev',
+        reason: null,
       },
     ],
   });
@@ -7800,13 +7846,21 @@ test('it lists a deferred finding as open when the change wrote its code', async
 
   expect(list).toStrictEqual({
     findings: [
-      { id: '1111111111111111', path: 'src/scan.ts', severity: 'P3', state: 'open', author: 'dev' },
+      {
+        id: '1111111111111111',
+        path: 'src/scan.ts',
+        severity: 'P3',
+        state: 'open',
+        author: 'dev',
+        reason: 'the change wrote this code, so it takes fixed, not-a-defect or accepted-risk',
+      },
       {
         id: '2222222222222222',
         path: 'src/scan.ts',
         severity: 'P3',
         state: 'deferred',
         author: 'dev',
+        reason: null,
       },
     ],
   });
@@ -7877,15 +7931,40 @@ test('it lists a deferred P1, security or risk-class finding as open', async () 
 
   expect(list).toStrictEqual({
     findings: [
-      { id: '1111111111111111', path: 'src/scan.ts', severity: 'P1', state: 'open', author: 'dev' },
-      { id: '2222222222222222', path: 'src/scan.ts', severity: 'P3', state: 'open', author: 'dev' },
-      { id: '3333333333333333', path: 'src/scan.ts', severity: 'P3', state: 'open', author: 'dev' },
+      {
+        id: '1111111111111111',
+        path: 'src/scan.ts',
+        severity: 'P1',
+        state: 'open',
+        author: 'dev',
+        reason:
+          'a P1, a security finding or a risk-class finding blocks the merge and cannot be deferred',
+      },
+      {
+        id: '2222222222222222',
+        path: 'src/scan.ts',
+        severity: 'P3',
+        state: 'open',
+        author: 'dev',
+        reason:
+          'a P1, a security finding or a risk-class finding blocks the merge and cannot be deferred',
+      },
+      {
+        id: '3333333333333333',
+        path: 'src/scan.ts',
+        severity: 'P3',
+        state: 'open',
+        author: 'dev',
+        reason:
+          'a P1, a security finding or a risk-class finding blocks the merge and cannot be deferred',
+      },
       {
         id: '4444444444444444',
         path: 'src/scan.ts',
         severity: 'P3',
         state: 'deferred',
         author: 'dev',
+        reason: null,
       },
     ],
   });
@@ -7955,19 +8034,27 @@ test('it lists a fixed finding as open while the latest review still reports it'
 
   expect(list).toStrictEqual({
     findings: [
-      { id: '1111111111111111', path: 'src/scan.ts', severity: 'P2', state: 'open', author: 'dev' },
+      {
+        id: '1111111111111111',
+        path: 'src/scan.ts',
+        severity: 'P2',
+        state: 'open',
+        author: 'dev',
+        reason: 'the re-review still finds it',
+      },
       {
         id: '2222222222222222',
         path: 'src/scan.ts',
         severity: 'P2',
         state: 'fixed',
         author: 'dev',
+        reason: null,
       },
     ],
   });
 });
 
-test('it lists a fixed finding that the latest review reports as fixed when that review never read the fix', async () => {
+test('it lists a fixed finding as open with its reason while no fix check has read its commit', async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
@@ -8055,11 +8142,112 @@ test('it lists a fixed finding that the latest review reports as fixed when that
         id: '1111111111111111',
         path: 'src/scan.ts',
         severity: 'P2',
+        state: 'open',
+        author: 'dev',
+        reason: `no fix check has read the commit ${fix.slice(0, 7)} yet`,
+      },
+      {
+        id: '2222222222222222',
+        path: 'src/scan.ts',
+        severity: 'P2',
+        state: 'open',
+        author: 'dev',
+        reason: 'the re-review still finds it',
+      },
+      {
+        id: '3333333333333333',
+        path: 'src/scan.ts',
+        severity: 'P2',
+        state: 'open',
+        author: 'dev',
+        reason: 'the re-review still finds it',
+      },
+    ],
+  });
+});
+
+test('it lists a fixed finding as fixed once a fix call confirmed its commit, while the summary keeps an older head', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
+    { message: 'split on a separator', files: { 'src/scan.ts': 'export const one = 1;\n' } },
+    { message: 'reject an empty separator', files: { 'src/scan.ts': 'export const two = 2;\n' } },
+  ]);
+
+  const reviewed = repo.commits[1] ?? '';
+  const fix = repo.commits[2] ?? '';
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    baseSha: repo.commits[0] ?? '',
+    headSha: fix,
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: reviewed,
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: fix,
+  });
+
+  const thread = await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/scan.ts',
+    line: 1,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: '<!-- noslop:finding {"id":"1111111111111111","title":"Reject an empty separator","path":"src/scan.ts","lens":"correctness","severity":"P2","riskClass":null,"writtenByChange":true} -->',
+  });
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    body: `fixed ${fix.slice(0, 7)}`,
+    authorLogin: 'dev',
+    inReplyToID: thread.id,
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${reviewed}","checked":["1111111111111111"],"reviews":2,"reported":[],"failedCalls":0,"confirmed":["1111111111111111:${fix.slice(0, 7)}"]} -->`,
+  });
+
+  const code = await runCLI(
+    ['findings', '--pr', '9', '--repo', 'example/app', '--json'],
+    ctx.buildContext(repo.path, buildStubAdapter({}).adapter),
+  );
+
+  const list = findingListSchema.parse(JSON.parse(ctx.stdout.join('')));
+
+  expect(code).toBe(0);
+
+  expect(list).toStrictEqual({
+    findings: [
+      {
+        id: '1111111111111111',
+        path: 'src/scan.ts',
+        severity: 'P2',
         state: 'fixed',
         author: 'dev',
+        reason: null,
       },
-      { id: '2222222222222222', path: 'src/scan.ts', severity: 'P2', state: 'open', author: 'dev' },
-      { id: '3333333333333333', path: 'src/scan.ts', severity: 'P2', state: 'open', author: 'dev' },
     ],
   });
 });
@@ -9376,7 +9564,7 @@ test('it fails a read-only check with exit 1 under the job token, and writes not
   expect(hasStore).toBe(false);
 });
 
-test('it keeps a fixed finding out of the check failures when the latest review that reports it never read the fix', async () => {
+test('it fails the check on a fixed finding whose commit no fix check has read, and names the commit', async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
@@ -9474,7 +9662,7 @@ test('it keeps a fixed finding out of the check failures when the latest review 
   expect(code).toBe(1);
 
   expect(ctx.stdout.join('')).toInclude(
-    '1 findings hold no valid disposition.\n- `2222222222222222` Reject an empty separator: the re-review still finds it\n',
+    `2 findings hold no valid disposition.\n- \`1111111111111111\` Reject an empty separator: no fix check has read the commit ${fix.slice(0, 7)} yet\n- \`2222222222222222\` Reject an empty separator: the re-review still finds it\n`,
   );
 });
 
