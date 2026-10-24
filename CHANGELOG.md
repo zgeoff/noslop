@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.21](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.20...@noslop/cli@0.4.21) (2026-10-24)
+
+
+### Bug Fixes
+
+* **lenses:** route dropped catch blocks and name only the lenses a review runs ([#139](https://github.com/zgeoff/noslop/issues/139)) ([d469b7f](https://github.com/zgeoff/noslop/commit/d469b7f7c795fefd9492d433d6349f37c00a4945))
+
 ## [0.4.20](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.19...@noslop/cli@0.4.20) (2026-10-24)
 
 ### Bug Fixes
