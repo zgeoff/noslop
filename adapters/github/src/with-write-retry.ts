@@ -64,6 +64,10 @@ interface RetryableRefusal {
   retryAfterMs: number | null;
 }
 
+// a spent primary limit lasts until its reset, which can be an hour away, so a write waits for a
+// reset only as long as it waits out a secondary limit
+const PRIMARY_LIMIT_MAX_WAIT_MS = 240_000;
+
 // Octokit reports a request that never got an answer, such as a dropped connection, as status 500
 function findRetryableRefusal(error: unknown): RetryableRefusal | null {
   if (typeof error !== 'object' || error === null || !('status' in error)) {
@@ -88,17 +92,20 @@ function findRetryableRefusal(error: unknown): RetryableRefusal | null {
   const retryAfter = Number(headers['retry-after'] ?? Number.NaN);
   const message = error instanceof Error ? error.message : '';
 
-  const isRateLimit =
-    Number.isFinite(retryAfter) ||
-    headers['x-ratelimit-remaining'] === '0' ||
-    /rate limit/iu.test(message);
+  if (Number.isFinite(retryAfter)) {
+    return { answer: `${status} (rate limit)`, isRateLimit: true, retryAfterMs: retryAfter * 1000 };
+  }
 
-  return isRateLimit
-    ? {
-        answer: `${status} (rate limit)`,
-        isRateLimit: true,
-        retryAfterMs: Number.isFinite(retryAfter) ? retryAfter * 1000 : null,
-      }
+  if (headers['x-ratelimit-remaining'] === '0') {
+    const resetMs = findPrimaryResetMs(headers);
+
+    return resetMs === null || resetMs > PRIMARY_LIMIT_MAX_WAIT_MS
+      ? null
+      : { answer: `${status} (rate limit)`, isRateLimit: true, retryAfterMs: resetMs };
+  }
+
+  return /rate limit/iu.test(message)
+    ? { answer: `${status} (rate limit)`, isRateLimit: true, retryAfterMs: null }
     : null;
 }
 
@@ -112,4 +119,15 @@ function findHeaders(error: object): Record<string, unknown> {
   return 'headers' in response && typeof response.headers === 'object' && response.headers !== null
     ? { ...response.headers }
     : {};
+}
+
+// the answer's date and the reset come from GitHub's clock, so the wait needs no local clock; both
+// count whole seconds, so the wait adds one
+function findPrimaryResetMs(headers: Record<string, unknown>): number | null {
+  const resetMs = Number(headers['x-ratelimit-reset'] ?? Number.NaN) * 1000;
+  const dateMs = typeof headers['date'] === 'string' ? Date.parse(headers['date']) : Number.NaN;
+
+  return Number.isFinite(resetMs) && Number.isFinite(dateMs)
+    ? Math.max(resetMs - dateMs, 0) + 1000
+    : null;
 }

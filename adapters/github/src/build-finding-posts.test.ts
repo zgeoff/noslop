@@ -45,13 +45,20 @@ test('it counts titles that differ only by the file name they hold as one class'
   );
 });
 
-test('it keeps findings of another lens, rule or title out of the class', () => {
+test.each([
+  ['lens', { lens: 'tests' }],
+  ['criterion', { criterion: 'security-defect', severity: 'P1' }],
+  ['rule', { rule: 'skills/code-style' }],
+  ['title', { title: 'Close the consumer' }],
+] as const)('it keeps a finding of another %s out of a class of four', (_, other) => {
   const findings = [
-    buildMockFinding({ id: '1'.repeat(16) }),
-    buildMockFinding({ id: '2'.repeat(16) }),
-    buildMockFinding({ id: '3'.repeat(16), lens: 'tests' }),
-    buildMockFinding({ id: '4'.repeat(16), rule: 'skills/code-style' }),
-    buildMockFinding({ id: '5'.repeat(16), title: 'Close the consumer' }),
+    ...[1, 2, 3, 4].map((line) =>
+      buildMockFinding({
+        id: `${line}`.repeat(16),
+        anchor: { path: 'src/a.ts', startLine: line, endLine: line },
+      }),
+    ),
+    buildMockFinding({ id: '5'.repeat(16), ...other }),
   ];
 
   expect(buildFindingPosts(findings, 'b'.repeat(40))).toStrictEqual(

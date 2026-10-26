@@ -1,7 +1,7 @@
 import { criterionSchema, findingLensSchema, severitySchema } from '@noslop/contract';
 import { z } from 'zod';
 
-export const foldedFindingSchema = z.strictObject({
+const foldedFindingSchema = z.strictObject({
   id: z.string().regex(/^[0-9a-f]{16}$/u),
   title: z.string().min(1),
   path: z.string().min(1),

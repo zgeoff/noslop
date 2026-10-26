@@ -53,7 +53,8 @@ function buildClassKey(finding: Finding): string {
 
   return [
     finding.lens,
-    finding.rule ?? finding.criterion,
+    finding.criterion,
+    finding.rule ?? '',
     finding.title.replaceAll(name, '\0'),
   ].join('\n');
 }

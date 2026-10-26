@@ -116,16 +116,19 @@ it posts anything.
    and each failed call sit in a collapsed block.
 7. It sets the check run.
 
-The reporter sends a write again when GitHub refuses it with a rate limit, after the wait that the
-answer's `retry-after` header gives, or after a minute that doubles on each refusal when the answer
-gives none, because GitHub asks for that wait and a refused write saves nothing. It sends the
-summary write, each edit of a finding comment, and the check run again on a server error too, after
-a wait that doubles each time and starts at the spacing GitHub asks for between writes. A write that
-creates a finding comment, a reply or a follow-up issue gets no retry on a server error, because a
-write that GitHub saved before it failed would post a second one. Once the waits run out, the post
-fails with an error that names the write, so the round reports a failed reporter. The reporter waits
-that spacing between the comments and issues it creates one at a time, so a burst of them meets no
-secondary limit.
+The reporter sends a write again when GitHub refuses it with a rate limit, because GitHub asks for a
+wait and a refused write saves nothing. It waits as long as the answer's `retry-after` header gives,
+or until the reset of a spent primary limit, by the clock in the answer's date. With neither, it
+waits a minute that doubles on each refusal. A primary limit whose reset lies further off than that
+longest wait fails the post at once.
+
+The reporter sends the summary write, each edit of a finding comment, and the check run again on a
+server error too, after a wait that doubles each time and starts at the spacing GitHub asks for
+between writes. A write that creates a finding comment, a reply or a follow-up issue gets no retry
+on a server error, because a write that GitHub saved before it failed would post a second one. Once
+the waits run out, the post fails with an error that names the write, so the round reports a failed
+reporter. The reporter waits that spacing between the comments and issues it creates one at a time,
+so a burst of them meets no secondary limit.
 
 ## State in markers
 

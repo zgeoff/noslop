@@ -84,21 +84,49 @@ test('it waits the retry-after seconds of a 429', async () => {
   expect(sleep.mock.calls).toStrictEqual([[7000], [7000], [7000]]);
 });
 
-test('it waits after a 403 that spent the rate limit', async () => {
+test('it waits for the reset of a spent rate limit, by the clock of the answer', async () => {
   const sleep = mock((delayMs: number) => Promise.resolve(delayMs));
 
   const send = mock(() =>
     Promise.reject(
       Object.assign(new Error('Forbidden'), {
         status: 403,
-        response: { headers: { 'x-ratelimit-remaining': '0' } },
+        response: {
+          headers: {
+            'x-ratelimit-remaining': '0',
+            'x-ratelimit-reset': '1793016030',
+            date: 'Mon, 26 Oct 2026 12:00:00 GMT',
+          },
+        },
       }),
     ),
   );
 
   await withWriteRetry('review', 'once', sleep, send).catch(() => null);
 
-  expect(sleep).toHaveBeenCalledTimes(3);
+  expect(sleep.mock.calls).toStrictEqual([[31_000], [31_000], [31_000]]);
+});
+
+test('it throws a spent rate limit whose reset is an hour away at once', () => {
+  const sleep = mock((delayMs: number) => Promise.resolve(delayMs));
+
+  const send = mock(() =>
+    Promise.reject(
+      Object.assign(new Error('Forbidden'), {
+        status: 403,
+        response: {
+          headers: {
+            'x-ratelimit-remaining': '0',
+            'x-ratelimit-reset': '1793019600',
+            date: 'Mon, 26 Oct 2026 12:00:00 GMT',
+          },
+        },
+      }),
+    ),
+  );
+
+  expect(withWriteRetry('review', 'once', sleep, send)).rejects.toMatchObject({ status: 403 });
+  expect(sleep).not.toHaveBeenCalled();
 });
 
 test('it throws a 403 that names no rate limit at once', () => {
