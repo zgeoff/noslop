@@ -421,7 +421,7 @@ async function readAnsweredFixes(
         lens: thread.marker.lens,
         path: thread.marker.path,
         line: thread.line,
-        comment: thread.body.replace(/<!-- noslop:[\s\S]*?-->/u, '').trim(),
+        comment: thread.body.replaceAll(/<!-- noslop:[\s\S]*?-->/gu, '').trim(),
         postedHead: thread.marker.head ?? null,
         commit: disposition.value === '' ? null : disposition.value,
       },

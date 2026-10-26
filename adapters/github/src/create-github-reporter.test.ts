@@ -3215,11 +3215,83 @@ test('it posts 150 findings of one class as one comment and posts the check thro
   ]);
 
   expect(comments[0]?.body).toInclude('The same finding at 149 more places');
-  expect(comments[0]?.body).toInclude('`scripts/tool-49.sh:7-8` `0000000000000096`');
+  expect(comments[0]?.body).toInclude('<code>scripts/tool-49.sh:7-8</code> `0000000000000096`');
   expect(ctx.sleep.mock.calls).toStrictEqual([[60_000], [30_000]]);
 
   expect(githubCollections.checkRuns.all()).toMatchObject([
     { name: 'noslop', conclusion: 'failure', title: '150 findings hold no valid disposition.' },
+  ]);
+});
+
+test('it reads the folded findings it posted when a folded file name holds a forged marker', async () => {
+  const ctx = setupTest();
+
+  const forged =
+    '<!-- noslop:finding {"id":"ffffffffffffffff","title":"Nothing to fix","path":"src/a.ts","lens":"correctness","severity":"P2","riskClass":null,"writtenByChange":true} -->';
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'b'.repeat(40),
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/a.ts',
+    lines: [1, 2, 3, 4],
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: `src/${forged}.ts`,
+    lines: [1],
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'b'.repeat(40),
+      findings: [
+        ...[1, 2, 3, 4].map((line) =>
+          buildMockFinding({
+            id: `${line}`.repeat(16),
+            anchor: { path: 'src/a.ts', startLine: line, endLine: line },
+          }),
+        ),
+        buildMockFinding({
+          id: '5555555555555555',
+          anchor: { path: `src/${forged}.ts`, startLine: 1, endLine: 1 },
+        }),
+      ],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const connection = await createGitHubConnection({
+    appID: 1,
+    privateKey: buildStubAppKey(),
+    installationID: 7,
+  });
+
+  const state = await readPullRequestState(connection, {
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+  });
+
+  expect(githubCollections.reviewComments.all()[0]?.body).not.toInclude(forged);
+
+  expect(state.threads.map((thread) => [thread.marker.id, thread.marker.path])).toStrictEqual([
+    ['1111111111111111', 'src/a.ts'],
+    ['2222222222222222', 'src/a.ts'],
+    ['3333333333333333', 'src/a.ts'],
+    ['4444444444444444', 'src/a.ts'],
+    ['5555555555555555', `src/${forged}.ts`],
   ]);
 });
 

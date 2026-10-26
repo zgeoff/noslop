@@ -32,7 +32,7 @@ export function formatFindingComment(
       '',
       ...folded.map(
         (other) =>
-          `- \`${other.anchor.path}:${other.anchor.startLine}-${other.anchor.endLine}\` \`${other.id}\``,
+          `- <code>${escapeHTML(other.anchor.path)}:${other.anchor.startLine}-${other.anchor.endLine}</code> \`${other.id}\``,
       ),
       '</details>',
     );
@@ -52,6 +52,11 @@ export function formatFindingComment(
   );
 
   return lines.join('\n');
+}
+
+// a file path comes from the change, so its markup is escaped and no comment or marker can form
+function escapeHTML(text: string): string {
+  return text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
 }
 
 function toFindingMarker(
