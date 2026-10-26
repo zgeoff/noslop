@@ -165,6 +165,12 @@ async function runReviewPost(
 
   const reviewed = await readSummaryChange(client, pr, result, before.summary?.marker ?? null);
 
+  const unjudged = confirmations.flatMap((item) =>
+    item.status === 'unjudged' && item.failure !== undefined
+      ? [{ id: item.id, commit: item.commit, reason: item.failure }]
+      : [],
+  );
+
   const marker = {
     head: reviewed.head,
     ...buildRunFields(result, before.summary?.marker ?? null, reviewed.key),
@@ -177,6 +183,7 @@ async function runReviewPost(
     confirmed: confirmations
       .filter((item) => item.status === 'fixed')
       .map((item) => `${item.id}:${item.commit}`),
+    ...(unjudged.length === 0 ? {} : { unjudged }),
     startedAt: result.startedAt,
     ...(reviewed.key === undefined ? {} : { key: reviewed.key }),
   };

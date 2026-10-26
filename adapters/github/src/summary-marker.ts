@@ -1,6 +1,12 @@
 import { z } from 'zod';
 import { netChangeKeySchema } from './net-change-key';
 
+const unjudgedFixSchema = z.strictObject({
+  id: z.string(),
+  commit: z.string(),
+  reason: z.string().min(1),
+});
+
 export const summaryMarkerSchema = z.strictObject({
   head: buildShaSchema(),
 
@@ -17,6 +23,8 @@ export const summaryMarkerSchema = z.strictObject({
   failedCalls: z.int().nonnegative(),
   followUps: z.array(z.string()).default([]),
   confirmed: z.array(z.string()).default([]),
+
+  unjudged: z.array(unjudgedFixSchema).optional(),
 
   checked: z.array(z.string()).optional(),
 

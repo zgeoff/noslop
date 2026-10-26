@@ -66,7 +66,7 @@ function formatFindingList(list: FindingList): string {
   return list.findings
     .map(
       (finding) =>
-        `${finding.id} ${finding.severity} ${finding.state} ${finding.path}${finding.author === null ? '' : ` (${finding.author})`}\n`,
+        `${finding.id} ${finding.severity} ${finding.state} ${finding.path}${finding.author === null ? '' : ` (${finding.author})`}${finding.unjudged ? ` unjudged: ${finding.reason}` : ''}\n`,
     )
     .join('');
 }

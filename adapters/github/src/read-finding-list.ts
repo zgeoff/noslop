@@ -25,6 +25,7 @@ export async function readFindingList(
     dispositions,
     reported: state.summary?.marker.reported ?? [],
     confirmed: state.summary?.marker.confirmed ?? [],
+    unjudged: state.summary?.marker.unjudged ?? [],
     existingIssues,
     unread,
   });

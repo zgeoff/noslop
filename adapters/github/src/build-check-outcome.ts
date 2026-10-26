@@ -1,5 +1,5 @@
 import type { Disposition } from '@noslop/contract';
-import { findInvalidAnswerReason } from './find-invalid-answer-reason';
+import { findAnswerRefusal } from './find-answer-refusal';
 import { findUnreviewedReason } from './find-unreviewed-reason';
 import type { FindingMarker } from './finding-marker';
 import type { NetChangeKey } from './net-change-key';
@@ -43,14 +43,17 @@ export function buildCheckOutcome(input: CheckOutcomeInput): CheckOutcome {
   const evidence = {
     reported: input.summary?.reported ?? [],
     confirmed: input.summary?.confirmed ?? [],
+    unjudged: input.summary?.unjudged ?? [],
     existingIssues: input.existingIssues,
     unread: input.unread,
   };
 
   const open = input.findings.flatMap((finding) => {
-    const reason = findInvalidAnswerReason(finding, latest.get(finding.id), evidence);
+    const refusal = findAnswerRefusal(finding, latest.get(finding.id), evidence);
 
-    return reason === null ? [] : [{ id: finding.id, title: finding.title, reason }];
+    return refusal === null
+      ? []
+      : [{ id: finding.id, title: finding.title, reason: refusal.reason }];
   });
 
   const problems: string[] = [];

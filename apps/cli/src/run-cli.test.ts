@@ -1887,7 +1887,7 @@ test('it confirms no fix through a merge from the base branch that brings in a s
   expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('failure');
 
   expect(githubCollections.checkRuns.all().at(-1)?.summary).toInclude(
-    `no re-review has read the commit ${(repo.commits[3] ?? '').slice(0, 7)} yet`,
+    `the fix check could not judge the commit ${(repo.commits[3] ?? '').slice(0, 7)}: its fix call failed`,
   );
 });
 
@@ -2086,7 +2086,7 @@ test('it confirms no fix of a finding a re-review no longer reports when no fix 
   expect(summary?.body).toInclude('"confirmed":[]');
 
   expect(githubCollections.checkRuns.all().at(-1)?.summary).toInclude(
-    `\`${findingID}\` Add one, not subtract it: no re-review has read the commit ${(repo.commits[2] ?? '').slice(0, 7)} yet`,
+    `\`${findingID}\` Add one, not subtract it: the fix check could not judge the commit ${(repo.commits[2] ?? '').slice(0, 7)}: its fix call failed`,
   );
 });
 
@@ -7562,6 +7562,7 @@ test('it lists each finding of a pull request with its state and the author of i
         severity: 'P1',
         state: 'fixed',
         author: 'dev',
+        unjudged: false,
         reason: null,
       },
       {
@@ -7570,6 +7571,7 @@ test('it lists each finding of a pull request with its state and the author of i
         severity: 'P2',
         state: 'open',
         author: 'dev',
+        unjudged: false,
         reason: 'no re-review has read the commit 5d6e7f8 yet',
       },
       {
@@ -7578,6 +7580,7 @@ test('it lists each finding of a pull request with its state and the author of i
         severity: 'P2',
         state: 'not-a-defect',
         author: 'dev',
+        unjudged: false,
         reason: null,
       },
       {
@@ -7586,6 +7589,7 @@ test('it lists each finding of a pull request with its state and the author of i
         severity: 'P3',
         state: 'open',
         author: 'dev',
+        unjudged: false,
         reason: 'the change wrote this code, so it takes fixed, not-a-defect or accepted-risk',
       },
       {
@@ -7594,6 +7598,7 @@ test('it lists each finding of a pull request with its state and the author of i
         severity: 'P3',
         state: 'open',
         author: 'dev',
+        unjudged: false,
         reason: 'only a repo owner gives accepted-risk',
       },
       {
@@ -7602,6 +7607,7 @@ test('it lists each finding of a pull request with its state and the author of i
         severity: 'P2',
         state: 'open',
         author: null,
+        unjudged: false,
         reason: 'no disposition',
       },
     ],
@@ -7686,6 +7692,7 @@ test('it lists an accepted-risk finding as open when its author has no admin per
         severity: 'P2',
         state: 'open',
         author: 'dev',
+        unjudged: false,
         reason: 'only a repo owner gives accepted-risk',
       },
       {
@@ -7694,6 +7701,7 @@ test('it lists an accepted-risk finding as open when its author has no admin per
         severity: 'P2',
         state: 'accepted-risk',
         author: 'maintainer',
+        unjudged: false,
         reason: null,
       },
     ],
@@ -7769,6 +7777,7 @@ test('it lists a deferred finding as open while its issue does not exist', async
         severity: 'P3',
         state: 'open',
         author: 'dev',
+        unjudged: false,
         reason: 'the issue #12 does not exist',
       },
       {
@@ -7777,6 +7786,7 @@ test('it lists a deferred finding as open while its issue does not exist', async
         severity: 'P3',
         state: 'deferred',
         author: 'dev',
+        unjudged: false,
         reason: null,
       },
     ],
@@ -7852,6 +7862,7 @@ test('it lists a deferred finding as open when the change wrote its code', async
         severity: 'P3',
         state: 'open',
         author: 'dev',
+        unjudged: false,
         reason: 'the change wrote this code, so it takes fixed, not-a-defect or accepted-risk',
       },
       {
@@ -7860,6 +7871,7 @@ test('it lists a deferred finding as open when the change wrote its code', async
         severity: 'P3',
         state: 'deferred',
         author: 'dev',
+        unjudged: false,
         reason: null,
       },
     ],
@@ -7937,6 +7949,7 @@ test('it lists a deferred P1, security or risk-class finding as open', async () 
         severity: 'P1',
         state: 'open',
         author: 'dev',
+        unjudged: false,
         reason:
           'a P1, a security finding or a risk-class finding blocks the merge and cannot be deferred',
       },
@@ -7946,6 +7959,7 @@ test('it lists a deferred P1, security or risk-class finding as open', async () 
         severity: 'P3',
         state: 'open',
         author: 'dev',
+        unjudged: false,
         reason:
           'a P1, a security finding or a risk-class finding blocks the merge and cannot be deferred',
       },
@@ -7955,6 +7969,7 @@ test('it lists a deferred P1, security or risk-class finding as open', async () 
         severity: 'P3',
         state: 'open',
         author: 'dev',
+        unjudged: false,
         reason:
           'a P1, a security finding or a risk-class finding blocks the merge and cannot be deferred',
       },
@@ -7964,6 +7979,7 @@ test('it lists a deferred P1, security or risk-class finding as open', async () 
         severity: 'P3',
         state: 'deferred',
         author: 'dev',
+        unjudged: false,
         reason: null,
       },
     ],
@@ -8040,6 +8056,7 @@ test('it lists a fixed finding as open while the latest review still reports it'
         severity: 'P2',
         state: 'open',
         author: 'dev',
+        unjudged: false,
         reason: 'the re-review still finds it',
       },
       {
@@ -8048,6 +8065,7 @@ test('it lists a fixed finding as open while the latest review still reports it'
         severity: 'P2',
         state: 'fixed',
         author: 'dev',
+        unjudged: false,
         reason: null,
       },
     ],
@@ -8144,6 +8162,7 @@ test('it lists a fixed finding as open with its reason while no fix check has re
         severity: 'P2',
         state: 'open',
         author: 'dev',
+        unjudged: false,
         reason: `no fix check has read the commit ${fix.slice(0, 7)} yet`,
       },
       {
@@ -8152,6 +8171,7 @@ test('it lists a fixed finding as open with its reason while no fix check has re
         severity: 'P2',
         state: 'open',
         author: 'dev',
+        unjudged: false,
         reason: 'the re-review still finds it',
       },
       {
@@ -8160,6 +8180,7 @@ test('it lists a fixed finding as open with its reason while no fix check has re
         severity: 'P2',
         state: 'open',
         author: 'dev',
+        unjudged: false,
         reason: 'the re-review still finds it',
       },
     ],
@@ -8246,10 +8267,187 @@ test('it lists a fixed finding as fixed once a fix call confirmed its commit, wh
         severity: 'P2',
         state: 'fixed',
         author: 'dev',
+        unjudged: false,
         reason: null,
       },
     ],
   });
+});
+
+test('it lists a fixed finding whose fix check skipped its code as too large as open and unjudged, with the reason', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'review.json': '{ "thresholds": { "maxFileChars": 2000 } }\n',
+        'src/table.ts': 'export const rows = [];\n',
+      },
+    },
+    {
+      message: 'Fill the scanner table',
+      files: {
+        'src/table.ts': 'export const row = "a long row of the scanner table";\n'.repeat(40),
+      },
+    },
+    {
+      message: 'Quote each row of the scanner table',
+      files: {
+        'src/table.ts': "export const row = 'a long row of the scanner table';\n".repeat(40),
+      },
+    },
+  ]);
+
+  const fix = (repo.commits[2] ?? '').slice(0, 7);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    title: 'Fill the scanner table',
+    body: 'Fills the scanner table.',
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[2] ?? '',
+  });
+
+  for (const sha of [repo.commits[1] ?? '', repo.commits[2] ?? '']) {
+    await githubCollections.pullCommits.create({
+      owner: 'example',
+      repo: 'app',
+      number: 9,
+      sha,
+      files: ['src/table.ts'],
+    });
+  }
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/table.ts',
+    lines: [1],
+  });
+
+  const thread = await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/table.ts',
+    line: 1,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:finding {"id":"1111111111111111","title":"Quote each row with single quotes","path":"src/table.ts","lens":"correctness","severity":"P2","riskClass":null,"writtenByChange":true,"head":"${repo.commits[1] ?? ''}"} -->`,
+  });
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    body: `fixed ${fix}`,
+    authorLogin: 'dev',
+    inReplyToID: thread.id,
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","reviews":1,"reported":["1111111111111111"],"failedCalls":0} -->`,
+  });
+
+  const stub = buildStubAdapter({});
+
+  await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--fixes-only', '--report', 'github'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  ctx.stdout.length = 0;
+
+  const code = await runCLI(
+    ['findings', '--pr', '9', '--repo', 'example/app', '--json'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  const list = findingListSchema.parse(JSON.parse(ctx.stdout.join('')));
+
+  expect(code).toBe(0);
+  expect(stub.requests).toStrictEqual([]);
+
+  expect(list).toStrictEqual({
+    findings: [
+      {
+        id: '1111111111111111',
+        path: 'src/table.ts',
+        severity: 'P2',
+        state: 'open',
+        author: 'dev',
+        unjudged: true,
+        reason: `the fix check could not judge the commit ${fix}: its code or diff passes the file limit, so no call read it whole`,
+      },
+    ],
+  });
+});
+
+test('it prints an unjudged fixed finding with its reason in the text list', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[0] ?? '',
+  });
+
+  const thread = await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/scan.ts',
+    line: 1,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: '<!-- noslop:finding {"id":"1111111111111111","title":"Reject an empty separator","path":"src/scan.ts","lens":"correctness","severity":"P2","riskClass":null,"writtenByChange":true} -->',
+  });
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    body: 'fixed 1a2b3c4',
+    authorLogin: 'dev',
+    inReplyToID: thread.id,
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${repo.commits[0] ?? ''}","reviews":2,"reported":[],"failedCalls":0,"unjudged":[{"id":"1111111111111111","commit":"1a2b3c4","reason":"its fix call failed"}]} -->`,
+  });
+
+  const stub = buildStubAdapter({});
+
+  const code = await runCLI(
+    ['findings', '--pr', '9', '--repo', 'example/app'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  expect(code).toBe(0);
+
+  expect(ctx.stdout.join('')).toBe(
+    '1111111111111111 P2 open src/scan.ts (dev) unjudged: the fix check could not judge the commit 1a2b3c4: its fix call failed\n',
+  );
 });
 
 test('it records an escape in the store and counts it in recall', async () => {
