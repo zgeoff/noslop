@@ -6,6 +6,7 @@ import {
   buildMockFinding,
   buildMockReviewResult,
   buildStubAppKey,
+  buildStubSleep,
   githubCollections,
   githubServer,
 } from '@noslop/testing';
@@ -2324,8 +2325,18 @@ test('it clears the rejected merges on a lens review', async () => {
   expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('success');
 });
 
-test('it waits a second before the second of two rewritten finding comments', async () => {
+test('it posts the second of two rewritten finding comments only once a second-long wait ends', async () => {
   const ctx = setupTest();
+  const stub = buildStubSleep();
+
+  const reporter = createGitHubReporter({
+    loadConnection: () =>
+      createGitHubConnection(
+        { appID: 1, privateKey: buildStubAppKey(), installationID: 7 },
+        null,
+        stub.sleep,
+      ),
+  });
 
   await githubCollections.pullRequests.create({
     owner: 'example',
@@ -2347,14 +2358,25 @@ test('it waits a second before the second of two rewritten finding comments', as
     ],
   });
 
-  await ctx.reporter.report(result, { logger: ctx.logger, options: {}, failedReporters: [] });
+  const report = reporter.report(result, { logger: ctx.logger, options: {}, failedReporters: [] });
 
-  const findingComments = githubCollections.issueComments
+  const delayMs = await stub.nextSleep();
+
+  const postedInWait = githubCollections.issueComments
     .all()
-    .filter((comment) => comment.body.includes('<!-- noslop:finding'));
+    .filter((comment) => comment.body.includes('<!-- noslop:finding')).length;
 
-  expect(findingComments).toHaveLength(2);
-  expect(ctx.sleep.mock.calls).toStrictEqual([[1000]]);
+  stub.wake();
+
+  await report;
+
+  const postedAfterWait = githubCollections.issueComments
+    .all()
+    .filter((comment) => comment.body.includes('<!-- noslop:finding')).length;
+
+  expect(delayMs).toBe(1000);
+  expect(postedInWait).toBe(1);
+  expect(postedAfterWait).toBe(2);
 });
 
 test('it waits a second between the review and a rewritten finding comment after it', async () => {
