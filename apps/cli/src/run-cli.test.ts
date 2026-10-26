@@ -8311,6 +8311,16 @@ test('it lists a fixed finding whose fix check skipped its code as too large as 
     headSha: repo.commits[2] ?? '',
   });
 
+  for (const sha of [repo.commits[1] ?? '', repo.commits[2] ?? '']) {
+    await githubCollections.pullCommits.create({
+      owner: 'example',
+      repo: 'app',
+      number: 9,
+      sha,
+      files: ['src/table.ts'],
+    });
+  }
+
   await githubCollections.pullFiles.create({
     owner: 'example',
     repo: 'app',

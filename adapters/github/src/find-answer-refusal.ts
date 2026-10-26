@@ -61,6 +61,14 @@ function findFixedRefusal(
   const fix = commit === '' ? 'the fix' : `the commit ${commit}`;
   const isConfirmed = evidence.confirmed.includes(`${finding.id}:${commit}`);
 
+  const unjudged = evidence.unjudged.find(
+    (item) => item.id === finding.id && item.commit === commit,
+  );
+
+  if (unjudged !== undefined && !isConfirmed) {
+    return { reason: `the fix check could not judge ${fix}: ${unjudged.reason}`, isUnjudged: true };
+  }
+
   if (evidence.unread.has(finding.id) && !isConfirmed) {
     return buildRefusal(`no fix check has read ${fix} yet`);
   }
@@ -69,19 +77,7 @@ function findFixedRefusal(
     return buildRefusal('the re-review still finds it');
   }
 
-  if (isConfirmed) {
-    return null;
-  }
-
-  const unjudged = evidence.unjudged.find(
-    (item) => item.id === finding.id && item.commit === commit,
-  );
-
-  if (unjudged !== undefined) {
-    return { reason: `the fix check could not judge ${fix}: ${unjudged.reason}`, isUnjudged: true };
-  }
-
-  return buildRefusal(`no re-review has read ${fix} yet`);
+  return isConfirmed ? null : buildRefusal(`no re-review has read ${fix} yet`);
 }
 
 function findDeferredRefusal(
