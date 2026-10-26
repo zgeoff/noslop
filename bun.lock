@@ -15,7 +15,7 @@
         "@zgeoff/bun-test-extended": "0.1.0",
         "@zgeoff/format-codemod": "0.1.0",
         "@zgeoff/oxlint-config": "0.7.0",
-        "@zgeoff/skill-gate": "0.2.7",
+        "@zgeoff/skill-gate": "0.2.9",
         "knip": "6.39.0",
         "lefthook": "2.1.14",
         "msw": "catalog:",
@@ -794,7 +794,7 @@
 
     "@zgeoff/oxlint-config": ["@zgeoff/oxlint-config@0.7.0", "", { "dependencies": { "@stylistic/eslint-plugin": "5.10.0" }, "peerDependencies": { "oxlint": ">=1.78.0" } }, "sha512-ECHCzGCYnINclFxlkFxp1bJSw9RKnII/sj2YMKdJIJrQezgXp1vdcM3RuxgZqN3gJOpSKpEVrD4LD3oLSuyNgA=="],
 
-    "@zgeoff/skill-gate": ["@zgeoff/skill-gate@0.2.7", "", {}, "sha512-sYtzVcU5BTRnG34kZtKAdQt08G/9UaZTLe1Ee/cHqviup6aaDBBc12T8l2+s72PsLBzm5/Ykldr5dx489Hcvnw=="],
+    "@zgeoff/skill-gate": ["@zgeoff/skill-gate@0.2.9", "", {}, "sha512-Ojjoj3Co5bmBqjpUwyoI5w6GuR/HUnCS3/b87cXAQOE0KPfbtbmaffJBhYTvH+u8+Ky190yxjMRneD+JiTssMg=="],
 
     "acorn": ["acorn@8.19.0", "", { "bin": { "acorn": "bin/acorn" } }, "sha512-oJlA3XiRm7Cyk6qFD2Jn8ak9B7jSy0qy00ADO3+8dpT0LSjFihQYv4C02LFCSYJV3Q37xYwwRy5m+IpIiUzqWw=="],
 
