@@ -5,7 +5,7 @@ import type { GitHubConnection } from './create-github-connection';
 import { readGitHubCheck } from './read-github-check';
 import type { PullRequestState } from './read-pull-request-state';
 import { readPullRequestState } from './read-pull-request-state';
-import { withServerErrorRetry } from './with-server-error-retry';
+import { withWriteRetry } from './with-write-retry';
 
 export const CHECK_NAME = 'noslop';
 
@@ -24,7 +24,7 @@ export async function runGitHubCheck(
     ? readPullRequestState(connection, pr)
     : Promise.resolve(options.state));
 
-  await createFormsReplies(connection.client, pr, state.threads);
+  await createFormsReplies(connection, pr, state.threads);
 
   const outcome = await readGitHubCheck(connection, pr, {
     failedReporters: options.failedReporters,
@@ -32,7 +32,7 @@ export async function runGitHubCheck(
   });
 
   // a second check run on one head is harmless, because GitHub shows the latest run of a name
-  await withServerErrorRetry('noslop check run', connection.sleep, () =>
+  await withWriteRetry('noslop check run', 'repeatable', connection.sleep, () =>
     connection.client.request('POST /repos/{owner}/{repo}/check-runs', {
       owner: pr.owner,
       repo: pr.repo,

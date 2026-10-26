@@ -1,7 +1,7 @@
 import { App } from '@octokit/app';
 import { Octokit } from '@octokit/core';
 import type { GitHubAppCredentials } from './parse-github-app-env';
-import type { Sleep } from './with-server-error-retry';
+import type { Sleep } from './with-write-retry';
 
 export type GitHubClient = Octokit;
 

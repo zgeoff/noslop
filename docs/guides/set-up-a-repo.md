@@ -118,7 +118,8 @@ passes.
 5. Check that the server answers: `curl https://<server_host>/health` prints `ok`.
 6. Install the App on the repo.
 7. Open a pull request, or mark a draft ready for review. Expect a pull request review from the App
-   with one comment per finding, a summary comment, and a `noslop` check run on the head.
+   with a comment per finding or per large class of like findings, a summary comment, and a `noslop`
+   check run on the head.
 8. Make the `noslop` check required in the branch protection of the default branch, so a pull
    request merges only once every finding holds a valid answer.
 

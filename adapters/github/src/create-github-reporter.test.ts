@@ -2870,7 +2870,7 @@ test('it fails the post and names the summary comment when GitHub answers 500 on
   expect(githubCollections.checkRuns.all()).toStrictEqual([]);
 });
 
-test('it sends a summary post that GitHub refuses with 403 once, with no retry', async () => {
+test('it sends the summary again after the retry-after wait when GitHub answers a secondary limit', async () => {
   const ctx = setupTest();
 
   await githubCollections.pullRequests.create({
@@ -2880,11 +2880,47 @@ test('it sends a summary post that GitHub refuses with 403 once, with no retry',
     headSha: 'b'.repeat(40),
   });
 
-  const refuse = mock(
-    () =>
-      new HttpResponse(JSON.stringify({ message: 'You have exceeded a secondary rate limit' }), {
-        status: 403,
-      }),
+  githubServer.use(
+    http.post(
+      `${GITHUB_API_URL}/repos/:owner/:repo/issues/:number/comments`,
+      () =>
+        HttpResponse.json(
+          { message: 'You have exceeded a secondary rate limit' },
+          { status: 403, headers: { 'retry-after': '90' } },
+        ),
+      { once: true },
+    ),
+  );
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'b'.repeat(40),
+      findings: [],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const summaries = githubCollections.issueComments.all().map((comment) => comment.body);
+
+  expect(ctx.sleep.mock.calls).toStrictEqual([[90_000]]);
+  expect(summaries).toSatisfyAll((body: string) => body.startsWith('### noslop'));
+  expect(summaries).toHaveLength(1);
+  expect(githubCollections.checkRuns.all()).toMatchObject([{ conclusion: 'success' }]);
+});
+
+test('it sends a summary post that GitHub refuses with a permission 403 once, with no retry', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'b'.repeat(40),
+  });
+
+  const refuse = mock(() =>
+    HttpResponse.json({ message: 'Resource not accessible by integration' }, { status: 403 }),
   );
 
   githubServer.use(
@@ -3090,6 +3126,311 @@ test("it strikes a fixed finding's comment when GitHub answers the first edit wi
       fixChecks: [
         { findingID: '1111111111111111', fixed: true, reason: 'The total counts every item.' },
       ],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const struck = githubCollections.reviewComments.findFirst((query) =>
+    query.where({ id: thread?.id ?? -1 }),
+  );
+
+  expect(struck?.body).toStartWith('~~**P2 · Correctness** · Return the total of every item~~');
+});
+
+test('it posts 150 findings of one class as one comment and posts the check through secondary limits', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'b'.repeat(40),
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    sha: 'b'.repeat(40),
+  });
+
+  await Promise.all(
+    Array.from({ length: 50 }, (_, index) =>
+      githubCollections.pullFiles.create({
+        owner: 'example',
+        repo: 'app',
+        number: 5,
+        path: `scripts/tool-${index}.sh`,
+        lines: [1, 2, 3, 4, 5, 6, 7, 8, 9],
+      }),
+    ),
+  );
+
+  const findings = Array.from({ length: 150 }, (_, index) =>
+    buildMockFinding({
+      id: (index + 1).toString(16).padStart(16, '0'),
+      lens: 'static',
+      callID: null,
+      criterion: 'intent-mismatch',
+      title: `Format-only edit to tool-${Math.floor(index / 3)}.sh, outside the linked issue`,
+      anchor: {
+        path: `scripts/tool-${Math.floor(index / 3)}.sh`,
+        startLine: (index % 3) * 3 + 1,
+        endLine: (index % 3) * 3 + 2,
+      },
+    }),
+  );
+
+  githubServer.use(
+    http.post(
+      `${GITHUB_API_URL}/repos/:owner/:repo/pulls/:number/reviews`,
+      () =>
+        HttpResponse.json({ message: 'You have exceeded a secondary rate limit' }, { status: 403 }),
+      { once: true },
+    ),
+    http.post(
+      `${GITHUB_API_URL}/repos/:owner/:repo/check-runs`,
+      () =>
+        HttpResponse.json(
+          { message: 'You have exceeded a secondary rate limit' },
+          { status: 403, headers: { 'retry-after': '30' } },
+        ),
+      { once: true },
+    ),
+  );
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'b'.repeat(40),
+      findings,
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const comments = githubCollections.reviewComments.all();
+
+  expect(comments.map((comment) => [comment.path, comment.startLine, comment.line])).toStrictEqual([
+    ['scripts/tool-0.sh', 1, 2],
+  ]);
+
+  expect(comments[0]?.body).toInclude('The same finding at 149 more places');
+  expect(comments[0]?.body).toInclude('`scripts/tool-49.sh:7-8` `0000000000000096`');
+  expect(ctx.sleep.mock.calls).toStrictEqual([[60_000], [30_000]]);
+
+  expect(githubCollections.checkRuns.all()).toMatchObject([
+    { name: 'noslop', conclusion: 'failure', title: '150 findings hold no valid disposition.' },
+  ]);
+});
+
+test('it takes one reply to a folded comment as the answer to each finding it holds', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'b'.repeat(40),
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/a.ts',
+    lines: [1, 2, 3, 4, 5],
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'b'.repeat(40),
+      findings: [1, 2, 3, 4, 5].map((line) =>
+        buildMockFinding({
+          id: `${line}`.repeat(16),
+          anchor: { path: 'src/a.ts', startLine: line, endLine: line },
+        }),
+      ),
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const [thread] = githubCollections.reviewComments.all();
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    body: 'not-a-defect The loop starts at the first item.',
+    authorLogin: 'dev',
+    inReplyToID: thread?.id ?? null,
+  });
+
+  const connection = await createGitHubConnection({
+    appID: 1,
+    privateKey: buildStubAppKey(),
+    installationID: 7,
+  });
+
+  const outcome = await runGitHubCheck(
+    connection,
+    { owner: 'example', repo: 'app', number: 5 },
+    { failedReporters: [] },
+  );
+
+  expect(githubCollections.reviewComments.all()).toHaveLength(2);
+  expect(outcome.title).toBe('Every finding holds a valid disposition (5)');
+});
+
+test('it leaves a folded comment unstruck while the fix of one finding it holds is unconfirmed', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'c'.repeat(40),
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    sha: 'b'.repeat(40),
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    sha: 'c'.repeat(40),
+    files: ['src/a.ts'],
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/a.ts',
+    lines: [1, 2, 3, 4, 5],
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'b'.repeat(40),
+      findings: [1, 2, 3, 4, 5].map((line) =>
+        buildMockFinding({
+          id: `${line}`.repeat(16),
+          anchor: { path: 'src/a.ts', startLine: line, endLine: line },
+        }),
+      ),
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const [thread] = githubCollections.reviewComments.all();
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    body: `fixed ${'c'.repeat(7)}`,
+    authorLogin: 'dev',
+    inReplyToID: thread?.id ?? null,
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      base: 'b'.repeat(40),
+      head: 'c'.repeat(40),
+      findings: [],
+      fixChecks: [1, 2, 3, 4].map((line) => ({
+        findingID: `${line}`.repeat(16),
+        fixed: true,
+        reason: 'The total counts every item.',
+      })),
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const partly = githubCollections.reviewComments.findFirst((query) =>
+    query.where({ id: thread?.id ?? -1 }),
+  );
+
+  expect(partly?.body).toStartWith('**P2 · Correctness** · Return the total of every item');
+});
+
+test('it strikes a folded comment once the fix of each finding it holds is confirmed', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'c'.repeat(40),
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    sha: 'b'.repeat(40),
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    sha: 'c'.repeat(40),
+    files: ['src/a.ts'],
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/a.ts',
+    lines: [1, 2, 3, 4, 5],
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'b'.repeat(40),
+      findings: [1, 2, 3, 4, 5].map((line) =>
+        buildMockFinding({
+          id: `${line}`.repeat(16),
+          anchor: { path: 'src/a.ts', startLine: line, endLine: line },
+        }),
+      ),
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const [thread] = githubCollections.reviewComments.all();
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    body: `fixed ${'c'.repeat(7)}`,
+    authorLogin: 'dev',
+    inReplyToID: thread?.id ?? null,
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      base: 'b'.repeat(40),
+      head: 'c'.repeat(40),
+      findings: [],
+      fixChecks: [1, 2, 3, 4, 5].map((line) => ({
+        findingID: `${line}`.repeat(16),
+        fixed: true,
+        reason: 'The total counts every item.',
+      })),
     }),
     { logger: ctx.logger, options: {}, failedReporters: [] },
   );
