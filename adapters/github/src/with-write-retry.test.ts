@@ -67,6 +67,20 @@ test('it waits a minute, then longer, after each secondary limit with no retry-a
   expect(sleep.mock.calls).toStrictEqual([[60_000], [120_000], [240_000]]);
 });
 
+test('it waits a minute, then longer, after a 429 with no rate-limit header or message', async () => {
+  const sleep = mock((delayMs: number) => Promise.resolve(delayMs));
+
+  const send = mock(() =>
+    Promise.reject(
+      Object.assign(new Error('Too Many Requests'), { status: 429, response: { headers: {} } }),
+    ),
+  );
+
+  await withWriteRetry('review', 'once', sleep, send).catch(() => null);
+
+  expect(sleep.mock.calls).toStrictEqual([[60_000], [120_000], [240_000]]);
+});
+
 test('it waits the retry-after seconds of a 429', async () => {
   const sleep = mock((delayMs: number) => Promise.resolve(delayMs));
 

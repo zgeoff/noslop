@@ -104,7 +104,7 @@ function findRetryableRefusal(error: unknown): RetryableRefusal | null {
       : { answer: `${status} (rate limit)`, isRateLimit: true, retryAfterMs: resetMs };
   }
 
-  return /rate limit/iu.test(message)
+  return status === 429 || /rate limit/iu.test(message)
     ? { answer: `${status} (rate limit)`, isRateLimit: true, retryAfterMs: null }
     : null;
 }
