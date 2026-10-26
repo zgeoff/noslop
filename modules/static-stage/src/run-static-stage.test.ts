@@ -929,6 +929,52 @@ test('it reports an edit to a synced copy, a stray format hunk and a test the bo
   ]);
 });
 
+test('it reports no stray format hunk when the linked issue asks for a reformat', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        '.editorconfig': 'root = true\n',
+        'scripts/build.sh': '#!/bin/sh\necho start >build.log\n',
+        'scripts/clean.sh': '#!/bin/sh\nrm -f build.log 2>/dev/null\n',
+      },
+    },
+    {
+      message: 'head',
+      files: {
+        '.editorconfig': 'root = true\n\n[*.sh]\nspace_redirects = true\n',
+        'scripts/build.sh': '#!/bin/sh\necho start > build.log\n',
+        'scripts/clean.sh': '#!/bin/sh\nrm -f build.log 2> /dev/null\n',
+      },
+    },
+  ]);
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config: BUILT_IN_DEFAULTS,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config: BUILT_IN_DEFAULTS,
+    title: 'ci: put a space after each shell redirect',
+    body: 'The shell scripts take the shared formatter settings.',
+    linkedIssue:
+      'Shell scripts match the shared style\n\nIn: set the shell style in the editor config, and reformat the shell scripts it changes.',
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(result.findings.map((finding) => finding.title)).toStrictEqual([]);
+});
+
 test('it treats a change to synced copies alone as a sync and reports no synced edit', async () => {
   const ctx = await setupTest();
 
