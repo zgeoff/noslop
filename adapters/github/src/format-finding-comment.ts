@@ -88,5 +88,7 @@ function toFoldedFinding(finding: Finding): FoldedFinding {
     line: finding.anchor.endLine,
     riskClass: finding.riskClass ?? null,
     writtenByChange: finding.writtenByChange,
+    body: finding.body,
+    fix: finding.fix ?? null,
   };
 }

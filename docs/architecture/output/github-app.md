@@ -136,16 +136,18 @@ Each comment the App posts ends with a hidden HTML comment that holds its kind a
 JSON, with every `<` and `>` escaped, so no title or reason can end the marker early or start
 another. The adapter reads only the marker that ends a comment, because the text before it holds
 titles and file paths that the change controls, and it escapes the markup in each folded file path.
+
 A finding marker holds what the check needs to judge a disposition without the review result: the
 id, title, file, lens, severity, risk class, and whether the change wrote the code, with the id,
-title, file, lines, risk class and authorship of each finding the comment folds. The summary marker
-holds the reviewed head and the base of its range, the number of reviews so far, the ids that review
-reported, its count of failed calls, the files it left out of every call or of some lenses' calls,
-the filed follow-ups, the confirmed fixes, the fixes no fix check could judge with each reason, the
-ids of the reviews it counted, and when the review it shows started. A retried post of a review that
-started before that review, such as one that failed at the summary write, leaves the summary in
-place and only sets the check again. A forms marker, on the App's answer to a free-text reply, holds
-the id of the reply it answered.
+title, file, lines, risk class, authorship, description and fix of each finding the comment folds,
+so the fix check of a folded finding reads its own description. The summary marker holds the
+reviewed head and the base of its range, the number of reviews so far, the ids that review reported,
+its count of failed calls, the files it left out of every call or of some lenses' calls, the filed
+follow-ups, the confirmed fixes, the fixes no fix check could judge with each reason, the ids of the
+reviews it counted, and when the review it shows started. A retried post of a review that started
+before that review, such as one that failed at the summary write, leaves the summary in place and
+only sets the check again. A forms marker, on the App's answer to a free-text reply, holds the id of
+the reply it answered.
 
 Only a comment by the App's own login holds state. The adapter reads that login from GitHub's
 endpoint for the authenticated App when it connects, and treats a comment by anyone else, other bots

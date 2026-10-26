@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { GitHubConnection } from './create-github-connection';
 import type { FindingMarker } from './finding-marker';
 import { findingMarkerSchema } from './finding-marker';
+import { formatFindingHeading } from './format-finding-heading';
 import { parseMarker } from './parse-marker';
 import { readAllPages } from './read-all-pages';
 import type { SummaryMarker } from './summary-marker';
@@ -236,7 +237,12 @@ function buildFoldedThreads(lead: FindingThread): FindingThread[] {
   return folded.map((finding) => ({
     source: lead.source,
     commentID: lead.commentID,
-    body: lead.body,
+    body: [
+      formatFindingHeading(marker.severity, marker.lens, finding.title),
+      '',
+      finding.body,
+      ...(finding.fix === null ? [] : ['', `**Fix:** ${finding.fix}`]),
+    ].join('\n'),
     replies: lead.replies,
     answered: lead.answered,
     marker: {

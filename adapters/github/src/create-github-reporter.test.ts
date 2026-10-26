@@ -3365,6 +3365,60 @@ test('it reads the folded findings it posted when a folded file name holds a for
   ]);
 });
 
+test('it reads back the description and fix of each finding a comment folds', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'b'.repeat(40),
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/a.ts',
+    lines: [1, 2, 3, 4, 5],
+  });
+
+  const findings = [1, 2, 3, 4, 5].map((line) =>
+    buildMockFinding({
+      id: `${line}`.repeat(16),
+      body: `The loop skips item ${line}.`,
+      ...(line === 5 ? { fix: 'Start the loop at 0.' } : {}),
+      anchor: { path: 'src/a.ts', startLine: line, endLine: line },
+    }),
+  );
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'b'.repeat(40),
+      findings,
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const connection = await createGitHubConnection({
+    appID: 1,
+    privateKey: buildStubAppKey(),
+    installationID: 7,
+  });
+
+  const state = await readPullRequestState(connection, {
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+  });
+
+  expect(state.threads.slice(3).map((thread) => thread.body)).toStrictEqual([
+    '**P2 · Correctness** · Return the total of every item\n\nThe loop skips item 4.',
+    '**P2 · Correctness** · Return the total of every item\n\nThe loop skips item 5.\n\n**Fix:** Start the loop at 0.',
+  ]);
+});
+
 test('it takes one reply to a folded comment as the answer to each finding it holds', async () => {
   const ctx = setupTest();
 

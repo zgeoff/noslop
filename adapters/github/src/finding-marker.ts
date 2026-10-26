@@ -9,6 +9,8 @@ const foldedFindingSchema = z.strictObject({
   line: z.int().positive(),
   riskClass: z.string().min(1).nullable(),
   writtenByChange: z.boolean(),
+  body: z.string(),
+  fix: z.string().nullable(),
 });
 
 export type FoldedFinding = z.infer<typeof foldedFindingSchema>;
