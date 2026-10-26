@@ -2324,6 +2324,39 @@ test('it clears the rejected merges on a lens review', async () => {
   expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('success');
 });
 
+test('it waits a second before the second of two rewritten finding comments', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'c'.repeat(40),
+  });
+
+  const result = buildMockReviewResult({
+    pullRequest: { owner: 'example', repo: 'app', number: 5 },
+    head: 'c'.repeat(40),
+    findings: [
+      buildMockFinding({ id: '1111111111111111', anchorCommit: 'e'.repeat(40) }),
+      buildMockFinding({
+        id: '2222222222222222',
+        title: 'Close the consumer',
+        anchorCommit: 'e'.repeat(40),
+      }),
+    ],
+  });
+
+  await ctx.reporter.report(result, { logger: ctx.logger, options: {}, failedReporters: [] });
+
+  const findingComments = githubCollections.issueComments
+    .all()
+    .filter((comment) => comment.body.includes('<!-- noslop:finding'));
+
+  expect(findingComments).toHaveLength(2);
+  expect(ctx.sleep.mock.calls).toStrictEqual([[1000]]);
+});
+
 test('it waits a second between the review and a rewritten finding comment after it', async () => {
   const ctx = setupTest();
 
