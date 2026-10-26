@@ -64,7 +64,7 @@ function buildClassKey(finding: Finding): string {
 const COMMENT_MAX_CHARS = 60_000;
 
 function splitToFit(post: FindingPost, head: string): FindingPost[] {
-  const half = Math.ceil(post.folded.length / 2);
+  const half = Math.floor(post.folded.length / 2);
   const [second, ...rest] = post.folded.slice(half);
 
   if (

@@ -66,6 +66,22 @@ test.each([
   );
 });
 
+test('it posts each finding alone when the body of one leaves no room for another', () => {
+  const overhead = formatFindingComment(buildMockFinding({ body: '' }), 'b'.repeat(40)).length;
+
+  const findings = [1, 2, 3, 4, 5].map((line) =>
+    buildMockFinding({
+      id: `${line}`.repeat(16),
+      body: 'x'.repeat(60_000 - overhead - 10),
+      anchor: { path: 'src/a.ts', startLine: line, endLine: line },
+    }),
+  );
+
+  expect(buildFindingPosts(findings, 'b'.repeat(40))).toStrictEqual(
+    findings.map((finding) => ({ lead: finding, folded: [] })),
+  );
+});
+
 test('it splits a class whose one comment would pass the body limit GitHub sets', () => {
   const findings = Array.from({ length: 1000 }, (_, index) =>
     buildMockFinding({
