@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.22](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.21...@noslop/cli@0.4.22) (2026-10-26)
+
+### Features
+
+- **github:** list a fixed answer the fix check could not judge
+  ([#144](https://github.com/zgeoff/noslop/issues/144))
+  ([94acb51](https://github.com/zgeoff/noslop/commit/94acb51f0b72d612974f04d8e1a9018b21cf911d))
+
 ## [0.4.21](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.20...@noslop/cli@0.4.21) (2026-10-24)
 
 ### Bug Fixes
