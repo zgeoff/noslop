@@ -241,10 +241,13 @@ function findFirstChange(entry: AnalyzedFile): SourceLocation {
   return { path: entry.file.path, startLine: line, endLine: line };
 }
 
+// an issue that asks for a reformat rarely names each file the formatter rewrites
+const REFORMAT_SCOPE = /\bre-?format|\bformat(?:ting|ter|-only)\b/iu;
+
 function collectStrayFormatHunks(inputs: ChangeFindingInputs): ModelFinding[] {
   const issue = inputs.linkedIssue;
 
-  if (issue === null) {
+  if (issue === null || REFORMAT_SCOPE.test(issue)) {
     return [];
   }
 

@@ -1,6 +1,20 @@
 import { criterionSchema, findingLensSchema, severitySchema } from '@noslop/contract';
 import { z } from 'zod';
 
+const foldedFindingSchema = z.strictObject({
+  id: z.string().regex(/^[0-9a-f]{16}$/u),
+  title: z.string().min(1),
+  path: z.string().min(1),
+  startLine: z.int().positive(),
+  line: z.int().positive(),
+  riskClass: z.string().min(1).nullable(),
+  writtenByChange: z.boolean(),
+  body: z.string(),
+  fix: z.string().nullable(),
+});
+
+export type FoldedFinding = z.infer<typeof foldedFindingSchema>;
+
 export const findingMarkerSchema = z.strictObject({
   id: z.string().regex(/^[0-9a-f]{16}$/u),
   title: z.string().min(1),
@@ -17,6 +31,8 @@ export const findingMarkerSchema = z.strictObject({
     .string()
     .regex(/^[0-9a-f]{40}$/u)
     .optional(),
+
+  folded: z.array(foldedFindingSchema).optional(),
 });
 
 export type FindingMarker = z.infer<typeof findingMarkerSchema>;

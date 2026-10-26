@@ -2,11 +2,12 @@
 
 noslop posts on a pull request as its own GitHub App and gates the merge with a check run named
 `noslop`. For each review, the GitHub adapter posts one pull request review with an inline comment
-per new finding, writes one summary comment, and sets the check run. The check passes only when a
-review with no failed call ran on the current head and every finding holds a valid disposition,
-which the author gives as a typed reply. Every piece of state the App keeps lives in hidden markers
-inside its own comments, so each run reads the pull request's state back from GitHub and the server
-keeps no database. [0009](../../decisions/0009-the-merge-loop.md) records the merge loop.
+per new finding, folds a large class of like findings into one comment, writes one summary comment,
+and sets the check run. The check passes only when a review with no failed call ran on the current
+head and every finding holds a valid disposition, which the author gives as a typed reply. Every
+piece of state the App keeps lives in hidden markers inside its own comments, so each run reads the
+pull request's state back from GitHub and the server keeps no database.
+[0009](../../decisions/0009-the-merge-loop.md) records the merge loop.
 
 The App server runs those reviews: a webhook endpoint, a queue of jobs per pull request, and jobs
 that run the noslop CLI.
@@ -82,21 +83,29 @@ it posts anything.
    finding rests on and the fix. The accepted disposition forms and the finding id with its lens,
    criterion and rule sit in collapsed blocks, so a person reads the finding first. The finding
    marker comes last.
-2. When GitHub refuses the review because a line sits outside the diff, the reporter posts each
+2. A class of new findings that share a lens, a rule or criterion, and a title once the file's name
+   is left out posts as one comment when it holds enough findings, because GitHub's secondary limits
+   refuse a review that creates hundreds of comments. The comment sits at the first finding's anchor
+   and lists the anchor and id of each other finding in a collapsed block. Its marker holds the
+   folded findings, and each of them gets a thread of its own that shares the comment's replies, so
+   one reply answers them all, the check counts each one, and a fix check runs for each. The
+   reporter strikes the comment through only once every fix it holds is confirmed. A class whose
+   comment would pass GitHub's length limit splits into more comments.
+3. When GitHub refuses the review because a line sits outside the diff, the reporter posts each
    comment on its own. A finding GitHub still refuses goes into an issue comment on the pull request
    that names its anchor. A person answers it with an issue comment that starts with the finding's
    id.
-3. After the one re-check, a new finding that is no security finding and sits in code the change did
+4. After the one re-check, a new finding that is no security finding and sits in code the change did
    not write goes to a follow-up issue in the repo instead of the pull request. The summary marker
    keeps each filed id, so a later review files the issue once. Each follow-up issue holds a marker
    with its finding and pull request, so a retried post that failed before the summary finds the
    issue it opened and files none twice. The reporter runs one post of a pull request at a time in a
    process, so 2 posts of one review cannot both miss the issue and both file it.
-4. It edits the comment of each finding whose fix the review confirms: it strikes the heading
+5. It edits the comment of each finding whose fix the review confirms: it strikes the heading
    through, names the commit the answer gives or the head for a bare `fixed`, and collapses the
    comment as posted under them, with the marker kept byte for byte. When a later review no longer
    confirms the fix, the reporter restores the comment as posted.
-5. It writes the summary comment, which it creates on the first review and edits in place after
+6. It writes the summary comment, which it creates on the first review and edits in place after
    that. The summary opens with the count of the findings this review reports and a risk level: high
    with any P1 or risk-class finding, medium with any P2, and low otherwise. A review with a failed
    call says it is partial, and the summary names the first files that no call read, with their
@@ -105,24 +114,35 @@ it posts anything.
    fixed only when every finding an earlier review posted holds a confirmed fix. A table links each
    finding to its comment, and the reviewed head and base, the depth, the lenses, a special change
    and each failed call sit in a collapsed block.
-6. It sets the check run.
+7. It sets the check run.
 
-The reporter sends the summary write, each edit of a finding comment, and the check run again when
-GitHub answers with a server error, after a wait that doubles each time and starts at the spacing
-GitHub asks for between writes. Once the waits run out, the post fails with an error that names the
-write, so the round reports a failed reporter. A response for GitHub's secondary rate limit fails
-the post with no retry, because GitHub asks for a wait of a minute or more. The reporter sends no
-other write again, because a write that GitHub saved before it failed would post a second finding
-comment or follow-up issue.
+The reporter sends a write again when GitHub refuses it with a rate limit, because GitHub asks for a
+wait and a refused write saves nothing. It waits as long as the answer's `retry-after` header gives,
+or until the reset of a spent primary limit, by the clock in the answer's date. With neither, it
+waits a minute that doubles on each refusal. A primary limit whose reset lies further off than that
+longest wait fails the post at once.
+
+The reporter sends the summary write, each edit of a finding comment, and the check run again on a
+server error too, after a wait that doubles each time and starts at the spacing GitHub asks for
+between writes. A write that creates a finding comment, a reply or a follow-up issue gets no retry
+on a server error, because a write that GitHub saved before it failed would post a second one. Once
+the waits run out, the post fails with an error that names the write, so the round reports a failed
+reporter. The reporter waits that spacing between the comments and issues it creates one at a time,
+so a burst of them meets no secondary limit.
 
 ## State in markers
 
 Each comment the App posts ends with a hidden HTML comment that holds its kind and its state as
-JSON, with every `>` escaped, so no title or reason can end the marker early. A finding marker holds
-what the check needs to judge a disposition without the review result: the id, title, file, lens,
-severity, risk class, and whether the change wrote the code. The summary marker holds the reviewed
-head and the base of its range, the number of reviews so far, the ids that review reported, its
-count of failed calls, the files it left out of every call or of some lenses' calls, the filed
+JSON, with every `<` and `>` escaped, so no title or reason can end the marker early or start
+another. The adapter reads only the marker that ends a comment, because the text before it holds
+titles and file paths that the change controls, and it escapes the markup in each folded file path.
+
+A finding marker holds what the check needs to judge a disposition without the review result: the
+id, title, file, lens, severity, risk class, and whether the change wrote the code, with the id,
+title, file, lines, risk class, authorship, description and fix of each finding the comment folds,
+so the fix check of a folded finding reads its own description. The summary marker holds the
+reviewed head and the base of its range, the number of reviews so far, the ids that review reported,
+its count of failed calls, the files it left out of every call or of some lenses' calls, the filed
 follow-ups, the confirmed fixes, the fixes no fix check could judge with each reason, the ids of the
 reviews it counted, and when the review it shows started. A retried post of a review that started
 before that review, such as one that failed at the summary write, leaves the summary in place and

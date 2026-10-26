@@ -113,8 +113,8 @@ needs it. The stage reports:
   already holds, and a new rule with wording that leaves an agent the choice.
 - Defects in the change as a whole: a version bump that a consumer's range refuses, a schema bound
   above the published limit the config names, an edit to a synced copy outside a sync, a format-only
-  hunk in a file the linked issue does not name, and a public package that changes paths the config
-  ties to a version bump without bumping its version.
+  hunk in a file the linked issue does not name, unless the issue asks for a reformat, and a public
+  package that changes paths the config ties to a version bump without bumping its version.
 
 The synced-copy check skips a synced workflow file, edited in place, whose only change moves the ref
 of a job's `uses:` call to a workflow in another repo, because the sync that delivers such a caller

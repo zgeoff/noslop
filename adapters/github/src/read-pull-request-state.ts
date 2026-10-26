@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { GitHubConnection } from './create-github-connection';
 import type { FindingMarker } from './finding-marker';
 import { findingMarkerSchema } from './finding-marker';
+import { formatFindingHeading } from './format-finding-heading';
 import { parseMarker } from './parse-marker';
 import { readAllPages } from './read-all-pages';
 import type { SummaryMarker } from './summary-marker';
@@ -113,7 +114,10 @@ export async function readPullRequestState(
       });
 
       threads.set(Number(comment.id), thread);
-      byFindingID.set(marker.id, thread);
+
+      for (const item of [thread, ...buildFoldedThreads(thread)]) {
+        byFindingID.set(item.marker.id, item);
+      }
     }
   }
 
@@ -164,7 +168,9 @@ export async function readPullRequestState(
           startLine: null,
         });
 
-        byFindingID.set(marker.id, thread);
+        for (const item of [thread, ...buildFoldedThreads(thread)]) {
+          byFindingID.set(item.marker.id, item);
+        }
       }
 
       if (summaryMarker !== null) {
@@ -197,7 +203,9 @@ export async function readPullRequestState(
 
   for (const thread of byFindingID.values()) {
     if (thread.source === 'issue') {
-      thread.answered = new Set([...thread.answered, ...answeredInIssue]);
+      for (const replyID of answeredInIssue) {
+        thread.answered.add(replyID);
+      }
     }
   }
 
@@ -221,6 +229,33 @@ type PostedFinding = Pick<
 
 function buildThread(posted: PostedFinding): FindingThread {
   return { ...posted, replies: [], answered: new Set() };
+}
+
+function buildFoldedThreads(lead: FindingThread): FindingThread[] {
+  const { folded = [], ...marker } = lead.marker;
+
+  return folded.map((finding) => ({
+    source: lead.source,
+    commentID: lead.commentID,
+    body: [
+      formatFindingHeading(marker.severity, marker.lens, finding.title),
+      '',
+      finding.body,
+      ...(finding.fix === null ? [] : ['', `**Fix:** ${finding.fix}`]),
+    ].join('\n'),
+    replies: lead.replies,
+    answered: lead.answered,
+    marker: {
+      ...marker,
+      id: finding.id,
+      title: finding.title,
+      path: finding.path,
+      riskClass: finding.riskClass,
+      writtenByChange: finding.writtenByChange,
+    },
+    line: lead.source === 'review' ? finding.line : null,
+    startLine: lead.source === 'review' ? finding.startLine : null,
+  }));
 }
 
 function toReply(comment: GitHubComment, body: string): Reply {

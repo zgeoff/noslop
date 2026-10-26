@@ -6,6 +6,8 @@ import type {
   ReviewResult,
 } from '@noslop/contract';
 import { match } from 'ts-pattern';
+import type { FindingPost } from './build-finding-posts';
+import { buildFindingPosts } from './build-finding-posts';
 import { buildFixConfirmations } from './build-fix-confirmations';
 import { buildMergeLists } from './build-merge-lists';
 import { buildReviewedChange } from './build-reviewed-change';
@@ -28,7 +30,7 @@ import { readPullRequestState } from './read-pull-request-state';
 import { readThreadDispositions } from './read-thread-dispositions';
 import { runGitHubCheck } from './run-github-check';
 import type { SummaryMarker } from './summary-marker';
-import { withServerErrorRetry } from './with-server-error-retry';
+import { withWriteRetry } from './with-write-retry';
 
 export interface GitHubReporterOptions {
   loadConnection: () => Promise<GitHubConnection>;
@@ -117,22 +119,36 @@ async function runReviewPost(
   const followUps = plan.followUps;
   const rewritten = plan.inline.filter((finding) => finding.anchorCommit !== undefined);
   const inline = plan.inline.filter((finding) => finding.anchorCommit === undefined);
+  const write = makePacedWrite(connection);
 
-  const unanchored = await createReviewComments(client, pr, result.head, inline);
+  const unanchored = await createReviewComments(
+    connection,
+    write,
+    { pr, head: result.head },
+    buildFindingPosts(inline, result.head),
+  );
 
-  for (const finding of unanchored) {
-    await createIssueComment(client, pr, formatUnanchoredComment(finding, result.head));
+  for (const post of unanchored) {
+    await write(() =>
+      withWriteRetry('unanchored finding comment', 'once', connection.sleep, () =>
+        createIssueComment(client, pr, formatUnanchoredComment(post, result.head)),
+      ),
+    );
   }
 
   for (const finding of rewritten) {
-    await createIssueComment(client, pr, formatRewrittenComment(finding, result.head));
+    await write(() =>
+      withWriteRetry('rewritten finding comment', 'once', connection.sleep, () =>
+        createIssueComment(client, pr, formatRewrittenComment(finding, result.head)),
+      ),
+    );
   }
 
   const unfiled =
     followUps.length === 0 ? [] : await loadUnfiledFollowUps(connection, pr, followUps);
 
   for (const finding of unfiled) {
-    await createFollowUpIssue(client, pr, finding);
+    await write(() => createFollowUpIssue(connection, pr, finding));
   }
 
   const confirmations = buildFixConfirmations({
@@ -230,27 +246,59 @@ async function runCheck(
   });
 }
 
+type PacedWrite = (send: () => Promise<void>) => Promise<void>;
+
+// GitHub asks for a second between the writes that create content, and refuses a burst of them
+// with a secondary limit
+const WRITE_GAP_MS = 1000;
+
+function makePacedWrite(connection: GitHubConnection): PacedWrite {
+  let hasWritten = false;
+
+  return async (send) => {
+    if (hasWritten) {
+      await connection.sleep(WRITE_GAP_MS);
+    }
+
+    hasWritten = true;
+
+    await send();
+  };
+}
+
+interface ReviewTarget {
+  pr: PullRequestRef;
+  head: string;
+}
+
 // GitHub refuses the whole review when one comment's line is outside the diff, so on that refusal
 // each comment is posted alone.
 async function createReviewComments(
-  client: GitHubClient,
-  pr: PullRequestRef,
-  head: string,
-  findings: readonly Finding[],
-): Promise<Finding[]> {
-  if (findings.length === 0) {
+  connection: GitHubConnection,
+  write: PacedWrite,
+  target: ReviewTarget,
+  posts: readonly FindingPost[],
+): Promise<FindingPost[]> {
+  const pr = target.pr;
+  const head = target.head;
+
+  if (posts.length === 0) {
     return [];
   }
 
   try {
-    await client.request('POST /repos/{owner}/{repo}/pulls/{pull_number}/reviews', {
-      owner: pr.owner,
-      repo: pr.repo,
-      pull_number: pr.number,
-      commit_id: head,
-      event: 'COMMENT',
-      comments: findings.map((finding) => toReviewComment(finding, head)),
-    });
+    await write(() =>
+      withWriteRetry('review', 'once', connection.sleep, () =>
+        connection.client.request('POST /repos/{owner}/{repo}/pulls/{pull_number}/reviews', {
+          owner: pr.owner,
+          repo: pr.repo,
+          pull_number: pr.number,
+          commit_id: head,
+          event: 'COMMENT',
+          comments: posts.map((post) => toReviewComment(post, head)),
+        }),
+      ),
+    );
 
     return [];
   } catch (error) {
@@ -259,38 +307,43 @@ async function createReviewComments(
     }
   }
 
-  const refused: Finding[] = [];
+  const refused: FindingPost[] = [];
 
-  for (const finding of findings) {
+  for (const post of posts) {
     try {
-      await client.request('POST /repos/{owner}/{repo}/pulls/{pull_number}/comments', {
-        owner: pr.owner,
-        repo: pr.repo,
-        pull_number: pr.number,
-        commit_id: head,
-        ...toReviewComment(finding, head),
-      });
+      await write(() =>
+        withWriteRetry('finding comment', 'once', connection.sleep, () =>
+          connection.client.request('POST /repos/{owner}/{repo}/pulls/{pull_number}/comments', {
+            owner: pr.owner,
+            repo: pr.repo,
+            pull_number: pr.number,
+            commit_id: head,
+            ...toReviewComment(post, head),
+          }),
+        ),
+      );
     } catch (error) {
       if (!isUnprocessable(error)) {
         throw error;
       }
 
-      refused.push(finding);
+      refused.push(post);
     }
   }
 
   return refused;
 }
 
-function toReviewComment(finding: Finding, head: string) {
-  const range = finding.anchor.startLine < finding.anchor.endLine;
+function toReviewComment(post: FindingPost, head: string) {
+  const anchor = post.lead.anchor;
+  const range = anchor.startLine < anchor.endLine;
 
   return {
-    path: finding.anchor.path,
-    line: finding.anchor.endLine,
+    path: anchor.path,
+    line: anchor.endLine,
     side: 'RIGHT' as const,
-    body: formatFindingComment(finding, head),
-    ...(range ? { start_line: finding.anchor.startLine, start_side: 'RIGHT' as const } : {}),
+    body: formatFindingComment(post.lead, head, post.folded),
+    ...(range ? { start_line: anchor.startLine, start_side: 'RIGHT' as const } : {}),
   };
 }
 
@@ -311,13 +364,14 @@ async function createIssueComment(
   });
 }
 
-function formatUnanchoredComment(finding: Finding, head: string): string {
+function formatUnanchoredComment(post: FindingPost, head: string): string {
+  const finding = post.lead;
   const anchor = `\`${finding.anchor.path}:${finding.anchor.startLine}-${finding.anchor.endLine}\``;
 
   return [
     `GitHub cannot anchor this finding at ${anchor}, outside the diff. Answer it in a comment that starts with its id, \`${finding.id}\`.`,
     '',
-    formatFindingComment(finding, head),
+    formatFindingComment(finding, head, post.folded),
   ].join('\n');
 }
 
@@ -354,24 +408,26 @@ async function loadUnfiledFollowUps(
 }
 
 async function createFollowUpIssue(
-  client: GitHubClient,
+  connection: GitHubConnection,
   pr: PullRequestRef,
   finding: Finding,
 ): Promise<void> {
-  await client.request('POST /repos/{owner}/{repo}/issues', {
-    owner: pr.owner,
-    repo: pr.repo,
-    title: finding.title,
-    body: [
-      `noslop found this in #${pr.number} after its one re-check, in code the pull request did not write.`,
-      '',
-      `At \`${finding.anchor.path}:${finding.anchor.startLine}-${finding.anchor.endLine}\`, ${finding.severity} ${finding.verdict}.`,
-      '',
-      finding.body,
-      '',
-      formatMarker('follow-up', { id: finding.id, pullRequest: pr.number }),
-    ].join('\n'),
-  });
+  await withWriteRetry('follow-up issue', 'once', connection.sleep, () =>
+    connection.client.request('POST /repos/{owner}/{repo}/issues', {
+      owner: pr.owner,
+      repo: pr.repo,
+      title: finding.title,
+      body: [
+        `noslop found this in #${pr.number} after its one re-check, in code the pull request did not write.`,
+        '',
+        `At \`${finding.anchor.path}:${finding.anchor.startLine}-${finding.anchor.endLine}\`, ${finding.severity} ${finding.verdict}.`,
+        '',
+        finding.body,
+        '',
+        formatMarker('follow-up', { id: finding.id, pullRequest: pr.number }),
+      ].join('\n'),
+    }),
+  );
 }
 
 async function updateFixedComments(
@@ -380,12 +436,20 @@ async function updateFixedComments(
   threads: readonly FindingThread[],
   confirmations: readonly FixConfirmation[],
 ): Promise<void> {
+  const findFix = (thread: FindingThread) =>
+    confirmations.find((item) => item.id === thread.marker.id && item.status === 'fixed');
+
   for (const thread of threads) {
-    const confirmation = confirmations.find(
-      (item) => item.id === thread.marker.id && item.status === 'fixed',
+    const shared = threads.filter(
+      (other) => other.source === thread.source && other.commentID === thread.commentID,
     );
 
-    const commit = confirmation?.commit ?? null;
+    if (shared[0] !== thread) {
+      continue;
+    }
+
+    const isFixed = shared.every((other) => findFix(other) !== undefined);
+    const commit = isFixed ? (findFix(thread)?.commit ?? null) : null;
     const body = formatFixedFindingComment(thread.body, thread.marker, commit);
 
     if (body === thread.body) {
@@ -394,7 +458,7 @@ async function updateFixedComments(
 
     const params = { owner: pr.owner, repo: pr.repo, comment_id: thread.commentID, body };
 
-    await withServerErrorRetry('edit of a finding comment', connection.sleep, () =>
+    await withWriteRetry('edit of a finding comment', 'repeatable', connection.sleep, () =>
       thread.source === 'review'
         ? connection.client.request(
             'PATCH /repos/{owner}/{repo}/pulls/comments/{comment_id}',
@@ -489,7 +553,7 @@ async function writeSummaryComment(
 ): Promise<void> {
   const summary = before.summary;
 
-  await withServerErrorRetry('summary comment', connection.sleep, () =>
+  await withWriteRetry('summary comment', 'repeatable', connection.sleep, () =>
     summary === null
       ? createIssueComment(connection.client, pr, body)
       : connection.client.request('PATCH /repos/{owner}/{repo}/issues/comments/{comment_id}', {

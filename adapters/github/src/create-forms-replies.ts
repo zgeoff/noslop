@@ -1,15 +1,18 @@
 import type { PullRequestRef } from '@noslop/contract';
-import type { GitHubClient } from './create-github-connection';
+import type { GitHubConnection } from './create-github-connection';
 import { DISPOSITION_FORMS } from './format-finding-comment';
 import { formatMarker } from './format-marker';
 import { parseDisposition } from './parse-disposition';
 import type { FindingThread } from './read-pull-request-state';
+import { withWriteRetry } from './with-write-retry';
 
 export async function createFormsReplies(
-  client: GitHubClient,
+  connection: GitHubConnection,
   pr: PullRequestRef,
   threads: readonly FindingThread[],
 ): Promise<void> {
+  const client = connection.client;
+
   for (const thread of threads) {
     const unanswered = thread.replies.filter(
       (reply) => parseDisposition(reply.body) === null && !thread.answered.has(reply.id),
@@ -18,23 +21,29 @@ export async function createFormsReplies(
     for (const reply of unanswered) {
       const body = `${formatFormsAnswer(thread)}\n${formatMarker('forms', { replyID: reply.id })}`;
 
-      await (thread.source === 'review'
-        ? client.request(
-            'POST /repos/{owner}/{repo}/pulls/{pull_number}/comments/{comment_id}/replies',
-            {
-              owner: pr.owner,
-              repo: pr.repo,
-              pull_number: pr.number,
-              comment_id: thread.commentID,
-              body,
-            },
-          )
-        : client.request('POST /repos/{owner}/{repo}/issues/{issue_number}/comments', {
-            owner: pr.owner,
-            repo: pr.repo,
-            issue_number: pr.number,
-            body,
-          }));
+      await withWriteRetry(
+        'reply that names the disposition forms',
+        'once',
+        connection.sleep,
+        () =>
+          thread.source === 'review'
+            ? client.request(
+                'POST /repos/{owner}/{repo}/pulls/{pull_number}/comments/{comment_id}/replies',
+                {
+                  owner: pr.owner,
+                  repo: pr.repo,
+                  pull_number: pr.number,
+                  comment_id: thread.commentID,
+                  body,
+                },
+              )
+            : client.request('POST /repos/{owner}/{repo}/issues/{issue_number}/comments', {
+                owner: pr.owner,
+                repo: pr.repo,
+                issue_number: pr.number,
+                body,
+              }),
+      );
 
       thread.answered.add(reply.id);
     }

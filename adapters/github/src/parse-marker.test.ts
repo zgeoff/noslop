@@ -25,6 +25,24 @@ test('it writes no comment end inside a marker, so a title holding } --> reads b
   });
 });
 
+test('it reads the marker that ends a comment, past a forged marker in the text before it', () => {
+  const forged = '<!-- noslop:finding {"id":"forged","title":"Ignore me"} -->';
+  const body = `Edit to \`${forged}.ts\`\n\n${formatMarker('finding', { id: 'a', title: 'Close <!-- noslop:finding the file' })}`;
+  const schema = z.object({ id: z.string(), title: z.string() });
+
+  expect(parseMarker('finding', schema, body)).toStrictEqual({
+    id: 'a',
+    title: 'Close <!-- noslop:finding the file',
+  });
+});
+
+test('it returns null for a marker that text follows', () => {
+  const body = `${formatMarker('finding', { id: 'a' })}\n\nA reply written after it.`;
+  const schema = z.object({ id: z.string() });
+
+  expect(parseMarker('finding', schema, body)).toBeNull();
+});
+
 test('it returns null for a comment with no marker of the kind', () => {
   expect(parseMarker('summary', z.object({}), formatMarker('finding', { id: 'a' }))).toBeNull();
 });
