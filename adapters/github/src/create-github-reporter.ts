@@ -119,30 +119,37 @@ async function runReviewPost(
   const followUps = plan.followUps;
   const rewritten = plan.inline.filter((finding) => finding.anchorCommit !== undefined);
   const inline = plan.inline.filter((finding) => finding.anchorCommit === undefined);
+  const write = makePacedWrite(connection);
 
   const unanchored = await createReviewComments(
     connection,
-    pr,
-    result.head,
+    write,
+    { pr, head: result.head },
     buildFindingPosts(inline, result.head),
   );
 
-  await writeEach(connection, unanchored, (post) =>
-    withWriteRetry('unanchored finding comment', 'once', connection.sleep, () =>
-      createIssueComment(client, pr, formatUnanchoredComment(post, result.head)),
-    ),
-  );
+  for (const post of unanchored) {
+    await write(() =>
+      withWriteRetry('unanchored finding comment', 'once', connection.sleep, () =>
+        createIssueComment(client, pr, formatUnanchoredComment(post, result.head)),
+      ),
+    );
+  }
 
-  await writeEach(connection, rewritten, (finding) =>
-    withWriteRetry('rewritten finding comment', 'once', connection.sleep, () =>
-      createIssueComment(client, pr, formatRewrittenComment(finding, result.head)),
-    ),
-  );
+  for (const finding of rewritten) {
+    await write(() =>
+      withWriteRetry('rewritten finding comment', 'once', connection.sleep, () =>
+        createIssueComment(client, pr, formatRewrittenComment(finding, result.head)),
+      ),
+    );
+  }
 
   const unfiled =
     followUps.length === 0 ? [] : await loadUnfiledFollowUps(connection, pr, followUps);
 
-  await writeEach(connection, unfiled, (finding) => createFollowUpIssue(connection, pr, finding));
+  for (const finding of unfiled) {
+    await write(() => createFollowUpIssue(connection, pr, finding));
+  }
 
   const confirmations = buildFixConfirmations({
     findings: before.threads.map((thread) => thread.marker),
@@ -239,28 +246,58 @@ async function runCheck(
   });
 }
 
+type PacedWrite = (send: () => Promise<void>) => Promise<void>;
+
+// GitHub asks for a second between the writes that create content, and refuses a burst of them
+// with a secondary limit
+const WRITE_GAP_MS = 1000;
+
+function makePacedWrite(connection: GitHubConnection): PacedWrite {
+  let hasWritten = false;
+
+  return async (send) => {
+    if (hasWritten) {
+      await connection.sleep(WRITE_GAP_MS);
+    }
+
+    hasWritten = true;
+
+    await send();
+  };
+}
+
+interface ReviewTarget {
+  pr: PullRequestRef;
+  head: string;
+}
+
 // GitHub refuses the whole review when one comment's line is outside the diff, so on that refusal
 // each comment is posted alone.
 async function createReviewComments(
   connection: GitHubConnection,
-  pr: PullRequestRef,
-  head: string,
+  write: PacedWrite,
+  target: ReviewTarget,
   posts: readonly FindingPost[],
 ): Promise<FindingPost[]> {
+  const pr = target.pr;
+  const head = target.head;
+
   if (posts.length === 0) {
     return [];
   }
 
   try {
-    await withWriteRetry('review', 'once', connection.sleep, () =>
-      connection.client.request('POST /repos/{owner}/{repo}/pulls/{pull_number}/reviews', {
-        owner: pr.owner,
-        repo: pr.repo,
-        pull_number: pr.number,
-        commit_id: head,
-        event: 'COMMENT',
-        comments: posts.map((post) => toReviewComment(post, head)),
-      }),
+    await write(() =>
+      withWriteRetry('review', 'once', connection.sleep, () =>
+        connection.client.request('POST /repos/{owner}/{repo}/pulls/{pull_number}/reviews', {
+          owner: pr.owner,
+          repo: pr.repo,
+          pull_number: pr.number,
+          commit_id: head,
+          event: 'COMMENT',
+          comments: posts.map((post) => toReviewComment(post, head)),
+        }),
+      ),
     );
 
     return [];
@@ -272,16 +309,18 @@ async function createReviewComments(
 
   const refused: FindingPost[] = [];
 
-  await writeEach(connection, posts, async (post) => {
+  for (const post of posts) {
     try {
-      await withWriteRetry('finding comment', 'once', connection.sleep, () =>
-        connection.client.request('POST /repos/{owner}/{repo}/pulls/{pull_number}/comments', {
-          owner: pr.owner,
-          repo: pr.repo,
-          pull_number: pr.number,
-          commit_id: head,
-          ...toReviewComment(post, head),
-        }),
+      await write(() =>
+        withWriteRetry('finding comment', 'once', connection.sleep, () =>
+          connection.client.request('POST /repos/{owner}/{repo}/pulls/{pull_number}/comments', {
+            owner: pr.owner,
+            repo: pr.repo,
+            pull_number: pr.number,
+            commit_id: head,
+            ...toReviewComment(post, head),
+          }),
+        ),
       );
     } catch (error) {
       if (!isUnprocessable(error)) {
@@ -290,7 +329,7 @@ async function createReviewComments(
 
       refused.push(post);
     }
-  });
+  }
 
   return refused;
 }
@@ -310,24 +349,6 @@ function toReviewComment(post: FindingPost, head: string) {
 
 function isUnprocessable(error: unknown): boolean {
   return typeof error === 'object' && error !== null && 'status' in error && error.status === 422;
-}
-
-// GitHub asks for a second between the writes that create content, and refuses a burst of them
-// with a secondary limit
-const WRITE_GAP_MS = 1000;
-
-async function writeEach<Item>(
-  connection: GitHubConnection,
-  items: readonly Item[],
-  write: (item: Item) => Promise<void>,
-): Promise<void> {
-  for (const [index, item] of items.entries()) {
-    if (index > 0) {
-      await connection.sleep(WRITE_GAP_MS);
-    }
-
-    await write(item);
-  }
 }
 
 async function createIssueComment(

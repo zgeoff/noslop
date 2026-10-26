@@ -2324,6 +2324,43 @@ test('it clears the rejected merges on a lens review', async () => {
   expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('success');
 });
 
+test('it waits a second between the review and a rewritten finding comment after it', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'c'.repeat(40),
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/a.ts',
+    lines: [1],
+  });
+
+  const result = buildMockReviewResult({
+    pullRequest: { owner: 'example', repo: 'app', number: 5 },
+    head: 'c'.repeat(40),
+    findings: [
+      buildMockFinding({ id: '1111111111111111' }),
+      buildMockFinding({
+        id: '2222222222222222',
+        title: 'Close the consumer',
+        anchorCommit: 'e'.repeat(40),
+      }),
+    ],
+  });
+
+  await ctx.reporter.report(result, { logger: ctx.logger, options: {}, failedReporters: [] });
+
+  expect(githubCollections.reviewComments.all()).toHaveLength(1);
+  expect(ctx.sleep.mock.calls).toStrictEqual([[1000]]);
+});
+
 test('it posts a finding whose lines a later commit rewrote as an issue comment that names its commit and lines', async () => {
   const ctx = setupTest();
 
