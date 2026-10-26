@@ -18,6 +18,7 @@ export const listedFindingSchema = z.strictObject({
   state: findingStateSchema,
   author: z.string().nullable(),
   reason: z.string().nullable(),
+  unjudged: z.boolean(),
 });
 
 export type ListedFinding = z.infer<typeof listedFindingSchema>;

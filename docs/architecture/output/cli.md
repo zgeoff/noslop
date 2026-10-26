@@ -133,12 +133,16 @@ check share one set of rules for an answer, under [dispositions](./github-app.md
 - A `fixed` answer holds once a fix check confirmed it, and stays `open` while the latest review
   still reports the finding. A `fixed <commit>` answer whose commit the pull request's head holds
   and the latest review's head does not stays `open` until a fix check confirms it, because no
-  review has read the fix.
+  review has read the fix. A `fixed` answer whose fix the latest fix check could not judge, such as
+  one whose code passes the file limit, stays `open` and unjudged.
 - An `accepted-risk` answer holds only when its author has admin permission on the repo.
 
 A finding with no answer is `open`. With `--json`, the list follows the finding list schema in the
-contract package, and each finding holds the reason the check refuses its answer, or null when the
-check accepts it. The command trusts the App's comments as [checking read-only](#checking-read-only)
+contract package. Each finding holds the reason the check refuses its answer, or null when the check
+accepts it, and `unjudged`, which is true only for an open `fixed` answer that the fix check could
+not judge. The reason of an unjudged answer says why the fix check could not judge it, so a caller
+can give that reason when it asks for an override. The text list prints the reason after each
+unjudged finding. The command trusts the App's comments as [checking read-only](#checking-read-only)
 trusts them, and it writes nothing to GitHub. It exits 1 and lists nothing when a finding comment of
 the App holds a marker noslop cannot read, because a list without that finding would show the gate
 one open finding too few.

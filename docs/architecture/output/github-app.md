@@ -123,10 +123,11 @@ what the check needs to judge a disposition without the review result: the id, t
 severity, risk class, and whether the change wrote the code. The summary marker holds the reviewed
 head and the base of its range, the number of reviews so far, the ids that review reported, its
 count of failed calls, the files it left out of every call or of some lenses' calls, the filed
-follow-ups, the confirmed fixes, the ids of the reviews it counted, and when the review it shows
-started. A retried post of a review that started before that review, such as one that failed at the
-summary write, leaves the summary in place and only sets the check again. A forms marker, on the
-App's answer to a free-text reply, holds the id of the reply it answered.
+follow-ups, the confirmed fixes, the fixes no fix check could judge with each reason, the ids of the
+reviews it counted, and when the review it shows started. A retried post of a review that started
+before that review, such as one that failed at the summary write, leaves the summary in place and
+only sets the check again. A forms marker, on the App's answer to a free-text reply, holds the id of
+the reply it answered.
 
 Only a comment by the App's own login holds state. The adapter reads that login from GitHub's
 endpoint for the authenticated App when it connects, and treats a comment by anyone else, other bots
@@ -167,7 +168,9 @@ kind is valid under its own rule:
 - `fixed`, or `fixed <commit>` with the sha as a hint, is valid once a fix check judged the finding
   fixed at the head, and no later review reports the finding again. A `fixed <commit>` answer whose
   commit the pull request's head holds and the latest review's head does not stays invalid until a
-  fix check confirms it, and the check names the commit that no fix check has read.
+  fix check confirms it, and the check names the commit that no fix check has read. A `fixed` answer
+  whose fix the latest fix check could not judge stays invalid, and the check gives the reason the
+  fix check could not judge it.
 - `not-a-defect <reason>` is valid with any reason.
 - `deferred <issue>` is valid when the change did not write the code, the finding is no P1, security
   or risk-class finding, and the issue exists. The issue is `#<number>` in the same repo,
@@ -216,7 +219,9 @@ The summary marker keeps each fix a fix check judged fixed, as the finding id an
 answer names. A confirmed fix holds across later reviews, with no new check, until a review reports
 the finding again. A later `fixed` answer that names another commit is a new answer, so it waits for
 a check of its own. A fix check that judges a finding not fixed, or that fails, leaves the answer
-open, and the summary shows the reason.
+open, and the summary shows the reason. The summary marker keeps each fix that the latest fix check
+could not judge, as the finding id, the commit its answer names and the reason, so the check run and
+the [findings list](./cli.md#listing-the-findings) give that reason.
 
 A `fixed` reply posted after the last review gets no fix check from the check job that the reply
 queues, because that job reads only what GitHub holds. The fix waits for the next run that runs fix
