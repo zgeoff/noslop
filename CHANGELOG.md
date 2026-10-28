@@ -2,10 +2,11 @@
 
 ## [0.4.23](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.22...@noslop/cli@0.4.23) (2026-10-28)
 
-
 ### Bug Fixes
 
-* **github:** fold like findings and post the check through rate limits ([#152](https://github.com/zgeoff/noslop/issues/152)) ([8a60842](https://github.com/zgeoff/noslop/commit/8a608423f7afd0d148257b464b02c9835a24af7a))
+- **github:** fold like findings and post the check through rate limits
+  ([#152](https://github.com/zgeoff/noslop/issues/152))
+  ([8a60842](https://github.com/zgeoff/noslop/commit/8a608423f7afd0d148257b464b02c9835a24af7a))
 
 ## [0.4.22](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.21...@noslop/cli@0.4.22) (2026-10-26)
 
