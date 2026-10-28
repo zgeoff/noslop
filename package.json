@@ -56,6 +56,8 @@
     "check:local-paths": "bun scripts/run-local-paths-check.ts",
     "check:test-timeouts": "bun scripts/run-test-timeouts-check.ts",
     "check:workflows": "bun scripts/run-workflows-check.ts",
+    "ci:pick-release-ship": "bun scripts/release/pick-release-ship.ts",
+    "ci:publish-cli": "bun scripts/release/publish-cli.ts apps/cli/dist",
     "memory-capped": "bash scripts/run-memory-capped.sh \"$(bun scripts/read-memory-budget.ts)\""
   },
   "devDependencies": {

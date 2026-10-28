@@ -1,14 +1,15 @@
 # Runs the shared Bun checks on every push to main, with the script list that
 # the BUN_CHECK_SCRIPTS repo variable sets for pull requests, then releases
-# @noslop/cli with release-please and publishes it to npm.
+# @noslop/cli through the shared release-please job and publishes it to npm.
 name: main
 
 on:
   push:
     branches: [main]
-  # Recovery path for a release that tagged but failed to publish: skips the
-  # release-please steps and publishes the CLI at the dispatched ref. A version
-  # npm holds already is skipped.
+  # Publishes the CLI at the dispatched ref once its checks pass: the run that
+  # dispatch-release starts at a tag, and the recovery path for a release that
+  # tagged but failed to publish. It skips the release job, and a version npm
+  # holds already is skipped.
   workflow_dispatch:
 
 permissions:
@@ -32,15 +33,21 @@ jobs:
       # the pull request that landed the commits already scanned them
       gitleaks: false
 
+  # A release takes two runs of the release job, through the shared
+  # release-please job in zgeoff/tools (docs/runbooks/releasing.md):
+  # - after a releasable commit lands on main, release-please opens or updates
+  #   the release PR, and the shared job's sync command repairs its lockfile
+  #   and formatting. A maintainer merges the PR by hand, so merge stays off.
+  # - the run of that merge's push tags the release, and publish-release ships
+  #   the CLI to npm through OIDC once the run's checks pass.
+  #
+  # The release job waits for no checks: the release PR passed its own, and
+  # the tag must land while the merge commit is still main's head, as the
+  # release App's token cannot tag a commit behind a workflow change. The
+  # release waits for its one-time setup, which the RELEASE_ENABLED repo
+  # variable marks done.
   release:
-    needs: checks
-    # The release waits for its one-time setup: the first publish from a
-    # maintainer's machine, npm's trusted publisher, and Actions leave to open
-    # pull requests. The RELEASE_ENABLED repo variable marks it done.
-    if: vars.RELEASE_ENABLED == 'true'
-    runs-on: ubuntu-latest
-    # A cancelled run could stop a publish halfway, so release runs queue
-    # instead; queue: max keeps a waiting publish dispatch from being replaced.
+    if: github.event_name == 'push' && vars.RELEASE_ENABLED == 'true'
     concurrency:
       group: release
       cancel-in-progress: false
@@ -48,115 +55,98 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-      id-token: write
-      # Dispatches the publish run at the release tag.
-      actions: write
-    env:
-      # bun install's prepare script installs git hooks that would reject this
-      # job's bot pushes.
-      LEFTHOOK: '0'
+    uses: zgeoff/tools/.github/workflows/release-please.yml@sync-v29
+    with:
+      app-id: ${{ vars.RELEASE_APP_ID }}
+      merge: false
+      # release-please names the branch after the root package's component
+      release-branch: release-please--branches--main--components--@noslop/cli
+    secrets:
+      app-private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
+  # Picks whether this run publishes, dispatches a run at its tag, or ships
+  # nothing. It runs after a failed or skipped need too, since a tag whose
+  # checks a newer push cancelled still needs its dispatch.
+  pick-release-ship:
+    needs: [checks, release]
+    if: ${{ !cancelled() && vars.RELEASE_ENABLED == 'true' }}
+    concurrency:
+      group: pick-release-ship
+      cancel-in-progress: false
+      queue: max
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      ship: ${{ steps.pick.outputs.ship }}
     steps:
-      # A release takes two runs of this job. Run 1, after a releasable commit
-      # lands on main: release-please opens or updates the release PR. Run 2,
-      # after that PR merges: release-please tags the release, and the publish
-      # steps ship the CLI to npm through OIDC.
-      #
-      # GITHUB_TOKEN events start no workflow, so a release PR made with it gets
-      # no checks. With a GitHub App configured, its token makes the PR a normal
-      # one. Either way the release PR is merged by hand.
-      - name: Mint GitHub App token
-        id: app-token
-        if: github.event_name == 'push' && vars.RELEASE_APP_ID != ''
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          client-id: ${{ vars.RELEASE_APP_ID }}
-          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
-
-      - name: Run release-please
-        id: release
-        if: github.event_name == 'push'
-        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
-        with:
-          token: ${{ steps.app-token.outputs.token || github.token }}
-
-      # The release PR bumps a version that bun.lock records too, and writes
-      # files oxfmt would reformat; repair both so the PR passes the checks.
-      - name: Check out release PR
-        if: steps.release.outputs.prs_created == 'true'
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          # release-please names the branch after the component, so the
-          # ref comes from the PR it opened or updated.
-          ref: ${{ fromJSON(steps.release.outputs.pr).headBranchName }}
-          token: ${{ steps.app-token.outputs.token || github.token }}
-      - name: Set up bun
-        if: steps.release.outputs.prs_created == 'true'
-        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version-file: .bun-version
-      - name: Sync lockfile and formatting on release PR
-        if: steps.release.outputs.prs_created == 'true'
-        run: |
-          bun install
-          bun run format
-          if ! git diff --quiet; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git commit -am "chore: sync lockfile and format release files"
-            git push
-          fi
-
-      # npm provenance names GITHUB_SHA as the source commit. A run that waited
-      # in the release queue can find the release tagged on a later commit than
-      # its own, so it publishes only when it is the tagged commit; otherwise it
-      # dispatches a publish run at the tag.
-      - name: Resolve release commit
-        id: release-commit
-        if: steps.release.outputs.releases_created == 'true'
+      - name: Pick the release ship
+        id: pick
         env:
-          SHA: ${{ steps.release.outputs.sha }}
-          TAG: ${{ steps.release.outputs.tag_name }}
-        run: |
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          if [ "$SHA" = "$GITHUB_SHA" ]; then echo "here=true"; else echo "here=false"; fi >> "$GITHUB_OUTPUT"
-      - name: Dispatch publish at the release tag
-        if: steps.release-commit.outputs.here == 'false'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ steps.release-commit.outputs.tag }}
-        run: |
-          echo "$TAG is not this run's commit ($GITHUB_SHA); publishing from a run at the tag"
-          gh workflow run main.yml --repo "$GITHUB_REPOSITORY" --ref "$TAG"
+          RELEASES_CREATED: ${{ needs.release.outputs.releases_created }}
+          RELEASE_OUTPUTS: ${{ needs.release.outputs.release-outputs }}
+          CHECKS_RESULT: ${{ needs.checks.result }}
+        run: bun run --silent ci:pick-release-ship
 
+  # A cancelled run could stop a publish halfway, so publish runs queue
+  # instead; queue: max keeps a waiting publish from being replaced.
+  publish-release:
+    needs: [pick-release-ship]
+    if: ${{ !cancelled() && needs.pick-release-ship.outputs.ship == 'here' }}
+    concurrency:
+      group: publish-release
+      cancel-in-progress: false
+      queue: max
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      # npm's trusted publishing takes the job's OIDC token, so no npm token
+      # exists anywhere in this repository
+      id-token: write
+    steps:
       - name: Check out the release
-        if: steps.release-commit.outputs.here == 'true' || github.event_name == 'workflow_dispatch'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Set up bun for publish
-        if: steps.release-commit.outputs.here == 'true' || github.event_name == 'workflow_dispatch'
+        with:
+          persist-credentials: false
+      - name: Set up bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version-file: .bun-version
-      # npm publishes, not bun: trusted publishing (OIDC) needs npm 11.5.1 or
-      # later, which node 24 bundles, and bun publish has no OIDC support
-      # (oven-sh/bun#15601).
+      # Trusted publishing needs npm 11.5.1 or later, which node 24 bundles.
       - name: Set up node
-        if: steps.release-commit.outputs.here == 'true' || github.event_name == 'workflow_dispatch'
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: 24
       - name: Install dependencies
-        if: steps.release-commit.outputs.here == 'true' || github.event_name == 'workflow_dispatch'
         run: bun install --frozen-lockfile
+      - name: Build the CLI package
+        run: bun run build:cli
       - name: Publish the CLI
-        if: steps.release-commit.outputs.here == 'true' || github.event_name == 'workflow_dispatch'
-        run: |
-          bun scripts/write-cli-package.ts
-          cd apps/cli/dist
-          name=$(jq -r .name package.json)
-          version=$(jq -r .version package.json)
-          if [ "$(npm view "$name@$version" version 2>/dev/null)" = "$version" ]; then
-            echo "skipping $name@$version: already published"
-            exit 0
-          fi
-          bun pm pack
-          npm publish ./*.tgz --provenance --access public
+        run: bun run --silent ci:publish-cli
+
+  # npm provenance records the run's commit, so the run at the tag checks and
+  # publishes it. A dispatch is the one GITHUB_TOKEN event that starts a
+  # workflow.
+  dispatch-release:
+    needs: [release, pick-release-ship]
+    if: ${{ !cancelled() && needs.pick-release-ship.outputs.ship == 'dispatch' }}
+    concurrency:
+      group: dispatch-release
+      cancel-in-progress: false
+      queue: max
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    steps:
+      - name: Dispatch the publish run at the release tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.release.outputs.tag }}
+        run: gh workflow run main.yml --repo "$GITHUB_REPOSITORY" --ref "$TAG"

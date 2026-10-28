@@ -1,11 +1,13 @@
 # Releasing
 
-release-please and the `main` workflow release `@noslop/cli` to npm: release-please opens a release
-pull request after a releasable commit lands on `main`, and once that pull request merges, it tags
-the release and the workflow publishes the CLI with npm provenance. This runbook holds only the
-steps they do not do: the one-time setup before the first automated release, merging each release
-pull request, and the republish of a release that tagged but failed to publish.
-[The CLI](../architecture/output/cli.md) covers what the published package holds.
+release-please and the `main` workflow release `@noslop/cli` to npm. The workflow's release job
+calls the shared release-please workflow of `zgeoff/tools` at the repo's sync tag, with its merge
+input off. release-please opens a release pull request after a releasable commit lands on `main`.
+The run of that pull request's merge tags the release at once, and once the run's checks pass, the
+workflow publishes the CLI with npm provenance. This runbook holds only the steps they do not do:
+the one-time setup before the first automated release, merging each release pull request, and the
+recoveries a failed release needs. [The CLI](../architecture/output/cli.md) covers what the
+published package holds.
 
 ## One-time setup
 
@@ -55,24 +57,25 @@ first version goes out from a maintainer's machine, and CI publishes every later
 
    Expect `gh variable list --repo zgeoff/noslop` to show `RELEASE_ENABLED` with the value `true`.
 
-6. Push or merge the next commit to `main`. Expect the `main` workflow's release job to run after
-   its checks.
+6. Push or merge the next commit to `main`. Expect the `main` workflow's release job to run.
 
 ## Merge a release pull request
 
 Nothing merges a release pull request on its own, so each release waits for a maintainer.
 
-1. Find the open pull request from the `release-please--branches--main` branch. Its title holds the
-   next version, and its changes bump the version and update the changelog. The release job adds a
-   commit that syncs the lockfile and the formatting when the bump needs one.
+1. Find the open pull request from the `release-please--branches--main--components--@noslop/cli`
+   branch. Its title holds the next version, and its changes bump the version and update the
+   changelog. The release job adds a commit that syncs the lockfile and the formatting when the bump
+   needs one.
 2. Check that the pull request passes the checks. When the `RELEASE_APP_ID` repo variable and the
    `RELEASE_APP_PRIVATE_KEY` secret are set, the pull request runs its checks like any other.
    Without them, release-please opens it with the workflow's own token, which starts no workflow, so
    it shows no checks: check out the branch and run `bun run check` yourself. Expect every script to
    pass.
 3. Merge the pull request.
-4. Expect a new `main` workflow run, whose release job tags `@noslop/cli@<version>` and publishes
-   that version. The workflow log of the publish step ends with npm's publish output.
+4. Expect a new `main` workflow run. Its release job tags `@noslop/cli@<version>`, and once its
+   checks pass, its `publish-release` job publishes that version. The log of the publish step ends
+   with `published @noslop/cli@<version>`.
 5. Check the registry:
 
    ```bash
@@ -81,10 +84,40 @@ Nothing merges a release pull request on its own, so each release waits for a ma
 
    Expect the version you released.
 
-When another merge landed first and the release ran on a later commit than the tag, the release job
-dispatches a separate publish run at the tag. Expect the log line
-`<tag> is not this run's commit (<sha>); publishing from a run at the tag`, then a
-`workflow_dispatch` run of `main` at the tag.
+npm provenance records the commit of the run that publishes. A run publishes only when the tag is on
+its own commit and its checks passed. When another merge landed first, or a newer push cancelled the
+run's checks, the `pick-release-ship` job logs `ship=dispatch`, and the `dispatch-release` job
+starts a `workflow_dispatch` run of `main` at the tag. That run checks the tag and publishes it.
+
+## Recover a release blocked by a workflow change
+
+The release App's token has no Workflows permission, so GitHub refuses it a tag on a merge commit
+that a change to `.github/workflows/` has left behind the head of `main`. The shared job then fails
+before release-please runs, and its error holds the release pull request and the workflow files
+changed since its merge. It fails on every later run until you tag the release with your own token,
+which holds the workflow scope:
+
+1. Read the merge commit of the release pull request:
+
+   ```bash
+   gh pr view <pr number> --repo zgeoff/noslop --json mergeCommit --jq .mergeCommit.oid
+   ```
+
+2. Create the release at that commit, with the version's section of `CHANGELOG.md` as its notes:
+
+   ```bash
+   gh release create '@noslop/cli@<version>' --repo zgeoff/noslop --target <merge commit> --title '@noslop/cli@<version>' --notes-file <notes file>
+   ```
+
+3. Mark the pull request tagged, so release-please stops retrying it:
+
+   ```bash
+   gh pr edit <pr number> --repo zgeoff/noslop --remove-label 'autorelease: pending' --add-label 'autorelease: tagged'
+   ```
+
+4. Publish from the tag with the steps in
+   [Republish a release that failed to publish](#republish-a-release-that-failed-to-publish),
+   starting at step 2. Expect the next run of the release job to pass.
 
 ## Republish a release that failed to publish
 
@@ -104,7 +137,8 @@ the tag:
    gh workflow run main.yml --repo zgeoff/noslop --ref @noslop/cli@<version>
    ```
 
-   The dispatched run skips release-please and publishes the CLI from the tag.
+   The dispatched run skips the release job, and once its checks pass, it publishes the CLI from the
+   tag.
 
 3. Watch the run:
 
