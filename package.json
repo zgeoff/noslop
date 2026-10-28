@@ -27,7 +27,7 @@
       "gunshi": "1.0.0-rc.1",
       "kysely": "0.29.7",
       "msw": "2.15.0",
-      "oxc-parser": "0.154.0",
+      "oxc-parser": "0.155.0",
       "ts-pattern": "5.9.2",
       "zod": "4.6.7"
     }
