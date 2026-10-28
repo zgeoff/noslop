@@ -51,7 +51,12 @@
     "lint:files": "oxlint --no-error-on-unmatched-pattern",
     "test:related": "bun scripts/run-related-tests.ts",
     "build:cli": "bun scripts/write-cli-package.ts",
-    "schema:config": "bun scripts/write-config-schema.ts"
+    "schema:config": "bun scripts/write-config-schema.ts",
+    "check:commits": "bun scripts/run-commits-check.ts",
+    "check:local-paths": "bun scripts/run-local-paths-check.ts",
+    "check:test-timeouts": "bun scripts/run-test-timeouts-check.ts",
+    "check:workflows": "bun scripts/run-workflows-check.ts",
+    "memory-capped": "bash scripts/run-memory-capped.sh \"$(bun scripts/read-memory-budget.ts)\""
   },
   "devDependencies": {
     "@commitlint/cli": "21.2.3",
