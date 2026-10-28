@@ -5,6 +5,12 @@
   // the shared oxlint config loads the plugin, and the synced skill-gate hook in .claude/ imports
   // the package, so knip sees neither
   "ignoreDependencies": ["@stylistic/eslint-plugin", "@zgeoff/skill-gate"],
+  // repo-sync delivers these scripts from zgeoff/tools and overwrites a local edit, and they export
+  // types that only their own file uses
+  "ignoreIssues": {
+    "scripts/parse-shell-words.ts": ["types"],
+    "scripts/shell-escape-parsers.ts": ["types"]
+  },
   "workspaces": {
     // the App server runs the noslop bin of @noslop/cli by its path, which knip cannot see
     "apps/github-app": { "ignoreDependencies": ["@noslop/cli"] }
