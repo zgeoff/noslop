@@ -9,6 +9,7 @@
     "moduleResolution": "bundler",
     "types": ["bun", "@zgeoff/bun-test-extended"],
     "noEmit": true,
+    "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "moduleDetection": "force"
   }
