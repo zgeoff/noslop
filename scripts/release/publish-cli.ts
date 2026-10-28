@@ -1,6 +1,5 @@
 import { join } from 'node:path';
 import type { RunProgram } from '../run-program.ts';
-import { runProgram } from '../run-program.ts';
 
 export interface CLIPublishOptions {
   // The built package, as the CLI package build writes it.
@@ -8,6 +7,7 @@ export interface CLIPublishOptions {
 
   readonly env: Readonly<Record<string, string | undefined>>;
   readonly runProgram: RunProgram;
+  readonly readText: (path: string) => Promise<string>;
 }
 
 export interface CLIPublishResult {
@@ -22,7 +22,7 @@ export interface CLIPublishResult {
 export async function runCLIPublish(
   options: Readonly<CLIPublishOptions>,
 ): Promise<CLIPublishResult> {
-  const manifestText = await Bun.file(join(options.directory, 'package.json')).text();
+  const manifestText = await options.readText(join(options.directory, 'package.json'));
 
   const manifest = parseManifest(manifestText);
   const spec = `${manifest.name}@${manifest.version}`;
@@ -83,32 +83,4 @@ function runChecked(options: Readonly<CLIPublishOptions>, argv: readonly string[
   }
 
   return result;
-}
-
-async function main(): Promise<void> {
-  try {
-    const [directory] = process.argv.slice(2);
-
-    if (directory === undefined) {
-      throw new Error('usage: publish-cli.ts <package directory>');
-    }
-
-    const result = await runCLIPublish({ directory, env: process.env, runProgram });
-
-    const outcome = result.published
-      ? `published ${result.spec}\n`
-      : `skipping ${result.spec}: already published\n`;
-
-    process.stdout.write(result.log + outcome);
-  } catch (error) {
-    process.stderr.write(
-      `publish-cli: ${error instanceof Error ? error.message : String(error)}\n`,
-    );
-
-    process.exit(1);
-  }
-}
-
-if (import.meta.main) {
-  await main();
 }

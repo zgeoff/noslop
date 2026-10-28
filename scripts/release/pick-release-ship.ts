@@ -1,5 +1,3 @@
-import { appendFile } from 'node:fs/promises';
-
 type ReleaseShip = 'here' | 'dispatch' | 'none';
 
 interface ReleaseRun {
@@ -44,36 +42,4 @@ function parseReleaseSHA(releaseOutputs: string): string {
   }
 
   return outputs.sha;
-}
-
-async function main(): Promise<void> {
-  try {
-    const output = process.env['GITHUB_OUTPUT'];
-
-    if (output === undefined) {
-      throw new Error('GITHUB_OUTPUT is unset');
-    }
-
-    const ship = pickReleaseShip({
-      event: process.env['GITHUB_EVENT_NAME'] ?? '',
-      releasesCreated: process.env['RELEASES_CREATED'] ?? '',
-      releaseOutputs: process.env['RELEASE_OUTPUTS'] ?? '',
-      checksResult: process.env['CHECKS_RESULT'] ?? '',
-      sha: process.env['GITHUB_SHA'] ?? '',
-    });
-
-    process.stdout.write(`ship=${ship}\n`);
-
-    await appendFile(output, `ship=${ship}\n`);
-  } catch (error) {
-    process.stderr.write(
-      `pick-release-ship: ${error instanceof Error ? error.message : String(error)}\n`,
-    );
-
-    process.exit(1);
-  }
-}
-
-if (import.meta.main) {
-  await main();
 }

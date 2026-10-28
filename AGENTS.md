@@ -42,8 +42,7 @@ docs/
   reference/       generated reference: the JSON Schema of review.json
   decisions/       numbered decision records
   design/          a design for work not yet built; only the owner opens a design
-scripts/           the CLI package build, the config schema writer, the first publish, the release
-                   ship and publish steps
+scripts/           the CLI package build, the config schema writer, the first publish
 ```
 
 `bun run schema:config` writes `docs/reference/review.schema.json` from the config schema, and a

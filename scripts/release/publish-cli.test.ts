@@ -1,26 +1,8 @@
-import { expect, mock, onTestFinished, test } from 'bun:test';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { expect, mock, test } from 'bun:test';
 import type { ProgramResult, RunProgram } from '../run-program.ts';
 import { runCLIPublish } from './publish-cli';
 
-async function setupTest() {
-  const directory = await mkdtemp(join(tmpdir(), 'noslop-publish-cli-'));
-
-  onTestFinished(() => rm(directory, { recursive: true, force: true }));
-
-  return { directory };
-}
-
 test('it packs and publishes a version npm lacks, with provenance', async () => {
-  const ctx = await setupTest();
-
-  await Bun.write(
-    join(ctx.directory, 'package.json'),
-    JSON.stringify({ name: '@demo/cli', version: '2.0.1' }),
-  );
-
   const answers: Readonly<Record<string, ProgramResult>> = {
     'npm view @demo/cli@2.0.1 version': {
       exitCode: 1,
@@ -40,10 +22,15 @@ test('it packs and publishes a version npm lacks, with provenance', async () => 
       answers[argv.join(' ')] ?? { exitCode: 127, stdout: '', stderr: 'command not found\n' },
   );
 
+  const readText = mock(() =>
+    Promise.resolve(JSON.stringify({ name: '@demo/cli', version: '2.0.1' })),
+  );
+
   const result = await runCLIPublish({
-    directory: ctx.directory,
+    directory: '/work/cli/dist',
     env: { PATH: '/usr/bin' },
     runProgram,
+    readText,
   });
 
   expect(result).toStrictEqual({
@@ -52,27 +39,22 @@ test('it packs and publishes a version npm lacks, with provenance', async () => 
     log: '+ @demo/cli@2.0.1\n',
   });
 
+  expect(readText).toHaveBeenCalledExactlyOnceWith('/work/cli/dist/package.json');
+
   expect(runProgram.mock.calls).toStrictEqual([
     [
       ['npm', 'view', '@demo/cli@2.0.1', 'version'],
-      { cwd: ctx.directory, env: { PATH: '/usr/bin' } },
+      { cwd: '/work/cli/dist', env: { PATH: '/usr/bin' } },
     ],
-    [['bun', 'pm', 'pack', '--quiet'], { cwd: ctx.directory, env: { PATH: '/usr/bin' } }],
+    [['bun', 'pm', 'pack', '--quiet'], { cwd: '/work/cli/dist', env: { PATH: '/usr/bin' } }],
     [
       ['npm', 'publish', './demo-cli-2.0.1.tgz', '--provenance', '--access', 'public'],
-      { cwd: ctx.directory, env: { PATH: '/usr/bin' } },
+      { cwd: '/work/cli/dist', env: { PATH: '/usr/bin' } },
     ],
   ]);
 });
 
 test('it skips a version npm holds already', async () => {
-  const ctx = await setupTest();
-
-  await Bun.write(
-    join(ctx.directory, 'package.json'),
-    JSON.stringify({ name: '@demo/cli', version: '2.0.1' }),
-  );
-
   const answers: Readonly<Record<string, ProgramResult>> = {
     'npm view @demo/cli@2.0.1 version': { exitCode: 0, stdout: '2.0.1\n', stderr: '' },
   };
@@ -83,23 +65,17 @@ test('it skips a version npm holds already', async () => {
   );
 
   const result = await runCLIPublish({
-    directory: ctx.directory,
+    directory: '/work/cli/dist',
     env: { PATH: '/usr/bin' },
     runProgram,
+    readText: () => Promise.resolve(JSON.stringify({ name: '@demo/cli', version: '2.0.1' })),
   });
 
   expect(result).toStrictEqual({ published: false, spec: '@demo/cli@2.0.1', log: '' });
   expect(runProgram).toHaveBeenCalledOnce();
 });
 
-test('it fails with npm stderr when the publish fails', async () => {
-  const ctx = await setupTest();
-
-  await Bun.write(
-    join(ctx.directory, 'package.json'),
-    JSON.stringify({ name: '@demo/cli', version: '2.0.1' }),
-  );
-
+test('it fails with npm stderr when the publish fails', () => {
   const answers: Readonly<Record<string, ProgramResult>> = {
     'npm view @demo/cli@2.0.1 version': {
       exitCode: 1,
@@ -120,18 +96,24 @@ test('it fails with npm stderr when the publish fails', async () => {
   );
 
   expect(
-    runCLIPublish({ directory: ctx.directory, env: { PATH: '/usr/bin' }, runProgram }),
+    runCLIPublish({
+      directory: '/work/cli/dist',
+      env: { PATH: '/usr/bin' },
+      runProgram,
+      readText: () => Promise.resolve(JSON.stringify({ name: '@demo/cli', version: '2.0.1' })),
+    }),
   ).rejects.toThrowWithMessage(Error, /npm publish .* exited with 1: npm error code E403/u);
 });
 
-test('it refuses a package manifest without a version', async () => {
-  const ctx = await setupTest();
-
-  await Bun.write(join(ctx.directory, 'package.json'), JSON.stringify({ name: '@demo/cli' }));
-
-  const runProgram = mock((): ProgramResult => ({ exitCode: 0, stdout: '', stderr: '' }));
+test('it refuses a package manifest without a version', () => {
+  const runProgram = mock<RunProgram>(() => ({ exitCode: 0, stdout: '', stderr: '' }));
 
   expect(
-    runCLIPublish({ directory: ctx.directory, env: { PATH: '/usr/bin' }, runProgram }),
+    runCLIPublish({
+      directory: '/work/cli/dist',
+      env: { PATH: '/usr/bin' },
+      runProgram,
+      readText: () => Promise.resolve(JSON.stringify({ name: '@demo/cli' })),
+    }),
   ).rejects.toThrowWithMessage(Error, /holds no name and version/u);
 });
