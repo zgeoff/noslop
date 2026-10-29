@@ -1,5 +1,6 @@
 import type { PullRequestRef } from '@noslop/contract';
 import { z } from 'zod';
+import { collectAnswerLines } from './collect-answer-lines';
 import type { GitHubConnection } from './create-github-connection';
 import type { FindingMarker } from './finding-marker';
 import { findingMarkerSchema } from './finding-marker';
@@ -184,6 +185,16 @@ export async function readPullRequestState(
       continue;
     }
 
+    const answerLines = collectAnswerLines(body);
+
+    if (answerLines.length > 1) {
+      for (const line of answerLines) {
+        issueReplies.push({ id: line.findingID, reply: toReply(comment, body) });
+      }
+
+      continue;
+    }
+
     const match = /^(?<id>[0-9a-f]{16})\s+(?<reply>.+)$/su.exec(body.trim());
     const id = match?.groups?.['id'];
     const reply = match?.groups?.['reply'];
@@ -196,7 +207,7 @@ export async function readPullRequestState(
   for (const item of issueReplies) {
     const thread = byFindingID.get(item.id);
 
-    if (thread?.source === 'issue') {
+    if (thread?.source === 'issue' && !thread.replies.some((reply) => reply.id === item.reply.id)) {
       thread.replies.push(item.reply);
     }
   }

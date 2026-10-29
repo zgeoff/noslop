@@ -87,10 +87,12 @@ it posts anything.
    is left out posts as one comment when it holds enough findings, because GitHub's secondary limits
    refuse a review that creates hundreds of comments. The comment sits at the first finding's anchor
    and lists the anchor and id of each other finding in a collapsed block. Its marker holds the
-   folded findings, and each of them gets a thread of its own that shares the comment's replies, so
-   one reply answers them all, the check counts each one, and a fix check runs for each. The
-   reporter strikes the comment through only once every fix it holds is confirmed. A class whose
-   comment would pass GitHub's length limit splits into more comments.
+   folded findings, and each of them gets a thread of its own that shares the comment's replies. A
+   reply whose first line is a disposition answers them all, and a reply of one line per finding
+   answers each on its own, as [Dispositions](#dispositions) describes. The check counts each
+   finding, and a fix check runs for each. The reporter strikes the comment through only once every
+   fix it holds is confirmed. A class whose comment would pass GitHub's length limit splits into
+   more comments.
 3. When GitHub refuses the review because a line sits outside the diff, the reporter posts each
    comment on its own. A finding GitHub still refuses goes into an issue comment on the pull request
    that names its anchor. A person answers it with an issue comment that starts with the finding's
@@ -180,6 +182,23 @@ not-a-defect the caller already holds the lock
 deferred #123
 accepted-risk single-tenant deploy; no shared rows
 ```
+
+A reply to a comment that folds several findings gives each finding the disposition on its first
+line, or answers each finding on its own line. In the second form, each of the reply's first lines
+holds a finding's id, a space and a disposition, and the first line without an id ends the answers:
+
+```text
+7d3f1a2b9c4e5f60 fixed 1a2b3c4
+c58e2b7a1f0d4936 not-a-defect the loop starts at the first item
+
+The caller sorts the list before the loop runs.
+```
+
+A finding that the lines leave out takes no disposition from that reply. When one of the lines holds
+no disposition, the whole reply holds none. An issue comment that holds a single line of this form
+answers every finding of the comment that holds the line's id, because an issue comment with one id
+and one disposition is the form a finding outside the diff takes. Two or more lines answer each
+finding on its own.
 
 A reply in any other form is no disposition. Each time noslop sets the check, it answers each such
 reply once with the accepted forms, and the forms marker stops a later run answering it again. Each

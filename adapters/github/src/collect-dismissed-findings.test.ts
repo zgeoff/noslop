@@ -121,3 +121,65 @@ test('it lists a finding outside the diff with no lines and a marker from before
     },
   ]);
 });
+
+test('it lists only the folded finding that a reply of one line per finding answers not-a-defect', () => {
+  const replies = [
+    {
+      id: 42,
+      body: '1111111111111111 fixed 1a2b3c4\n2222222222222222 not-a-defect the caller awaits it',
+      author: 'dev',
+      at: '2026-10-17T10:00:00.000Z',
+    },
+  ];
+
+  expect(
+    collectDismissedFindings([
+      {
+        source: 'review',
+        commentID: 41,
+        body: 'Await the write',
+        marker: {
+          id: '1111111111111111',
+          title: 'Await the write',
+          path: 'src/a.ts',
+          lens: 'correctness',
+          severity: 'P2',
+          riskClass: null,
+          writtenByChange: true,
+        },
+        line: 12,
+        startLine: 12,
+        replies,
+        answered: new Set(),
+      },
+      {
+        source: 'review',
+        commentID: 41,
+        body: 'Await the write',
+        marker: {
+          id: '2222222222222222',
+          title: 'Await the write',
+          path: 'src/b.ts',
+          lens: 'correctness',
+          severity: 'P2',
+          riskClass: null,
+          writtenByChange: true,
+        },
+        line: 4,
+        startLine: 4,
+        replies,
+        answered: new Set(),
+      },
+    ]),
+  ).toStrictEqual([
+    {
+      id: '2222222222222222',
+      path: 'src/b.ts',
+      criterion: null,
+      rule: null,
+      head: null,
+      startLine: 4,
+      endLine: 4,
+    },
+  ]);
+});

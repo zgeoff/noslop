@@ -1957,6 +1957,60 @@ test('it answers a free-text comment on a finding outside the diff once', async 
   expect(answers).toHaveLength(1);
 });
 
+test('it answers once a comment of one line per finding that names findings of two issue comments and holds a line with no disposition', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'b'.repeat(40),
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'b'.repeat(40),
+      findings: [
+        buildMockFinding({ id: '1111111111111111', writtenByChange: false }),
+        buildMockFinding({
+          id: '2222222222222222',
+          title: 'Close the consumer',
+          writtenByChange: false,
+          anchor: { path: 'src/consumer.ts', startLine: 40, endLine: 40 },
+        }),
+      ],
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    authorLogin: 'dev',
+    body: '1111111111111111 not-a-defect The loop starts at the first item.\n2222222222222222 will look later',
+  });
+
+  const connection = await createGitHubConnection({
+    appID: 1,
+    privateKey: buildStubAppKey(),
+    installationID: 7,
+  });
+
+  await runGitHubCheck(
+    connection,
+    { owner: 'example', repo: 'app', number: 5 },
+    { failedReporters: [] },
+  );
+
+  const answers = githubCollections.issueComments.findMany((query) =>
+    query.where({ body: (body) => body.startsWith('That reply is not a disposition.') }),
+  );
+
+  expect(answers).toHaveLength(1);
+});
+
 test('it refuses a result that names no pull request', () => {
   const ctx = setupTest();
 
@@ -3498,6 +3552,133 @@ test('it takes one reply to a folded comment as the answer to each finding it ho
 
   expect(githubCollections.reviewComments.all()).toHaveLength(2);
   expect(outcome.title).toBe('Every finding holds a valid disposition (5)');
+});
+
+test('it leaves open only the folded findings that a reply of one line per finding leaves out', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'b'.repeat(40),
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/a.ts',
+    lines: [1, 2, 3, 4, 5],
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'b'.repeat(40),
+      findings: [1, 2, 3, 4, 5].map((line) =>
+        buildMockFinding({
+          id: `${line}`.repeat(16),
+          anchor: { path: 'src/a.ts', startLine: line, endLine: line },
+        }),
+      ),
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const [thread] = githubCollections.reviewComments.all();
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    body: [
+      '1111111111111111 not-a-defect The loop starts at the first item.',
+      '2222222222222222 not-a-defect The guard runs before the loop.',
+      '3333333333333333 not-a-defect The list holds one item here.',
+      '4444444444444444 not-a-defect The caller sorts the list first.',
+    ].join('\n'),
+    authorLogin: 'dev',
+    inReplyToID: thread?.id ?? null,
+  });
+
+  const connection = await createGitHubConnection({
+    appID: 1,
+    privateKey: buildStubAppKey(),
+    installationID: 7,
+  });
+
+  const outcome = await runGitHubCheck(
+    connection,
+    { owner: 'example', repo: 'app', number: 5 },
+    { failedReporters: [] },
+  );
+
+  expect(githubCollections.reviewComments.all()).toHaveLength(2);
+  expect(outcome.open.map((item) => item.id)).toStrictEqual(['5555555555555555']);
+});
+
+test('it answers once with the accepted forms a reply of one line per finding where one line holds no disposition', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'b'.repeat(40),
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/a.ts',
+    lines: [1, 2, 3, 4, 5],
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'b'.repeat(40),
+      findings: [1, 2, 3, 4, 5].map((line) =>
+        buildMockFinding({
+          id: `${line}`.repeat(16),
+          anchor: { path: 'src/a.ts', startLine: line, endLine: line },
+        }),
+      ),
+    }),
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  const [thread] = githubCollections.reviewComments.all();
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    body: '1111111111111111 not-a-defect The loop starts at the first item.\n2222222222222222 will look later',
+    authorLogin: 'dev',
+    inReplyToID: thread?.id ?? null,
+  });
+
+  const connection = await createGitHubConnection({
+    appID: 1,
+    privateKey: buildStubAppKey(),
+    installationID: 7,
+  });
+
+  const outcome = await runGitHubCheck(
+    connection,
+    { owner: 'example', repo: 'app', number: 5 },
+    { failedReporters: [] },
+  );
+
+  const answers = githubCollections.reviewComments.findMany((query) =>
+    query.where({ body: (body) => body.startsWith('That reply is not a disposition.') }),
+  );
+
+  expect(answers).toHaveLength(1);
+  expect(outcome.open).toHaveLength(5);
 });
 
 test('it leaves a folded comment unstruck while the fix of one finding it holds is unconfirmed', async () => {
