@@ -1,6 +1,6 @@
 import type { Disposition, PullRequestRef } from '@noslop/contract';
 import type { GitHubClient } from './create-github-connection';
-import { parseDisposition } from './parse-disposition';
+import { findReplyDisposition } from './find-reply-disposition';
 import type { FindingThread } from './read-pull-request-state';
 
 export async function readThreadDispositions(
@@ -14,7 +14,7 @@ export async function readThreadDispositions(
 
   for (const thread of threads) {
     for (const reply of thread.replies) {
-      const parsed = parseDisposition(reply.body);
+      const parsed = findReplyDisposition(reply.body, thread.marker.id);
 
       if (parsed === null) {
         continue;

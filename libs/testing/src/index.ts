@@ -1,6 +1,7 @@
 export * from './build-mock-changed-file';
 export * from './build-mock-dropped-finding';
 export * from './build-mock-finding';
+export * from './build-mock-finding-thread';
 export * from './build-mock-review-result';
 export * from './build-mock-risk-signals';
 export * from './build-mock-slices';

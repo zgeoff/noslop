@@ -34,6 +34,34 @@ and [0009](../decisions/0009-the-merge-loop.md) records why the merge works this
 The finding's latest disposition counts, so to change your answer, reply again. A reply in any other
 form is no disposition. noslop answers it once with the accepted forms, and the finding stays open.
 
+## Answer the findings of a folded comment apart
+
+A comment that lists the anchors and ids of more places holds a finding for each of them, and a
+reply whose first line is a disposition gives every one of them that answer. To give them different
+answers, such as when one of them is wrong:
+
+1. Expand the comment's collapsed blocks to find each finding's id: the comment's own id sits under
+   Details, and the id of each other place sits beside its anchor.
+2. Start the reply with one line per finding: its id, a space, and its disposition. You can explain
+   more below a blank line:
+
+   ```text
+   7d3f1a2b9c4e5f60 fixed 1a2b3c4
+   c58e2b7a1f0d4936 not-a-defect the loop starts at the first item
+   e1a94c0b7f2d6853 fixed 1a2b3c4
+
+   The caller sorts the list before the loop runs.
+   ```
+
+   For a folded issue comment, write a new issue comment on the pull request with the same lines.
+   Write two lines or more there, because a single line answers every finding of the comment.
+
+3. Wait for the check to update. Each finding takes the disposition on its own line, and a finding
+   you leave out stays open.
+
+When one of the lines holds no disposition, noslop answers the reply once with the accepted forms,
+and the reply answers none of the findings on its lines.
+
 ## The four kinds
 
 | Kind            | Value          | Means                                  | Valid when                                              |

@@ -46,6 +46,19 @@ test('it leaves out the fact and the fix of a CONFIRMED finding without a fix', 
   );
 });
 
+test('it tells how to answer the findings of a folded comment one line each', () => {
+  expect(
+    formatFindingComment(buildMockFinding(), 'b'.repeat(40), [
+      buildMockFinding({
+        id: '2222222222222222',
+        anchor: { path: 'src/b.ts', startLine: 4, endLine: 4 },
+      }),
+    ]),
+  ).toInclude(
+    'To answer the findings of this comment apart, start the reply with one line per finding: its id, a space, and one of those forms, as `0123456789abcdef fixed <sha>`.',
+  );
+});
+
 test('it names the rule of a finding in its details', () => {
   expect(
     formatFindingComment(

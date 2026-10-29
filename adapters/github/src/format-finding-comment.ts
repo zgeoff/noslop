@@ -43,6 +43,12 @@ export function formatFindingComment(
     '<details><summary>Reply options</summary>',
     '',
     'Start your reply with one of: `fixed`, `fixed <sha>`, `not-a-defect <reason>`, `deferred <issue>`, `accepted-risk <reason>`.',
+    ...(folded.length === 0
+      ? []
+      : [
+          '',
+          `To answer the findings of this comment apart, start the reply with one line per finding: its id, a space, and one of those forms, as \`${finding.id} fixed <sha>\`.`,
+        ]),
     '</details>',
     '<details><summary>Details</summary>',
     '',

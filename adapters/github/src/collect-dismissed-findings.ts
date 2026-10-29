@@ -1,5 +1,5 @@
 import type { DismissedFinding, DispositionKind } from '@noslop/contract';
-import { parseDisposition } from './parse-disposition';
+import { findReplyDisposition } from './find-reply-disposition';
 import type { FindingThread } from './read-pull-request-state';
 
 export function collectDismissedFindings(threads: readonly FindingThread[]): DismissedFinding[] {
@@ -19,7 +19,7 @@ export function collectDismissedFindings(threads: readonly FindingThread[]): Dis
 function findLatestKind(thread: FindingThread): DispositionKind | null {
   const latest = thread.replies
     .toSorted((left, right) => left.at.localeCompare(right.at))
-    .map((reply) => parseDisposition(reply.body))
+    .map((reply) => findReplyDisposition(reply.body, thread.marker.id))
     .findLast((parsed) => parsed !== null);
 
   return latest?.kind ?? null;

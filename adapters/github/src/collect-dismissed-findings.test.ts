@@ -1,40 +1,30 @@
 import { expect, test } from 'bun:test';
+import { buildMockFindingThread } from '@noslop/testing';
 import { collectDismissedFindings } from './collect-dismissed-findings';
 
 test('it lists a finding whose latest typed reply is not-a-defect, past a later free-text reply', () => {
-  expect(
-    collectDismissedFindings([
+  const thread = buildMockFindingThread({
+    marker: {
+      id: '1111111111111111',
+      path: 'src/a.ts',
+      criterion: 'wrong-behaviour-edge-path',
+      rule: null,
+      head: 'a'.repeat(40),
+    },
+    line: 12,
+    startLine: 11,
+    replies: [
+      { id: 43, body: 'Thanks, noted.', author: 'dev', at: '2026-10-17T11:00:00.000Z' },
       {
-        source: 'review',
-        commentID: 41,
-        body: 'Await the write',
-        marker: {
-          id: '1111111111111111',
-          title: 'Await the write',
-          path: 'src/a.ts',
-          lens: 'correctness',
-          severity: 'P2',
-          riskClass: null,
-          writtenByChange: true,
-          criterion: 'wrong-behaviour-edge-path',
-          rule: null,
-          head: 'a'.repeat(40),
-        },
-        line: 12,
-        startLine: 11,
-        replies: [
-          { id: 43, body: 'Thanks, noted.', author: 'dev', at: '2026-10-17T11:00:00.000Z' },
-          {
-            id: 42,
-            body: 'not-a-defect the caller awaits it',
-            author: 'dev',
-            at: '2026-10-17T10:00:00.000Z',
-          },
-        ],
-        answered: new Set(),
+        id: 42,
+        body: 'not-a-defect the caller awaits it',
+        author: 'dev',
+        at: '2026-10-17T10:00:00.000Z',
       },
-    ]),
-  ).toStrictEqual([
+    ],
+  });
+
+  expect(collectDismissedFindings([thread])).toStrictEqual([
     {
       id: '1111111111111111',
       path: 'src/a.ts',
@@ -50,21 +40,7 @@ test('it lists a finding whose latest typed reply is not-a-defect, past a later 
 test('it leaves out a finding answered not-a-defect and then fixed', () => {
   expect(
     collectDismissedFindings([
-      {
-        source: 'review',
-        commentID: 41,
-        body: 'Await the write',
-        marker: {
-          id: '1111111111111111',
-          title: 'Await the write',
-          path: 'src/a.ts',
-          lens: 'correctness',
-          severity: 'P2',
-          riskClass: null,
-          writtenByChange: true,
-        },
-        line: 12,
-        startLine: 12,
+      buildMockFindingThread({
         replies: [
           {
             id: 42,
@@ -74,8 +50,7 @@ test('it leaves out a finding answered not-a-defect and then fixed', () => {
           },
           { id: 43, body: 'fixed 1a2b3c4', author: 'dev', at: '2026-10-17T11:00:00.000Z' },
         ],
-        answered: new Set(),
-      },
+      }),
     ]),
   ).toStrictEqual([]);
 });
@@ -83,19 +58,9 @@ test('it leaves out a finding answered not-a-defect and then fixed', () => {
 test('it lists a finding outside the diff with no lines and a marker from before the rule with no rule', () => {
   expect(
     collectDismissedFindings([
-      {
+      buildMockFindingThread({
         source: 'issue',
-        commentID: 41,
-        body: 'Await the write',
-        marker: {
-          id: '1111111111111111',
-          title: 'Await the write',
-          path: 'src/a.ts',
-          lens: 'correctness',
-          severity: 'P2',
-          riskClass: null,
-          writtenByChange: false,
-        },
+        marker: { id: '1111111111111111', path: 'src/a.ts', writtenByChange: false },
         line: null,
         startLine: null,
         replies: [
@@ -106,8 +71,7 @@ test('it lists a finding outside the diff with no lines and a marker from before
             at: '2026-10-17T10:00:00.000Z',
           },
         ],
-        answered: new Set(),
-      },
+      }),
     ]),
   ).toStrictEqual([
     {
@@ -120,4 +84,55 @@ test('it lists a finding outside the diff with no lines and a marker from before
       endLine: null,
     },
   ]);
+});
+
+test('it lists only the folded finding that a reply of one line per finding answers not-a-defect', () => {
+  const replies = [
+    {
+      id: 42,
+      body: '1111111111111111 fixed 1a2b3c4\n2222222222222222 not-a-defect the caller awaits it',
+      author: 'dev',
+      at: '2026-10-17T10:00:00.000Z',
+    },
+  ];
+
+  expect(
+    collectDismissedFindings([
+      buildMockFindingThread({ marker: { id: '1111111111111111' }, replies }),
+      buildMockFindingThread({
+        marker: { id: '2222222222222222', path: 'src/b.ts' },
+        line: 4,
+        startLine: 4,
+        replies,
+      }),
+    ]),
+  ).toStrictEqual([
+    {
+      id: '2222222222222222',
+      path: 'src/b.ts',
+      criterion: null,
+      rule: null,
+      head: null,
+      startLine: 4,
+      endLine: 4,
+    },
+  ]);
+});
+
+test('it lists no folded finding for a reply whose last line holds an id with no disposition', () => {
+  const replies = [
+    {
+      id: 42,
+      body: '1111111111111111 not-a-defect the caller awaits it\n2222222222222222',
+      author: 'dev',
+      at: '2026-10-17T10:00:00.000Z',
+    },
+  ];
+
+  expect(
+    collectDismissedFindings([
+      buildMockFindingThread({ marker: { id: '1111111111111111' }, replies }),
+      buildMockFindingThread({ marker: { id: '2222222222222222' }, replies }),
+    ]),
+  ).toStrictEqual([]);
 });
