@@ -110,8 +110,10 @@ Before you commit, grep the diff for `sk-ant`, `GOCSPX`, `AGE-SECRET-KEY`, `ops_
   to `main`. The `BUN_CHECK_SCRIPTS` repo variable holds its script list:
   `audit deadcode format:check lint:full typecheck boundaries prose test`. A change to that list
   changes `bun run check` in the same commit.
-- `lint:full` adds the type-aware rules and fails on an unused disable directive. It runs in CI and
-  in `bun run check`, never in a git hook.
+- `lint:full` adds the type-aware rules and fails on an unused disable directive. oxlint runs the
+  type-aware rules through tsrslint (`@maschwenk/tsrslint`), a Rust port of tsgolint, in tsgolint's
+  place, because stock tsgolint runs out of memory under 2 GiB. `lint:full` runs in CI and in
+  `bun run check`, never in a git hook.
 - lefthook runs oxlint, oxfmt, format-codemod and gitleaks before a commit, and commitlint on the
   message. Before a push it runs boundaries and the prose check, then the shared pre-push baseline:
   the format check and typecheck over the whole tree, and lint and the tests over what the branch
