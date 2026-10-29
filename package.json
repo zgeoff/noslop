@@ -59,7 +59,8 @@
     "ci:pick-release-ship": "bun scripts/release/run-pick-release-ship-step.ts",
     "ci:publish-cli": "bun scripts/release/run-publish-cli-step.ts apps/cli/dist",
     "memory-capped": "bash scripts/run-memory-capped.sh \"$(bun scripts/read-memory-budget.ts)\"",
-    "check:dependency-gates": "bun scripts/dependency-gates/run-dependency-gates-check.ts"
+    "check:dependency-gates": "bun scripts/dependency-gates/run-dependency-gates-check.ts",
+    "check:uncommitted": "bun scripts/run-uncommitted-check.ts"
   },
   "devDependencies": {
     "@commitlint/cli": "21.2.4",
