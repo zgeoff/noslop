@@ -28,6 +28,11 @@ test.each<[string, string, ReturnType<typeof findReplyDisposition>]>([
     '1111111111111111 fixed 1a2b3c4\n2222222222222222 will look later',
     null,
   ],
+  [
+    'lines where the last line holds an id with no disposition',
+    '1111111111111111 not-a-defect the guard runs first\n2222222222222222',
+    null,
+  ],
   ['free text', 'Thanks, I will look at it.', null],
 ])('it reads %p for the finding 1111111111111111', (_, reply, expected) => {
   expect(findReplyDisposition(reply, '1111111111111111')).toStrictEqual(expected);

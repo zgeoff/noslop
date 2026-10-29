@@ -16,7 +16,15 @@ test.each<[string, string, ReturnType<typeof collectAnswerLines>]>([
     '1111111111111111 fixed\n\n2222222222222222 fixed 1a2b3c4',
     [{ findingID: '1111111111111111', answer: 'fixed' }],
   ],
-  ['an id with no answer', '1111111111111111', []],
+  ['an id with no answer', '1111111111111111', [{ findingID: '1111111111111111', answer: null }]],
+  [
+    'a last line that holds an id with no answer',
+    '1111111111111111 not-a-defect the guard runs first\n2222222222222222',
+    [
+      { findingID: '1111111111111111', answer: 'not-a-defect the guard runs first' },
+      { findingID: '2222222222222222', answer: null },
+    ],
+  ],
   ['an id of 15 characters', '111111111111111 fixed', []],
 ])('it reads %s', (_, reply, expected) => {
   expect(collectAnswerLines(reply)).toStrictEqual(expected);

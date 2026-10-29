@@ -284,6 +284,77 @@ test('it records each answer of an issue comment that answers the findings of a 
   ]);
 });
 
+test('it records no answer from a reply to a folded comment whose last line holds an id with no disposition', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({ owner: 'example', repo: 'app', number: 5 });
+
+  const root = await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: '**P2 · Correctness** · Await the write\n<!-- noslop:finding {"id":"1111111111111111","title":"Await the write","path":"src/a.ts","lens":"correctness","severity":"P2","riskClass":null,"writtenByChange":true,"folded":[{"id":"2222222222222222","title":"Await the write","path":"src/b.ts","startLine":4,"line":4,"riskClass":null,"writtenByChange":true,"body":"The write runs unawaited.","fix":null}]} -->',
+  });
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    authorLogin: 'dev',
+    inReplyToID: root.id,
+    body: '1111111111111111 not-a-defect the caller awaits it\n2222222222222222',
+    createdAt: '2026-10-17T10:00:00.000Z',
+  });
+
+  const dispositions = await ctx.source.readDispositions(
+    {
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'b'.repeat(40),
+      findings: [],
+    },
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  expect(dispositions).toStrictEqual([]);
+});
+
+test('it records no answer from an issue comment on a folded issue comment whose last line holds an id with no disposition', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({ owner: 'example', repo: 'app', number: 5 });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: '**P2 · Correctness** · Await the write\n<!-- noslop:finding {"id":"1111111111111111","title":"Await the write","path":"src/a.ts","lens":"correctness","severity":"P2","riskClass":null,"writtenByChange":true,"folded":[{"id":"2222222222222222","title":"Await the write","path":"src/b.ts","startLine":4,"line":4,"riskClass":null,"writtenByChange":true,"body":"The write runs unawaited.","fix":null}]} -->',
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    authorLogin: 'dev',
+    body: '1111111111111111 not-a-defect the caller awaits it\n2222222222222222',
+    createdAt: '2026-10-17T10:00:00.000Z',
+  });
+
+  const dispositions = await ctx.source.readDispositions(
+    {
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'b'.repeat(40),
+      findings: [],
+    },
+    { logger: ctx.logger, options: {}, failedReporters: [] },
+  );
+
+  expect(dispositions).toStrictEqual([]);
+});
+
 test('it records an issue comment that names one id on each finding of the folded issue comment that holds it', async () => {
   const ctx = setupTest();
 

@@ -11,7 +11,7 @@ export function findReplyDisposition(reply: string, findingID: string): ParsedDi
 
   const answers = lines.map((line) => ({
     findingID: line.findingID,
-    disposition: parseDisposition(line.answer),
+    disposition: line.answer === null ? null : parseDisposition(line.answer),
   }));
 
   if (answers.some((answer) => answer.disposition === null)) {
