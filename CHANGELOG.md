@@ -2,15 +2,17 @@
 
 ## [0.4.24](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.23...@noslop/cli@0.4.24) (2026-10-29)
 
-
 ### Features
 
-* answer each finding of a folded comment on its own line ([#161](https://github.com/zgeoff/noslop/issues/161)) ([d7bceed](https://github.com/zgeoff/noslop/commit/d7bceed68f82f7d5041b7aabe7924e2436fafad0))
-
+- answer each finding of a folded comment on its own line
+  ([#161](https://github.com/zgeoff/noslop/issues/161))
+  ([d7bceed](https://github.com/zgeoff/noslop/commit/d7bceed68f82f7d5041b7aabe7924e2436fafad0))
 
 ### Bug Fixes
 
-* run the skill-gate hook with bun --no-install ([#156](https://github.com/zgeoff/noslop/issues/156)) ([3fd9df2](https://github.com/zgeoff/noslop/commit/3fd9df2182c1d0e7dd7d9100fc2ccc9b1e519eb8))
+- run the skill-gate hook with bun --no-install
+  ([#156](https://github.com/zgeoff/noslop/issues/156))
+  ([3fd9df2](https://github.com/zgeoff/noslop/commit/3fd9df2182c1d0e7dd7d9100fc2ccc9b1e519eb8))
 
 ## [0.4.23](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.22...@noslop/cli@0.4.23) (2026-10-28)
 
