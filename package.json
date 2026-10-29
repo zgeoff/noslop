@@ -58,7 +58,8 @@
     "check:workflows": "bun scripts/run-workflows-check.ts",
     "ci:pick-release-ship": "bun scripts/release/run-pick-release-ship-step.ts",
     "ci:publish-cli": "bun scripts/release/run-publish-cli-step.ts apps/cli/dist",
-    "memory-capped": "bash scripts/run-memory-capped.sh \"$(bun scripts/read-memory-budget.ts)\""
+    "memory-capped": "bash scripts/run-memory-capped.sh \"$(bun scripts/read-memory-budget.ts)\"",
+    "check:dependency-gates": "bun scripts/dependency-gates/run-dependency-gates-check.ts"
   },
   "devDependencies": {
     "@commitlint/cli": "21.2.4",
