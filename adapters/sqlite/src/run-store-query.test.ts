@@ -21,7 +21,7 @@ async function setupTest() {
   return { store };
 }
 
-test('#yield-by-lens gives each lens its fixed and not-a-defect shares', async () => {
+test('it gives each lens its fixed and not-a-defect shares, in the yield-by-lens query', async () => {
   const ctx = await setupTest();
 
   await writeReview(
@@ -72,7 +72,7 @@ test('#yield-by-lens gives each lens its fixed and not-a-defect shares', async (
   ]);
 });
 
-test('#yield-by-depth counts each finding at the depth of the first review that reported it', async () => {
+test('it counts each finding at the depth of the first review that reported it, in the yield-by-depth query', async () => {
   const ctx = await setupTest();
 
   await writeReview(
@@ -132,7 +132,7 @@ test('#yield-by-depth counts each finding at the depth of the first review that 
   ]);
 });
 
-test('#open-findings lists the findings of the latest review with no disposition', async () => {
+test('it lists the findings of the latest review with no disposition, in the open-findings query', async () => {
   const ctx = await setupTest();
 
   await writeReview(
@@ -187,7 +187,7 @@ test('#open-findings lists the findings of the latest review with no disposition
   ]);
 });
 
-test('#open-findings reopens a fixed finding that a later review reports again', async () => {
+test('it reopens a fixed finding that a later review reports again, in the open-findings query', async () => {
   const ctx = await setupTest();
 
   await writeReview(
@@ -228,7 +228,7 @@ test('#open-findings reopens a fixed finding that a later review reports again',
   expect(yields).toMatchObject([{ lens: 'correctness', fixed: 0, open: 1 }]);
 });
 
-test('#yield-by-lens counts one finding ID in 2 repos as 2 findings', async () => {
+test('it counts one finding ID in 2 repos as 2 findings, in the yield-by-lens query', async () => {
   const ctx = await setupTest();
 
   await writeReview(
@@ -254,7 +254,7 @@ test('#yield-by-lens counts one finding ID in 2 repos as 2 findings', async () =
   expect(rows).toMatchObject([{ lens: 'correctness', findings: 2, open: 2 }]);
 });
 
-test('#yield-by-lens applies a disposition only to the finding ID of its own repo', async () => {
+test('it applies a disposition only to the finding ID of its own repo, in the yield-by-lens query', async () => {
   const ctx = await setupTest();
 
   await writeReview(
@@ -294,7 +294,7 @@ test('#yield-by-lens applies a disposition only to the finding ID of its own rep
   ]);
 });
 
-test('#cost-by-depth sums the tokens of the calls at each depth', async () => {
+test('it sums the tokens of the calls at each depth, in the cost-by-depth query', async () => {
   const ctx = await setupTest();
 
   await writeReview(ctx.store, buildMockReviewResult());
@@ -315,7 +315,7 @@ test('#cost-by-depth sums the tokens of the calls at each depth', async () => {
   ]);
 });
 
-test('#recall-by-lens counts the escapes whose lens ran on the change and reported there', async () => {
+test('it counts the escapes whose lens ran on the change and reported there, in the recall-by-lens query', async () => {
   const ctx = await setupTest();
 
   await writeReview(
@@ -361,7 +361,7 @@ test('#recall-by-lens counts the escapes whose lens ran on the change and report
   ]);
 });
 
-test('#recall-by-lens counts a lens that ran in a call of the review as well as a lens the review lists', async () => {
+test('it counts a lens that ran in a call of the review as well as a lens the review lists, in the recall-by-lens query', async () => {
   const ctx = await setupTest();
 
   await writeReview(
@@ -429,7 +429,7 @@ test('#recall-by-lens counts a lens that ran in a call of the review as well as 
   ]);
 });
 
-test('#recall-by-depth counts a lens that ran in a call of the review as well as a lens the review lists', async () => {
+test('it counts a lens that ran in a call of the review as well as a lens the review lists, in the recall-by-depth query', async () => {
   const ctx = await setupTest();
 
   await writeReview(
@@ -503,7 +503,7 @@ test('#recall-by-depth counts a lens that ran in a call of the review as well as
   ]);
 });
 
-test('#recall-by-depth counts each escape at the depth of the latest review of its change', async () => {
+test('it counts each escape at the depth of the latest review of its change, in the recall-by-depth query', async () => {
   const ctx = await setupTest();
 
   await writeReview(
@@ -563,7 +563,7 @@ test('#recall-by-depth counts each escape at the depth of the latest review of i
   ]);
 });
 
-test('#dropped-findings lists each dropped finding with its rule and quote, newest review first', async () => {
+test('it lists each dropped finding with its rule and quote, newest review first, in the dropped-findings query', async () => {
   const ctx = await setupTest();
 
   await writeReview(
@@ -626,7 +626,7 @@ test('#dropped-findings lists each dropped finding with its rule and quote, newe
   ]);
 });
 
-test('#findings-by-pr lists each finding of a pull request once, with its latest disposition', async () => {
+test('it lists each finding of a pull request once, with its latest disposition, in the findings-by-pr query', async () => {
   const ctx = await setupTest();
 
   await writeReview(
@@ -734,7 +734,7 @@ test('#findings-by-pr lists each finding of a pull request once, with its latest
   ]);
 });
 
-test('#findings-by-pr keeps only the findings of the repo, pull request and time the filters name', async () => {
+test('it keeps only the findings of the repo, pull request and time the filters name, in the findings-by-pr query', async () => {
   const ctx = await setupTest();
 
   await writeReview(
@@ -787,7 +787,7 @@ test('#findings-by-pr keeps only the findings of the repo, pull request and time
   expect(rows.map((row) => row['id'])).toStrictEqual(['2222222222222222']);
 });
 
-test('#findings-by-pr gives a finding only the dispositions of its own pull request', async () => {
+test('it gives a finding only the dispositions of its own pull request, in the findings-by-pr query', async () => {
   const ctx = await setupTest();
 
   await writeReview(
@@ -828,7 +828,7 @@ test('#findings-by-pr gives a finding only the dispositions of its own pull requ
   ]);
 });
 
-test('#findings-by-pr shows each pull request its own disposition when 2 share a disposition key', async () => {
+test('it shows each pull request its own disposition when 2 share a disposition key, in the findings-by-pr query', async () => {
   const ctx = await setupTest();
 
   await writeReview(
@@ -885,7 +885,7 @@ test('#findings-by-pr shows each pull request its own disposition when 2 share a
   ]);
 });
 
-test('#findings-by-pr gives a disposition with no pull request to the finding in every pull request of its repo', async () => {
+test('it gives a disposition with no pull request to the finding in every pull request of its repo, in the findings-by-pr query', async () => {
   const ctx = await setupTest();
 
   await writeReview(
@@ -929,7 +929,7 @@ test('#findings-by-pr gives a disposition with no pull request to the finding in
   ]);
 });
 
-test('#findings-by-pr shows a fixed finding that a later review reports again as open, with its fixed answer', async () => {
+test('it shows a fixed finding that a later review reports again as open, with its fixed answer, in the findings-by-pr query', async () => {
   const ctx = await setupTest();
 
   await writeReview(
@@ -976,7 +976,7 @@ test('#findings-by-pr shows a fixed finding that a later review reports again as
   ]);
 });
 
-test('#findings-by-pr keeps a fixed finding fixed when no review after the answer reports it', async () => {
+test('it keeps a fixed finding fixed when no review after the answer reports it, in the findings-by-pr query', async () => {
   const ctx = await setupTest();
 
   await writeReview(
@@ -1019,7 +1019,7 @@ test('#findings-by-pr keeps a fixed finding fixed when no review after the answe
   ]);
 });
 
-test('#findings-by-pr gives each finding the comment link the reporter stored, and none to a finding it never linked', async () => {
+test('it gives each finding the comment link the reporter stored, and none to a finding it never linked, in the findings-by-pr query', async () => {
   const ctx = await setupTest();
 
   await writeReview(
@@ -1066,7 +1066,7 @@ test('#findings-by-pr gives each finding the comment link the reporter stored, a
   ]);
 });
 
-test('#findings-by-pr keeps the comment link of a review that the time filter leaves out', async () => {
+test('it keeps the comment link of a review that the time filter leaves out, in the findings-by-pr query', async () => {
   const ctx = await setupTest();
 
   await writeReview(

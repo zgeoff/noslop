@@ -73,7 +73,7 @@
     "@types/bun": "1.4.3",
     "@zgeoff/bun-test-extended": "0.2.1",
     "@zgeoff/format-codemod": "0.1.0",
-    "@zgeoff/oxlint-config": "0.7.1",
+    "@zgeoff/oxlint-config": "0.7.3",
     "@zgeoff/skill-gate": "0.2.9",
     "knip": "6.39.0",
     "lefthook": "2.1.14",
