@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.25](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.24...@noslop/cli@0.4.25) (2026-10-30)
+
+### Bug Fixes
+
+- **static-stage:** read a route test name with a $ as one path
+  ([#169](https://github.com/zgeoff/noslop/issues/169))
+  ([873a14b](https://github.com/zgeoff/noslop/commit/873a14bd5d1aca2caf8598e87b38b803eeef0848))
+
 ## [0.4.24](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.23...@noslop/cli@0.4.24) (2026-10-29)
 
 ### Features
