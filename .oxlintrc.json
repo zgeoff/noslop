@@ -7,34 +7,6 @@
   },
   "ignorePatterns": [".claude/**", ".reviews/**", ".worktrees/**"],
   "rules": {
-    // oxlint 1.86 enables one-var through the style category, which the shared config predates; it
-    // forbids the separate const per step that every test body uses
-    "one-var": "off",
-    "no-restricted-imports": [
-      "error",
-      {
-        "paths": [
-          {
-            "name": "node:module",
-            "importNames": ["createRequire"],
-            "message": "A require function escapes no-restricted-imports; use import."
-          },
-          {
-            "name": "module",
-            "importNames": ["createRequire"],
-            "message": "A require function escapes no-restricted-imports; use import."
-          }
-        ]
-      }
-    ],
-    "no-restricted-globals": [
-      "error",
-      {
-        "name": "require",
-        "message": "A require function escapes no-restricted-imports; use import."
-      }
-    ],
-    "import/no-commonjs": "error",
     // `*.model-api.test.ts` calls a live model, so it runs in its own lane under the lane's 120 s
     "zgeoff/max-test-timeout": ["error", { "lanes": ["model-api"] }]
   },
@@ -47,18 +19,6 @@
         "no-restricted-imports": [
           "error",
           {
-            "paths": [
-              {
-                "name": "node:module",
-                "importNames": ["createRequire"],
-                "message": "A require function escapes no-restricted-imports; use import."
-              },
-              {
-                "name": "module",
-                "importNames": ["createRequire"],
-                "message": "A require function escapes no-restricted-imports; use import."
-              }
-            ],
             "patterns": [
               {
                 "group": ["@noslop/*", "!@noslop/cli", "!@noslop/cli/*"],
@@ -75,18 +35,6 @@
         "no-restricted-imports": [
           "error",
           {
-            "paths": [
-              {
-                "name": "node:module",
-                "importNames": ["createRequire"],
-                "message": "A require function escapes no-restricted-imports; use import."
-              },
-              {
-                "name": "module",
-                "importNames": ["createRequire"],
-                "message": "A require function escapes no-restricted-imports; use import."
-              }
-            ],
             "patterns": [
               {
                 "group": ["@noslop/*", "!@noslop/cli", "!@noslop/cli/*", "!@noslop/testing"],
@@ -95,15 +43,6 @@
             ]
           }
         ]
-      }
-    },
-    // integration/ holds flows across several packages, run in process in the unit run, so its
-    // files sit beside no single module; this override goes away with oxlint-config 0.7.0
-    // (GEO-1760), whose rule exempts integration/ itself
-    {
-      "files": ["integration/**/*.test.ts"],
-      "rules": {
-        "zgeoff/test-beside-module": "off"
       }
     },
     // repo-sync delivers these scripts from zgeoff/tools and overwrites a local edit, so their verbs
