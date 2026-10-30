@@ -85,7 +85,7 @@ test('it records the date an entry names as the author and committer date', asyn
   ]);
 
   const dates =
-    await ctx.$`git -C ${repo.path} log -1 --format=%aI%n%cI ${repo.commits[0] ?? ''}`.text();
+    await ctx.$`git -C ${repo.path} log -1 --date=format:%Y-%m-%dT%H:%M:%SZ --format=%ad%n%cd ${repo.commits[0] ?? ''}`.text();
 
   expect(dates.trim().split('\n')).toStrictEqual(['2026-03-04T05:06:07Z', '2026-03-04T05:06:07Z']);
 });
@@ -103,7 +103,7 @@ test('it records the author date an entry names in place of its date, and the da
   ]);
 
   const dates =
-    await ctx.$`git -C ${repo.path} log -1 --format=%aI%n%cI ${repo.commits[0] ?? ''}`.text();
+    await ctx.$`git -C ${repo.path} log -1 --date=format:%Y-%m-%dT%H:%M:%SZ --format=%ad%n%cd ${repo.commits[0] ?? ''}`.text();
 
   expect(dates.trim().split('\n')).toStrictEqual(['2026-02-03T04:05:06Z', '2026-03-04T05:06:07Z']);
 });
