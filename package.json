@@ -1,6 +1,6 @@
 {
   "name": "noslop",
-  "version": "0.4.24",
+  "version": "0.4.25",
   "private": true,
   "description": "A reviewer for pull requests that coding agents write",
   "license": "MIT",
