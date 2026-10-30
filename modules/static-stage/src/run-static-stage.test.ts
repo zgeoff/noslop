@@ -2060,7 +2060,7 @@ test('it reports no missing test that the pull request body names with a ./ pref
   expect(result.findings).toStrictEqual([]);
 });
 
-test('it reports no missing test for route files whose names hold a $, a + or a group the change adds', async () => {
+test('it reports no missing test for route files whose names hold a $, a +, an @ or a group the change adds', async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
@@ -2086,6 +2086,15 @@ test('it reports no missing test for route files whose names hold a $, a + or a 
           '});',
           '',
         ].join('\n'),
+        'web/src/routes/@cart/page.test.ts': [
+          "import { expect, test } from 'bun:test';",
+          "import { orders } from '../orders';",
+          '',
+          "test('it exports a positive count', () => {",
+          '  expect(orders).toBePositive();',
+          '});',
+          '',
+        ].join('\n'),
       },
     },
   ]);
@@ -2104,7 +2113,7 @@ test('it reports no missing test for route files whose names hold a $, a + or a 
     change,
     config: BUILT_IN_DEFAULTS,
     title: 'Test the order routes',
-    body: 'Adds `routes/orders.$orderID.test.tsx` and routes/(shop)/+page.test.ts.',
+    body: 'Adds `routes/orders.$orderID.test.tsx`, routes/(shop)/+page.test.ts and routes/@cart/page.test.ts.',
     linkedIssue: null,
     cacheDir: null,
     pastEscapes: [],
@@ -2149,6 +2158,52 @@ test('it reports a missing route test whose name holds a $ by its whole name', a
       'intent-mismatch',
       'The pull request names routes/orders.$orderID.test.tsx, which the change does not add',
     ],
+  ]);
+});
+
+test('it reads a test name inside parentheses without them and reports only the one the change lacks', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/main.ts': 'export const main = 1;\n' } },
+    {
+      message: 'Test the value',
+      files: {
+        'src/main.test.ts': [
+          "import { expect, test } from 'bun:test';",
+          "import { main } from './main';",
+          '',
+          "test('it exports a value', () => {",
+          '  expect(main).toBeNumber();',
+          '});',
+          '',
+        ].join('\n'),
+      },
+    },
+  ]);
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config: BUILT_IN_DEFAULTS,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config: BUILT_IN_DEFAULTS,
+    title: 'Test the value',
+    body: 'Adds the [value test](src/main.test.ts) and a check (src/other.test.ts).',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(result.findings.map((finding) => [finding.criterion, finding.title])).toStrictEqual([
+    ['intent-mismatch', 'The pull request names src/other.test.ts, which the change does not add'],
   ]);
 });
 
