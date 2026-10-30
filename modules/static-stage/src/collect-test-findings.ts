@@ -213,7 +213,11 @@ function isSameCheckPlace(left: SecurityEntry, right: SecurityEntry): boolean {
   );
 }
 
-const TEST_PATH_IN_TEXT = /(?<![\w./*?{}\]-])[\w./*?{}-]+\.(?:test|spec)\.[cm]?[jt]sx?(?![\w-])/gu;
+// File-based routers name files with `$param`, `+page`, `@slot` and `(group)` parts, while Markdown
+// wraps a path in parentheses, so a parenthesis counts only as a whole segment
+const TEST_PATH_IN_TEXT =
+  /(?<![\w./*?{}\]$+@)-])(?:[\w./*?{}$+@-]|\([\w.$+@-]*\))+\.(?:test|spec)\.[cm]?[jt]sx?(?![\w-])/gu;
+
 const GLOB_CHARACTERS = /[*?{}]/u;
 
 const CLAIMED_EDIT =

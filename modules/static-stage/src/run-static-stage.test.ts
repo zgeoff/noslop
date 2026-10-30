@@ -2060,6 +2060,98 @@ test('it reports no missing test that the pull request body names with a ./ pref
   expect(result.findings).toStrictEqual([]);
 });
 
+test('it reports no missing test for route files whose names hold a $, a + or a group the change adds', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'web/src/routes/orders.ts': 'export const orders = 1;\n' } },
+    {
+      message: 'Test the order routes',
+      files: {
+        'web/src/routes/orders.$orderID.test.tsx': [
+          "import { expect, test } from 'bun:test';",
+          "import { orders } from './orders';",
+          '',
+          "test('it exports the order count', () => {",
+          '  expect(orders).toBe(1);',
+          '});',
+          '',
+        ].join('\n'),
+        'web/src/routes/(shop)/+page.test.ts': [
+          "import { expect, test } from 'bun:test';",
+          "import { orders } from '../orders';",
+          '',
+          "test('it exports a number', () => {",
+          '  expect(orders).toBeNumber();',
+          '});',
+          '',
+        ].join('\n'),
+      },
+    },
+  ]);
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config: BUILT_IN_DEFAULTS,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config: BUILT_IN_DEFAULTS,
+    title: 'Test the order routes',
+    body: 'Adds `routes/orders.$orderID.test.tsx` and routes/(shop)/+page.test.ts.',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(result.findings).toStrictEqual([]);
+});
+
+test('it reports a missing route test whose name holds a $ by its whole name', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'web/src/routes/orders.ts': 'export const orders = 1;\n' } },
+    {
+      message: 'Raise the count',
+      files: { 'web/src/routes/orders.ts': 'export const orders = 2;\n' },
+    },
+  ]);
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config: BUILT_IN_DEFAULTS,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config: BUILT_IN_DEFAULTS,
+    title: 'Raise the count',
+    body: 'Adds `routes/orders.$orderID.test.tsx` for the new count.',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(result.findings.map((finding) => [finding.criterion, finding.title])).toStrictEqual([
+    [
+      'intent-mismatch',
+      'The pull request names routes/orders.$orderID.test.tsx, which the change does not add',
+    ],
+  ]);
+});
+
 test('it reports no missing test for a glob that the pull request body names', async () => {
   const ctx = await setupTest();
 
