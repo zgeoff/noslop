@@ -12,8 +12,7 @@ import { CRITERION_SEVERITY, TITLE_MAX_LENGTH, findingSchema } from '@noslop/con
 import { buildChangedLines, isGlobMatch } from '@noslop/static-stage';
 import { buildFindingID } from './build-finding-id';
 import { findRuleCitation } from './find-rule-citation';
-import { normalizeTitle } from './normalize-title';
-import { splitTitleWords } from './split-title-words';
+import { isSameTitle } from './is-same-title';
 
 export interface RawFinding {
   lens: FindingLens;
@@ -196,15 +195,5 @@ function isSameDefect(left: Finding, right: Finding, thresholds: Thresholds): bo
     return false;
   }
 
-  if (normalizeTitle(left.title) === normalizeTitle(right.title)) {
-    return true;
-  }
-
-  const leftWords = splitTitleWords(left.title);
-  const rightWords = splitTitleWords(right.title);
-  const shared = [...leftWords].filter((word) => rightWords.has(word)).length;
-
-  return (
-    shared >= thresholds.mergeMinSharedWords && shared === Math.min(leftWords.size, rightWords.size)
-  );
+  return isSameTitle(left.title, right.title, thresholds.mergeMinSharedWords);
 }

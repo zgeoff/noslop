@@ -10,6 +10,7 @@ import type {
   ReviewAdapter,
   UnjudgedFix,
 } from '@noslop/contract';
+import { isSameTitle } from '@noslop/findings';
 import type { Runner } from '@noslop/runner';
 import { buildLimitedRunner } from '@noslop/runner';
 import { z } from 'zod';
@@ -99,13 +100,18 @@ export async function runFixChecks(options: FixChecksInput): Promise<FixChecksRu
 
   const fixCommits = await readFixCommits(input);
 
+  const groups = collectFixGroups(
+    input.fixes,
+    input.staticCheck.config.thresholds.mergeMinSharedWords,
+  );
+
   const outcomes = await Promise.all(
-    input.fixes.map((fix) =>
+    groups.map((group) =>
       runFixCheck(input, {
-        fix,
+        ...group,
         diff,
         staticFindings,
-        fixCommit: fix.commit === null ? null : (fixCommits.get(fix.commit) ?? null),
+        fixCommit: group.fix.commit === null ? null : (fixCommits.get(group.fix.commit) ?? null),
       }),
     ),
   );
@@ -113,7 +119,7 @@ export async function runFixChecks(options: FixChecksInput): Promise<FixChecksRu
   const tooLarge = new Set(outcomes.flatMap((outcome) => outcome.tooLargePath ?? []));
 
   return {
-    checks: outcomes.flatMap((outcome) => outcome.check ?? []),
+    checks: outcomes.flatMap((outcome) => outcome.checks ?? []),
     records: outcomes.flatMap((outcome) => outcome.record ?? []),
     failedCalls: outcomes.flatMap((outcome) => outcome.failedCall ?? []),
     unjudged: outcomes.flatMap((outcome) => outcome.unjudged ?? []),
@@ -262,19 +268,51 @@ async function readHeadFile(input: FixChecksInput, file: TouchedFile): Promise<F
   return { kind: 'head-file', path: file.path, text: head.stdout.replace(/\n$/u, '') };
 }
 
+interface FixGroup {
+  fix: AnsweredFix;
+
+  repeats: AnsweredFix[];
+}
+
+function collectFixGroups(fixes: readonly AnsweredFix[], minSharedWords: number): FixGroup[] {
+  const groups: FixGroup[] = [];
+
+  for (const fix of fixes) {
+    const group = groups.find((other) => isRepeatedFix(other.fix, fix, minSharedWords));
+
+    if (group === undefined) {
+      groups.push({ fix, repeats: [] });
+    } else {
+      group.repeats.push(fix);
+    }
+  }
+
+  return groups;
+}
+
+// two model calls on one defect can give two verdicts, so the answers to a finding that a later
+// review posted again under a new title share one call
+function isRepeatedFix(first: AnsweredFix, later: AnsweredFix, minSharedWords: number): boolean {
+  return (
+    first.lens !== 'static' &&
+    first.lens === later.lens &&
+    first.path === later.path &&
+    first.commit === later.commit &&
+    isSameTitle(first.title, later.title, minSharedWords)
+  );
+}
+
 interface FixCheckOutcome {
-  check?: FixCheck;
+  checks?: FixCheck[];
   record?: CallRecord;
   failedCall?: FailedCall;
-  unjudged?: UnjudgedFix;
+  unjudged?: UnjudgedFix[];
   tooLargePath?: string;
 }
 
 const fixCheckOutputSchema = z.strictObject({ fixed: z.boolean(), reason: z.string().min(1) });
 
-interface FixTarget {
-  fix: AnsweredFix;
-
+interface FixTarget extends FixGroup {
   diff: string;
 
   staticFindings: readonly Finding[];
@@ -298,8 +336,10 @@ async function runFixCheck(input: FixChecksInput, target: FixTarget): Promise<Fi
       findings: target.staticFindings,
     });
 
-    return { check };
+    return { checks: [check] };
   }
+
+  const ids = [fix.id, ...target.repeats.map((repeat) => repeat.id)];
 
   const code = await readHeadCode(input, fix);
 
@@ -309,6 +349,7 @@ async function runFixCheck(input: FixChecksInput, target: FixTarget): Promise<Fi
     title: fix.title,
     lens: fix.lens,
     comment: fix.comment,
+    repeats: target.repeats.map((repeat) => ({ title: repeat.title, comment: repeat.comment })),
     path: fix.path,
     code: code.text,
     isTraced: code.isTraced,
@@ -331,7 +372,7 @@ async function runFixCheck(input: FixChecksInput, target: FixTarget): Promise<Fi
 
     const reason = 'its code or diff passes the file limit, so no call read it whole';
 
-    return { tooLargePath: fix.path, unjudged: { findingID: fix.id, reason } };
+    return { tooLargePath: fix.path, unjudged: ids.map((findingID) => ({ findingID, reason })) };
   }
 
   const lens: CallLens = fix.lens;
@@ -369,7 +410,11 @@ async function runFixCheck(input: FixChecksInput, target: FixTarget): Promise<Fi
     );
 
     return {
-      check: { findingID: fix.id, fixed: result.output.fixed, reason: result.output.reason },
+      checks: ids.map((findingID) => ({
+        findingID,
+        fixed: result.output.fixed,
+        reason: result.output.reason,
+      })),
       record: {
         ...record,
         model: result.model,
@@ -388,7 +433,7 @@ async function runFixCheck(input: FixChecksInput, target: FixTarget): Promise<Fi
     return {
       record: { ...record, status: 'failed', durationMs: Math.round(performance.now() - started) },
       failedCall: { id: callID, lenses: [lens], reason },
-      unjudged: { findingID: fix.id, reason: 'its fix call failed' },
+      unjudged: ids.map((findingID) => ({ findingID, reason: 'its fix call failed' })),
     };
   }
 }
