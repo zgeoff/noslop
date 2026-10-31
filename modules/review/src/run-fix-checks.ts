@@ -100,10 +100,10 @@ export async function runFixChecks(options: FixChecksInput): Promise<FixChecksRu
 
   const fixCommits = await readFixCommits(input);
 
-  const groups = collectFixGroups(
-    input.fixes,
-    input.staticCheck.config.thresholds.mergeMinSharedWords,
-  );
+  const groups = collectFixGroups(input.fixes, {
+    minSharedWords: input.staticCheck.config.thresholds.mergeMinSharedWords,
+    commitShas: await readCommitShas(input),
+  });
 
   const outcomes = await Promise.all(
     groups.map((group) =>
@@ -274,11 +274,17 @@ interface FixGroup {
   repeats: AnsweredFix[];
 }
 
-function collectFixGroups(fixes: readonly AnsweredFix[], minSharedWords: number): FixGroup[] {
+interface FixGrouping {
+  minSharedWords: number;
+
+  commitShas: ReadonlyMap<string, string>;
+}
+
+function collectFixGroups(fixes: readonly AnsweredFix[], grouping: FixGrouping): FixGroup[] {
   const groups: FixGroup[] = [];
 
   for (const fix of fixes) {
-    const group = groups.find((other) => isRepeatedFix(other.fix, fix, minSharedWords));
+    const group = groups.find((other) => isRepeatedFix(other.fix, fix, grouping));
 
     if (group === undefined) {
       groups.push({ fix, repeats: [] });
@@ -292,14 +298,33 @@ function collectFixGroups(fixes: readonly AnsweredFix[], minSharedWords: number)
 
 // two model calls on one defect can give two verdicts, so the answers to a finding that a later
 // review posted again under a new title share one call
-function isRepeatedFix(first: AnsweredFix, later: AnsweredFix, minSharedWords: number): boolean {
+function isRepeatedFix(first: AnsweredFix, later: AnsweredFix, grouping: FixGrouping): boolean {
   return (
     first.lens !== 'static' &&
     first.lens === later.lens &&
     first.path === later.path &&
-    first.commit === later.commit &&
-    isSameTitle(first.title, later.title, minSharedWords)
+    toCommitKey(first.commit, grouping) === toCommitKey(later.commit, grouping) &&
+    isSameTitle(first.title, later.title, grouping.minSharedWords)
   );
+}
+
+function toCommitKey(commit: string | null, grouping: FixGrouping): string | null {
+  return commit === null ? null : (grouping.commitShas.get(commit) ?? commit);
+}
+
+// an author names one commit by a short sha in one reply and the full sha in another
+async function readCommitShas(input: FixChecksInput): Promise<Map<string, string>> {
+  const names = new Set(
+    input.fixes.flatMap((fix) =>
+      fix.lens === 'static' || fix.commit === null ? [] : [fix.commit],
+    ),
+  );
+
+  const shas = await Promise.all(
+    [...names].map(async (name) => [name, await readCommitSha(input, `${name}^{commit}`)] as const),
+  );
+
+  return new Map(shas.flatMap(([name, sha]) => (sha === null ? [] : [[name, sha] as const])));
 }
 
 interface FixCheckOutcome {

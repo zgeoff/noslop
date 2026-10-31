@@ -2546,6 +2546,71 @@ test('it judges the answers to a finding and its later repeat in one call, and g
   expect(stub.requests.map((request) => request.callID)).toStrictEqual(['fix-1111111111111111']);
 });
 
+test('it judges the answers to a finding and its repeat in one call when one names the fix by a short sha', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/checkout.ts':
+          'export const checkout = () => {\n  throw new Error("empty cart");\n};\n',
+      },
+    },
+    {
+      message: 'Return the empty-cart refusal as a result',
+      files: { 'src/checkout.ts': 'export const checkout = () => ({ kind: "refused" });\n' },
+    },
+  ]);
+
+  const stub = buildStubAdapter({
+    'fix-1111111111111111': [{ fixed: true, reason: 'The checkout returns the refusal.' }],
+  });
+
+  await runFixesOnlyReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/app',
+    pullRequest: { owner: 'example', repo: 'app', number: 9 },
+    base: repo.commits[0] ?? '',
+    head: repo.commits[1] ?? '',
+    mergeBase: repo.commits[0] ?? '',
+    title: 'Refuse an empty cart',
+    configHash: 'hash',
+    fixes: [
+      {
+        id: '1111111111111111',
+        title: 'Return the empty-cart refusal as a result',
+        lens: 'failure-handling-and-observability',
+        path: 'src/checkout.ts',
+        line: null,
+        comment: 'The checkout throws for an empty cart, which callers can plan for.',
+        postedHead: repo.commits[0] ?? '',
+        commit: (repo.commits[1] ?? '').slice(0, 7),
+      },
+      {
+        id: '2222222222222222',
+        title: 'Return empty-cart refusals as a result',
+        lens: 'failure-handling-and-observability',
+        path: 'src/checkout.ts',
+        line: null,
+        comment: 'An empty cart reaches this throw through normal input.',
+        postedHead: repo.commits[0] ?? '',
+        commit: repo.commits[1] ?? '',
+      },
+    ],
+    maxFileChars: 10_000,
+    maxCallChars: 1_000_000,
+    adapter: stub.adapter,
+    tempDir: ctx.directory,
+    logger: ctx.logger,
+    body: '',
+    staticCheck: { config: BUILT_IN_DEFAULTS, linkedIssue: null, cacheDir: null },
+  });
+
+  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['fix-1111111111111111']);
+});
+
 test('it judges the answers to 2 different findings in one file in calls of their own', async () => {
   const ctx = await setupTest();
 

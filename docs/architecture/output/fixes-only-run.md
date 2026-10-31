@@ -63,11 +63,12 @@ A later review posts a finding again under a new ID when a lens words the defect
 while the first finding is open, and the author can answer both with the same fix. One call judges
 the answers to the first finding and each repeat, and the run gives each of them the call's verdict
 and reason, so the check never confirms one and keeps another open. Two answers count as one finding
-when they name the same file, the same lens and the same fix commit, or both name none, and their
-titles match under the rule [Assemble](../review/findings.md#the-rules-assemble-enforces) merges
-duplicates by. The call reads the code around the first finding's line, and its prompt lists each
-later report under the first, with its title and comment. A failed call, or a fix past the file
-limit, leaves each of them unjudged. A static finding never shares a check.
+when they name the same file, the same lens and the same fix commit, by a short or a full sha, or
+both name none, and their titles match under the rule
+[Assemble](../review/findings.md#the-rules-assemble-enforces) merges duplicates by. The call reads
+the code around the first finding's line, and its prompt lists each later report under the first,
+with its title and comment. A failed call, or a fix past the file limit, leaves each of them
+unjudged. A static finding never shares a check.
 
 ## The fix commit
 
