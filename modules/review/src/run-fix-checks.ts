@@ -287,7 +287,10 @@ function collectFixGroups(fixes: readonly AnsweredFix[], grouping: FixGrouping):
   const groups: FixGroup[] = [];
 
   for (const fix of fixes) {
-    const group = groups.find((other) => isRepeatedFix(other.fix, fix, grouping));
+    // the repeat test is not transitive, so an answer joins a group only as a repeat of each member
+    const group = groups.find((other) =>
+      [other.fix, ...other.repeats].every((member) => isRepeatedFix(member, fix, grouping)),
+    );
 
     if (group === undefined) {
       groups.push({ fix, repeats: [] });

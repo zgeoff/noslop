@@ -78,6 +78,9 @@ The run takes 2 `fixed` answers as answers to one finding when all of these hold
 - The titles match under the test [Assemble](../review/findings.md#the-rules-assemble-enforces) uses
   to merge 2 findings of one review.
 
+An answer joins a group only when it passes all of these with each answer already in the group,
+because 2 answers that each repeat a third can still name 2 defects.
+
 The call reads the code around the first finding's line, and its prompt lists each repeat under the
 first finding, with its title and comment. When the call fails, or the fix goes over the file limit,
 each finding of the group stays unjudged. Each static finding gets a

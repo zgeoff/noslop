@@ -2824,6 +2824,90 @@ test('it judges the answers to 2 findings of one review in calls of their own', 
   ]);
 });
 
+test('it judges a later finding in a call of its own when it repeats an older finding but not the repeat its own review posted', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/cart.ts':
+          'export const addItem = () => {\n  throw new Error("bad item");\n};\nexport const refund = () => {\n  throw new Error("bad refund");\n};\n',
+      },
+    },
+    { message: 'Add a readme', files: { 'README.md': '# Shop\n' } },
+    {
+      message: 'Return the item refusal as a result',
+      files: {
+        'src/cart.ts':
+          'export const addItem = () => ({ kind: "refused" });\nexport const refund = () => {\n  throw new Error("bad refund");\n};\n',
+      },
+    },
+  ]);
+
+  const stub = buildStubAdapter({
+    'fix-1111111111111111': [{ fixed: true, reason: 'The cart returns the refusal.' }],
+    'fix-3333333333333333': [{ fixed: false, reason: 'The refund still throws.' }],
+  });
+
+  const result = await runFixesOnlyReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/app',
+    pullRequest: { owner: 'example', repo: 'app', number: 9 },
+    base: repo.commits[0] ?? '',
+    head: repo.commits[2] ?? '',
+    mergeBase: repo.commits[0] ?? '',
+    title: 'Refuse bad cart input',
+    configHash: 'hash',
+    fixes: [
+      {
+        id: '1111111111111111',
+        title: 'Reject invalid cart refund input',
+        lens: 'failure-handling-and-observability',
+        path: 'src/cart.ts',
+        line: null,
+        comment: 'The cart throws on bad input, which callers can plan for.',
+        postedHead: repo.commits[0] ?? '',
+        commit: repo.commits[2] ?? '',
+      },
+      {
+        id: '2222222222222222',
+        title: 'Reject invalid cart input',
+        lens: 'failure-handling-and-observability',
+        path: 'src/cart.ts',
+        line: null,
+        comment: 'Adding a bad item throws.',
+        postedHead: repo.commits[1] ?? '',
+        commit: repo.commits[2] ?? '',
+      },
+      {
+        id: '3333333333333333',
+        title: 'Reject invalid refund input',
+        lens: 'failure-handling-and-observability',
+        path: 'src/cart.ts',
+        line: null,
+        comment: 'A bad refund throws.',
+        postedHead: repo.commits[1] ?? '',
+        commit: repo.commits[2] ?? '',
+      },
+    ],
+    maxFileChars: 10_000,
+    maxCallChars: 1_000_000,
+    adapter: stub.adapter,
+    tempDir: ctx.directory,
+    logger: ctx.logger,
+    body: '',
+    staticCheck: { config: BUILT_IN_DEFAULTS, linkedIssue: null, cacheDir: null },
+  });
+
+  expect(result.fixChecks).toIncludeSameMembers([
+    { findingID: '1111111111111111', fixed: true, reason: 'The cart returns the refusal.' },
+    { findingID: '2222222222222222', fixed: true, reason: 'The cart returns the refusal.' },
+    { findingID: '3333333333333333', fixed: false, reason: 'The refund still throws.' },
+  ]);
+});
+
 test('it judges the answers to 2 different findings in one file in calls of their own', async () => {
   const ctx = await setupTest();
 
