@@ -4804,6 +4804,102 @@ test('it rejects a fixed reply under --fixes-only when the call finds the fix do
   });
 });
 
+test('it passes the check under --fixes-only with no call when the only open finding, once rejected as fixed, is answered not-a-defect', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/route.ts': 'export const routes = [];\n' } },
+    {
+      message: 'Split the route words by hand',
+      files: {
+        'src/route.ts':
+          'export const routes = [];\nexport const words = (line) => line.split(" ");\n',
+      },
+    },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    title: 'Route each command word',
+    body: 'Routes each command word.',
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[1] ?? '',
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[1] ?? '',
+    files: ['src/route.ts'],
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/route.ts',
+    lines: [2],
+  });
+
+  const thread = await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/route.ts',
+    line: 2,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:finding {"id":"1111111111111111","title":"Parse the route words through the argument parser","path":"src/route.ts","lens":"architecture-and-boundaries","severity":"P2","riskClass":null,"writtenByChange":true,"head":"${repo.commits[1] ?? ''}"} -->`,
+  });
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    body: `1111111111111111 fixed ${(repo.commits[1] ?? '').slice(0, 7)}`,
+    authorLogin: 'dev',
+    inReplyToID: thread.id,
+    createdAt: '2026-03-02T05:05:00.000Z',
+  });
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    body: 'not-a-defect each command parses its own words with its own argument parser\n\nThe rule asks for "the CLI library\'s argument parser", and each command uses one.',
+    authorLogin: 'dev',
+    inReplyToID: thread.id,
+    createdAt: '2026-03-02T08:48:00.000Z',
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":7,"reported":["1111111111111111"],"failedCalls":0,"confirmed":[]} -->`,
+  });
+
+  const stub = buildStubAdapter({});
+
+  await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--fixes-only', '--report', 'github'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  expect(stub.requests).toStrictEqual([]);
+
+  expect(githubCollections.checkRuns.all().at(-1)).toMatchObject({
+    headSha: repo.commits[1] ?? '',
+    conclusion: 'success',
+    title: 'Every finding holds a valid disposition (1)',
+  });
+});
+
 test('it confirms a fixed reply to a static finding under --fixes-only when its fix removes the problem, and posts nothing new', async () => {
   const ctx = await setupTest();
 
