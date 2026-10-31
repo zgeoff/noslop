@@ -18,10 +18,10 @@ A fix such as a new test in another file therefore gets judged on that test. A f
 description gets judged on the edited title or body, since an edit to the description changes no
 commit.
 
-The call judges the defect in the code the finding names. Take a finding that asks for a refused
-input to come back as a result. When the code at the head returns the refusal as a result, the call
-counts the finding fixed, even when a command at the edge of the program still throws that refusal
-to turn it into an exit code.
+The call judges the defect in the code the finding names. Take a finding that asks a parser to
+return `{ kind: 'refused' }` for a bad line in place of a throw. When the parser at the head returns
+that value, the call counts the finding fixed, even when the command that calls the parser still
+throws on it to turn it into an exit code.
 
 The run traces the finding's line from the head that posted the finding through the diff to the
 head: a hunk above the line moves it. The call then reads the code around the traced line. When the
@@ -61,10 +61,11 @@ finding of a resolution check.
 
 ## A repeated finding
 
-A finding's ID hashes its title, so a later review that words an open finding's defect another way
-posts it again under a new ID. The author can then answer `fixed` to the first finding and to this
-repeat with the same fix. The run judges a finding and its repeats in one call, and gives each of
-them the call's verdict and reason, so the check never confirms one and keeps another open.
+Assemble builds a finding's ID from a hash of its title, so a later review that words an open
+finding's defect another way posts it again under a new ID. The author can then answer `fixed` to
+the first finding and to this repeat with the same fix. The run judges a finding and its repeats in
+one call, and gives each of them the call's verdict and reason, so the check never confirms one and
+keeps another open.
 
 The run takes 2 `fixed` answers as answers to one finding when all of these hold:
 
@@ -74,8 +75,9 @@ The run takes 2 `fixed` answers as answers to one finding when all of these hold
   to merge 2 findings of one review.
 
 The call reads the code around the first finding's line, and its prompt lists each repeat under the
-first finding, with its title and comment. When the call fails, or the fix passes the file limit,
-each finding of the group stays unjudged. A static finding never shares a check.
+first finding, with its title and comment. When the call fails, or the fix goes over the file limit,
+each finding of the group stays unjudged. Each static finding gets a
+[static check](#static-findings) of its own, never a shared call.
 
 ## The fix commit
 

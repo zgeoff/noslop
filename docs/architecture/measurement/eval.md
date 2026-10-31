@@ -54,13 +54,15 @@ stops with the case and the paths when one does not, because a label on a missin
 match. A case whose clone or head it cannot read skips the check, and the replay records that case
 as failed.
 
-A fix-check case measures the fix check in place of the lenses. It holds the findings an author
-replied `fixed` to, and for each one the verdict it expects: `fixed` or `not-fixed`. The harness
-runs no lens on it. It runs the [fix check](../output/fixes-only-run.md) of each finding at the
-case's head, with the case's base as the merge base, as a fixes-only run of a live pull request
-does. The run records each verdict and its reason. A fix check that fails, or that gets no call
-because the fix passes the config's file limit, records no verdict, and the report shows it as
-`unjudged`. The report lists each verdict beside the one the case expects.
+A fix-check case measures the fix check in place of the lenses. A case is a fix-check case when it
+holds `fixes`: the findings an author replied `fixed` to, and for each one the verdict it expects,
+`fixed` or `not-fixed`. The harness runs no lens on it. It runs the
+[fix check](../output/fixes-only-run.md) of each finding at the case's head, with the case's base as
+the merge base, as a fixes-only run of a live pull request does. The run records each verdict and
+its reason. A fix check that fails, or that gets no call because the fix goes over the config's file
+limit, records no verdict, and the report shows it as `unjudged`. The report lists each verdict
+beside the one the case expects, in a section of its own. A fix-check case counts in the totals'
+cases, calls, tokens and duration, and in no lens row.
 
 ## A run
 
