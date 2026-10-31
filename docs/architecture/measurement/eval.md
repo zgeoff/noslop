@@ -47,17 +47,20 @@ they are known.
 
 A case may also hold silences, each a lens it expects to report no finding, with the reason and,
 when the silence holds only near some lines, an anchor. A silence turns a check against a false
-positive into a scored expectation. Before a run, the harness checks that each labelled path names a
-file at the case's head, and it stops with the case and the paths when one does not, because a label
-on a missing file can never match. A case whose clone or head it cannot read skips the check, and
-the replay records that case as failed.
+positive into a scored expectation.
 
-A case may instead hold `fixed` answers, each with the finding it answers and the verdict it
-expects. Such a fix-check case runs no lens: noslop runs the
-[fix checks](../output/fixes-only-run.md) of its answers at the case's head, from its base, as a
-fixes-only run of a live pull request does. The run records each answer's verdict and reason, with
-no verdict for an unjudged answer, and the report lists each one beside the verdict the case
-expects.
+Before a run, the harness checks that each labelled path names a file at the case's head, and it
+stops with the case and the paths when one does not, because a label on a missing file can never
+match. A case whose clone or head it cannot read skips the check, and the replay records that case
+as failed.
+
+A fix-check case measures the fix check in place of the lenses. It holds the findings an author
+replied `fixed` to, and for each one the verdict it expects: `fixed` or `not-fixed`. The harness
+runs no lens on it. It runs the [fix check](../output/fixes-only-run.md) of each finding at the
+case's head, with the case's base as the merge base, as a fixes-only run of a live pull request
+does. The run records each verdict and its reason. A fix check that fails, or that gets no call
+because the fix passes the config's file limit, records no verdict, and the report shows it as
+`unjudged`. The report lists each verdict beside the one the case expects.
 
 ## A run
 

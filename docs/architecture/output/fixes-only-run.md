@@ -16,10 +16,12 @@ net diff from its merge base to the head, and the pull request's title and body 
 the run starts. It answers whether the pull request still holds the defect, with a one-line reason.
 A fix such as a new test in another file therefore gets judged on that test. A finding about the
 description gets judged on the edited title or body, since an edit to the description changes no
-commit. The call judges the defect where the finding places it. When the finding asks that an
-expected outcome, such as a refused input, come back as a result, and the code at the head returns
-it as a result, a throw at the edge of the program that reports that result, such as a command that
-turns it into an exit code, is not the defect.
+commit.
+
+The call judges the defect in the code the finding names. Take a finding that asks for a refused
+input to come back as a result. When the code at the head returns the refusal as a result, the call
+counts the finding fixed, even when a command at the edge of the program still throws that refusal
+to turn it into an exit code.
 
 The run traces the finding's line from the head that posted the finding through the diff to the
 head: a hunk above the line moves it. The call then reads the code around the traced line. When the
@@ -59,16 +61,21 @@ finding of a resolution check.
 
 ## A repeated finding
 
-A later review posts a finding again under a new ID when a lens words the defect with a new title
-while the first finding is open, and the author can answer both with the same fix. One call judges
-the answers to the first finding and each repeat, and the run gives each of them the call's verdict
-and reason, so the check never confirms one and keeps another open. Two answers count as one finding
-when they name the same file, the same lens and the same fix commit, by a short or a full sha, or
-both name none, and their titles match under the rule
-[Assemble](../review/findings.md#the-rules-assemble-enforces) merges duplicates by. The call reads
-the code around the first finding's line, and its prompt lists each later report under the first,
-with its title and comment. A failed call, or a fix past the file limit, leaves each of them
-unjudged. A static finding never shares a check.
+A finding's ID hashes its title, so a later review that words an open finding's defect another way
+posts it again under a new ID. The author can then answer `fixed` to the first finding and to this
+repeat with the same fix. The run judges a finding and its repeats in one call, and gives each of
+them the call's verdict and reason, so the check never confirms one and keeps another open.
+
+The run takes 2 `fixed` answers as answers to one finding when all of these hold:
+
+- Both findings sit in the same file and come from the same lens.
+- Both answers name the same fix commit, by a short or a full sha, or neither names one.
+- The titles match under the test [Assemble](../review/findings.md#the-rules-assemble-enforces) uses
+  to merge 2 findings of one review.
+
+The call reads the code around the first finding's line, and its prompt lists each repeat under the
+first finding, with its title and comment. When the call fails, or the fix passes the file limit,
+each finding of the group stays unjudged. A static finding never shares a check.
 
 ## The fix commit
 
