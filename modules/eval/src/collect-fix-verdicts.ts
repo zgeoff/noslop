@@ -1,3 +1,4 @@
+import { match } from 'ts-pattern';
 import type { Case, CaseFix } from './case';
 import type { CaseRun } from './types';
 
@@ -29,9 +30,9 @@ export function collectFixVerdicts(cases: readonly Case[], runs: readonly CaseRu
 }
 
 function pickVerdict(fixed: boolean | null): FixVerdict['verdict'] {
-  if (fixed === null) {
-    return 'unjudged';
-  }
-
-  return fixed ? 'fixed' : 'not-fixed';
+  return match(fixed)
+    .with(null, () => 'unjudged' as const)
+    .with(true, () => 'fixed' as const)
+    .with(false, () => 'not-fixed' as const)
+    .exhaustive();
 }
