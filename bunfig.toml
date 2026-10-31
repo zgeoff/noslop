@@ -19,6 +19,7 @@ minimumReleaseAgeExcludes = [
   "@maschwenk/tsrslint-darwin-arm64",
   "@maschwenk/tsrslint-linux-arm64",
   "@maschwenk/tsrslint-linux-x64",
+  "@zgeoff/agent-hooks",
   "@zgeoff/oxlint-config",
   "@zgeoff/skill-gate",
 ]
