@@ -103,6 +103,7 @@ export async function runFixChecks(options: FixChecksInput): Promise<FixChecksRu
   const groups = collectFixGroups(input.fixes, {
     minSharedWords: input.staticCheck.config.thresholds.mergeMinSharedWords,
     commitShas: await readCommitShas(input),
+    locations: await readFixLocations(input),
   });
 
   const outcomes = await Promise.all(
@@ -278,6 +279,8 @@ interface FixGrouping {
   minSharedWords: number;
 
   commitShas: ReadonlyMap<string, string>;
+
+  locations: ReadonlyMap<string, string>;
 }
 
 function collectFixGroups(fixes: readonly AnsweredFix[], grouping: FixGrouping): FixGroup[] {
@@ -297,12 +300,20 @@ function collectFixGroups(fixes: readonly AnsweredFix[], grouping: FixGrouping):
 }
 
 // two model calls on one defect can give two verdicts, so the answers to a finding that a later
-// review posted again under a new title share one call
+// review posted again under a new title share one call; one review's Assemble already kept apart
+// the findings it posted, and a shared verdict on 2 places would confirm a fix at one of them
 function isRepeatedFix(first: AnsweredFix, later: AnsweredFix, grouping: FixGrouping): boolean {
+  const location = grouping.locations.get(first.id);
+
   return (
     first.lens !== 'static' &&
     first.lens === later.lens &&
     first.path === later.path &&
+    first.postedHead !== null &&
+    later.postedHead !== null &&
+    first.postedHead !== later.postedHead &&
+    location !== undefined &&
+    location === grouping.locations.get(later.id) &&
     toCommitKey(first.commit, grouping) === toCommitKey(later.commit, grouping) &&
     isSameTitle(first.title, later.title, grouping.minSharedWords)
   );
@@ -325,6 +336,50 @@ async function readCommitShas(input: FixChecksInput): Promise<Map<string, string
   );
 
   return new Map(shas.flatMap(([name, sha]) => (sha === null ? [] : [[name, sha] as const])));
+}
+
+async function readFixLocations(input: FixChecksInput): Promise<Map<string, string>> {
+  const locations = await Promise.all(
+    input.fixes
+      .filter((fix) => fix.lens !== 'static')
+      .map(async (fix) => [fix.id, await readFixLocation(input, fix)] as const),
+  );
+
+  return new Map(
+    locations.flatMap(([id, location]) => (location === null ? [] : [[id, location] as const])),
+  );
+}
+
+async function readFixLocation(input: FixChecksInput, fix: AnsweredFix): Promise<string | null> {
+  if (fix.line === null) {
+    return 'file';
+  }
+
+  const line = await readTracedLine(input, fix);
+
+  return line === null ? null : `line ${line}`;
+}
+
+async function readTracedLine(input: FixChecksInput, fix: AnsweredFix): Promise<number | null> {
+  if (fix.line === null || fix.postedHead === null) {
+    return null;
+  }
+
+  const hunks =
+    fix.postedHead === input.head
+      ? []
+      : await readLaterHunks({
+          runner: input.runner,
+          repoDir: input.repoDir,
+          from: fix.postedHead,
+          to: input.head,
+          path: fix.path,
+        });
+
+  const traced =
+    hunks === null ? null : findHeadAnchor(hunks, { startLine: fix.line, endLine: fix.line });
+
+  return traced?.startLine ?? null;
 }
 
 interface FixCheckOutcome {
@@ -493,28 +548,6 @@ async function readHeadCode(input: FixChecksInput, fix: AnsweredFix): Promise<He
     .join('\n');
 
   return { text, isTraced: line !== null };
-}
-
-async function readTracedLine(input: FixChecksInput, fix: AnsweredFix): Promise<number | null> {
-  if (fix.line === null || fix.postedHead === null) {
-    return null;
-  }
-
-  const hunks =
-    fix.postedHead === input.head
-      ? []
-      : await readLaterHunks({
-          runner: input.runner,
-          repoDir: input.repoDir,
-          from: fix.postedHead,
-          to: input.head,
-          path: fix.path,
-        });
-
-  const traced =
-    hunks === null ? null : findHeadAnchor(hunks, { startLine: fix.line, endLine: fix.line });
-
-  return traced?.startLine ?? null;
 }
 
 async function readPullRequestEvidence(

@@ -271,3 +271,27 @@ test('it rejects an answered fix whose expected verdict is neither fixed nor not
     /case cart-refusal is not a valid case[\s\S]*fixes/u,
   );
 });
+
+test('it rejects a case whose list of answered fixes is empty', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(
+    join(ctx.directory, 'cart-refusal', 'case.json'),
+    JSON.stringify({
+      id: 'cart-refusal',
+      repo: '/repos/shop',
+      base: 'a'.repeat(40),
+      head: 'b'.repeat(40),
+      title: 'Refuse an empty cart',
+      body: '',
+      findings: [],
+      escapes: [],
+      fixes: [],
+    }),
+  );
+
+  expect(loadCorpus(ctx.directory)).rejects.toThrowWithMessage(
+    Error,
+    /case cart-refusal is not a valid case[\s\S]*fixes/u,
+  );
+});

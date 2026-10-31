@@ -10552,6 +10552,7 @@ test('it replays an eval case that holds answered fixes as fix checks and report
           'export const checkout = () => {\n  throw new Error("empty cart");\n};\n',
       },
     },
+    { message: 'Add a readme', files: { 'README.md': '# Shop\n' } },
     {
       message: 'Return the empty-cart refusal as a result',
       files: { 'src/checkout.ts': 'export const checkout = () => ({ kind: "refused" });\n' },
@@ -10562,8 +10563,7 @@ test('it replays an eval case that holds answered fixes as fix checks and report
     lens: 'failure-handling-and-observability',
     path: 'src/checkout.ts',
     line: null,
-    postedHead: repo.commits[0],
-    commit: repo.commits[1],
+    commit: repo.commits[2],
     expected: 'fixed',
   };
 
@@ -10573,7 +10573,7 @@ test('it replays an eval case that holds answered fixes as fix checks and report
       id: 'cart-refusal',
       repo: repo.path,
       base: repo.commits[0],
-      head: repo.commits[1],
+      head: repo.commits[2],
       title: 'Refuse an empty cart',
       body: '',
       findings: [],
@@ -10584,12 +10584,14 @@ test('it replays an eval case that holds answered fixes as fix checks and report
           id: '1111111111111111',
           title: 'Return the empty-cart refusal as a result',
           comment: 'The checkout throws for an empty cart, which callers can plan for.',
+          postedHead: repo.commits[0],
         },
         {
           ...fix,
           id: '2222222222222222',
           title: 'Return empty-cart refusals as a result',
           comment: 'An empty cart reaches this throw through normal input.',
+          postedHead: repo.commits[1],
         },
       ],
     }),

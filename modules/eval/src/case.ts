@@ -67,7 +67,7 @@ export const caseSchema = z.strictObject({
   escapes: z.array(escapeSchema),
   silences: z.array(silenceSchema).optional(),
 
-  fixes: z.array(caseFixSchema).optional(),
+  fixes: z.array(caseFixSchema).min(1).optional(),
 });
 
 export type Case = z.infer<typeof caseSchema>;

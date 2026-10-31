@@ -70,6 +70,10 @@ keeps another open.
 The run takes 2 `fixed` answers as answers to one finding when all of these hold:
 
 - Both findings sit in the same file and come from the same lens.
+- 2 different reviews posted the findings, so each review's head is known and the heads differ.
+  Assemble already kept apart the findings that one review posted.
+- Both findings are file-level, or both lines trace to the same line at the head. A finding whose
+  line fails to trace shares no call.
 - Both answers name the same fix commit, by a short or a full sha, or neither names one.
 - The titles match under the test [Assemble](../review/findings.md#the-rules-assemble-enforces) uses
   to merge 2 findings of one review.
