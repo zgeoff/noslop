@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.26](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.25...@noslop/cli@0.4.26) (2026-10-31)
+
+### Bug Fixes
+
+- **review:** give a finding and its repeat one fix-check verdict
+  ([#186](https://github.com/zgeoff/noslop/issues/186))
+  ([3b2119b](https://github.com/zgeoff/noslop/commit/3b2119b3e28a1b3bee3527171620ff7bc779bb06))
+
 ## [0.4.25](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.24...@noslop/cli@0.4.25) (2026-10-30)
 
 ### Bug Fixes
