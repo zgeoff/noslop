@@ -74,7 +74,7 @@
     "@zgeoff/bun-test-extended": "0.2.1",
     "@zgeoff/format-codemod": "0.1.0",
     "@zgeoff/oxlint-config": "0.7.5",
-    "@zgeoff/skill-gate": "0.2.11",
+    "@zgeoff/skill-gate": "0.2.13",
     "knip": "6.39.0",
     "lefthook": "2.1.14",
     "msw": "catalog:",
