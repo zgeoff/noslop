@@ -3,9 +3,9 @@ import { join } from 'node:path';
 import type { LoadedConfig } from '@noslop/config';
 import type { Depth, ReviewAdapter } from '@noslop/contract';
 import { mergeTokens } from '@noslop/contract';
-import type { CaseReviewer } from '@noslop/eval';
+import type { Case, CaseFix, CaseReview, CaseReviewer } from '@noslop/eval';
 import { getReplayBase } from '@noslop/eval';
-import { runReview } from '@noslop/review';
+import { runFixChecks, runReview } from '@noslop/review';
 import type { CLIContext } from './cli-context';
 
 export interface NoslopReviewerOptions {
@@ -31,6 +31,10 @@ export function createNoslopReviewer(options: NoslopReviewerOptions): CaseReview
       const started = performance.now();
 
       try {
+        if (corpusCase.fixes !== undefined) {
+          return await runCaseFixChecks(options, { corpusCase, fixes: corpusCase.fixes, tempDir });
+        }
+
         const caseConfig = await options.loadCaseConfig(corpusCase.repo);
 
         const run = await runReview({
@@ -87,5 +91,65 @@ export function createNoslopReviewer(options: NoslopReviewerOptions): CaseReview
         await rm(tempDir, { recursive: true, force: true });
       }
     },
+  };
+}
+
+interface FixCase {
+  corpusCase: Case;
+  fixes: readonly CaseFix[];
+  tempDir: string;
+}
+
+async function runCaseFixChecks(
+  options: NoslopReviewerOptions,
+  target: FixCase,
+): Promise<CaseReview> {
+  const started = performance.now();
+  const config = options.loaded.config;
+
+  const run = await runFixChecks({
+    runner: options.ctx.runner,
+    repoDir: target.corpusCase.repo,
+    head: target.corpusCase.head,
+    mergeBase: target.corpusCase.base,
+    title: target.corpusCase.title,
+    body: target.corpusCase.body,
+    fixes: target.fixes.map((fix) => ({
+      id: fix.id,
+      title: fix.title,
+      lens: fix.lens,
+      path: fix.path,
+      line: fix.line,
+      comment: fix.comment,
+      postedHead: fix.postedHead,
+      commit: fix.commit,
+    })),
+    maxFileChars: config.thresholds.maxFileChars,
+    maxCallChars: config.thresholds.maxCallChars,
+    adapter: options.adapter,
+    tempDir: target.tempDir,
+    logger: options.ctx.logger,
+    staticCheck: {
+      config,
+      linkedIssue: target.corpusCase.linkedIssue ?? null,
+      cacheDir: join(options.ctx.cacheDir, 'index'),
+    },
+  });
+
+  return {
+    findings: [],
+    failed: run.records.length > 0 && run.failedCalls.length === run.records.length,
+    tokens: mergeTokens(run.records.map((record) => record.tokens)),
+    durationMs: Math.round(performance.now() - started),
+    calls: run.records.length,
+    depth: null,
+    fixChecks: [
+      ...run.checks,
+      ...run.unjudged.map((item) => ({
+        findingID: item.findingID,
+        fixed: null,
+        reason: item.reason,
+      })),
+    ],
   };
 }

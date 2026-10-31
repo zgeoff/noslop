@@ -33,6 +33,12 @@ repo.
    - `silences`, optional: the lenses the case expects to report no finding, such as a lens that
      raised a false positive on the change. Each one is a `lens`, a `reason`, and an `anchor` when
      the silence covers only the lines near it. A silence with no anchor covers the whole change.
+   - `fixes`, optional: the `fixed` answers to judge, which turn the case into a fix-check case.
+     Each one is the finding's 16-character `id`, its `title`, `lens`, `path`, posted `line` or
+     `null`, and the `comment` it was posted with; the `postedHead` that posted it or `null`; the
+     `commit` the answer names or `null` for a bare `fixed`; and the `expected` verdict, `fixed` or
+     `not-fixed`. Set `head` to the head the answers were judged at, and keep `findings` and
+     `escapes` empty.
 
 Label the findings a reference reviewer made on the change by what happened to each one, so the
 corpus records which findings were real.
@@ -138,6 +144,11 @@ Each one is a defect the cheapest review could let through, and
 A lens that reports more and matches more false positives grew noisier. An unlabelled finding is
 unscored, not wrong: read a sample of them before you judge the lens, and label the real ones into
 the corpus. A finding with no lens counts under `unknown`.
+
+When the corpus holds a fix-check case, the report ends with `## Fix checks`: a count of the fix
+checks that gave the expected verdict, then one row per answer with its case, finding, expected
+verdict, the verdict the run gave and the reason. A verdict of `unjudged` means the fix check
+failed, passed the file limit, or never ran.
 
 A gap between two runs means something only when it is larger than the noise floor. Two runs of one
 config differ on their own, so measure the floor once per corpus and reviewer, and judge every

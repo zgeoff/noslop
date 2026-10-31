@@ -1,5 +1,6 @@
 export * from './case';
 export * from './build-run-comparison';
+export * from './collect-fix-verdicts';
 export * from './get-replay-base';
 export * from './load-corpus';
 export * from './load-runs';

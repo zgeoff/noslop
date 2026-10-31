@@ -60,6 +60,7 @@ test('it renders the totals, the Light rule, each lens and the noise floor', () 
       },
     },
     noiseFloor: { cases: 2, findingsFirst: 5, findingsSecond: 4, matched: 3, agreement: 0.5 },
+    fixVerdicts: [],
   });
 
   expect(report).toMatchInlineSnapshot(`
@@ -98,7 +99,7 @@ test('it renders the totals, the Light rule, each lens and the noise floor', () 
   `);
 });
 
-test('it leaves out the baseline column and the noise floor when the run has neither', () => {
+test('it leaves out the baseline column, the noise floor and the fix checks when the run has none', () => {
   const report = renderEvalReport({
     reviewer: 'noslop-claude',
     score: {
@@ -122,10 +123,67 @@ test('it leaves out the baseline column and the noise floor when the run has nei
     },
     reference: null,
     noiseFloor: null,
+    fixVerdicts: [],
   });
 
-  expect([
-    report.includes('| Measure | noslop-claude |'),
-    report.includes('Noise floor'),
-  ]).toStrictEqual([true, false]);
+  expect(report).toInclude('| Measure | noslop-claude |\n| --- | --- |\n');
+  expect(report).not.toInclude('Noise floor');
+  expect(report).not.toInclude('Fix checks');
+});
+
+test('it lists the verdict of each fix check beside the verdict the case expects', () => {
+  const report = renderEvalReport({
+    reviewer: 'noslop-claude',
+    score: {
+      cases: 1,
+      failedCases: 0,
+      lenses: [],
+      baselineTruePositives: 0,
+      repeatedTruePositives: 0,
+      reported: 0,
+      unlabelled: 0,
+      escapesCaught: 0,
+      escapesWithAnchor: 0,
+      silences: 0,
+      silencesBroken: 0,
+      lightCases: 0,
+      lightP1s: 0,
+      lightEscapes: 0,
+      tokens: { input: 0, cachedInput: 0, cacheWrite: 0, output: 0 },
+      durationMs: 0,
+      calls: 1,
+    },
+    reference: null,
+    noiseFloor: null,
+    fixVerdicts: [
+      {
+        caseID: 'cart-refusal',
+        findingID: '1111111111111111',
+        expected: 'fixed',
+        verdict: 'fixed',
+        reason: 'The checkout returns the refusal.',
+      },
+      {
+        caseID: 'cart-refusal',
+        findingID: '2222222222222222',
+        expected: 'fixed',
+        verdict: 'not-fixed',
+        reason: 'The command still throws | exits.',
+      },
+    ],
+  });
+
+  expect(report).toEndWith(
+    [
+      '## Fix checks',
+      '',
+      '1 of 2 fix checks gave the expected verdict.',
+      '',
+      '| Case | Finding | Expected | Verdict | Reason |',
+      '| --- | --- | --- | --- | --- |',
+      '| cart-refusal | 1111111111111111 | fixed | fixed | The checkout returns the refusal. |',
+      String.raw`| cart-refusal | 2222222222222222 | fixed | not-fixed | The command still throws \| exits. |`,
+      '',
+    ].join('\n'),
+  );
 });

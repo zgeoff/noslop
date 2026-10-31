@@ -52,6 +52,13 @@ file at the case's head, and it stops with the case and the paths when one does 
 on a missing file can never match. A case whose clone or head it cannot read skips the check, and
 the replay records that case as failed.
 
+A case may instead hold `fixed` answers, each with the finding it answers and the verdict it
+expects. Such a fix-check case runs no lens: noslop runs the
+[fix checks](../output/fixes-only-run.md) of its answers at the case's head, from its base, as a
+fixes-only run of a live pull request does. The run records each answer's verdict and reason, with
+no verdict for an unjudged answer, and the report lists each one beside the verdict the case
+expects.
+
 ## A run
 
 The harness reviews the first cases of the corpus, all of them unless `--limit` caps the count. For
