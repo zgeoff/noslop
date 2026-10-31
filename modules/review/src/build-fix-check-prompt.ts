@@ -6,7 +6,7 @@ export type FixEvidence =
   | { kind: 'pull-request'; diff: string; isWholeDiff: boolean }
   | { kind: 'fix-commit'; commit: string; parts: readonly FixPart[]; leftOut: readonly FixPart[] };
 
-export interface RepeatedReport {
+interface RepeatedReport {
   title: string;
   comment: string;
 }
