@@ -7,6 +7,7 @@ test("it asks whether the pull request still holds the defect from the finding, 
       title: 'Reject an empty separator',
       lens: 'correctness',
       comment: 'An empty separator splits the line into single characters.',
+      repeats: [],
       path: 'src/scan.ts',
       code: '1: export const separator = ":";',
       isTraced: true,
@@ -24,9 +25,10 @@ test("it asks whether the pull request still holds the defect from the finding, 
 
     1. Answer \`fixed: true\` only when the code at the head and the description no longer hold the defect the finding describes. The fix may be in another file, such as a new test that the finding asks for. The fix of a finding about the title or the body is an edit to the description, which the diff never shows.
     2. Answer \`fixed: false\` when the code or the description still holds the defect, or the diff moves the defect elsewhere.
-    3. The pull request may move the code or the test of a fix to another file and reshape it there. Count code or a test that the diff deletes as moved when the diff adds code or a test in another file that does what the deleted lines did, in other lines or not.
-    4. Give the reason in one line.
-    5. Report no other defect, however the code or the diff looks.
+    3. Judge the defect where the finding places it. When the finding asks that an expected outcome, such as a refused input, come back as a result, and the code at the head returns it as a result, a throw that reports that result at the edge of the program, such as a command that turns it into an exit code, is not the defect.
+    4. The pull request may move the code or the test of a fix to another file and reshape it there. Count code or a test that the diff deletes as moved when the diff adds code or a test in another file that does what the deleted lines did, in other lines or not.
+    5. Give the reason in one line.
+    6. Report no other defect, however the code or the diff looks.
 
     ## The finding: Reject an empty separator
 
@@ -61,6 +63,7 @@ test('it asks from the parts of the fix commit the author named, and names the p
       title: 'Reject an empty separator',
       lens: 'correctness',
       comment: 'An empty separator splits the line into single characters.',
+      repeats: [],
       path: 'src/scan.ts',
       code: "2: export const scan = (line: string) => splitHeader(line, '');",
       isTraced: true,
@@ -90,11 +93,12 @@ test('it asks from the parts of the fix commit the author named, and names the p
 
     1. Answer \`fixed: true\` only when the code at the head and the description no longer hold the defect the finding describes. The fix may be in another file, such as a new test that the finding asks for. The fix of a finding about the title or the body is an edit to the description, which the diff never shows.
     2. Answer \`fixed: false\` when the code or the description still holds the defect, or the diff moves the defect elsewhere.
-    3. The pull request may move the code or the test of a fix to another file and reshape it there. Count code or a test that the diff deletes as moved when the diff adds code or a test in another file that does what the deleted lines did, in other lines or not.
-    4. Give the reason in one line.
-    5. Report no other defect, however the code or the diff looks.
-    6. The fix commit may fix the defect in a helper that the finding's code calls, or in a file that replaces the finding's file, so judge the defect where the code at the head does that work now. A commit that changes no code the defect runs through leaves it unfixed.
-    7. A part left out to fit the call is unread, so its absence shows nothing about the fix.
+    3. Judge the defect where the finding places it. When the finding asks that an expected outcome, such as a refused input, come back as a result, and the code at the head returns it as a result, a throw that reports that result at the edge of the program, such as a command that turns it into an exit code, is not the defect.
+    4. The pull request may move the code or the test of a fix to another file and reshape it there. Count code or a test that the diff deletes as moved when the diff adds code or a test in another file that does what the deleted lines did, in other lines or not.
+    5. Give the reason in one line.
+    6. Report no other defect, however the code or the diff looks.
+    7. The fix commit may fix the defect in a helper that the finding's code calls, or in a file that replaces the finding's file, so judge the defect where the code at the head does that work now. A commit that changes no code the defect runs through leaves it unfixed.
+    8. A part left out to fit the call is unread, so its absence shows nothing about the fix.
 
     ## The finding: Reject an empty separator
 
@@ -148,6 +152,7 @@ test('it names the whole file when the trace failed', () => {
     title: 'Reject an empty separator',
     lens: 'correctness',
     comment: '',
+    repeats: [],
     path: 'src/scan.ts',
     code: '1: export const separator = ":";',
     isTraced: false,
@@ -166,6 +171,7 @@ test('it names an empty diff and absent code, so the call reads no blank block',
     title: 'Reject an empty separator',
     lens: 'correctness',
     comment: '',
+    repeats: [],
     path: 'src/scan.ts',
     code: '',
     isTraced: false,
@@ -187,6 +193,7 @@ test("it names the finding file's diff alone when the whole diff is too large to
     title: 'Reject an empty separator',
     lens: 'correctness',
     comment: '',
+    repeats: [],
     path: 'src/scan.ts',
     code: '1: export const separator = ":";',
     isTraced: true,
@@ -200,4 +207,32 @@ test("it names the finding file's diff alone when the whole diff is too large to
   );
 
   expect(prompt).toInclude('(the pull request leaves this file alone)');
+});
+
+test('it puts each later report of the finding under it and asks for one verdict for all of them', () => {
+  const prompt = buildFixCheckPrompt({
+    title: 'Return the empty-cart refusal as a result',
+    lens: 'failure-handling-and-observability',
+    comment: 'The checkout throws for an empty cart, which callers can plan for.',
+    repeats: [
+      {
+        title: 'Return empty-cart refusals as a result',
+        comment: 'An empty cart reaches this throw through normal input.',
+      },
+    ],
+    path: 'src/checkout.ts',
+    code: '1: export const checkout = () => ({ kind: "refused" });',
+    isTraced: true,
+    evidence: { kind: 'pull-request', diff: '', isWholeDiff: true },
+    pullRequestTitle: 'Refuse an empty cart',
+    body: '',
+  });
+
+  expect(prompt).toInclude(
+    '7. A later review reported the finding again in other words, and the author answered each report with the same fix. Every report below describes the one defect, so give one verdict for all of them.',
+  );
+
+  expect(prompt).toInclude(
+    'The checkout throws for an empty cart, which callers can plan for.\n\n## The same finding, reported again: Return empty-cart refusals as a result\n\nAn empty cart reaches this throw through normal input.\n\n## The code at `src/checkout.ts`',
+  );
 });

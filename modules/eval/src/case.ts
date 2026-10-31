@@ -38,6 +38,20 @@ export const silenceSchema = z.strictObject({
 
 export type Silence = z.infer<typeof silenceSchema>;
 
+export const caseFixSchema = z.strictObject({
+  id: z.string().regex(/^[0-9a-f]{16}$/u),
+  title: z.string().min(1),
+  lens: findingLensSchema,
+  path: z.string().min(1),
+  line: z.int().positive().nullable(),
+  comment: z.string(),
+  postedHead: commitSchema.nullable(),
+  commit: z.string().min(1).nullable(),
+  expected: z.enum(['fixed', 'not-fixed']),
+});
+
+export type CaseFix = z.infer<typeof caseFixSchema>;
+
 export const caseSchema = z.strictObject({
   id: z.string().min(1),
   repo: z.string().min(1),
@@ -52,6 +66,8 @@ export const caseSchema = z.strictObject({
   findings: z.array(labelledFindingSchema),
   escapes: z.array(escapeSchema),
   silences: z.array(silenceSchema).optional(),
+
+  fixes: z.array(caseFixSchema).min(1).optional(),
 });
 
 export type Case = z.infer<typeof caseSchema>;

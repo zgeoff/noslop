@@ -2457,7 +2457,7 @@ test('it runs at most 8 git processes at once across answers that name large fix
       id,
       title: 'Reject an empty separator',
       lens: 'correctness',
-      path: 'src/scan.ts',
+      path: `src/scan-${index}.ts`,
       line: 1,
       comment: 'An empty separator splits the line into single characters.',
       postedHead: repo.commits[0] ?? '',
@@ -2474,4 +2474,508 @@ test('it runs at most 8 git processes at once across answers that name large fix
 
   expect(result.fixChecks).toHaveLength(15);
   expect(counting.readPeak()).toBeLessThanOrEqual(8);
+});
+
+test('it judges the answers to a finding and its later repeat in one call, and gives both its verdict', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/checkout.ts':
+          'export const checkout = () => {\n  throw new Error("empty cart");\n};\n',
+      },
+    },
+    { message: 'Add a readme', files: { 'README.md': '# Shop\n' } },
+    {
+      message: 'Return the empty-cart refusal as a result',
+      files: { 'src/checkout.ts': 'export const checkout = () => ({ kind: "refused" });\n' },
+    },
+  ]);
+
+  const stub = buildStubAdapter({
+    'fix-1111111111111111': [{ fixed: true, reason: 'The checkout returns the refusal.' }],
+  });
+
+  const result = await runFixesOnlyReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/app',
+    pullRequest: { owner: 'example', repo: 'app', number: 9 },
+    base: repo.commits[0] ?? '',
+    head: repo.commits[2] ?? '',
+    mergeBase: repo.commits[0] ?? '',
+    title: 'Refuse an empty cart',
+    configHash: 'hash',
+    fixes: [
+      {
+        id: '1111111111111111',
+        title: 'Return the empty-cart refusal as a result',
+        lens: 'failure-handling-and-observability',
+        path: 'src/checkout.ts',
+        line: null,
+        comment: 'The checkout throws for an empty cart, which callers can plan for.',
+        postedHead: repo.commits[0] ?? '',
+        commit: repo.commits[2] ?? '',
+      },
+      {
+        id: '2222222222222222',
+        title: 'Return empty-cart refusals as a result',
+        lens: 'failure-handling-and-observability',
+        path: 'src/checkout.ts',
+        line: null,
+        comment: 'An empty cart reaches this throw through normal input.',
+        postedHead: repo.commits[1] ?? '',
+        commit: repo.commits[2] ?? '',
+      },
+    ],
+    maxFileChars: 10_000,
+    maxCallChars: 1_000_000,
+    adapter: stub.adapter,
+    tempDir: ctx.directory,
+    logger: ctx.logger,
+    body: '',
+    staticCheck: { config: BUILT_IN_DEFAULTS, linkedIssue: null, cacheDir: null },
+  });
+
+  expect(result.fixChecks).toStrictEqual([
+    { findingID: '1111111111111111', fixed: true, reason: 'The checkout returns the refusal.' },
+    { findingID: '2222222222222222', fixed: true, reason: 'The checkout returns the refusal.' },
+  ]);
+
+  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['fix-1111111111111111']);
+});
+
+test('it judges the answers to a finding and its repeat in one call when one names the fix by a short sha', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/checkout.ts':
+          'export const checkout = () => {\n  throw new Error("empty cart");\n};\n',
+      },
+    },
+    { message: 'Add a readme', files: { 'README.md': '# Shop\n' } },
+    {
+      message: 'Return the empty-cart refusal as a result',
+      files: { 'src/checkout.ts': 'export const checkout = () => ({ kind: "refused" });\n' },
+    },
+  ]);
+
+  const stub = buildStubAdapter({
+    'fix-1111111111111111': [{ fixed: true, reason: 'The checkout returns the refusal.' }],
+  });
+
+  await runFixesOnlyReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/app',
+    pullRequest: { owner: 'example', repo: 'app', number: 9 },
+    base: repo.commits[0] ?? '',
+    head: repo.commits[2] ?? '',
+    mergeBase: repo.commits[0] ?? '',
+    title: 'Refuse an empty cart',
+    configHash: 'hash',
+    fixes: [
+      {
+        id: '1111111111111111',
+        title: 'Return the empty-cart refusal as a result',
+        lens: 'failure-handling-and-observability',
+        path: 'src/checkout.ts',
+        line: null,
+        comment: 'The checkout throws for an empty cart, which callers can plan for.',
+        postedHead: repo.commits[0] ?? '',
+        commit: (repo.commits[2] ?? '').slice(0, 7),
+      },
+      {
+        id: '2222222222222222',
+        title: 'Return empty-cart refusals as a result',
+        lens: 'failure-handling-and-observability',
+        path: 'src/checkout.ts',
+        line: null,
+        comment: 'An empty cart reaches this throw through normal input.',
+        postedHead: repo.commits[1] ?? '',
+        commit: repo.commits[2] ?? '',
+      },
+    ],
+    maxFileChars: 10_000,
+    maxCallChars: 1_000_000,
+    adapter: stub.adapter,
+    tempDir: ctx.directory,
+    logger: ctx.logger,
+    body: '',
+    staticCheck: { config: BUILT_IN_DEFAULTS, linkedIssue: null, cacheDir: null },
+  });
+
+  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['fix-1111111111111111']);
+});
+
+test('it judges a line finding and its repeat in one call when both lines trace to one line at the head', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/checkout.ts':
+          'export const checkout = (cart) => {\n  if (cart.length === 0) throw new Error("empty cart");\n  return cart;\n};\n',
+      },
+    },
+    {
+      message: 'Name the module',
+      files: {
+        'src/checkout.ts':
+          '// checkout\n\nexport const checkout = (cart) => {\n  if (cart.length === 0) throw new Error("empty cart");\n  return cart;\n};\n',
+      },
+    },
+    { message: 'Add the refusal type', files: { 'src/refusal.ts': 'export type Refusal = 1;\n' } },
+  ]);
+
+  const stub = buildStubAdapter({
+    'fix-1111111111111111': [{ fixed: false, reason: 'The checkout still throws.' }],
+  });
+
+  await runFixesOnlyReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/app',
+    pullRequest: { owner: 'example', repo: 'app', number: 9 },
+    base: repo.commits[0] ?? '',
+    head: repo.commits[2] ?? '',
+    mergeBase: repo.commits[0] ?? '',
+    title: 'Refuse an empty cart',
+    configHash: 'hash',
+    fixes: [
+      {
+        id: '1111111111111111',
+        title: 'Return the empty-cart refusal as a result',
+        lens: 'failure-handling-and-observability',
+        path: 'src/checkout.ts',
+        line: 2,
+        comment: 'The checkout throws for an empty cart, which callers can plan for.',
+        postedHead: repo.commits[0] ?? '',
+        commit: repo.commits[2] ?? '',
+      },
+      {
+        id: '2222222222222222',
+        title: 'Return empty-cart refusals as a result',
+        lens: 'failure-handling-and-observability',
+        path: 'src/checkout.ts',
+        line: 4,
+        comment: 'An empty cart reaches this throw through normal input.',
+        postedHead: repo.commits[1] ?? '',
+        commit: repo.commits[2] ?? '',
+      },
+    ],
+    maxFileChars: 10_000,
+    maxCallChars: 1_000_000,
+    adapter: stub.adapter,
+    tempDir: ctx.directory,
+    logger: ctx.logger,
+    body: '',
+    staticCheck: { config: BUILT_IN_DEFAULTS, linkedIssue: null, cacheDir: null },
+  });
+
+  expect(stub.requests.map((request) => request.callID)).toStrictEqual(['fix-1111111111111111']);
+});
+
+test('it judges 2 findings with one title at 2 places in one file in calls of their own', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/checkout.ts':
+          'export const checkout = () => {\n  throw new Error("empty cart");\n};\nexport const refund = () => {\n  throw new Error("empty cart");\n};\n',
+      },
+    },
+    { message: 'Add a readme', files: { 'README.md': '# Shop\n' } },
+    {
+      message: 'Return the empty-cart refusal of checkout as a result',
+      files: {
+        'src/checkout.ts':
+          'export const checkout = () => ({ kind: "refused" });\nexport const refund = () => {\n  throw new Error("empty cart");\n};\n',
+      },
+    },
+  ]);
+
+  const stub = buildStubAdapter({
+    'fix-1111111111111111': [{ fixed: true, reason: 'The checkout returns the refusal.' }],
+    'fix-2222222222222222': [{ fixed: false, reason: 'The refund still throws.' }],
+  });
+
+  const result = await runFixesOnlyReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/app',
+    pullRequest: { owner: 'example', repo: 'app', number: 9 },
+    base: repo.commits[0] ?? '',
+    head: repo.commits[2] ?? '',
+    mergeBase: repo.commits[0] ?? '',
+    title: 'Refuse an empty cart',
+    configHash: 'hash',
+    fixes: [
+      {
+        id: '1111111111111111',
+        title: 'Return the empty-cart refusal as a result',
+        lens: 'failure-handling-and-observability',
+        path: 'src/checkout.ts',
+        line: 2,
+        comment: 'The checkout throws for an empty cart, which callers can plan for.',
+        postedHead: repo.commits[0] ?? '',
+        commit: repo.commits[2] ?? '',
+      },
+      {
+        id: '2222222222222222',
+        title: 'Return empty-cart refusals as a result',
+        lens: 'failure-handling-and-observability',
+        path: 'src/checkout.ts',
+        line: 5,
+        comment: 'The refund throws for an empty cart, which callers can plan for.',
+        postedHead: repo.commits[1] ?? '',
+        commit: repo.commits[2] ?? '',
+      },
+    ],
+    maxFileChars: 10_000,
+    maxCallChars: 1_000_000,
+    adapter: stub.adapter,
+    tempDir: ctx.directory,
+    logger: ctx.logger,
+    body: '',
+    staticCheck: { config: BUILT_IN_DEFAULTS, linkedIssue: null, cacheDir: null },
+  });
+
+  expect(result.fixChecks).toIncludeSameMembers([
+    { findingID: '1111111111111111', fixed: true, reason: 'The checkout returns the refusal.' },
+    { findingID: '2222222222222222', fixed: false, reason: 'The refund still throws.' },
+  ]);
+});
+
+test('it judges the answers to 2 findings of one review in calls of their own', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/checkout.ts':
+          'export const checkout = () => {\n  throw new Error("empty cart");\n};\n',
+      },
+    },
+    {
+      message: 'Return the empty-cart refusal as a result',
+      files: { 'src/checkout.ts': 'export const checkout = () => ({ kind: "refused" });\n' },
+    },
+  ]);
+
+  const stub = buildStubAdapter({
+    'fix-1111111111111111': [{ fixed: true, reason: 'The checkout returns the refusal.' }],
+    'fix-2222222222222222': [{ fixed: true, reason: 'The checkout returns the refusal.' }],
+  });
+
+  await runFixesOnlyReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/app',
+    pullRequest: { owner: 'example', repo: 'app', number: 9 },
+    base: repo.commits[0] ?? '',
+    head: repo.commits[1] ?? '',
+    mergeBase: repo.commits[0] ?? '',
+    title: 'Refuse an empty cart',
+    configHash: 'hash',
+    fixes: [
+      {
+        id: '1111111111111111',
+        title: 'Return the empty-cart refusal as a result',
+        lens: 'failure-handling-and-observability',
+        path: 'src/checkout.ts',
+        line: null,
+        comment: 'The checkout throws for an empty cart, which callers can plan for.',
+        postedHead: repo.commits[0] ?? '',
+        commit: repo.commits[1] ?? '',
+      },
+      {
+        id: '2222222222222222',
+        title: 'Return empty-cart refusals as a result',
+        lens: 'failure-handling-and-observability',
+        path: 'src/checkout.ts',
+        line: null,
+        comment: 'An empty cart reaches this throw through normal input.',
+        postedHead: repo.commits[0] ?? '',
+        commit: repo.commits[1] ?? '',
+      },
+    ],
+    maxFileChars: 10_000,
+    maxCallChars: 1_000_000,
+    adapter: stub.adapter,
+    tempDir: ctx.directory,
+    logger: ctx.logger,
+    body: '',
+    staticCheck: { config: BUILT_IN_DEFAULTS, linkedIssue: null, cacheDir: null },
+  });
+
+  expect(stub.requests.map((request) => request.callID).toSorted()).toStrictEqual([
+    'fix-1111111111111111',
+    'fix-2222222222222222',
+  ]);
+});
+
+test('it judges a later finding in a call of its own when it repeats an older finding but not the repeat its own review posted', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/cart.ts':
+          'export const addItem = () => {\n  throw new Error("bad item");\n};\nexport const refund = () => {\n  throw new Error("bad refund");\n};\n',
+      },
+    },
+    { message: 'Add a readme', files: { 'README.md': '# Shop\n' } },
+    {
+      message: 'Return the item refusal as a result',
+      files: {
+        'src/cart.ts':
+          'export const addItem = () => ({ kind: "refused" });\nexport const refund = () => {\n  throw new Error("bad refund");\n};\n',
+      },
+    },
+  ]);
+
+  const stub = buildStubAdapter({
+    'fix-1111111111111111': [{ fixed: true, reason: 'The cart returns the refusal.' }],
+    'fix-3333333333333333': [{ fixed: false, reason: 'The refund still throws.' }],
+  });
+
+  const result = await runFixesOnlyReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/app',
+    pullRequest: { owner: 'example', repo: 'app', number: 9 },
+    base: repo.commits[0] ?? '',
+    head: repo.commits[2] ?? '',
+    mergeBase: repo.commits[0] ?? '',
+    title: 'Refuse bad cart input',
+    configHash: 'hash',
+    fixes: [
+      {
+        id: '1111111111111111',
+        title: 'Reject invalid cart refund input',
+        lens: 'failure-handling-and-observability',
+        path: 'src/cart.ts',
+        line: null,
+        comment: 'The cart throws on bad input, which callers can plan for.',
+        postedHead: repo.commits[0] ?? '',
+        commit: repo.commits[2] ?? '',
+      },
+      {
+        id: '2222222222222222',
+        title: 'Reject invalid cart input',
+        lens: 'failure-handling-and-observability',
+        path: 'src/cart.ts',
+        line: null,
+        comment: 'Adding a bad item throws.',
+        postedHead: repo.commits[1] ?? '',
+        commit: repo.commits[2] ?? '',
+      },
+      {
+        id: '3333333333333333',
+        title: 'Reject invalid refund input',
+        lens: 'failure-handling-and-observability',
+        path: 'src/cart.ts',
+        line: null,
+        comment: 'A bad refund throws.',
+        postedHead: repo.commits[1] ?? '',
+        commit: repo.commits[2] ?? '',
+      },
+    ],
+    maxFileChars: 10_000,
+    maxCallChars: 1_000_000,
+    adapter: stub.adapter,
+    tempDir: ctx.directory,
+    logger: ctx.logger,
+    body: '',
+    staticCheck: { config: BUILT_IN_DEFAULTS, linkedIssue: null, cacheDir: null },
+  });
+
+  expect(result.fixChecks).toIncludeSameMembers([
+    { findingID: '1111111111111111', fixed: true, reason: 'The cart returns the refusal.' },
+    { findingID: '2222222222222222', fixed: true, reason: 'The cart returns the refusal.' },
+    { findingID: '3333333333333333', fixed: false, reason: 'The refund still throws.' },
+  ]);
+});
+
+test('it judges the answers to 2 different findings in one file in calls of their own', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/order.ts':
+          '// reads the order\nexport const parseOrder = () => 1;\n// writes the order\nexport const formatOrder = () => 2;\n',
+      },
+    },
+    { message: 'Add a readme', files: { 'README.md': '# Orders\n' } },
+    {
+      message: 'Delete 2 comments',
+      files: {
+        'src/order.ts': 'export const parseOrder = () => 1;\nexport const formatOrder = () => 2;\n',
+      },
+    },
+  ]);
+
+  const stub = buildStubAdapter({
+    'fix-1111111111111111': [{ fixed: true, reason: 'The comment is gone.' }],
+    'fix-2222222222222222': [{ fixed: true, reason: 'The comment is gone.' }],
+  });
+
+  await runFixesOnlyReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/app',
+    pullRequest: { owner: 'example', repo: 'app', number: 9 },
+    base: repo.commits[0] ?? '',
+    head: repo.commits[2] ?? '',
+    mergeBase: repo.commits[0] ?? '',
+    title: 'Read and write an order',
+    configHash: 'hash',
+    fixes: [
+      {
+        id: '1111111111111111',
+        title: 'Delete the comment above parseOrder',
+        lens: 'naming-shape-and-comments',
+        path: 'src/order.ts',
+        line: null,
+        comment: 'The comment repeats the name.',
+        postedHead: repo.commits[0] ?? '',
+        commit: repo.commits[2] ?? '',
+      },
+      {
+        id: '2222222222222222',
+        title: 'Delete the comment above formatOrder',
+        lens: 'naming-shape-and-comments',
+        path: 'src/order.ts',
+        line: null,
+        comment: 'The comment repeats the name.',
+        postedHead: repo.commits[1] ?? '',
+        commit: repo.commits[2] ?? '',
+      },
+    ],
+    maxFileChars: 10_000,
+    maxCallChars: 1_000_000,
+    adapter: stub.adapter,
+    tempDir: ctx.directory,
+    logger: ctx.logger,
+    body: '',
+    staticCheck: { config: BUILT_IN_DEFAULTS, linkedIssue: null, cacheDir: null },
+  });
+
+  expect(stub.requests.map((request) => request.callID).toSorted()).toStrictEqual([
+    'fix-1111111111111111',
+    'fix-2222222222222222',
+  ]);
 });

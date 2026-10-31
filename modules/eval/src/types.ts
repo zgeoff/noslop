@@ -14,6 +14,15 @@ export interface CaseReview {
   failedLenses?: FindingLens[] | undefined;
 
   dropped?: DroppedFinding[] | undefined;
+
+  fixChecks?: CaseFixCheck[] | undefined;
+}
+
+export interface CaseFixCheck {
+  findingID: string;
+
+  fixed: boolean | null;
+  reason: string;
 }
 
 export interface DroppedFinding {

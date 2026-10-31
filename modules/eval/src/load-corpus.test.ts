@@ -2,6 +2,7 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import type { Case } from './case';
 import { loadCorpus } from './load-corpus';
 
 async function setupTest() {
@@ -198,5 +199,99 @@ test('it rejects a case that does not match the case schema', async () => {
   expect(loadCorpus(ctx.directory)).rejects.toThrowWithMessage(
     Error,
     /case bad is not a valid case/u,
+  );
+});
+
+test('it loads the answered fixes of a fix-check case with the verdict each one expects', async () => {
+  const ctx = await setupTest();
+
+  const corpusCase: Case = {
+    id: 'cart-refusal',
+    repo: '/repos/shop',
+    base: 'a'.repeat(40),
+    head: 'b'.repeat(40),
+    title: 'Refuse an empty cart',
+    body: '',
+    findings: [],
+    escapes: [],
+    fixes: [
+      {
+        id: '1111111111111111',
+        title: 'Return the empty-cart refusal as a result',
+        lens: 'failure-handling-and-observability',
+        path: 'src/checkout.ts',
+        line: null,
+        comment: 'The checkout throws for an empty cart.',
+        postedHead: 'a'.repeat(40),
+        commit: 'b'.repeat(7),
+        expected: 'fixed',
+      },
+    ],
+  };
+
+  await Bun.write(join(ctx.directory, 'cart-refusal', 'case.json'), JSON.stringify(corpusCase));
+
+  const cases = await loadCorpus(ctx.directory);
+
+  expect(cases).toStrictEqual([corpusCase]);
+});
+
+test('it rejects an answered fix whose expected verdict is neither fixed nor not-fixed', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(
+    join(ctx.directory, 'cart-refusal', 'case.json'),
+    JSON.stringify({
+      id: 'cart-refusal',
+      repo: '/repos/shop',
+      base: 'a'.repeat(40),
+      head: 'b'.repeat(40),
+      title: 'Refuse an empty cart',
+      body: '',
+      findings: [],
+      escapes: [],
+      fixes: [
+        {
+          id: '1111111111111111',
+          title: 'Return the empty-cart refusal as a result',
+          lens: 'failure-handling-and-observability',
+          path: 'src/checkout.ts',
+          line: null,
+          comment: 'The checkout throws for an empty cart.',
+          postedHead: 'a'.repeat(40),
+          commit: 'b'.repeat(7),
+          expected: 'maybe',
+        },
+      ],
+    }),
+  );
+
+  expect(loadCorpus(ctx.directory)).rejects.toThrowWithMessage(
+    Error,
+    /case cart-refusal is not a valid case[\s\S]*fixes/u,
+  );
+});
+
+test('it rejects a case whose list of answered fixes is empty', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(
+    join(ctx.directory, 'cart-refusal', 'case.json'),
+    JSON.stringify({
+      id: 'cart-refusal',
+      repo: '/repos/shop',
+      base: 'a'.repeat(40),
+      head: 'b'.repeat(40),
+      title: 'Refuse an empty cart',
+      body: '',
+      findings: [],
+      escapes: [],
+      fixes: [],
+    }),
+  );
+
+  expect(loadCorpus(ctx.directory)).rejects.toThrowWithMessage(
+    Error,
+    /case cart-refusal is not a valid case[\s\S]*fixes/u,
   );
 });

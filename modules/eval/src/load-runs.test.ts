@@ -43,6 +43,34 @@ test('it reads a recorded run of case reviews', async () => {
   expect(loaded).toStrictEqual(runs);
 });
 
+test('it reads the verdicts of the fix checks a case ran, with an unjudged one as null', async () => {
+  const ctx = await setupTest();
+
+  const runs = [
+    {
+      caseID: 'cart-refusal',
+      review: {
+        findings: [],
+        failed: false,
+        tokens: { input: 0, cachedInput: 0, cacheWrite: 0, output: 0 },
+        durationMs: 900,
+        calls: 1,
+        depth: null,
+        fixChecks: [
+          { findingID: '1111111111111111', fixed: true, reason: 'It returns the refusal.' },
+          { findingID: '2222222222222222', fixed: null, reason: 'its fix call failed' },
+        ],
+      },
+    },
+  ];
+
+  await Bun.write(join(ctx.directory, 'run.json'), JSON.stringify(runs));
+
+  const loaded = await loadRuns(join(ctx.directory, 'run.json'));
+
+  expect(loaded).toStrictEqual(runs);
+});
+
 test('it reads the lenses of the calls that failed', async () => {
   const ctx = await setupTest();
 

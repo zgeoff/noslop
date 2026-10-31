@@ -178,6 +178,7 @@
       "dependencies": {
         "@noslop/contract": "workspace:*",
         "@noslop/runner": "workspace:*",
+        "ts-pattern": "catalog:",
         "zod": "catalog:",
       },
       "devDependencies": {

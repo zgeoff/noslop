@@ -32,6 +32,12 @@ const droppedSchema = z.strictObject({
   ruleQuote: z.string().nullable(),
 });
 
+const fixCheckSchema = z.strictObject({
+  findingID: z.string().min(1),
+  fixed: z.boolean().nullable(),
+  reason: z.string(),
+});
+
 const caseRunSchema = z.strictObject({
   caseID: z.string().min(1),
   review: z.strictObject({
@@ -43,6 +49,7 @@ const caseRunSchema = z.strictObject({
     depth: depthSchema.nullable(),
     dropped: z.array(droppedSchema).optional(),
     failedLenses: z.array(findingLensSchema).optional(),
+    fixChecks: z.array(fixCheckSchema).optional(),
   }),
 });
 

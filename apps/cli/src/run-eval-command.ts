@@ -7,6 +7,7 @@ import type { CaseRun, RunComparison } from '@noslop/eval';
 import {
   buildRunComparison,
   buildRunScore,
+  collectFixVerdicts,
   loadCorpus,
   loadRuns,
   readHeadFiles,
@@ -122,14 +123,23 @@ export async function runEvalCommand(values: EvalValues, ctx: CLIContext): Promi
       ? null
       : { reviewer: 'baseline', score: buildRunScore(cases, reference, WINDOW_LINES) };
 
+  const fixVerdicts = collectFixVerdicts(cases, done);
+
   const report = renderEvalReport({
     reviewer: reviewer.id,
     score,
     reference: scoredReference,
     noiseFloor,
+    fixVerdicts,
   });
 
-  const summary = { outDir, score, reference: scoredReference?.score ?? null, noiseFloor };
+  const summary = {
+    outDir,
+    score,
+    reference: scoredReference?.score ?? null,
+    noiseFloor,
+    fixVerdicts,
+  };
 
   await rm(workDir, { recursive: true, force: true });
 

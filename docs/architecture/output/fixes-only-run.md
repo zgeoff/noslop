@@ -5,7 +5,8 @@ review round. It runs whatever the pull request's history holds: a merge of the 
 squash of a lower layer, or no earlier review at all. It runs no lens over the diff, and it raises a
 finding only on what a merge commit wrote, under [the resolution check](#the-resolution-check). For
 each finding of a model lens whose latest disposition is `fixed`, it makes one small call that
-judges the finding at the pull request's head. A sha after `fixed` points the call at
+judges the finding at the pull request's head, and [a repeated finding](#a-repeated-finding) shares
+the call of the finding it repeats. A sha after `fixed` points the call at
 [the fix commit](#the-fix-commit), but no verdict needs one, so a bare `fixed` gets the call too,
 and so does a sha that a rebase or a squash took off the branch. A finding of the static stage gets
 [its static check](#static-findings) in place of the call.
@@ -16,6 +17,11 @@ the run starts. It answers whether the pull request still holds the defect, with
 A fix such as a new test in another file therefore gets judged on that test. A finding about the
 description gets judged on the edited title or body, since an edit to the description changes no
 commit.
+
+The call judges the defect in the code the finding names. Take a finding that asks a parser to
+return `{ kind: 'refused' }` for a bad line in place of a throw. When the parser at the head returns
+that value, the call counts the finding fixed, even when the command that calls the parser still
+throws on it to turn it into an exit code.
 
 The run traces the finding's line from the head that posted the finding through the diff to the
 head: a hunk above the line moves it. The call then reads the code around the traced line. When the
@@ -52,6 +58,33 @@ reason. The summary marker keeps the findings the run judged fixed with its rang
 confirms no other fix, so a fix the run did not ask about stays unconfirmed, a `fixed` reply posted
 after the run included. The run keeps the count of reviews. It posts a finding comment only for a
 finding of a resolution check.
+
+## A repeated finding
+
+Assemble builds a finding's ID from a hash of its title, so a later review that words an open
+finding's defect another way posts it again under a new ID. The author can then answer `fixed` to
+the first finding and to this repeat with the same fix. The run judges a finding and its repeats in
+one call, and gives each of them the call's verdict and reason, so the check never confirms one and
+keeps another open.
+
+The run takes 2 `fixed` answers as answers to one finding when all of these hold:
+
+- Both findings sit in the same file and come from the same lens.
+- 2 different reviews posted the findings, so each review's head is known and the heads differ.
+  Assemble already kept apart the findings that one review posted.
+- Both findings are file-level, or both lines trace to the same line at the head. A finding whose
+  line fails to trace shares no call.
+- Both answers name the same fix commit, by a short or a full sha, or neither names one.
+- The titles match under the test [Assemble](../review/findings.md#the-rules-assemble-enforces) uses
+  to merge 2 findings of one review.
+
+An answer joins a group only when it passes all of these with each answer already in the group,
+because 2 answers that each repeat a third can still name 2 defects.
+
+The call reads the code around the first finding's line, and its prompt lists each repeat under the
+first finding, with its title and comment. When the call fails, or the fix goes over the file limit,
+each finding of the group stays unjudged. Each static finding gets a
+[static check](#static-findings) of its own, never a shared call.
 
 ## The fix commit
 

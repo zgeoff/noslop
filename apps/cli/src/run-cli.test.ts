@@ -10541,6 +10541,90 @@ test('it replays an eval case with no last reviewed head as a review of the whol
   expect(prompt).not.toInclude('# Lens: intent');
 });
 
+test('it replays an eval case that holds answered fixes as fix checks and reports each verdict', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/checkout.ts':
+          'export const checkout = () => {\n  throw new Error("empty cart");\n};\n',
+      },
+    },
+    { message: 'Add a readme', files: { 'README.md': '# Shop\n' } },
+    {
+      message: 'Return the empty-cart refusal as a result',
+      files: { 'src/checkout.ts': 'export const checkout = () => ({ kind: "refused" });\n' },
+    },
+  ]);
+
+  const fix = {
+    lens: 'failure-handling-and-observability',
+    path: 'src/checkout.ts',
+    line: null,
+    commit: repo.commits[2],
+    expected: 'fixed',
+  };
+
+  await Bun.write(
+    join(ctx.directory, 'corpus', 'cart-refusal', 'case.json'),
+    JSON.stringify({
+      id: 'cart-refusal',
+      repo: repo.path,
+      base: repo.commits[0],
+      head: repo.commits[2],
+      title: 'Refuse an empty cart',
+      body: '',
+      findings: [],
+      escapes: [],
+      fixes: [
+        {
+          ...fix,
+          id: '1111111111111111',
+          title: 'Return the empty-cart refusal as a result',
+          comment: 'The checkout throws for an empty cart, which callers can plan for.',
+          postedHead: repo.commits[0],
+        },
+        {
+          ...fix,
+          id: '2222222222222222',
+          title: 'Return empty-cart refusals as a result',
+          comment: 'An empty cart reaches this throw through normal input.',
+          postedHead: repo.commits[1],
+        },
+      ],
+    }),
+  );
+
+  const stub = buildStubAdapter({
+    'fix-1111111111111111': [{ fixed: true, reason: 'The checkout returns the refusal.' }],
+  });
+
+  const code = await runCLI(
+    ['eval', '--corpus', join(ctx.directory, 'corpus'), '--out', join(ctx.directory, 'out')],
+    ctx.buildContext(ctx.directory, stub.adapter),
+  );
+
+  const report = await Bun.file(join(ctx.directory, 'out', 'report.md')).text();
+
+  expect(code).toBe(0);
+
+  expect(report).toEndWith(
+    [
+      '## Fix checks',
+      '',
+      '2 of 2 fix checks gave the expected verdict.',
+      '',
+      '| Case | Finding | Expected | Verdict | Reason |',
+      '| --- | --- | --- | --- | --- |',
+      '| cart-refusal | 1111111111111111 | fixed | fixed | The checkout returns the refusal. |',
+      '| cart-refusal | 2222222222222222 | fixed | fixed | The checkout returns the refusal. |',
+      '',
+    ].join('\n'),
+  );
+});
+
 test('it replays the depth of each case with no model call under --static', async () => {
   const ctx = await setupTest();
 

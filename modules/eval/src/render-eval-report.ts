@@ -1,5 +1,6 @@
 import type { RunComparison } from './build-run-comparison';
 import type { LensScore, RunScore } from './build-run-score';
+import type { FixVerdict } from './collect-fix-verdicts';
 
 export interface EvalReportInput {
   reviewer: string;
@@ -8,6 +9,8 @@ export interface EvalReportInput {
   reference: { reviewer: string; score: RunScore } | null;
 
   noiseFloor: RunComparison | null;
+
+  fixVerdicts: readonly FixVerdict[];
 }
 
 export function renderEvalReport(input: EvalReportInput): string {
@@ -42,6 +45,24 @@ export function renderEvalReport(input: EvalReportInput): string {
       '## Noise floor',
       '',
       `2 runs of the reference reviewer on ${noise.cases} cases reported ${noise.findingsFirst} and ${noise.findingsSecond} findings, and ${noise.matched} of them matched: an agreement of ${formatRatio(noise.agreement)}.`,
+    );
+  }
+
+  if (input.fixVerdicts.length > 0) {
+    const agreed = input.fixVerdicts.filter((item) => item.verdict === item.expected).length;
+
+    lines.push(
+      '',
+      '## Fix checks',
+      '',
+      `${agreed} of ${input.fixVerdicts.length} fix checks gave the expected verdict.`,
+      '',
+      '| Case | Finding | Expected | Verdict | Reason |',
+      '| --- | --- | --- | --- | --- |',
+      ...input.fixVerdicts.map(
+        (item) =>
+          `| ${item.caseID} | ${item.findingID} | ${item.expected} | ${item.verdict} | ${item.reason.replaceAll('|', String.raw`\|`)} |`,
+      ),
     );
   }
 

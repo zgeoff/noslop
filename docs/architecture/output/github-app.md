@@ -247,7 +247,9 @@ confirm the fix of a finding about the description.
 Only a fix check's verdict confirms a fix. A re-review runs one fix check for each open `fixed`
 answer whose finding it no longer reports, and the check judges the finding at the pull request's
 head, whatever commit the answer names. The fix check of a model lens's finding is a
-[fix call](./fixes-only-run.md). The fix check of a static finding is
+[fix call](./fixes-only-run.md), and a finding that a later review posted again under a new title
+shares the call of the finding it repeats, under
+[a repeated finding](./fixes-only-run.md#a-repeated-finding). The fix check of a static finding is
 [its static check](./fixes-only-run.md#static-findings), which runs the static stage again and makes
 no model call. A finding that the re-review reports again stays open with no check, because the
 report is its verdict. A re-review that only stops reporting a finding therefore confirms nothing,
