@@ -34,21 +34,23 @@ repo.
      raised a false positive on the change. Each one is a `lens`, a `reason`, and an `anchor` when
      the silence covers only the lines near it. A silence with no anchor covers the whole change.
    - `fixes`, optional: the posted findings an author replied `fixed` to. A case with `fixes` is a
-     fix-check case: the eval runs the fix check of each finding in place of a review. Set `head` to
-     the commit the fix check judged, and keep `findings` and `escapes` empty. Each entry of `fixes`
-     holds these fields:
+     fix-check case. The eval runs no lens on it: it runs the
+     [fix check](../architecture/output/fixes-only-run.md) of each finding, the one model call that
+     judges whether the head fixes the finding. Set `head` to the pull request head that the live
+     fix check judged, and keep `findings` and `escapes` empty. Each entry of `fixes` holds these
+     fields:
 
-     | Field        | Holds                                                                     |
-     | ------------ | ------------------------------------------------------------------------- |
-     | `id`         | the finding's 16-character id                                             |
-     | `title`      | the finding's title                                                       |
-     | `lens`       | the lens that reported the finding                                        |
-     | `path`       | the file the finding sits in                                              |
-     | `line`       | the line the review posted the finding on, or `null` for a file-level one |
-     | `comment`    | the text of the finding's review comment                                  |
-     | `postedHead` | the head commit of the review that posted the finding, or `null`          |
-     | `commit`     | the sha the author's reply names, or `null` for a reply of `fixed` alone  |
-     | `expected`   | the verdict the fix check should give: `fixed` or `not-fixed`             |
+     | Field        | Holds                                                                                   |
+     | ------------ | --------------------------------------------------------------------------------------- |
+     | `id`         | the finding's 16-character id                                                           |
+     | `title`      | the finding's title                                                                     |
+     | `lens`       | the lens that reported the finding                                                      |
+     | `path`       | the file the finding sits in                                                            |
+     | `line`       | the line the review posted the finding on, or `null` for a file-level one               |
+     | `comment`    | the text of the finding's review comment                                                |
+     | `postedHead` | the head commit of the review that posted the finding, or `null`                        |
+     | `commit`     | the sha the author's reply names, short or full, or `null` for a reply of `fixed` alone |
+     | `expected`   | the verdict the fix check should give: `fixed` or `not-fixed`                           |
 
 Label the findings a reference reviewer made on the change by what happened to each one, so the
 corpus records which findings were real.
@@ -156,9 +158,10 @@ unscored, not wrong: read a sample of them before you judge the lens, and label 
 the corpus. A finding with no lens counts under `unknown`.
 
 When the corpus holds a fix-check case, the report ends with `## Fix checks`: a count of the fix
-checks that gave the expected verdict, then one row per answer with its case, finding, expected
-verdict, the verdict the run gave and the reason. A verdict of `unjudged` means that the fix call
-failed, that the fix passed the config's `maxFileChars` limit, or that no fix check ran.
+checks that gave the expected verdict, then one row per entry of `fixes` with its case, finding,
+expected verdict, the verdict the run gave and the reason. A verdict of `unjudged` means that the
+fix check failed, that the fix went over the config's `maxFileChars` limit, or that no fix check
+ran.
 
 A gap between two runs means something only when it is larger than the noise floor. Two runs of one
 config differ on their own, so measure the floor once per corpus and reviewer, and judge every
