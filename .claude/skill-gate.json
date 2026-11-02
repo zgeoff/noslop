@@ -3,6 +3,8 @@
   "gates": [
     { "match": "**/*.md", "skills": ["docs-writing"] },
     { "match": "**/*.ts", "skills": ["code-style"] },
-    { "match": "**/*.test.ts", "skills": ["testing", "code-style"] }
+    { "match": "**/*.test.ts", "skills": ["testing", "code-style"] },
+    { "match": "**/skills/*/SKILL.md", "skills": ["skill-writing", "docs-writing", "deslop"] },
+    { "match": "**/skills/*/references/**", "skills": ["skill-writing", "docs-writing", "deslop"] }
   ]
 }
