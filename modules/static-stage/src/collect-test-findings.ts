@@ -264,7 +264,7 @@ function collectNamedMissingTests(
         sentences.some(
           (sentence) =>
             sentence.includes(name) &&
-            CLAIMED_EDIT.test(sentence.replace(NON_PROSE, '').replace(TEST_PATH_IN_TEXT, '')),
+            CLAIMED_EDIT.test(sentence.replaceAll(NON_PROSE, '').replaceAll(TEST_PATH_IN_TEXT, '')),
         ),
     )
     .map((name) =>

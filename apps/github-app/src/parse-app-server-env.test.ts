@@ -5,7 +5,7 @@ test('it reads the App settings and restores the newlines of the key', () => {
   expect(
     parseAppServerEnv({
       NOSLOP_GITHUB_APP_ID: '12',
-      NOSLOP_GITHUB_APP_PRIVATE_KEY: 'line one\\nline two',
+      NOSLOP_GITHUB_APP_PRIVATE_KEY: String.raw`line one\nline two`,
       NOSLOP_GITHUB_WEBHOOK_SECRET: 'secret',
       NOSLOP_GITHUB_APP_REPOS_DIR: '/srv/repos',
       PORT: '8080',
