@@ -85,6 +85,9 @@
     "turbo": "2.11.10",
     "typescript": "7.0.2"
   },
+  "overrides": {
+    "rolldown-plugin-dts": "0.28.8"
+  },
   "engines": {
     "node": ">=24"
   },
