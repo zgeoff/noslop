@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PID_NAMESPACE_LINK, readPIDNamespace } from '@noslop/testing';
 import { collectTempLeftovers } from './collect-temp-leftovers';
+import { pickTempLeftovers } from './pick-temp-leftovers';
 import { probeProcessRuns } from './probe-process-runs';
 
 export interface TempSweep {
@@ -14,9 +15,14 @@ export interface TempSweep {
 export async function runTempSweep(sweep: TempSweep): Promise<string[]> {
   const names = await readdir(sweep.root);
 
-  const removed = collectTempLeftovers(names, sweep.namespace)
-    .filter((leftover) => !sweep.isRunning(leftover.pid))
-    .map((leftover) => leftover.name);
+  const running = new Map(
+    collectTempLeftovers(names, sweep.namespace).map((leftover) => [
+      leftover.pid,
+      sweep.isRunning(leftover.pid),
+    ]),
+  );
+
+  const removed = pickTempLeftovers(names, sweep.namespace, running);
 
   await Promise.all(
     removed.map((name) => rm(join(sweep.root, name), { recursive: true, force: true })),
