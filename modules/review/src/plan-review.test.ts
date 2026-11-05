@@ -4,11 +4,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { BUILT_IN_DEFAULTS } from '@noslop/config';
 import { createRunner } from '@noslop/runner';
-import { createTestRepo } from '@noslop/testing';
+import { createTestRepo, readTempPrefix } from '@noslop/testing';
 import { planReview } from './plan-review';
 
 async function setupTest() {
-  const directory = await mkdtemp(join(tmpdir(), 'noslop-plan-review-'));
+  const directory = await mkdtemp(join(tmpdir(), `${readTempPrefix()}noslop-plan-review-`));
 
   onTestFinished(() => rm(directory, { recursive: true, force: true }));
 

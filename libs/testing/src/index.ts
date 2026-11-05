@@ -17,3 +17,5 @@ export * from './create-test-repo';
 export * from './github-collections';
 export * from './github-handlers';
 export * from './github-server';
+export * from './read-pid-namespace';
+export * from './read-temp-prefix';

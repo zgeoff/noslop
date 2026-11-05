@@ -2,10 +2,11 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdtemp, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { readTempPrefix } from '@noslop/testing';
 import { writeCLIPackage } from './write-cli-package';
 
 async function setupTest() {
-  const directory = await mkdtemp(join(tmpdir(), 'noslop-cli-package-'));
+  const directory = await mkdtemp(join(tmpdir(), `${readTempPrefix()}noslop-cli-package-`));
 
   onTestFinished(() => rm(directory, { recursive: true, force: true }));
 

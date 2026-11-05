@@ -1,7 +1,7 @@
-import type { PullRequestRef } from '@noslop/contract';
+import type { Disposition, PullRequestRef } from '@noslop/contract';
 import type { CheckOutcome } from './build-check-outcome';
 import { buildCheckOutcome } from './build-check-outcome';
-import type { GitHubConnection } from './create-github-connection';
+import type { GitHubClient, GitHubConnection } from './create-github-connection';
 import { readExistingIssues } from './read-existing-issues';
 import { readNetChangeKey } from './read-net-change-key';
 import type { PullRequestState } from './read-pull-request-state';
@@ -11,6 +11,8 @@ import { readUnreadFixes } from './read-unread-fixes';
 export interface GitHubCheckInput {
   failedReporters: readonly string[];
   state: PullRequestState;
+
+  dispositions?: readonly Disposition[];
 }
 
 export async function readGitHubCheck(
@@ -21,7 +23,7 @@ export async function readGitHubCheck(
   const client = connection.client;
   const state = input.state;
 
-  const dispositions = await readThreadDispositions(client, pr, state.threads);
+  const dispositions = await readCheckDispositions(client, pr, input);
   const existingIssues = await readExistingIssues(client, pr, dispositions);
 
   const summary = state.summary?.marker ?? null;
@@ -48,4 +50,16 @@ export async function readGitHubCheck(
     failedReporters: input.failedReporters,
     unreadable: state.unreadable,
   });
+}
+
+function readCheckDispositions(
+  client: GitHubClient,
+  pullRequest: PullRequestRef,
+  input: GitHubCheckInput,
+): Promise<readonly Disposition[]> {
+  if (input.dispositions !== undefined) {
+    return Promise.resolve(input.dispositions);
+  }
+
+  return readThreadDispositions(client, pullRequest, input.state.threads);
 }

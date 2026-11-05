@@ -8,6 +8,7 @@ import {
   buildStubAppKey,
   githubCollections,
   githubServer,
+  readTempPrefix,
 } from '@noslop/testing';
 import { verify } from './verify';
 
@@ -66,7 +67,7 @@ test('it reads the pull request as the App whose keys the environment holds', as
 });
 
 test('it verifies a result when the base config names the App of the keys', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'noslop-verify-'));
+  const directory = await mkdtemp(join(tmpdir(), `${readTempPrefix()}noslop-verify-`));
 
   onTestFinished(() => rm(directory, { recursive: true, force: true }));
 

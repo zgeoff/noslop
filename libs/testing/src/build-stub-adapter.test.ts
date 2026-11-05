@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { getLogger } from '@logtape/logtape';
 import { buildCallOutputSchema } from '@noslop/contract';
 import { buildStubAdapter } from './build-stub-adapter';
+import { readTempPrefix } from './read-temp-prefix';
 
 test('it answers each attempt of a call with the next answer under its ID', async () => {
   const stub = buildStubAdapter({
@@ -82,7 +83,7 @@ test('it rejects a call that has no answer left', () => {
 });
 
 test('it records the files of the working directory that each call saw, outside git', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'noslop-stub-adapter-'));
+  const directory = await mkdtemp(join(tmpdir(), `${readTempPrefix()}noslop-stub-adapter-`));
 
   onTestFinished(() => rm(directory, { recursive: true, force: true }));
 

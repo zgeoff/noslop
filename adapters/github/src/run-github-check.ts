@@ -1,4 +1,4 @@
-import type { PullRequestRef } from '@noslop/contract';
+import type { Disposition, PullRequestRef } from '@noslop/contract';
 import type { CheckOutcome } from './build-check-outcome';
 import { createFormsReplies } from './create-forms-replies';
 import type { GitHubConnection } from './create-github-connection';
@@ -13,6 +13,8 @@ export interface GitHubCheckOptions {
   failedReporters: readonly string[];
 
   state?: PullRequestState;
+
+  dispositions?: readonly Disposition[];
 }
 
 export async function runGitHubCheck(
@@ -29,6 +31,7 @@ export async function runGitHubCheck(
   const outcome = await readGitHubCheck(connection, pr, {
     failedReporters: options.failedReporters,
     state,
+    ...(options.dispositions === undefined ? {} : { dispositions: options.dispositions }),
   });
 
   // a second check run on one head is harmless, because GitHub shows the latest run of a name

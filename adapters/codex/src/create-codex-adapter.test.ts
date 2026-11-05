@@ -5,11 +5,11 @@ import { join } from 'node:path';
 import { configure, getLogger, reset } from '@logtape/logtape';
 import { buildCallOutputSchema } from '@noslop/contract';
 import { createRunner } from '@noslop/runner';
-import { createStubCLI } from '@noslop/testing';
+import { createStubCLI, readTempPrefix } from '@noslop/testing';
 import { createCodexAdapter } from './create-codex-adapter';
 
 async function setupTest() {
-  const directory = await mkdtemp(join(tmpdir(), 'noslop-codex-'));
+  const directory = await mkdtemp(join(tmpdir(), `${readTempPrefix()}noslop-codex-`));
 
   onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
