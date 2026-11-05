@@ -7,13 +7,14 @@ import { pickTempLeftovers } from './pick-temp-leftovers';
 import { probeProcessRuns } from './probe-process-runs';
 
 export interface TempSweep {
-  root: string;
   namespace: string;
+  readNames: () => Promise<string[]>;
   isRunning: (pid: number) => boolean;
+  removeName: (name: string) => Promise<void>;
 }
 
 export async function runTempSweep(sweep: TempSweep): Promise<string[]> {
-  const names = await readdir(sweep.root);
+  const names = await sweep.readNames();
 
   const running = new Map(
     collectTempLeftovers(names, sweep.namespace).map((leftover) => [
@@ -24,18 +25,19 @@ export async function runTempSweep(sweep: TempSweep): Promise<string[]> {
 
   const removed = pickTempLeftovers(names, sweep.namespace, running);
 
-  await Promise.all(
-    removed.map((name) => rm(join(sweep.root, name), { recursive: true, force: true })),
-  );
+  await Promise.all(removed.map((name) => sweep.removeName(name)));
 
   return removed;
 }
 
 if (import.meta.main) {
+  const root = tmpdir();
+
   const removed = await runTempSweep({
-    root: tmpdir(),
     namespace: readPIDNamespace(PID_NAMESPACE_LINK),
+    readNames: () => readdir(root),
     isRunning: probeProcessRuns,
+    removeName: (name) => rm(join(root, name), { recursive: true, force: true }),
   });
 
   if (removed.length > 0) {

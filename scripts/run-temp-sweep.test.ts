@@ -1,34 +1,47 @@
-import { expect, onTestFinished, test } from 'bun:test';
-import { mkdir, mkdtemp, readdir, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { readTempPrefix } from '@noslop/testing';
+import { expect, mock, test } from 'bun:test';
 import { runTempSweep } from './run-temp-sweep';
 
-async function setupTest() {
-  const root = await mkdtemp(join(tmpdir(), `${readTempPrefix()}noslop-sweep-`));
+function setupTest() {
+  const removeName = mock<(name: string) => Promise<void>>(() => Promise.resolve());
 
-  onTestFinished(() => rm(root, { recursive: true, force: true }));
-
-  return { root };
+  return { removeName };
 }
 
-test('it removes the folders it picks and keeps the rest', async () => {
-  const ctx = await setupTest();
+test('it removes the folders of finished runs in its namespace', async () => {
+  const ctx = setupTest();
+
+  const removed = await runTempSweep({
+    namespace: '5',
+    readNames: () => Promise.resolve(['pid111-ns5-noslop-store-a1', 'pid112-ns5-noslop-repo-e5']),
+    isRunning: () => false,
+    removeName: ctx.removeName,
+  });
+
+  expect(removed).toStrictEqual(['pid111-ns5-noslop-store-a1', 'pid112-ns5-noslop-repo-e5']);
+
+  expect(ctx.removeName.mock.calls).toStrictEqual([
+    ['pid111-ns5-noslop-store-a1'],
+    ['pid112-ns5-noslop-repo-e5'],
+  ]);
+});
+
+test('it never removes a running run, another namespace or an unprefixed folder', async () => {
+  const ctx = setupTest();
 
   const running = new Map([[222, true]]);
 
-  await mkdir(join(ctx.root, 'pid111-ns5-noslop-store-a1'));
-  await mkdir(join(ctx.root, 'pid222-ns5-noslop-store-b2'));
-  await mkdir(join(ctx.root, 'noslop-store-c3'));
-
-  await runTempSweep({
-    root: ctx.root,
+  const removed = await runTempSweep({
     namespace: '5',
+    readNames: () =>
+      Promise.resolve([
+        'pid222-ns5-noslop-store-b2',
+        'pid333-ns9-noslop-store-d4',
+        'noslop-store-c3',
+      ]),
     isRunning: (pid) => running.get(pid) ?? false,
+    removeName: ctx.removeName,
   });
 
-  const left = await readdir(ctx.root);
-
-  expect(left).toIncludeSameMembers(['pid222-ns5-noslop-store-b2', 'noslop-store-c3']);
+  expect(removed).toStrictEqual([]);
+  expect(ctx.removeName).not.toHaveBeenCalled();
 });
