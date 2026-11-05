@@ -1,7 +1,7 @@
 import { readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { readPIDNamespace } from '@noslop/testing';
+import { PID_NAMESPACE_LINK, readPIDNamespace } from '@noslop/testing';
 import { collectTempLeftovers } from './collect-temp-leftovers';
 import { probeProcessRuns } from './probe-process-runs';
 
@@ -28,7 +28,7 @@ export async function runTempSweep(sweep: TempSweep): Promise<string[]> {
 if (import.meta.main) {
   const removed = await runTempSweep({
     root: tmpdir(),
-    namespace: readPIDNamespace(),
+    namespace: readPIDNamespace(PID_NAMESPACE_LINK),
     isRunning: probeProcessRuns,
   });
 

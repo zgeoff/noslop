@@ -20,3 +20,7 @@ test.each([
 ])('it leaves out %s', (_label, name) => {
   expect(collectTempLeftovers([name], '4026531836')).toStrictEqual([]);
 });
+
+test('it collects nothing on a system with no PID namespace', () => {
+  expect(collectTempLeftovers(['pid4182-nsnone-noslop-store-a1b2c3'], 'none')).toStrictEqual([]);
+});

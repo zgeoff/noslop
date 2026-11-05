@@ -54,7 +54,8 @@ so the tests reach no real GitHub. The `testing` skill holds the rules for writi
 Each test names its temp folder with `readTempPrefix()` from `@noslop/testing`, which starts the
 name with the test process's PID and PID namespace. Before `bun run test` starts the tests, it
 removes each such folder of the same namespace whose process no longer runs, so a killed run leaves
-nothing behind for the next one. `bun test` on its own skips that sweep.
+nothing behind for the next one. On a system with no PID namespace, such as macOS, the sweep removes
+nothing. `bun test` on its own skips that sweep.
 
 ## The git hooks
 
