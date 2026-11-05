@@ -47,6 +47,7 @@ test('it keeps each disposition in the store at its path for the findings-by-pr 
     store,
     buildMockReviewResult({
       reviewID: 'review-1',
+      head: '7c3e9a1f0b2d4c6e8a0f1b3d5e7c9a2b4d6f8e0a',
       pullRequest: { owner: 'example', repo: 'app', number: 7 },
       findings: [
         buildMockFinding({
@@ -81,7 +82,7 @@ test('it keeps each disposition in the store at its path for the findings-by-pr 
     {
       repo: 'example/app',
       pullRequest: 7,
-      head: expect.any(String),
+      head: '7c3e9a1f0b2d4c6e8a0f1b3d5e7c9a2b4d6f8e0a',
       id: '1111111111111111',
       path: 'src/a.ts',
       startLine: 1,

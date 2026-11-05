@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test';
+import { PID_NAMESPACE_LINK, readPIDNamespace } from './read-pid-namespace';
 import { readTempPrefix } from './read-temp-prefix';
 
-test("it starts with the test process's PID and a PID namespace", () => {
-  expect(readTempPrefix()).toMatch(new RegExp(`^pid${process.pid}-ns(\\d+|none)-$`, 'u'));
+test("it names the test process's PID and its PID namespace", () => {
+  expect(readTempPrefix()).toBe(`pid${process.pid}-ns${readPIDNamespace(PID_NAMESPACE_LINK)}-`);
 });
