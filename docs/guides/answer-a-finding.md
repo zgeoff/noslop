@@ -84,7 +84,9 @@ never takes `deferred`, because a pull request does not defer its own defect to 
 `the change wrote this code, so it takes fixed, not-a-defect or accepted-risk`.
 
 A finding on code the pull request did not write can take `deferred` too, unless it is a P1, a
-security finding or a risk-class finding. Those block the merge whatever code they sit in, and the
+security finding or a risk-class finding. A file that the base branch's config lists in `synced`
+counts as code the pull request did not write, even when the pull request adds it, because its fix
+belongs in the repo the copy comes from. Those block the merge whatever code they sit in, and the
 check run gives that as the reason.
 
 `accepted-risk` from someone without admin permission on the repo leaves the finding open, with the

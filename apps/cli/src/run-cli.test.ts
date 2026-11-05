@@ -859,6 +859,152 @@ test('it reviews a pull request from GitHub and posts its findings and the check
   ]);
 });
 
+test('it passes a deferred finding in a synced file the change added, and keeps a deferred finding in its own code open', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'review.json': JSON.stringify({
+          synced: ['vendor/**'],
+          syncAuthors: ['mirror-bot[bot]'],
+          mergePass: { enabled: false },
+          designPass: { enabled: false },
+        }),
+        'src/total.ts': 'export const zero = 0;\n',
+      },
+    },
+    {
+      message: 'Sync the shared limits',
+      files: {
+        'vendor/limits.ts': 'export const limit = -1;\n',
+        'src/total.ts': 'export const zero = 0;\nexport const one = zero - 1;\n',
+      },
+    },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    title: 'Sync the shared limits',
+    body: 'Brings in the shared limits.',
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[1] ?? '',
+    authorLogin: 'mirror-bot[bot]',
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[1] ?? '',
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'vendor/limits.ts',
+    lines: [1],
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/total.ts',
+    lines: [2],
+  });
+
+  await githubCollections.issues.create({
+    owner: 'example',
+    repo: 'app',
+    number: 13,
+    title: 'Make every limit positive',
+    body: 'A negative limit lets no request through.',
+  });
+
+  const stub = buildStubAdapter({
+    light: [
+      {
+        findings: {
+          correctness: [
+            {
+              title: 'Make the limit positive',
+              body: 'A limit of -1 lets no request through.',
+              anchor: { path: 'vendor/limits.ts', startLine: 1, endLine: 1 },
+              secondLocation: null,
+              severity: 'P2',
+              criterion: 'wrong-behaviour-edge-path',
+              rule: null,
+              ruleQuote: null,
+              verdict: 'CONFIRMED',
+              unverifiedFact: null,
+              missingChange: false,
+              fix: null,
+            },
+            {
+              title: 'Add one, not subtract it',
+              body: 'The constant is named one but holds -1.',
+              anchor: { path: 'src/total.ts', startLine: 2, endLine: 2 },
+              secondLocation: null,
+              severity: 'P2',
+              criterion: 'wrong-behaviour-edge-path',
+              rule: null,
+              ruleQuote: null,
+              verdict: 'CONFIRMED',
+              unverifiedFact: null,
+              missingChange: false,
+              fix: null,
+            },
+          ],
+        },
+      },
+    ],
+  });
+
+  const context = ctx.buildContext(repo.path, stub.adapter);
+
+  await runCLI(['review', '--pr', '9', '--repo', 'example/app', '--report', 'github'], context);
+
+  const threads = githubCollections.reviewComments
+    .all()
+    .filter((comment) => comment.authorLogin === STUB_APP_LOGIN);
+
+  for (const thread of threads) {
+    await githubCollections.reviewComments.create({
+      owner: 'example',
+      repo: 'app',
+      number: 9,
+      body: 'deferred #13',
+      authorLogin: 'dev',
+      inReplyToID: thread.id,
+    });
+  }
+
+  ctx.stdout.length = 0;
+
+  await runCLI(['check', '--pr', '9', '--repo', 'example/app', '--json'], context);
+
+  const outcome: unknown = JSON.parse(ctx.stdout.join(''));
+
+  expect(outcome).toStrictEqual({
+    conclusion: 'failure',
+    title: '1 findings hold no valid disposition.',
+    summary: expect.any(String),
+    open: [
+      {
+        id: expect.any(String),
+        title: 'Add one, not subtract it',
+        reason: 'the change wrote this code, so it takes fixed, not-a-defect or accepted-risk',
+      },
+    ],
+    reviewed: true,
+  });
+});
+
 test('it keeps the link to each posted finding comment in the store the config names', async () => {
   const ctx = await setupTest();
 
