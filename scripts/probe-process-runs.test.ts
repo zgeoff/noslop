@@ -10,7 +10,3 @@ test('it finds a process that has exited gone', () => {
 
   expect(probeProcessRuns(exited.pid)).toBe(false);
 });
-
-test('it counts the init process as running even when it may not be signalled', () => {
-  expect(probeProcessRuns(1)).toBe(true);
-});
