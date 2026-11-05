@@ -12,6 +12,28 @@ import {
 } from '@noslop/testing';
 import { createCLIContext } from './create-cli-context';
 
+async function setupTest() {
+  const directory = await mkdtemp(join(tmpdir(), 'noslop-context-'));
+
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
+
+  const context = createCLIContext({
+    XDG_DATA_HOME: directory,
+    NOSLOP_GITHUB_APP_ID: '1',
+    NOSLOP_GITHUB_APP_PRIVATE_KEY: buildStubAppKey(),
+    NOSLOP_GITHUB_APP_INSTALLATION_ID: '7',
+  });
+
+  const storePath = join(context.dataDir, 'store.sqlite');
+
+  return {
+    storePath,
+    sqlite: context.createReporter('sqlite', storePath),
+    github: context.createReporter('github', storePath),
+    logger: getLogger(['test']),
+  };
+}
+
 test('it keeps the store under the home folder when XDG_DATA_HOME is empty', () => {
   const ctx = createCLIContext({ XDG_DATA_HOME: '', XDG_CACHE_HOME: 'relative/cache' });
 
@@ -28,24 +50,7 @@ test('it puts the store and the cache under the XDG folders the environment sets
 });
 
 test('it writes the answers a github review reads to the store of a run that lists sqlite', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'noslop-context-'));
-
-  onTestFinished(() => rm(directory, { recursive: true, force: true }));
-
-  const ctx = createCLIContext({
-    XDG_DATA_HOME: directory,
-    NOSLOP_GITHUB_APP_ID: '1',
-    NOSLOP_GITHUB_APP_PRIVATE_KEY: buildStubAppKey(),
-    NOSLOP_GITHUB_APP_INSTALLATION_ID: '7',
-  });
-
-  const storePath = join(ctx.dataDir, 'store.sqlite');
-  const sqlite = ctx.createReporter('sqlite', storePath);
-  const github = ctx.createReporter('github', storePath);
-
-  if (sqlite === null || github === null) {
-    throw new Error('the CLI context builds no sqlite or github reporter');
-  }
+  const ctx = await setupTest();
 
   await githubCollections.pullRequests.create({
     owner: 'example',
@@ -66,11 +71,19 @@ test('it writes the answers a github review reads to the store of a run that lis
     reviewID: 'review-1',
     pullRequest: { owner: 'example', repo: 'app', number: 5 },
     head: 'b'.repeat(40),
-    findings: [buildMockFinding({ id: '1111111111111111' })],
+    findings: [
+      buildMockFinding({
+        id: '1111111111111111',
+        lens: 'correctness',
+        title: 'Return the total of every item',
+        severity: 'P2',
+        anchor: { path: 'src/a.ts', startLine: 1, endLine: 1 },
+      }),
+    ],
   });
 
-  await sqlite.report(first, { logger: getLogger(['test']), options: {}, failedReporters: [] });
-  await github.report(first, { logger: getLogger(['test']), options: {}, failedReporters: [] });
+  await ctx.sqlite?.report(first, { logger: ctx.logger, options: {}, failedReporters: [] });
+  await ctx.github?.report(first, { logger: ctx.logger, options: {}, failedReporters: [] });
 
   const [thread] = githubCollections.reviewComments.all();
 
@@ -84,7 +97,7 @@ test('it writes the answers a github review reads to the store of a run that lis
     createdAt: '2026-03-02T10:00:00.000Z',
   });
 
-  await github.report(
+  await ctx.github?.report(
     buildMockReviewResult({
       reviewID: 'review-2',
       pullRequest: { owner: 'example', repo: 'app', number: 5 },
@@ -92,23 +105,31 @@ test('it writes the answers a github review reads to the store of a run that lis
       head: 'c'.repeat(40),
       findings: [],
     }),
-    { logger: getLogger(['test']), options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {}, failedReporters: [] },
   );
 
-  const store = await loadStore(storePath);
+  const store = await loadStore(ctx.storePath);
 
   onTestFinished(() => store.destroy());
 
   const rows = await runStoreQuery(store, 'findings-by-pr');
 
-  expect(rows).toMatchObject([
+  expect(rows).toStrictEqual([
     {
       repo: 'example/app',
       pullRequest: 5,
+      head: 'b'.repeat(40),
       id: '1111111111111111',
+      path: 'src/a.ts',
+      startLine: 1,
+      severity: 'P2',
+      lens: 'correctness',
+      rule: null,
+      title: 'Return the total of every item',
       dispositionKind: 'not-a-defect',
       dispositionValue: 'the loop already stops at the end',
       outcome: 'not-a-defect',
+      commentURL: `https://github.com/example/app/pull/5#discussion_r${thread?.id}`,
     },
   ]);
 });

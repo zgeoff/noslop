@@ -20,13 +20,15 @@ import { runGitHubCheck } from './run-github-check';
 function setupTest() {
   const privateKey = buildStubAppKey();
   const sleep = mock((delayMs: number) => Promise.resolve(delayMs));
+  const recordDispositions = mock(() => Promise.resolve());
 
   const reporter = createGitHubReporter({
     loadConnection: () =>
       createGitHubConnection({ appID: 1, privateKey, installationID: 7 }, null, sleep),
+    recordDispositions,
   });
 
-  return { reporter, sleep, logger: getLogger(['test']) };
+  return { reporter, sleep, recordDispositions, logger: getLogger(['test']) };
 }
 
 test('it posts a review with an inline comment per finding, the summary, and a failing check', async () => {
@@ -727,13 +729,7 @@ test('it hands the link to each finding comment to the comment link recorder', a
 });
 
 test('it hands the answers a re-review reads to the disposition recorder', async () => {
-  const privateKey = buildStubAppKey();
-  const recordDispositions = mock(() => Promise.resolve());
-
-  const reporter = createGitHubReporter({
-    loadConnection: () => createGitHubConnection({ appID: 1, privateKey, installationID: 7 }),
-    recordDispositions,
-  });
+  const ctx = setupTest();
 
   await githubCollections.pullRequests.create({
     owner: 'example',
@@ -757,13 +753,13 @@ test('it hands the answers a re-review reads to the disposition recorder', async
     permission: 'admin',
   });
 
-  await reporter.report(
+  await ctx.reporter.report(
     buildMockReviewResult({
       pullRequest: { owner: 'example', repo: 'app', number: 5 },
       head: 'b'.repeat(40),
       findings: [buildMockFinding({ id: '1111111111111111' })],
     }),
-    { logger: getLogger(['test']), options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {}, failedReporters: [] },
   );
 
   const [thread] = githubCollections.reviewComments.all();
@@ -778,19 +774,19 @@ test('it hands the answers a re-review reads to the disposition recorder', async
     createdAt: '2026-03-02T10:00:00.000Z',
   });
 
-  recordDispositions.mockClear();
+  ctx.recordDispositions.mockClear();
 
-  await reporter.report(
+  await ctx.reporter.report(
     buildMockReviewResult({
       pullRequest: { owner: 'example', repo: 'app', number: 5 },
       base: 'b'.repeat(40),
       head: 'c'.repeat(40),
       findings: [],
     }),
-    { logger: getLogger(['test']), options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {}, failedReporters: [] },
   );
 
-  expect(recordDispositions).toHaveBeenCalledExactlyOnceWith(
+  expect(ctx.recordDispositions).toHaveBeenCalledExactlyOnceWith(
     { owner: 'example', repo: 'app', number: 5 },
     [
       {
@@ -807,13 +803,7 @@ test('it hands the answers a re-review reads to the disposition recorder', async
 });
 
 test('it hands the answers a fixes-only run reads to the disposition recorder', async () => {
-  const privateKey = buildStubAppKey();
-  const recordDispositions = mock(() => Promise.resolve());
-
-  const reporter = createGitHubReporter({
-    loadConnection: () => createGitHubConnection({ appID: 1, privateKey, installationID: 7 }),
-    recordDispositions,
-  });
+  const ctx = setupTest();
 
   await githubCollections.pullRequests.create({
     owner: 'example',
@@ -838,13 +828,13 @@ test('it hands the answers a fixes-only run reads to the disposition recorder', 
     lines: [1],
   });
 
-  await reporter.report(
+  await ctx.reporter.report(
     buildMockReviewResult({
       pullRequest: { owner: 'example', repo: 'app', number: 5 },
       head: 'b'.repeat(40),
       findings: [buildMockFinding({ id: '1111111111111111' })],
     }),
-    { logger: getLogger(['test']), options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {}, failedReporters: [] },
   );
 
   const [thread] = githubCollections.reviewComments.all();
@@ -859,9 +849,9 @@ test('it hands the answers a fixes-only run reads to the disposition recorder', 
     createdAt: '2026-03-02T11:00:00.000Z',
   });
 
-  recordDispositions.mockClear();
+  ctx.recordDispositions.mockClear();
 
-  await reporter.report(
+  await ctx.reporter.report(
     buildMockReviewResult({
       pullRequest: { owner: 'example', repo: 'app', number: 5 },
       base: 'b'.repeat(40),
@@ -873,10 +863,10 @@ test('it hands the answers a fixes-only run reads to the disposition recorder', 
         { findingID: '1111111111111111', fixed: true, reason: 'The total counts every item.' },
       ],
     }),
-    { logger: getLogger(['test']), options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {}, failedReporters: [] },
   );
 
-  expect(recordDispositions).toHaveBeenCalledExactlyOnceWith(
+  expect(ctx.recordDispositions).toHaveBeenCalledExactlyOnceWith(
     { owner: 'example', repo: 'app', number: 5 },
     [
       {

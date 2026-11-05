@@ -46,7 +46,15 @@ test('it keeps each disposition in the store at its path for the findings-by-pr 
     buildMockReviewResult({
       reviewID: 'review-1',
       pullRequest: { owner: 'example', repo: 'app', number: 7 },
-      findings: [buildMockFinding({ id: '1111111111111111' })],
+      findings: [
+        buildMockFinding({
+          id: '1111111111111111',
+          lens: 'correctness',
+          title: 'Return the total of every item',
+          severity: 'P2',
+          anchor: { path: 'src/a.ts', startLine: 1, endLine: 1 },
+        }),
+      ],
     }),
   );
 
@@ -73,12 +81,22 @@ test('it keeps each disposition in the store at its path for the findings-by-pr 
 
   const rows = await runStoreQuery(store, 'findings-by-pr');
 
-  expect(rows).toMatchObject([
+  expect(rows).toStrictEqual([
     {
+      repo: 'example/app',
+      pullRequest: 7,
+      head: expect.any(String),
       id: '1111111111111111',
+      path: 'src/a.ts',
+      startLine: 1,
+      severity: 'P2',
+      lens: 'correctness',
+      rule: null,
+      title: 'Return the total of every item',
       dispositionKind: 'not-a-defect',
       dispositionValue: 'the loop already stops at the end',
       outcome: 'not-a-defect',
+      commentURL: null,
     },
   ]);
 });
