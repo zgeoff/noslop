@@ -4,11 +4,16 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { getLogger } from '@logtape/logtape';
 import { buildCallPrompt } from '@noslop/lenses';
-import { buildMockChangedFile, buildMockSlices, buildStubAdapter } from '@noslop/testing';
+import {
+  buildMockChangedFile,
+  buildMockSlices,
+  buildStubAdapter,
+  readTempPrefix,
+} from '@noslop/testing';
 import { runPlannedCalls } from './run-planned-calls';
 
 async function setupTest() {
-  const directory = await mkdtemp(join(tmpdir(), 'noslop-calls-'));
+  const directory = await mkdtemp(join(tmpdir(), `${readTempPrefix()}noslop-calls-`));
 
   onTestFinished(() => rm(directory, { recursive: true, force: true }));
 

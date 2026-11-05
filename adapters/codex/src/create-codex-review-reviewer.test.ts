@@ -3,11 +3,11 @@ import { mkdtemp, readdir, rm, utimes } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createRunner } from '@noslop/runner';
-import { buildStubRunner, createStubCLI } from '@noslop/testing';
+import { buildStubRunner, createStubCLI, readTempPrefix } from '@noslop/testing';
 import { createCodexReviewReviewer } from './create-codex-review-reviewer';
 
 async function setupTest() {
-  const directory = await mkdtemp(join(tmpdir(), 'noslop-codex-review-'));
+  const directory = await mkdtemp(join(tmpdir(), `${readTempPrefix()}noslop-codex-review-`));
 
   onTestFinished(() => rm(directory, { recursive: true, force: true }));
 

@@ -3,11 +3,11 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createRunner } from '@noslop/runner';
-import { createTestRepo } from '@noslop/testing';
+import { createTestRepo, readTempPrefix } from '@noslop/testing';
 import { readFilesAtCommit } from './read-files-at-commit';
 
 async function setupTest() {
-  const directory = await mkdtemp(join(tmpdir(), 'noslop-cat-file-'));
+  const directory = await mkdtemp(join(tmpdir(), `${readTempPrefix()}noslop-cat-file-`));
 
   onTestFinished(() => rm(directory, { recursive: true, force: true }));
 

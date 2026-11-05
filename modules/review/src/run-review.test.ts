@@ -6,11 +6,11 @@ import { getLogger } from '@logtape/logtape';
 import { BUILT_IN_DEFAULTS } from '@noslop/config';
 import { buildFindingID } from '@noslop/findings';
 import { createRunner } from '@noslop/runner';
-import { buildStubAdapter, createTestRepo } from '@noslop/testing';
+import { buildStubAdapter, createTestRepo, readTempPrefix } from '@noslop/testing';
 import { runReview } from './run-review';
 
 async function setupTest() {
-  const directory = await mkdtemp(join(tmpdir(), 'noslop-review-'));
+  const directory = await mkdtemp(join(tmpdir(), `${readTempPrefix()}noslop-review-`));
 
   onTestFinished(() => rm(directory, { recursive: true, force: true }));
 

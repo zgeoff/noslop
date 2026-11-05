@@ -4,9 +4,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { buildChildEnv } from '@noslop/runner';
 import { createTestRepo } from './create-test-repo';
+import { readTempPrefix } from './read-temp-prefix';
 
 async function setupTest() {
-  const directory = await mkdtemp(join(tmpdir(), 'noslop-test-repo-'));
+  const directory = await mkdtemp(join(tmpdir(), `${readTempPrefix()}noslop-test-repo-`));
 
   onTestFinished(() => rm(directory, { recursive: true, force: true }));
 

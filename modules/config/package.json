@@ -11,5 +11,8 @@
   },
   "dependencies": {
     "@noslop/contract": "workspace:*"
+  },
+  "devDependencies": {
+    "@noslop/testing": "workspace:*"
   }
 }

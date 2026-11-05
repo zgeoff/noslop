@@ -2,11 +2,12 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { readTempPrefix } from '@noslop/testing';
 import type { Case } from './case';
 import { loadCorpus } from './load-corpus';
 
 async function setupTest() {
-  const directory = await mkdtemp(join(tmpdir(), 'noslop-corpus-'));
+  const directory = await mkdtemp(join(tmpdir(), `${readTempPrefix()}noslop-corpus-`));
 
   onTestFinished(() => rm(directory, { recursive: true, force: true }));
 

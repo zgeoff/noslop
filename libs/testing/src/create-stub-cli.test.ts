@@ -4,9 +4,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createRunner } from '@noslop/runner';
 import { createStubCLI } from './create-stub-cli';
+import { readTempPrefix } from './read-temp-prefix';
 
 async function setupTest() {
-  const directory = await mkdtemp(join(tmpdir(), 'noslop-stub-cli-'));
+  const directory = await mkdtemp(join(tmpdir(), `${readTempPrefix()}noslop-stub-cli-`));
 
   onTestFinished(() => rm(directory, { recursive: true, force: true }));
 

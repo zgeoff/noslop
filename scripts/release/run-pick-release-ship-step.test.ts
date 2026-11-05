@@ -2,10 +2,11 @@ import { expect, mock, onTestFinished, test } from 'bun:test';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { readTempPrefix } from '@noslop/testing';
 import { runPickReleaseShipStep } from './run-pick-release-ship-step';
 
 async function setupTest() {
-  const directory = await mkdtemp(join(tmpdir(), 'noslop-pick-release-ship-'));
+  const directory = await mkdtemp(join(tmpdir(), `${readTempPrefix()}noslop-pick-release-ship-`));
 
   onTestFinished(() => rm(directory, { recursive: true, force: true }));
 

@@ -19,6 +19,7 @@ import {
   createTestRepo,
   githubCollections,
   githubServer,
+  readTempPrefix,
 } from '@noslop/testing';
 import cliPackage from '../package.json' with { type: 'json' };
 import type { CLIContext } from './cli-context';
@@ -29,7 +30,7 @@ import { createJSONReporter } from './create-json-reporter';
 import { runCLI } from './run-cli';
 
 async function setupTest() {
-  const directory = await mkdtemp(join(tmpdir(), 'noslop-cli-'));
+  const directory = await mkdtemp(join(tmpdir(), `${readTempPrefix()}noslop-cli-`));
 
   onTestFinished(() => rm(directory, { recursive: true, force: true }));
 

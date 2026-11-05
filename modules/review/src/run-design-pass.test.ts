@@ -4,11 +4,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { getLogger } from '@logtape/logtape';
 import { BUILT_IN_DEFAULTS } from '@noslop/config';
-import { buildMockChangedFile, buildStubAdapter } from '@noslop/testing';
+import { buildMockChangedFile, buildStubAdapter, readTempPrefix } from '@noslop/testing';
 import { runDesignPass } from './run-design-pass';
 
 async function setupTest() {
-  const directory = await mkdtemp(join(tmpdir(), 'noslop-design-'));
+  const directory = await mkdtemp(join(tmpdir(), `${readTempPrefix()}noslop-design-`));
 
   onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
