@@ -51,6 +51,11 @@ bun test ./modules/config
 The test preload in `bunfig.toml` registers the extra matchers and starts the stand-in GitHub API,
 so the tests reach no real GitHub. The `testing` skill holds the rules for writing tests.
 
+Each test names its temp folder with `readTempPrefix()` from `@noslop/testing`, which starts the
+name with the test process's PID and PID namespace. Before `bun run test` starts the tests, it
+removes each such folder of the same namespace whose process no longer runs, so a killed run leaves
+nothing behind for the next one. `bun test` on its own skips that sweep.
+
 ## The git hooks
 
 lefthook runs the hooks that `bun install` installed.
