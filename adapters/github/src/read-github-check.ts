@@ -54,12 +54,12 @@ export async function readGitHubCheck(
 
 function readCheckDispositions(
   client: GitHubClient,
-  pr: PullRequestRef,
+  pullRequest: PullRequestRef,
   input: GitHubCheckInput,
 ): Promise<readonly Disposition[]> {
   if (input.dispositions !== undefined) {
     return Promise.resolve(input.dispositions);
   }
 
-  return readThreadDispositions(client, pr, input.state.threads);
+  return readThreadDispositions(client, pullRequest, input.state.threads);
 }

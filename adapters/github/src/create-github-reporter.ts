@@ -38,7 +38,10 @@ export interface GitHubReporterOptions {
 
   recordCommentURLs?: (pr: PullRequestRef, links: ReadonlyMap<string, string>) => Promise<void>;
 
-  recordDispositions?: (pr: PullRequestRef, dispositions: readonly Disposition[]) => Promise<void>;
+  recordDispositions?: (
+    pullRequest: PullRequestRef,
+    dispositions: readonly Disposition[],
+  ) => Promise<void>;
 }
 
 export function createGitHubReporter(options: GitHubReporterOptions): Reporter {
@@ -114,7 +117,7 @@ async function runReviewPost(
   const reported = collectReported(result);
 
   if (!plan.writesSummary) {
-    await runCheck(options, connection, { pr, head: result.head }, ctx);
+    await runCheck(options, connection, { pullRequest: pr, head: result.head }, ctx);
 
     return;
   }
@@ -127,7 +130,7 @@ async function runReviewPost(
   const unanchored = await createReviewComments(
     connection,
     write,
-    { pr, head: result.head },
+    { pullRequest: pr, head: result.head },
     buildFindingPosts(inline, result.head),
   );
 
@@ -214,7 +217,7 @@ async function runReviewPost(
     formatSummaryComment(result, marker, { confirmations, posted: before.threads.length }, links),
   );
 
-  await runCheck(options, connection, { pr, head: result.head }, ctx);
+  await runCheck(options, connection, { pullRequest: pr, head: result.head }, ctx);
 
   await options.recordCommentURLs?.(pr, links);
 }
@@ -236,7 +239,7 @@ function collectReported(result: ReviewResult): string[] {
 }
 
 interface ReviewTarget {
-  pr: PullRequestRef;
+  pullRequest: PullRequestRef;
   head: string;
 }
 
@@ -246,14 +249,14 @@ async function runCheck(
   target: ReviewTarget,
   ctx: ReporterContext,
 ): Promise<void> {
-  const pr = target.pr;
+  const pullRequest = target.pullRequest;
 
-  const state = await readPullRequestState(connection, pr);
-  const dispositions = await readThreadDispositions(connection.client, pr, state.threads);
+  const state = await readPullRequestState(connection, pullRequest);
+  const dispositions = await readThreadDispositions(connection.client, pullRequest, state.threads);
 
-  await options.recordDispositions?.(pr, dispositions);
+  await options.recordDispositions?.(pullRequest, dispositions);
 
-  const outcome = await runGitHubCheck(connection, pr, {
+  const outcome = await runGitHubCheck(connection, pullRequest, {
     failedReporters: ctx.failedReporters,
     state,
     dispositions,
@@ -293,7 +296,7 @@ async function createReviewComments(
   target: ReviewTarget,
   posts: readonly FindingPost[],
 ): Promise<FindingPost[]> {
-  const pr = target.pr;
+  const pr = target.pullRequest;
   const head = target.head;
 
   if (posts.length === 0) {
