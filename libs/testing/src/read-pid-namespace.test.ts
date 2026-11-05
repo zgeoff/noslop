@@ -1,28 +1,36 @@
 import { expect, onTestFinished, test } from 'bun:test';
-import { mkdtemp, readlink, rm } from 'node:fs/promises';
+import { mkdtemp, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { PID_NAMESPACE_LINK, readPIDNamespace } from './read-pid-namespace';
+import { readPIDNamespace } from './read-pid-namespace';
 import { readTempPrefix } from './read-temp-prefix';
 
-test("it gives the inode of the test process's PID namespace", async () => {
-  const link = await readlink('/proc/self/ns/pid');
+async function setupTest() {
+  const directory = await mkdtemp(join(tmpdir(), `${readTempPrefix()}noslop-namespace-`));
 
-  expect(`pid:[${readPIDNamespace(PID_NAMESPACE_LINK)}]`).toBe(link);
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
+
+  return { directory };
+}
+
+test('it gives the inode that a PID namespace link names', async () => {
+  const ctx = await setupTest();
+
+  const link = join(ctx.directory, 'pid');
+
+  await symlink('pid:[4026531836]', link);
+
+  expect(readPIDNamespace(link)).toBe('4026531836');
 });
 
 test('it gives none on a system with no PID namespace link', async () => {
-  const directory = await mkdtemp(join(tmpdir(), `${readTempPrefix()}noslop-namespace-`));
+  const ctx = await setupTest();
 
-  onTestFinished(() => rm(directory, { recursive: true, force: true }));
-
-  expect(readPIDNamespace(join(directory, 'missing'))).toBe('none');
+  expect(readPIDNamespace(join(ctx.directory, 'missing'))).toBe('none');
 });
 
-test('it throws when the link exists but is no link', async () => {
-  const directory = await mkdtemp(join(tmpdir(), `${readTempPrefix()}noslop-namespace-`));
+test('it throws when the path exists but is no link', async () => {
+  const ctx = await setupTest();
 
-  onTestFinished(() => rm(directory, { recursive: true, force: true }));
-
-  expect(() => readPIDNamespace(directory)).toThrow();
+  expect(() => readPIDNamespace(ctx.directory)).toThrow();
 });
