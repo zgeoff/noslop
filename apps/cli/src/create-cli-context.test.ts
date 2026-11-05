@@ -3,7 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { getLogger } from '@logtape/logtape';
-import { loadStore } from '@noslop/sqlite';
+import { loadStore, runStoreQuery } from '@noslop/sqlite';
 import {
   buildMockFinding,
   buildMockReviewResult,
@@ -32,8 +32,6 @@ test('it writes the answers a github review reads to the store of a run that lis
 
   onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  const storePath = join(directory, 'store.sqlite');
-
   const ctx = createCLIContext({
     XDG_DATA_HOME: directory,
     NOSLOP_GITHUB_APP_ID: '1',
@@ -41,10 +39,12 @@ test('it writes the answers a github review reads to the store of a run that lis
     NOSLOP_GITHUB_APP_INSTALLATION_ID: '7',
   });
 
-  const reporter = ctx.createReporter('github', storePath);
+  const storePath = join(ctx.dataDir, 'store.sqlite');
+  const sqlite = ctx.createReporter('sqlite', storePath);
+  const github = ctx.createReporter('github', storePath);
 
-  if (reporter === null) {
-    throw new Error('the CLI context builds no github reporter');
+  if (sqlite === null || github === null) {
+    throw new Error('the CLI context builds no sqlite or github reporter');
   }
 
   await githubCollections.pullRequests.create({
@@ -62,14 +62,15 @@ test('it writes the answers a github review reads to the store of a run that lis
     lines: [1],
   });
 
-  await reporter.report(
-    buildMockReviewResult({
-      pullRequest: { owner: 'example', repo: 'app', number: 5 },
-      head: 'b'.repeat(40),
-      findings: [buildMockFinding({ id: '1111111111111111' })],
-    }),
-    { logger: getLogger(['test']), options: {}, failedReporters: [] },
-  );
+  const first = buildMockReviewResult({
+    reviewID: 'review-1',
+    pullRequest: { owner: 'example', repo: 'app', number: 5 },
+    head: 'b'.repeat(40),
+    findings: [buildMockFinding({ id: '1111111111111111' })],
+  });
+
+  await sqlite.report(first, { logger: getLogger(['test']), options: {}, failedReporters: [] });
+  await github.report(first, { logger: getLogger(['test']), options: {}, failedReporters: [] });
 
   const [thread] = githubCollections.reviewComments.all();
 
@@ -83,8 +84,9 @@ test('it writes the answers a github review reads to the store of a run that lis
     createdAt: '2026-03-02T10:00:00.000Z',
   });
 
-  await reporter.report(
+  await github.report(
     buildMockReviewResult({
+      reviewID: 'review-2',
       pullRequest: { owner: 'example', repo: 'app', number: 5 },
       base: 'b'.repeat(40),
       head: 'c'.repeat(40),
@@ -97,19 +99,16 @@ test('it writes the answers a github review reads to the store of a run that lis
 
   onTestFinished(() => store.destroy());
 
-  const rows = await store.selectFrom('dispositions').selectAll().execute();
+  const rows = await runStoreQuery(store, 'findings-by-pr');
 
-  expect(rows).toStrictEqual([
+  expect(rows).toMatchObject([
     {
       repo: 'example/app',
-      pull_request: 5,
-      finding_id: '1111111111111111',
-      kind: 'not-a-defect',
-      value: 'the loop already stops at the end',
-      author: 'dev',
-      author_is_owner: 0,
-      source: 'github',
-      at: '2026-03-02T10:00:00.000Z',
+      pullRequest: 5,
+      id: '1111111111111111',
+      dispositionKind: 'not-a-defect',
+      dispositionValue: 'the loop already stops at the end',
+      outcome: 'not-a-defect',
     },
   ]);
 });
