@@ -16,7 +16,7 @@
         "@zgeoff/bun-test-extended": "0.2.3",
         "@zgeoff/format-codemod": "0.3.5",
         "@zgeoff/oxlint-config": "0.8.5",
-        "@zgeoff/skill-gate": "0.2.21",
+        "@zgeoff/skill-gate": "0.2.22",
         "knip": "6.43.0",
         "lefthook": "2.2.2",
         "msw": "catalog:",
@@ -789,7 +789,7 @@
 
     "@yuku-toolchain/types": ["@yuku-toolchain/types@0.19.0", "", {}, "sha512-tFkNbsP4WXX9UMUC5syJGdK9dPMLK0PPaIuXCcCYH75sZ8MrebfBZ2XvCILRTw8AgLivSSCfDa4R67iYBDa4Kg=="],
 
-    "@zgeoff/agent-hooks": ["@zgeoff/agent-hooks@0.2.5", "", { "bin": { "agent-hooks": "dist/cli.js" } }, "sha512-szItKE8CnDB8MVx2zFh5jpKBOWQtG5UdnAlIClh2jb+kKLpkzm0neFgOzUM0pEloA4978Zuta5DDP6L7aV2qyA=="],
+    "@zgeoff/agent-hooks": ["@zgeoff/agent-hooks@0.2.6", "", { "bin": { "agent-hooks": "dist/cli.js" } }, "sha512-Ex99nLNCeeVG6GkbjJYKCpepr8VRESSB9SJaA7mRwt6Ls9ndtB+Qps4BbYg5oKueiYZoT3lvNZWzv/Mygv8x5A=="],
 
     "@zgeoff/bun-test-extended": ["@zgeoff/bun-test-extended@0.2.3", "", { "dependencies": { "jest-extended": "7.0.0", "jest-matcher-utils": "30.5.2" } }, "sha512-4ZNPft3LunVKp+s2esoJXSe64EaEywsu3z6Cg5/s/MJcdygmrQeAyfECioePCo5RuAIcaPfgF3lhYsPKcmVJ4w=="],
 
@@ -797,7 +797,7 @@
 
     "@zgeoff/oxlint-config": ["@zgeoff/oxlint-config@0.8.5", "", { "dependencies": { "@stylistic/eslint-plugin": "5.10.0" }, "peerDependencies": { "oxlint": ">=1.78.0" } }, "sha512-0KyV8A9U66Ixur+0sZbTaqZ3SXpmajR2IewhuEcErzhmFcn1vue9bCFJK90Nm/6NWUAipcB4eB2NX1+ZfVR1eQ=="],
 
-    "@zgeoff/skill-gate": ["@zgeoff/skill-gate@0.2.21", "", { "dependencies": { "@zgeoff/agent-hooks": "0.2.5" } }, "sha512-qYrErtpK84JX6E8iJyQ9Cfk8lCxcMc8gdnZOm098+aItyRp7wh/YICp/yGHdKlpELp5zknrdaBZwybZS4u7xjA=="],
+    "@zgeoff/skill-gate": ["@zgeoff/skill-gate@0.2.22", "", { "dependencies": { "@zgeoff/agent-hooks": "0.2.6" } }, "sha512-1BTjYDiFaGEvhSbZ/wWIh7KU/CW5NYFSHkEskDtI9lUW6NZXKop3w4Vml21LkdFwe66l7OQKs5m3SxX4egcRgg=="],
 
     "acorn": ["acorn@8.19.0", "", { "bin": { "acorn": "bin/acorn" } }, "sha512-oJlA3XiRm7Cyk6qFD2Jn8ak9B7jSy0qy00ADO3+8dpT0LSjFihQYv4C02LFCSYJV3Q37xYwwRy5m+IpIiUzqWw=="],
 
