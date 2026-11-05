@@ -1,4 +1,5 @@
 import { expect, onTestFinished, test } from 'bun:test';
+import assert from 'node:assert';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -25,13 +26,13 @@ async function setupTest() {
   });
 
   const storePath = join(context.dataDir, 'store.sqlite');
+  const sqlite = context.createReporter('sqlite', storePath);
+  const github = context.createReporter('github', storePath);
 
-  return {
-    storePath,
-    sqlite: context.createReporter('sqlite', storePath),
-    github: context.createReporter('github', storePath),
-    logger: getLogger(['test']),
-  };
+  assert.ok(sqlite, 'the CLI context builds a sqlite reporter');
+  assert.ok(github, 'the CLI context builds a github reporter');
+
+  return { storePath, sqlite, github, logger: getLogger(['test']) };
 }
 
 test('it keeps the store under the home folder when XDG_DATA_HOME is empty', () => {
@@ -82,8 +83,8 @@ test('it writes the answers a github review reads to the store of a run that lis
     ],
   });
 
-  await ctx.sqlite?.report(first, { logger: ctx.logger, options: {}, failedReporters: [] });
-  await ctx.github?.report(first, { logger: ctx.logger, options: {}, failedReporters: [] });
+  await ctx.sqlite.report(first, { logger: ctx.logger, options: {}, failedReporters: [] });
+  await ctx.github.report(first, { logger: ctx.logger, options: {}, failedReporters: [] });
 
   const [thread] = githubCollections.reviewComments.all();
 
@@ -97,7 +98,7 @@ test('it writes the answers a github review reads to the store of a run that lis
     createdAt: '2026-03-02T10:00:00.000Z',
   });
 
-  await ctx.github?.report(
+  await ctx.github.report(
     buildMockReviewResult({
       reviewID: 'review-2',
       pullRequest: { owner: 'example', repo: 'app', number: 5 },

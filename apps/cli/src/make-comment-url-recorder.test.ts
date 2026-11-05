@@ -32,33 +32,49 @@ test('it resolves without a link kept when the store cannot open', async () => {
 
 test('it keeps each comment link in the store at its path for the findings-by-pr query', async () => {
   const ctx = await setupTest();
-  const before = await loadStore(ctx.path);
+  const store = await loadStore(ctx.path);
+
+  onTestFinished(() => store.destroy());
 
   await writeReview(
-    before,
+    store,
     buildMockReviewResult({
       reviewID: 'review-1',
       pullRequest: { owner: 'example', repo: 'app', number: 7 },
-      findings: [buildMockFinding({ id: '1111111111111111' })],
+      findings: [
+        buildMockFinding({
+          id: '1111111111111111',
+          lens: 'correctness',
+          title: 'Return the total of every item',
+          severity: 'P2',
+          anchor: { path: 'src/a.ts', startLine: 1, endLine: 1 },
+        }),
+      ],
     }),
   );
-
-  await before.destroy();
 
   await makeCommentURLRecorder(ctx.path, ctx.logger)(
     { owner: 'example', repo: 'app', number: 7 },
     new Map([['1111111111111111', 'https://github.com/example/app/pull/7#discussion_r101']]),
   );
 
-  const store = await loadStore(ctx.path);
-
-  onTestFinished(() => store.destroy());
-
   const rows = await runStoreQuery(store, 'findings-by-pr');
 
-  expect(rows).toMatchObject([
+  expect(rows).toStrictEqual([
     {
+      repo: 'example/app',
+      pullRequest: 7,
+      head: expect.any(String),
       id: '1111111111111111',
+      path: 'src/a.ts',
+      startLine: 1,
+      severity: 'P2',
+      lens: 'correctness',
+      rule: null,
+      title: 'Return the total of every item',
+      dispositionKind: null,
+      dispositionValue: null,
+      outcome: 'open',
       commentURL: 'https://github.com/example/app/pull/7#discussion_r101',
     },
   ]);

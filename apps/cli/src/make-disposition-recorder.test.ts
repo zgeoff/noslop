@@ -39,10 +39,12 @@ test('it resolves without a disposition kept when the store cannot open', async 
 
 test('it keeps each disposition in the store at its path for the findings-by-pr query', async () => {
   const ctx = await setupTest();
-  const before = await loadStore(ctx.path);
+  const store = await loadStore(ctx.path);
+
+  onTestFinished(() => store.destroy());
 
   await writeReview(
-    before,
+    store,
     buildMockReviewResult({
       reviewID: 'review-1',
       pullRequest: { owner: 'example', repo: 'app', number: 7 },
@@ -58,8 +60,6 @@ test('it keeps each disposition in the store at its path for the findings-by-pr 
     }),
   );
 
-  await before.destroy();
-
   await makeDispositionRecorder(ctx.path, ctx.logger)(
     { owner: 'example', repo: 'app', number: 7 },
     [
@@ -74,10 +74,6 @@ test('it keeps each disposition in the store at its path for the findings-by-pr 
       },
     ],
   );
-
-  const store = await loadStore(ctx.path);
-
-  onTestFinished(() => store.destroy());
 
   const rows = await runStoreQuery(store, 'findings-by-pr');
 
