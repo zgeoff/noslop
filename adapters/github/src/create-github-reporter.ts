@@ -1,4 +1,5 @@
 import type {
+  Disposition,
   Finding,
   PullRequestRef,
   Reporter,
@@ -36,6 +37,8 @@ export interface GitHubReporterOptions {
   loadConnection: () => Promise<GitHubConnection>;
 
   recordCommentURLs?: (pr: PullRequestRef, links: ReadonlyMap<string, string>) => Promise<void>;
+
+  recordDispositions?: (pr: PullRequestRef, dispositions: readonly Disposition[]) => Promise<void>;
 }
 
 export function createGitHubReporter(options: GitHubReporterOptions): Reporter {
@@ -111,7 +114,7 @@ async function runReviewPost(
   const reported = collectReported(result);
 
   if (!plan.writesSummary) {
-    await runCheck(connection, pr, result.head, ctx);
+    await runCheck(options, connection, { pr, head: result.head }, ctx);
 
     return;
   }
@@ -211,7 +214,7 @@ async function runReviewPost(
     formatSummaryComment(result, marker, { confirmations, posted: before.threads.length }, links),
   );
 
-  await runCheck(connection, pr, result.head, ctx);
+  await runCheck(options, connection, { pr, head: result.head }, ctx);
 
   await options.recordCommentURLs?.(pr, links);
 }
@@ -232,16 +235,32 @@ function collectReported(result: ReviewResult): string[] {
   ];
 }
 
+interface ReviewTarget {
+  pr: PullRequestRef;
+  head: string;
+}
+
 async function runCheck(
+  options: GitHubReporterOptions,
   connection: GitHubConnection,
-  pr: PullRequestRef,
-  head: string,
+  target: ReviewTarget,
   ctx: ReporterContext,
 ): Promise<void> {
-  const outcome = await runGitHubCheck(connection, pr, { failedReporters: ctx.failedReporters });
+  const pr = target.pr;
+
+  const state = await readPullRequestState(connection, pr);
+  const dispositions = await readThreadDispositions(connection.client, pr, state.threads);
+
+  await options.recordDispositions?.(pr, dispositions);
+
+  const outcome = await runGitHubCheck(connection, pr, {
+    failedReporters: ctx.failedReporters,
+    state,
+    dispositions,
+  });
 
   ctx.logger.info('the noslop check on {head}: {conclusion}', {
-    head: head.slice(0, 12),
+    head: target.head.slice(0, 12),
     conclusion: outcome.conclusion,
   });
 }
@@ -264,11 +283,6 @@ function makePacedWrite(connection: GitHubConnection): PacedWrite {
 
     await send();
   };
-}
-
-interface ReviewTarget {
-  pr: PullRequestRef;
-  head: string;
 }
 
 // GitHub refuses the whole review when one comment's line is outside the diff, so on that refusal

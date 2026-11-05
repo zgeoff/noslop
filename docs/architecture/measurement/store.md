@@ -66,11 +66,14 @@ defect once.
 
 Four writers fill the store. The `sqlite` reporter writes each review. The `github` reporter runs
 after it and, when the same run lists `sqlite`, records the link to each finding's comment on every
-row of that finding in the pull request's reviews. `noslop check` writes the dispositions of a pull
-request each time it sets the check, so every reply the App sees reaches the yield and noise counts.
-`noslop store escape` writes an escape from the issue that reports the defect and the head of the
-change that caused it. A review reads the escaped files of its repo back from the store as its
-past-escape signal.
+row of that finding in the pull request's reviews. In that run it writes the dispositions of every
+reply it reads before it sets the check, on a fixes-only run too. `noslop check` writes the
+dispositions of a pull request each time it sets the check, and `noslop check --read-only` writes
+none. `noslop findings` reads the replies and writes no disposition, so a reply that arrives after
+the last review or check of its pull request reaches the yield and noise counts only when a later
+review or check runs. `noslop store escape` writes an escape from the issue that reports the defect
+and the head of the change that caused it. A review reads the escaped files of its repo back from
+the store as its past-escape signal.
 
 ## The queries
 

@@ -726,6 +726,172 @@ test('it hands the link to each finding comment to the comment link recorder', a
   );
 });
 
+test('it hands the answers a re-review reads to the disposition recorder', async () => {
+  const privateKey = buildStubAppKey();
+  const recordDispositions = mock(() => Promise.resolve());
+
+  const reporter = createGitHubReporter({
+    loadConnection: () => createGitHubConnection({ appID: 1, privateKey, installationID: 7 }),
+    recordDispositions,
+  });
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'c'.repeat(40),
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/a.ts',
+    lines: [1],
+  });
+
+  await githubCollections.collaborators.create({
+    owner: 'example',
+    repo: 'app',
+    login: 'maintainer',
+    permission: 'admin',
+  });
+
+  await reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'b'.repeat(40),
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+    { logger: getLogger(['test']), options: {}, failedReporters: [] },
+  );
+
+  const [thread] = githubCollections.reviewComments.all();
+
+  const reply = await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    body: 'not-a-defect the total already skips voided items',
+    authorLogin: 'maintainer',
+    inReplyToID: thread?.id ?? null,
+    createdAt: '2026-03-02T10:00:00.000Z',
+  });
+
+  recordDispositions.mockClear();
+
+  await reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      base: 'b'.repeat(40),
+      head: 'c'.repeat(40),
+      findings: [],
+    }),
+    { logger: getLogger(['test']), options: {}, failedReporters: [] },
+  );
+
+  expect(recordDispositions).toHaveBeenCalledExactlyOnceWith(
+    { owner: 'example', repo: 'app', number: 5 },
+    [
+      {
+        findingID: '1111111111111111',
+        kind: 'not-a-defect',
+        value: 'the total already skips voided items',
+        author: 'maintainer',
+        authorIsOwner: true,
+        source: 'github',
+        at: reply.createdAt,
+      },
+    ],
+  );
+});
+
+test('it hands the answers a fixes-only run reads to the disposition recorder', async () => {
+  const privateKey = buildStubAppKey();
+  const recordDispositions = mock(() => Promise.resolve());
+
+  const reporter = createGitHubReporter({
+    loadConnection: () => createGitHubConnection({ appID: 1, privateKey, installationID: 7 }),
+    recordDispositions,
+  });
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'c'.repeat(40),
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    sha: 'c'.repeat(40),
+    files: ['src/a.ts'],
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/a.ts',
+    lines: [1],
+  });
+
+  await reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'b'.repeat(40),
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+    { logger: getLogger(['test']), options: {}, failedReporters: [] },
+  );
+
+  const [thread] = githubCollections.reviewComments.all();
+
+  const reply = await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    body: `fixed ${'c'.repeat(7)}`,
+    authorLogin: 'dev',
+    inReplyToID: thread?.id ?? null,
+    createdAt: '2026-03-02T11:00:00.000Z',
+  });
+
+  recordDispositions.mockClear();
+
+  await reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      base: 'b'.repeat(40),
+      head: 'c'.repeat(40),
+      lenses: [],
+      findings: [],
+      fixesOnly: true,
+      fixChecks: [
+        { findingID: '1111111111111111', fixed: true, reason: 'The total counts every item.' },
+      ],
+    }),
+    { logger: getLogger(['test']), options: {}, failedReporters: [] },
+  );
+
+  expect(recordDispositions).toHaveBeenCalledExactlyOnceWith(
+    { owner: 'example', repo: 'app', number: 5 },
+    [
+      {
+        findingID: '1111111111111111',
+        kind: 'fixed',
+        value: 'c'.repeat(7),
+        author: 'dev',
+        authorIsOwner: false,
+        source: 'github',
+        at: reply.createdAt,
+      },
+    ],
+  );
+});
+
 test('it fails the check when the re-review still finds a fixed finding, and posts it once', async () => {
   const ctx = setupTest();
 
