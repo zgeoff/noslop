@@ -4,11 +4,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { getLogger } from '@logtape/logtape';
 import { loadStore, runStoreQuery, writeReview } from '@noslop/sqlite';
-import { buildMockFinding, buildMockReviewResult } from '@noslop/testing';
+import { buildMockFinding, buildMockReviewResult, readTempPrefix } from '@noslop/testing';
 import { makeCommentURLRecorder } from './make-comment-url-recorder';
 
 async function setupTest() {
-  const directory = await mkdtemp(join(tmpdir(), 'noslop-store-'));
+  const directory = await mkdtemp(join(tmpdir(), `${readTempPrefix()}noslop-store-`));
 
   onTestFinished(() => rm(directory, { recursive: true, force: true }));
 

@@ -10,11 +10,12 @@ import {
   buildMockReviewResult,
   buildStubAppKey,
   githubCollections,
+  readTempPrefix,
 } from '@noslop/testing';
 import { createCLIContext } from './create-cli-context';
 
 async function setupTest() {
-  const directory = await mkdtemp(join(tmpdir(), 'noslop-context-'));
+  const directory = await mkdtemp(join(tmpdir(), `${readTempPrefix()}noslop-context-`));
 
   onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
