@@ -23,6 +23,7 @@ function setupTest() {
   const recordDispositions = mock(() => Promise.resolve());
 
   const reporter = createGitHubReporter({
+    issueKeys: [],
     loadConnection: () =>
       createGitHubConnection({ appID: 1, privateKey, installationID: 7 }, null, sleep),
     recordDispositions,
@@ -678,6 +679,7 @@ test('it hands the link to each finding comment to the comment link recorder', a
   const recordCommentURLs = mock(() => Promise.resolve());
 
   const reporter = createGitHubReporter({
+    issueKeys: [],
     loadConnection: () => createGitHubConnection({ appID: 1, privateKey, installationID: 7 }),
     recordCommentURLs,
   });
@@ -2157,7 +2159,7 @@ test('it answers once a comment of one line per finding that names findings of t
   await runGitHubCheck(
     connection,
     { owner: 'example', repo: 'app', number: 5 },
-    { failedReporters: [] },
+    { failedReporters: [], issueKeys: [] },
   );
 
   const answers = githubCollections.issueComments.findMany((query) =>
@@ -2406,7 +2408,7 @@ test('it passes the check once the finding of a not-sound resolution holds a val
   const outcome = await runGitHubCheck(
     connection,
     { owner: 'example', repo: 'app', number: 5 },
-    { failedReporters: [] },
+    { failedReporters: [], issueKeys: [] },
   );
 
   expect(outcome.conclusion).toBe('success');
@@ -2540,6 +2542,7 @@ test('it posts the second of two rewritten finding comments only once a second-l
   const stub = buildStubSleep();
 
   const reporter = createGitHubReporter({
+    issueKeys: [],
     loadConnection: () =>
       createGitHubConnection(
         { appID: 1, privateKey: buildStubAppKey(), installationID: 7 },
@@ -2731,7 +2734,7 @@ test('it passes the check at a rebased head whose files hold the reviewed patche
   const outcome = await runGitHubCheck(
     connection,
     { owner: 'example', repo: 'app', number: 5 },
-    { failedReporters: [] },
+    { failedReporters: [], issueKeys: [] },
   );
 
   expect(outcome.conclusion).toBe('success');
@@ -2796,7 +2799,7 @@ test('it fails the check at a new head whose file holds a changed patch, and nam
   const outcome = await runGitHubCheck(
     connection,
     { owner: 'example', repo: 'app', number: 5 },
-    { failedReporters: [] },
+    { failedReporters: [], issueKeys: [] },
   );
 
   expect(outcome.title).toBe(
@@ -2897,6 +2900,7 @@ test('it keys a review on its head when the pull request changes more files than
 
 test('it refuses to post under a token, whose comments no later review trusts', async () => {
   const reporter = createGitHubReporter({
+    issueKeys: [],
     loadConnection: () => createGitHubConnection(null, 'ghp_reader'),
   });
 
@@ -3703,7 +3707,7 @@ test('it takes one reply to a folded comment as the answer to each finding it ho
   const outcome = await runGitHubCheck(
     connection,
     { owner: 'example', repo: 'app', number: 5 },
-    { failedReporters: [] },
+    { failedReporters: [], issueKeys: [] },
   );
 
   expect(githubCollections.reviewComments.all()).toHaveLength(2);
@@ -3767,7 +3771,7 @@ test('it leaves open only the folded findings that a reply of one line per findi
   const outcome = await runGitHubCheck(
     connection,
     { owner: 'example', repo: 'app', number: 5 },
-    { failedReporters: [] },
+    { failedReporters: [], issueKeys: [] },
   );
 
   expect(githubCollections.reviewComments.all()).toHaveLength(2);
@@ -3826,7 +3830,7 @@ test('it answers once with the accepted forms a reply of one line per finding wh
   const outcome = await runGitHubCheck(
     connection,
     { owner: 'example', repo: 'app', number: 5 },
-    { failedReporters: [] },
+    { failedReporters: [], issueKeys: [] },
   );
 
   const answers = githubCollections.reviewComments.findMany((query) =>

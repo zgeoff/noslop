@@ -74,7 +74,8 @@ and the reply answers none of the findings on its lines.
 A `fixed` reply may end at the word, or name a sha of 7 to 40 hex characters as a hint. A fix check
 judges the finding at the head whatever the sha names, so after a rebase or a squash you need not
 reply again. The issue of a `deferred` reply is `#<number>` in the same repo,
-`<owner>/<repo>#<number>`, or an issue URL.
+`<owner>/<repo>#<number>`, an issue URL, or a key of another tracker that a pattern in the config's
+`issueKeys` matches, such as `ABC-41` under `^ABC-\d+$`.
 
 ## Which kinds a finding can take
 

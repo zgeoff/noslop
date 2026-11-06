@@ -278,6 +278,59 @@ test('it drops the inherited rules when a file sets rules to null', async () => 
   expect(loaded.rules).toBeNull();
 });
 
+test('it appends the synced globs of a file to the ones it inherits, once each', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(
+    join(ctx.directory, 'review.json'),
+    JSON.stringify({ extends: './shared/review.json', synced: ['vendor/**', 'docs/shared/**'] }),
+  );
+
+  await Bun.write(
+    join(ctx.directory, 'shared', 'review.json'),
+    JSON.stringify({ synced: ['.claude/skills/shared/**', 'vendor/**'] }),
+  );
+
+  const loaded = await loadConfig({ repoDir: ctx.directory });
+
+  expect([loaded.config.synced, loaded.sources['synced']]).toStrictEqual([
+    ['.claude/skills/shared/**', 'vendor/**', 'docs/shared/**'],
+    join(ctx.directory, 'review.json'),
+  ]);
+});
+
+test('it drops the inherited synced globs when a file sets synced to null', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(
+    join(ctx.directory, 'review.json'),
+    JSON.stringify({ extends: './shared/review.json', synced: null }),
+  );
+
+  await Bun.write(
+    join(ctx.directory, 'shared', 'review.json'),
+    JSON.stringify({ synced: ['vendor/**'] }),
+  );
+
+  const loaded = await loadConfig({ repoDir: ctx.directory });
+
+  expect(loaded.config.synced).toStrictEqual([]);
+});
+
+test('it fails the load on an issue key pattern that is not a valid regex', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(
+    join(ctx.directory, 'review.json'),
+    JSON.stringify({ issueKeys: [String.raw`^TASK-(\d+$`] }),
+  );
+
+  expect(loadConfig({ repoDir: ctx.directory })).rejects.toThrowWithMessage(
+    Error,
+    /issueKeys\.0: .*not a valid regex/u,
+  );
+});
+
 test('it loads each reference of a rules file with the globs that gate it', async () => {
   const ctx = await setupTest();
 

@@ -2,7 +2,7 @@
 
 - Date: 2026-10-17
 - Status: decided
-- Updated: 2026-10-19
+- Updated: 2026-11-06
 
 A repo's noslop config is `review.json`. With no `review.json`, noslop runs built-in defaults: every
 generic lens, the shared risk classes, no rules file, and the Codex adapter.
@@ -12,8 +12,8 @@ A `review.json` can name a parent with `extends`, such as
 Merging follows 3 rules:
 
 1. Objects merge by key.
-2. Arrays replace. One exception: `rules` entries append to the inherited ones, and an entry for an
-   inherited path replaces that entry.
+2. Arrays replace. Two exceptions: `rules` entries append to the inherited ones, and an entry for an
+   inherited path replaces that entry; `synced` globs append to the inherited ones.
 3. `null` removes an inherited key.
 
 A review reads its config and rules files from the commit its change starts from, never from the
@@ -74,3 +74,5 @@ The config holds:
   own review, and `noslop config` reads the working tree for local trials.
 - 2026-10-19: a rules file entry that lists `skip` fails the load, since every config has dropped
   the list, so the schema holds no key that the load ignores.
+- 2026-11-06: `synced` appends across `extends`, so a repo adds its own synced copies to the ones
+  the shared config lists.

@@ -11,6 +11,7 @@ export const CHECK_NAME = 'noslop';
 
 export interface GitHubCheckOptions {
   failedReporters: readonly string[];
+  issueKeys: readonly string[];
 
   state?: PullRequestState;
 
@@ -31,6 +32,7 @@ export async function runGitHubCheck(
   const outcome = await readGitHubCheck(connection, pr, {
     failedReporters: options.failedReporters,
     state,
+    issueKeys: options.issueKeys,
     ...(options.dispositions === undefined ? {} : { dispositions: options.dispositions }),
   });
 

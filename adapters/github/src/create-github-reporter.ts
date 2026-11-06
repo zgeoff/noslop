@@ -35,6 +35,7 @@ import { withWriteRetry } from './with-write-retry';
 
 export interface GitHubReporterOptions {
   loadConnection: () => Promise<GitHubConnection>;
+  issueKeys: readonly string[];
 
   recordCommentURLs?: (pr: PullRequestRef, links: ReadonlyMap<string, string>) => Promise<void>;
 
@@ -258,6 +259,7 @@ async function runCheck(
 
   const outcome = await runGitHubCheck(connection, pullRequest, {
     failedReporters: ctx.failedReporters,
+    issueKeys: options.issueKeys,
     state,
     dispositions,
   });

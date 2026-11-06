@@ -27,8 +27,8 @@ async function setupTest() {
   });
 
   const storePath = join(context.dataDir, 'store.sqlite');
-  const sqlite = context.createReporter('sqlite', storePath);
-  const github = context.createReporter('github', storePath);
+  const sqlite = context.createReporter('sqlite', storePath, []);
+  const github = context.createReporter('github', storePath, []);
 
   assert.ok(sqlite, 'the CLI context builds a sqlite reporter');
   assert.ok(github, 'the CLI context builds a github reporter');

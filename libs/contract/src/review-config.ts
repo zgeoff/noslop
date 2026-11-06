@@ -275,11 +275,20 @@ export const reviewConfigSchema = z.strictObject({
     ),
   synced: z
     .array(z.string().min(1))
-    .describe('Path globs of copies that another repo syncs in, which a change must not edit'),
+    .describe(
+      'Path globs of copies that another repo syncs in, which a change must not edit; entries append across extends',
+    ),
   syncAuthors: z
     .array(z.string().min(1))
     .describe(
       'GitHub logins of the accounts that open sync pull requests, such as <slug>[bot]; the synced-copy check skips a pull request one of them opened',
+    ),
+  issueKeys: z
+    .array(
+      z.string().min(1).refine(isValidPattern, { message: 'the pattern is not a valid regex' }),
+    )
+    .describe(
+      String.raw`Regex patterns of issue keys in a tracker outside GitHub, such as ^ABC-\d+$; a deferred answer that names a matching key counts as naming an existing issue, with no lookup`,
     ),
   breakingMarkers: z
     .array(z.string().min(1))
@@ -320,3 +329,11 @@ export const reviewConfigFileSchema = z.looseObject({
 });
 
 export type ReviewConfigFile = z.infer<typeof reviewConfigFileSchema>;
+
+function isValidPattern(pattern: string): boolean {
+  try {
+    return new RegExp(pattern, 'u') instanceof RegExp;
+  } catch {
+    return false;
+  }
+}

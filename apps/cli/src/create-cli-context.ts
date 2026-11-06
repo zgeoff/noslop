@@ -31,13 +31,17 @@ export function createCLIContext(env: Readonly<Record<string, string | undefined
 
   // Opening a SQLite store creates its file, so a run with no sqlite reporter records no comment
   // links or dispositions rather than make a store the config never asked for.
-  const reporters: Record<string, (storePath: string | null) => Reporter> = {
+  const reporters: Record<
+    string,
+    (storePath: string | null, issueKeys: readonly string[]) => Reporter
+  > = {
     json: () => createJSONReporter(writeStdout),
     sqlite: () =>
       createSQLiteReporter(join(dataDir, 'store.sqlite'), { version: cliPackage.version }),
-    github: (storePath) =>
+    github: (storePath, issueKeys) =>
       createGitHubReporter({
         loadConnection: loadGitHubConnection,
+        issueKeys,
         ...(storePath === null
           ? {}
           : {
@@ -67,7 +71,7 @@ export function createCLIContext(env: Readonly<Record<string, string | undefined
 
       return create();
     },
-    createReporter: (id, storePath) => reporters[id]?.(storePath) ?? null,
+    createReporter: (id, storePath, issueKeys) => reporters[id]?.(storePath, issueKeys) ?? null,
     loadGitHubConnection,
     setGitHubAppSlug: github.setAppSlug,
   };

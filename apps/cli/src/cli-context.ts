@@ -17,7 +17,11 @@ export interface CLIContext {
   writeStderr: (text: string) => void;
   createAdapter: (id: string) => ReviewAdapter;
 
-  createReporter: (id: string, storePath: string | null) => Reporter | null;
+  createReporter: (
+    id: string,
+    storePath: string | null,
+    issueKeys: readonly string[],
+  ) => Reporter | null;
 
   loadGitHubConnection: () => Promise<GitHubConnection>;
 

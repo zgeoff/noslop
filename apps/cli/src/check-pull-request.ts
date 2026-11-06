@@ -2,6 +2,7 @@ import type { PullRequestRef } from '@noslop/contract';
 import type { CheckOutcome } from '@noslop/github';
 import { readGitHubCheck, readPullRequestState, runGitHubCheck } from '@noslop/github';
 import type { GitHubConnectionLoader } from './create-github-connection-loader';
+import { loadBaseConfig } from './load-base-config';
 import { readTrustedState } from './read-trusted-state';
 
 export type PullRequestCheck = CheckOutcome;
@@ -21,6 +22,7 @@ export async function checkPullRequest(
     return readGitHubCheck(trusted.connection, pr, {
       failedReporters: [],
       state: trusted.state,
+      issueKeys: trusted.config.issueKeys,
     });
   }
 
@@ -32,7 +34,12 @@ export async function checkPullRequest(
     );
   }
 
+  const base = await loadBaseConfig(loader.load, pr);
   const state = await readPullRequestState(connection, pr);
 
-  return runGitHubCheck(connection, pr, { failedReporters: [], state });
+  return runGitHubCheck(connection, pr, {
+    failedReporters: [],
+    issueKeys: base.loaded.config.issueKeys,
+    state,
+  });
 }

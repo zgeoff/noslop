@@ -1,12 +1,13 @@
-import type { PullRequestRef } from '@noslop/contract';
+import type { PullRequestRef, ReviewConfig } from '@noslop/contract';
 import type { GitHubConnection, PullRequestState } from '@noslop/github';
-import { readBranchHead, readPullRequestBaseRef, readPullRequestState } from '@noslop/github';
+import { readPullRequestState } from '@noslop/github';
 import type { GitHubConnectionLoader } from './create-github-connection-loader';
-import { loadCommitConfig } from './load-commit-config';
+import { loadBaseConfig } from './load-base-config';
 
 export interface TrustedState {
   connection: GitHubConnection;
   state: PullRequestState;
+  config: ReviewConfig;
 }
 
 export async function readTrustedState(
@@ -14,11 +15,10 @@ export async function readTrustedState(
   loader: GitHubConnectionLoader,
 ): Promise<TrustedState> {
   const untrusted = await loader.load();
-  const baseRef = await readPullRequestBaseRef(untrusted, pr);
-  const configCommit = await readBranchHead(untrusted, pr, baseRef);
-  const loaded = await loadCommitConfig(loader.load, pr, configCommit);
+  const base = await loadBaseConfig(loader.load, pr);
 
-  const appSlug = loaded.config.github.app;
+  const baseRef = base.baseRef;
+  const appSlug = base.loaded.config.github.app;
 
   if (appSlug === null && untrusted.auth !== 'app') {
     throw new Error(
@@ -37,5 +37,5 @@ export async function readTrustedState(
     );
   }
 
-  return { connection, state };
+  return { connection, state, config: base.loaded.config };
 }

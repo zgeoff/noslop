@@ -11,6 +11,7 @@ import { readUnreadFixes } from './read-unread-fixes';
 export interface GitHubCheckInput {
   failedReporters: readonly string[];
   state: PullRequestState;
+  issueKeys: readonly string[];
 
   dispositions?: readonly Disposition[];
 }
@@ -24,7 +25,7 @@ export async function readGitHubCheck(
   const state = input.state;
 
   const dispositions = await readCheckDispositions(client, pr, input);
-  const existingIssues = await readExistingIssues(client, pr, dispositions);
+  const existingIssues = await readExistingIssues(client, pr, dispositions, input.issueKeys);
 
   const summary = state.summary?.marker ?? null;
 

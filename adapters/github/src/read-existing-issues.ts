@@ -5,6 +5,7 @@ export async function readExistingIssues(
   client: GitHubClient,
   pr: PullRequestRef,
   dispositions: readonly Disposition[],
+  issueKeys: readonly string[],
 ): Promise<Set<string>> {
   const values = new Set(
     dispositions.filter((item) => item.kind === 'deferred').map((item) => item.value),
@@ -13,6 +14,11 @@ export async function readExistingIssues(
   const existing = new Set<string>();
 
   for (const value of values) {
+    if (isIssueKey(value, issueKeys)) {
+      existing.add(value);
+      continue;
+    }
+
     const issue = parseIssueRef(value, pr);
 
     if (issue === null) {
@@ -27,6 +33,12 @@ export async function readExistingIssues(
   }
 
   return existing;
+}
+
+function isIssueKey(value: string, issueKeys: readonly string[]): boolean {
+  const token = value.split(/\s/u, 1)[0] ?? '';
+
+  return issueKeys.some((pattern) => new RegExp(pattern, 'u').test(token));
 }
 
 interface IssueRef {

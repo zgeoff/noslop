@@ -10,9 +10,10 @@ export async function readFindingList(
   connection: GitHubConnection,
   pr: PullRequestRef,
   state: PullRequestState,
+  issueKeys: readonly string[],
 ): Promise<FindingList> {
   const dispositions = await readThreadDispositions(connection.client, pr, state.threads);
-  const existingIssues = await readExistingIssues(connection.client, pr, dispositions);
+  const existingIssues = await readExistingIssues(connection.client, pr, dispositions, issueKeys);
 
   const unread = await readUnreadFixes(connection.client, pr, {
     dispositions,

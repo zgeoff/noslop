@@ -3,6 +3,7 @@ import type { ReviewResult } from '@noslop/contract';
 import { reviewResultSchema } from '@noslop/contract';
 import type { GitHubConnection } from '@noslop/github';
 import { createGitHubReporter } from '@noslop/github';
+import { loadBaseConfig } from './load-base-config';
 import { verifyReviewResult } from './verify-review-result';
 
 export interface SendDependencies {
@@ -33,7 +34,12 @@ export async function sendReviewResult(
     );
   }
 
-  const reporter = createGitHubReporter({ loadConnection: deps.loadConnection });
+  const base = await loadBaseConfig(deps.loadConnection, result.pullRequest);
+
+  const reporter = createGitHubReporter({
+    loadConnection: deps.loadConnection,
+    issueKeys: base.loaded.config.issueKeys,
+  });
 
   await reporter.report(result, { logger: deps.logger, options: {}, failedReporters: [] });
 

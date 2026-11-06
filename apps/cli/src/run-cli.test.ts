@@ -61,13 +61,13 @@ async function setupTest() {
       stderr.push(text);
     },
     createAdapter: () => adapter,
-    createReporter: (id) =>
+    createReporter: (id, _storePath, issueKeys) =>
       ({
         json: createJSONReporter((text) => {
           stdout.push(text);
         }),
         sqlite: createSQLiteReporter(join(directory, 'data', 'store.sqlite')),
-        github: createGitHubReporter({ loadConnection: github.load }),
+        github: createGitHubReporter({ loadConnection: github.load, issueKeys }),
       })[id] ?? null,
     loadGitHubConnection: github.load,
     setGitHubAppSlug: github.setAppSlug,
@@ -859,19 +859,22 @@ test('it reviews a pull request from GitHub and posts its findings and the check
   ]);
 });
 
-test('it passes a deferred finding in a synced file the change added, and keeps a deferred finding in its own code open', async () => {
+test('it passes a finding in a synced file the change added that is deferred to a tracker key, and keeps a deferred finding in its own code open', async () => {
   const ctx = await setupTest();
+
+  const config = JSON.stringify({
+    synced: ['vendor/**'],
+    syncAuthors: ['mirror-bot[bot]'],
+    issueKeys: [String.raw`^ABC-\d+$`],
+    mergePass: { enabled: false },
+    designPass: { enabled: false },
+  });
 
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
     {
       message: 'base',
       files: {
-        'review.json': JSON.stringify({
-          synced: ['vendor/**'],
-          syncAuthors: ['mirror-bot[bot]'],
-          mergePass: { enabled: false },
-          designPass: { enabled: false },
-        }),
+        'review.json': config,
         'src/total.ts': 'export const zero = 0;\n',
       },
     },
@@ -890,9 +893,25 @@ test('it passes a deferred finding in a synced file the change added, and keeps 
     number: 9,
     title: 'Sync the shared limits',
     body: 'Brings in the shared limits.',
+    baseRef: 'main',
     baseSha: repo.commits[0] ?? '',
     headSha: repo.commits[1] ?? '',
     authorLogin: 'mirror-bot[bot]',
+  });
+
+  await githubCollections.branches.create({
+    owner: 'example',
+    repo: 'app',
+    name: 'main',
+    sha: repo.commits[0] ?? '',
+  });
+
+  await githubCollections.files.create({
+    owner: 'example',
+    repo: 'app',
+    ref: repo.commits[0] ?? '',
+    path: 'review.json',
+    content: config,
   });
 
   await githubCollections.pullCommits.create({
@@ -916,14 +935,6 @@ test('it passes a deferred finding in a synced file the change added, and keeps 
     number: 9,
     path: 'src/total.ts',
     lines: [2],
-  });
-
-  await githubCollections.issues.create({
-    owner: 'example',
-    repo: 'app',
-    number: 13,
-    title: 'Make every limit positive',
-    body: 'A negative limit lets no request through.',
   });
 
   const stub = buildStubAdapter({
@@ -978,7 +989,7 @@ test('it passes a deferred finding in a synced file the change added, and keeps 
       owner: 'example',
       repo: 'app',
       number: 9,
-      body: 'deferred #13',
+      body: 'deferred ABC-41',
       authorLogin: 'dev',
       inReplyToID: thread.id,
     });
@@ -7949,6 +7960,80 @@ test('it lists an accepted-risk finding as open when its author has no admin per
       },
     ],
   });
+});
+
+test('it lists a finding deferred to a tracker key as deferred when a pattern of the base config matches the key, and as open when none does', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    baseRef: 'main',
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[0] ?? '',
+  });
+
+  await githubCollections.branches.create({
+    owner: 'example',
+    repo: 'app',
+    name: 'main',
+    sha: repo.commits[0] ?? '',
+  });
+
+  await githubCollections.files.create({
+    owner: 'example',
+    repo: 'app',
+    ref: repo.commits[0] ?? '',
+    path: 'review.json',
+    content: JSON.stringify({ issueKeys: [String.raw`^ABC-\d+$`] }),
+  });
+
+  const findings = [
+    ['1111111111111111', 'deferred ABC-41'],
+    ['2222222222222222', 'deferred TASK-7'],
+  ];
+
+  for (const [id, answer] of findings) {
+    const thread = await githubCollections.reviewComments.create({
+      owner: 'example',
+      repo: 'app',
+      number: 9,
+      path: 'src/scan.ts',
+      line: 1,
+      authorLogin: STUB_APP_LOGIN,
+      authorType: 'Bot',
+      body: `<!-- noslop:finding {"id":"${id}","title":"Name the separator","path":"src/scan.ts","lens":"correctness","severity":"P3","riskClass":null,"writtenByChange":false} -->`,
+    });
+
+    await githubCollections.reviewComments.create({
+      owner: 'example',
+      repo: 'app',
+      number: 9,
+      body: answer,
+      authorLogin: 'dev',
+      inReplyToID: thread.id,
+    });
+  }
+
+  const code = await runCLI(
+    ['findings', '--pr', '9', '--repo', 'example/app', '--json'],
+    ctx.buildContext(repo.path, buildStubAdapter({}).adapter),
+  );
+
+  const list = findingListSchema.parse(JSON.parse(ctx.stdout.join('')));
+
+  expect([code, list.findings.map((finding) => [finding.state, finding.reason])]).toStrictEqual([
+    0,
+    [
+      ['deferred', null],
+      ['open', 'the issue TASK-7 does not exist'],
+    ],
+  ]);
 });
 
 test('it lists a deferred finding as open while its issue does not exist', async () => {

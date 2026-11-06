@@ -39,7 +39,12 @@ export async function runFindingsCommand(values: FindingsValues, ctx: CLIContext
     );
   }
 
-  const list = await readFindingList(trusted.connection, pullRequest, trusted.state);
+  const list = await readFindingList(
+    trusted.connection,
+    pullRequest,
+    trusted.state,
+    trusted.config.issueKeys,
+  );
 
   const output = values.json ? `${JSON.stringify(list, null, 2)}\n` : formatFindingList(list);
 
