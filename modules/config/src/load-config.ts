@@ -323,8 +323,9 @@ function mergeSyncedLayers(
     }
 
     const inherited: unknown[] = Array.isArray(merged?.synced) ? merged.synced : [];
+    const globs: unknown[] = next;
 
-    merged = { synced: [...new Set([...inherited, ...next])], source };
+    merged = { synced: [...new Set([...inherited, ...globs])], source };
   }
 
   return merged;
