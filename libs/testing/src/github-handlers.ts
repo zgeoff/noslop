@@ -429,10 +429,10 @@ export const githubHandlers = [
     },
   ),
 
-  http.get<RepoParams & { branch: string[] }>(
+  http.get<RepoParams & { branch: string }>(
     `${GITHUB_API_URL}/repos/:owner/:repo/branches/:branch+`,
     (info) => {
-      const name = info.params.branch.join('/');
+      const name = info.params.branch;
 
       const branch = githubCollections.branches.findFirst((query) =>
         query.where({ owner: info.params.owner, repo: info.params.repo, name }),
@@ -455,7 +455,7 @@ export const githubHandlers = [
     },
   ),
 
-  http.get<RepoParams & { path: string[] }>(
+  http.get<RepoParams & { path: string }>(
     `${GITHUB_API_URL}/repos/:owner/:repo/contents/:path+`,
     (info) => {
       const ref = new URL(info.request.url).searchParams.get('ref') ?? 'main';
@@ -465,7 +465,7 @@ export const githubHandlers = [
           owner: info.params.owner,
           repo: info.params.repo,
           ref,
-          path: info.params.path.join('/'),
+          path: info.params.path,
         }),
       );
 

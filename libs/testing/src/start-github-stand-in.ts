@@ -1,8 +1,10 @@
-import { afterAll, afterEach } from 'bun:test';
+import { afterAll, afterEach, beforeAll } from 'bun:test';
 import { githubServer } from './github-server';
 import { resetGitHubCollections } from './reset-github-collections';
 
-githubServer.listen({ onUnhandledRequest: 'error' });
+beforeAll(() => {
+  githubServer.enable();
+});
 
 afterEach(() => {
   githubServer.resetHandlers();
@@ -10,6 +12,6 @@ afterEach(() => {
   resetGitHubCollections();
 });
 
-afterAll(() => {
-  githubServer.close();
+afterAll(async () => {
+  await githubServer.disable();
 });

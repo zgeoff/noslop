@@ -13,6 +13,7 @@
     "@faker-js/faker": "catalog:",
     "@logtape/logtape": "catalog:",
     "@msw/data": "catalog:",
+    "@mswjs/interceptors": "catalog:",
     "@noslop/contract": "workspace:*",
     "@noslop/runner": "workspace:*",
     "@octokit/types": "catalog:",
