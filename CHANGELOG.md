@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.27](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.26...@noslop/cli@0.4.27) (2026-11-06)
+
+
+### Bug Fixes
+
+* **github:** record the dispositions each review round reads ([#242](https://github.com/zgeoff/noslop/issues/242)) ([ce407ba](https://github.com/zgeoff/noslop/commit/ce407bad931506f4381fa7efc5bf5ccd3f6c8707))
+
 ## [0.4.26](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.25...@noslop/cli@0.4.26) (2026-10-31)
 
 ### Bug Fixes
