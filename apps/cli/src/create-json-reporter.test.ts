@@ -3,11 +3,11 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { getLogger } from '@logtape/logtape';
-import { buildMockReviewResult } from '@noslop/testing';
+import { buildMockReviewResult, readTempPrefix } from '@noslop/testing';
 import { createJSONReporter } from './create-json-reporter';
 
 async function setupTest() {
-  const directory = await mkdtemp(join(tmpdir(), 'noslop-json-'));
+  const directory = await mkdtemp(join(tmpdir(), `${readTempPrefix()}noslop-json-`));
 
   onTestFinished(() => rm(directory, { recursive: true, force: true }));
 

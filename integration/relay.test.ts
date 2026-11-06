@@ -9,6 +9,7 @@ import {
   createTestRepo,
   githubCollections,
   githubServer,
+  readTempPrefix,
 } from '@noslop/testing';
 import { http, passthrough } from 'msw';
 import { createCLIContext } from '../apps/cli/src/create-cli-context';
@@ -17,7 +18,7 @@ import { sendResult } from '../apps/cli/src/send-result';
 import { verify } from '../apps/cli/src/verify';
 
 async function setupTest() {
-  const directory = await mkdtemp(join(tmpdir(), 'noslop-relay-'));
+  const directory = await mkdtemp(join(tmpdir(), `${readTempPrefix()}noslop-relay-`));
 
   onTestFinished(() => rm(directory, { recursive: true, force: true }));
 

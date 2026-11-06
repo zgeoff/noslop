@@ -5,10 +5,10 @@ import { join } from 'node:path';
 import type { Finding } from '@noslop/contract';
 import { reviewResultSchema } from '@noslop/contract';
 import { createRunner } from '@noslop/runner';
-import { createTestRepo } from '@noslop/testing';
+import { createTestRepo, readTempPrefix } from '@noslop/testing';
 
 async function setupTest() {
-  const directory = await mkdtemp(join(tmpdir(), 'noslop-e2e-'));
+  const directory = await mkdtemp(join(tmpdir(), `${readTempPrefix()}noslop-e2e-`));
 
   onTestFinished(() => rm(directory, { recursive: true, force: true }));
 

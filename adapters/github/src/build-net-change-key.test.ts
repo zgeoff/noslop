@@ -3,11 +3,11 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createRunner } from '@noslop/runner';
-import { createTestRepo } from '@noslop/testing';
+import { createTestRepo, readTempPrefix } from '@noslop/testing';
 import { buildNetChangeKey } from './build-net-change-key';
 
 async function setupTest() {
-  const directory = await mkdtemp(join(tmpdir(), 'noslop-net-change-key-'));
+  const directory = await mkdtemp(join(tmpdir(), `${readTempPrefix()}noslop-net-change-key-`));
 
   onTestFinished(() => rm(directory, { recursive: true, force: true }));
 

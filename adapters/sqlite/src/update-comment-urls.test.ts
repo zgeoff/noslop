@@ -2,13 +2,13 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { buildMockFinding, buildMockReviewResult } from '@noslop/testing';
+import { buildMockFinding, buildMockReviewResult, readTempPrefix } from '@noslop/testing';
 import { loadStore } from './load-store';
 import { updateCommentURLs } from './update-comment-urls';
 import { writeReview } from './write-review';
 
 async function setupTest() {
-  const directory = await mkdtemp(join(tmpdir(), 'noslop-store-'));
+  const directory = await mkdtemp(join(tmpdir(), `${readTempPrefix()}noslop-store-`));
 
   onTestFinished(() => rm(directory, { recursive: true, force: true }));
 

@@ -43,7 +43,7 @@ jobs:
       checks: read
       statuses: read
       actions: read
-    uses: zgeoff/tools/.github/workflows/repo-sync.yml@eca6feb7afac97f3f72a61c9f9ef2bed7d599e5a # main
+    uses: zgeoff/tools/.github/workflows/repo-sync.yml@1021750915d91056995e53a426ec17d7158541cf # main
     with:
       ref: ${{ github.event.client_payload.sha }}
       include:

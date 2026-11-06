@@ -2,10 +2,11 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdtemp, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { readTempPrefix } from '@noslop/testing';
 import { createProcessRunner } from './create-process-runner';
 
 async function setupTest() {
-  const temp = await mkdtemp(join(tmpdir(), 'noslop-app-runner-'));
+  const temp = await mkdtemp(join(tmpdir(), `${readTempPrefix()}noslop-app-runner-`));
 
   onTestFinished(() => rm(temp, { recursive: true, force: true }));
 

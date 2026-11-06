@@ -2,13 +2,19 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { GITHUB_API_URL, createTestRepo, githubCollections, githubServer } from '@noslop/testing';
+import {
+  GITHUB_API_URL,
+  createTestRepo,
+  githubCollections,
+  githubServer,
+  readTempPrefix,
+} from '@noslop/testing';
 import { HttpResponse, http } from 'msw';
 import { createCLIContext } from './create-cli-context';
 import { readTrustedPullRequest } from './read-trusted-pull-request';
 
 async function setupTest() {
-  const directory = await mkdtemp(join(tmpdir(), 'noslop-trusted-'));
+  const directory = await mkdtemp(join(tmpdir(), `${readTempPrefix()}noslop-trusted-`));
 
   onTestFinished(() => rm(directory, { recursive: true, force: true }));
 

@@ -4,11 +4,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { getLogger } from '@logtape/logtape';
 import { buildCallOutputSchema } from '@noslop/contract';
-import { buildStubAdapter } from '@noslop/testing';
+import { buildStubAdapter, readTempPrefix } from '@noslop/testing';
 import { buildConfiguredAdapter } from './build-configured-adapter';
 
 async function setupTest() {
-  const directory = await mkdtemp(join(tmpdir(), 'noslop-configured-adapter-'));
+  const directory = await mkdtemp(join(tmpdir(), `${readTempPrefix()}noslop-configured-adapter-`));
 
   onTestFinished(() => rm(directory, { recursive: true, force: true }));
 

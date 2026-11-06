@@ -3,13 +3,13 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createRunner } from '@noslop/runner';
-import { createTestRepo } from '@noslop/testing';
+import { createTestRepo, readTempPrefix } from '@noslop/testing';
 import type { Case } from './case';
 import { runEval } from './run-eval';
 import type { CaseReview } from './types';
 
 async function setupTest() {
-  const directory = await mkdtemp(join(tmpdir(), 'noslop-run-eval-'));
+  const directory = await mkdtemp(join(tmpdir(), `${readTempPrefix()}noslop-run-eval-`));
 
   onTestFinished(() => rm(directory, { recursive: true, force: true }));
 

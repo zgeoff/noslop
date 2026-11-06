@@ -5,11 +5,16 @@ import { join } from 'node:path';
 import { getLogger } from '@logtape/logtape';
 import { BUILT_IN_DEFAULTS } from '@noslop/config';
 import { createRunner } from '@noslop/runner';
-import { buildCountingRunner, buildStubAdapter, createTestRepo } from '@noslop/testing';
+import {
+  buildCountingRunner,
+  buildStubAdapter,
+  createTestRepo,
+  readTempPrefix,
+} from '@noslop/testing';
 import { runFixesOnlyReview } from './run-fixes-only-review';
 
 async function setupTest() {
-  const directory = await mkdtemp(join(tmpdir(), 'noslop-fixes-only-'));
+  const directory = await mkdtemp(join(tmpdir(), `${readTempPrefix()}noslop-fixes-only-`));
 
   onTestFinished(() => rm(directory, { recursive: true, force: true }));
 

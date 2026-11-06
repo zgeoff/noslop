@@ -13,6 +13,7 @@ import type { CLIContext } from './cli-context';
 import { createGitHubConnectionLoader } from './create-github-connection-loader';
 import { createJSONReporter } from './create-json-reporter';
 import { makeCommentURLRecorder } from './make-comment-url-recorder';
+import { makeDispositionRecorder } from './make-disposition-recorder';
 
 export function createCLIContext(env: Readonly<Record<string, string | undefined>>): CLIContext {
   const runner = createRunner();
@@ -29,7 +30,7 @@ export function createCLIContext(env: Readonly<Record<string, string | undefined
   const logger = getLogger(['noslop']);
 
   // Opening a SQLite store creates its file, so a run with no sqlite reporter records no comment
-  // links rather than make a store the config never asked for.
+  // links or dispositions rather than make a store the config never asked for.
   const reporters: Record<string, (storePath: string | null) => Reporter> = {
     json: () => createJSONReporter(writeStdout),
     sqlite: () =>
@@ -39,7 +40,10 @@ export function createCLIContext(env: Readonly<Record<string, string | undefined
         loadConnection: loadGitHubConnection,
         ...(storePath === null
           ? {}
-          : { recordCommentURLs: makeCommentURLRecorder(storePath, logger) }),
+          : {
+              recordCommentURLs: makeCommentURLRecorder(storePath, logger),
+              recordDispositions: makeDispositionRecorder(storePath, logger),
+            }),
       }),
     webhook: () => createWebhookReporter({ env }),
   };

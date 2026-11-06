@@ -4,11 +4,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { getLogger } from '@logtape/logtape';
 import { loadStore, runStoreQuery, writeReview } from '@noslop/sqlite';
-import { buildMockFinding, buildMockReviewResult } from '@noslop/testing';
+import { buildMockFinding, buildMockReviewResult, readTempPrefix } from '@noslop/testing';
 import { makeCommentURLRecorder } from './make-comment-url-recorder';
 
 async function setupTest() {
-  const directory = await mkdtemp(join(tmpdir(), 'noslop-store-'));
+  const directory = await mkdtemp(join(tmpdir(), `${readTempPrefix()}noslop-store-`));
 
   onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
@@ -32,33 +32,50 @@ test('it resolves without a link kept when the store cannot open', async () => {
 
 test('it keeps each comment link in the store at its path for the findings-by-pr query', async () => {
   const ctx = await setupTest();
-  const before = await loadStore(ctx.path);
+  const store = await loadStore(ctx.path);
+
+  onTestFinished(() => store.destroy());
 
   await writeReview(
-    before,
+    store,
     buildMockReviewResult({
       reviewID: 'review-1',
+      head: '7c3e9a1f0b2d4c6e8a0f1b3d5e7c9a2b4d6f8e0a',
       pullRequest: { owner: 'example', repo: 'app', number: 7 },
-      findings: [buildMockFinding({ id: '1111111111111111' })],
+      findings: [
+        buildMockFinding({
+          id: '1111111111111111',
+          lens: 'correctness',
+          title: 'Return the total of every item',
+          severity: 'P2',
+          anchor: { path: 'src/a.ts', startLine: 1, endLine: 1 },
+        }),
+      ],
     }),
   );
-
-  await before.destroy();
 
   await makeCommentURLRecorder(ctx.path, ctx.logger)(
     { owner: 'example', repo: 'app', number: 7 },
     new Map([['1111111111111111', 'https://github.com/example/app/pull/7#discussion_r101']]),
   );
 
-  const store = await loadStore(ctx.path);
-
-  onTestFinished(() => store.destroy());
-
   const rows = await runStoreQuery(store, 'findings-by-pr');
 
-  expect(rows).toMatchObject([
+  expect(rows).toStrictEqual([
     {
+      repo: 'example/app',
+      pullRequest: 7,
+      head: '7c3e9a1f0b2d4c6e8a0f1b3d5e7c9a2b4d6f8e0a',
       id: '1111111111111111',
+      path: 'src/a.ts',
+      startLine: 1,
+      severity: 'P2',
+      lens: 'correctness',
+      rule: null,
+      title: 'Return the total of every item',
+      dispositionKind: null,
+      dispositionValue: null,
+      outcome: 'open',
       commentURL: 'https://github.com/example/app/pull/7#discussion_r101',
     },
   ]);
