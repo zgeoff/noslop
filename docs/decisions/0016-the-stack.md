@@ -2,7 +2,7 @@
 
 - Date: 2026-10-17
 - Status: decided
-- Updated: 2026-10-18
+- Updated: 2026-11-07
 
 noslop builds on this stack:
 
@@ -18,7 +18,7 @@ noslop builds on this stack:
 | The GitHub App's server    | Elysia                                               |
 | GitHub's API and webhooks  | `@octokit/app`, `@octokit/webhooks`, `@octokit/core` |
 | GitHub's API types         | `@octokit/types`                                     |
-| The GitHub test stand-in   | msw 2.15.0 with `@msw/data`                          |
+| The GitHub test stand-in   | msw with `@msw/data` and `@mswjs/interceptors`       |
 | Spawning a CLI             | One injected runner on `Bun.spawn`                   |
 | The package's declarations | tsdown on TypeScript 7                               |
 
@@ -49,7 +49,9 @@ noslop builds on this stack:
 - Only the store package imports Kysely and `bun:sqlite`.
 - Only the runner calls `Bun.spawn`.
 - gunshi is pinned to its release candidate until 1.0.0 ships.
-- msw is pinned to 2.15.0, because msw 3 does not intercept `fetch` under Bun 1.4.2.
+- The stand-in patches the global `fetch` through the web `FetchInterceptor` of
+  `@mswjs/interceptors`. msw's `setupServer` intercepts at Node's sockets, which Bun's native
+  `fetch` never opens.
 
 ## Changes
 
@@ -59,3 +61,5 @@ noslop builds on this stack:
   imports.
 - 2026-10-18: added tsdown, which writes the npm package's declarations on TypeScript 7.
 - 2026-10-18: the declarations build on TypeScript 7, with no TypeScript 6 holdback.
+- 2026-11-07: moved the stand-in to msw 3 and the web `fetch` interceptor of `@mswjs/interceptors`,
+  in place of the msw 2.15.0 pin.
