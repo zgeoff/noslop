@@ -9,6 +9,7 @@ export * from './build-stub-adapter';
 export * from './build-stub-app-key';
 export * from './build-stub-private-repo';
 export * from './create-stub-reply-during-write';
+export * from './create-stub-retarget-during-read';
 export * from './build-counting-runner';
 export * from './build-stub-runner';
 export * from './build-stub-sleep';

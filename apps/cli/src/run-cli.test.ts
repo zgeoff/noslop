@@ -16,6 +16,7 @@ import {
   buildStubAdapter,
   buildStubAppKey,
   buildStubPrivateRepo,
+  createStubRetargetDuringRead,
   createTestRepo,
   githubCollections,
   githubServer,
@@ -8033,6 +8034,38 @@ test('it lists a finding deferred to a tracker key as deferred when a pattern of
       ['deferred', null],
       ['open', 'the issue TASK-7 does not exist'],
     ],
+  ]);
+});
+
+test('it refuses to set the check when the pull request moves to another base branch while the check reads its config', async () => {
+  const ctx = await setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    baseRef: 'main',
+    headSha: 'b'.repeat(40),
+  });
+
+  await githubCollections.branches.create({
+    owner: 'example',
+    repo: 'app',
+    name: 'main',
+    sha: 'a'.repeat(40),
+  });
+
+  githubServer.use(createStubRetargetDuringRead({ number: 9, baseRef: 'release' }));
+
+  const code = await runCLI(
+    ['check', '--pr', '9', '--repo', 'example/app'],
+    ctx.buildContext(ctx.directory, buildStubAdapter({}).adapter),
+  );
+
+  expect([code, ctx.stderr.join(''), githubCollections.checkRuns.all()]).toStrictEqual([
+    1,
+    'noslop: the base branch of the pull request changed from main to release during the read; run the command again\n',
+    [],
   ]);
 });
 

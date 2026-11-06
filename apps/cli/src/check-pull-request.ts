@@ -1,6 +1,7 @@
 import type { PullRequestRef } from '@noslop/contract';
 import type { CheckOutcome } from '@noslop/github';
 import { readGitHubCheck, readPullRequestState, runGitHubCheck } from '@noslop/github';
+import { checkSameBase } from './check-same-base';
 import type { GitHubConnectionLoader } from './create-github-connection-loader';
 import { loadBaseConfig } from './load-base-config';
 import { readTrustedState } from './read-trusted-state';
@@ -36,6 +37,8 @@ export async function checkPullRequest(
 
   const base = await loadBaseConfig(loader.load, pr);
   const state = await readPullRequestState(connection, pr);
+
+  checkSameBase(base, state);
 
   return runGitHubCheck(connection, pr, {
     failedReporters: [],
