@@ -4,6 +4,8 @@ import { join } from 'node:path';
 import { readTempPrefix } from '@noslop/testing';
 import { buildTypesProject } from './build-types-project';
 import { formatPackageTypesReport } from './format-package-types-report';
+import type { PackageTypesResult, PackageTypesStep } from './pick-next-package-types-step';
+import { pickNextPackageTypesStep } from './pick-next-package-types-step';
 import type { ProgramResult } from './run-program';
 import { runProgram } from './run-program';
 import { writeCLIPackage } from './write-cli-package';
@@ -16,11 +18,7 @@ export interface PackageTypesCheck {
   runProgram: (argv: readonly string[], cwd: string) => ProgramResult;
 }
 
-export interface PackageTypesResult extends ProgramResult {
-  step: 'pack' | 'install' | 'tsc';
-}
-
-export async function runPackageTypesCheck(
+export function runPackageTypesCheck(
   directory: string,
   check: PackageTypesCheck,
 ): Promise<PackageTypesResult> {
@@ -28,30 +26,39 @@ export async function runPackageTypesCheck(
   const projectDir = join(directory, 'project');
   const tarballPath = join(directory, 'noslop-cli.tgz');
 
-  await check.writePackage(packageDir);
+  const steps: Record<PackageTypesStep, () => Promise<ProgramResult>> = {
+    pack: async () => {
+      await check.writePackage(packageDir);
 
-  const packed = check.runProgram(
-    ['bun', 'pm', 'pack', '--quiet', '--filename', tarballPath],
-    packageDir,
-  );
+      return check.runProgram(
+        ['bun', 'pm', 'pack', '--quiet', '--filename', tarballPath],
+        packageDir,
+      );
+    },
+    install: async () => {
+      await Promise.all(
+        Object.entries(buildTypesProject(tarballPath)).map(([name, content]) =>
+          check.writeFile(join(projectDir, name), content),
+        ),
+      );
 
-  if (packed.exitCode !== 0) {
-    return { step: 'pack', ...packed };
-  }
+      return check.runProgram(['bun', 'install', '--silent'], projectDir);
+    },
+    tsc: () => Promise.resolve(check.runProgram([TSC, '-p', '.'], projectDir)),
+  };
 
-  await Promise.all(
-    Object.entries(buildTypesProject(tarballPath)).map(([name, content]) =>
-      check.writeFile(join(projectDir, name), content),
-    ),
-  );
+  return runStepsFrom('pack', steps);
+}
 
-  const installed = check.runProgram(['bun', 'install', '--silent'], projectDir);
+async function runStepsFrom(
+  step: PackageTypesStep,
+  steps: Readonly<Record<PackageTypesStep, () => Promise<ProgramResult>>>,
+): Promise<PackageTypesResult> {
+  const result = await steps[step]();
 
-  if (installed.exitCode !== 0) {
-    return { step: 'install', ...installed };
-  }
+  const picked = pickNextPackageTypesStep(step, result);
 
-  return { step: 'tsc', ...check.runProgram([TSC, '-p', '.'], projectDir) };
+  return 'done' in picked ? picked.done : runStepsFrom(picked.next, steps);
 }
 
 if (import.meta.main) {

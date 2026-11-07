@@ -1,4 +1,4 @@
-import type { PackageTypesResult } from './run-package-types-check';
+import type { PackageTypesResult } from './pick-next-package-types-step';
 
 export function formatPackageTypesReport(checked: PackageTypesResult): string {
   if (checked.exitCode === 0) {
