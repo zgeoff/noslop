@@ -807,6 +807,53 @@ test('it hands the link to each finding comment to the comment link recorder', a
   );
 });
 
+test('it hands the comment links to the recorder before a moved base branch stops the check', async () => {
+  const privateKey = buildStubAppKey();
+  const recordCommentURLs = mock(() => Promise.resolve());
+
+  const reporter = createGitHubReporter({
+    readDeferralPolicy: () => Promise.resolve({ baseRef: 'main', issueKeys: [] }),
+    loadConnection: () => createGitHubConnection({ appID: 1, privateKey, installationID: 7 }),
+    recordCommentURLs,
+  });
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    baseRef: 'release',
+    headSha: 'b'.repeat(40),
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/a.ts',
+    lines: [1],
+  });
+
+  const post = reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'b'.repeat(40),
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+    { logger: getLogger(['test']), options: {} },
+  );
+
+  expect(post).rejects.toThrow('the base branch of the pull request moved');
+
+  const [inline] = githubCollections.reviewComments.all();
+
+  expect(recordCommentURLs).toHaveBeenCalledExactlyOnceWith(
+    { owner: 'example', repo: 'app', number: 5 },
+    new Map([
+      ['1111111111111111', `https://github.com/example/app/pull/5#discussion_r${inline?.id}`],
+    ]),
+  );
+});
+
 test('it hands the answers a re-review reads to the disposition recorder', async () => {
   const ctx = setupTest();
 

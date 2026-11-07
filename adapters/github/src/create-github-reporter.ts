@@ -226,9 +226,9 @@ async function runReviewPost(
     formatSummaryComment(result, marker, { confirmations, posted: before.threads.length }, links),
   );
 
-  await runCheck(options, connection, { pullRequest: pr, head: result.head }, ctx);
-
   await options.recordCommentURLs?.(pr, links);
+
+  await runCheck(options, connection, { pullRequest: pr, head: result.head }, ctx);
 }
 
 function collectReported(result: ReviewResult): string[] {
