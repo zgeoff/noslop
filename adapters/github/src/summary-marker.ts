@@ -18,10 +18,13 @@ export const summaryMarkerSchema = z.strictObject({
   earlier: z.unknown().optional(),
   notReviewed: z.unknown().optional(),
   notReviewedByLens: z.unknown().optional(),
-  reviews: z.int().nonnegative(),
+  reviews: z.unknown().optional(),
+  followUps: z.unknown().optional(),
+  checkedMerges: z.unknown().optional(),
+  rejectedMerges: z.unknown().optional(),
+
   reported: z.array(z.string()),
   failedCalls: z.int().nonnegative(),
-  followUps: z.array(z.string()).default([]),
   confirmed: z.array(z.string()).default([]),
 
   unjudged: z.array(unjudgedFixSchema).optional(),
@@ -31,9 +34,6 @@ export const summaryMarkerSchema = z.strictObject({
   lensHead: buildShaSchema().optional(),
   lensKey: netChangeKeySchema.optional(),
 
-  checkedMerges: z.array(buildShaSchema()).optional(),
-
-  rejectedMerges: z.array(buildShaSchema()).optional(),
   reviewIDs: z.array(z.string()).optional(),
 
   startedAt: z.iso.datetime().optional(),

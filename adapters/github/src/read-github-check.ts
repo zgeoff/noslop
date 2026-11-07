@@ -4,13 +4,11 @@ import { buildCheckOutcome } from './build-check-outcome';
 import type { GitHubClient, GitHubConnection } from './create-github-connection';
 import type { DeferralPolicy } from './deferral-policy';
 import { readExistingIssues } from './read-existing-issues';
-import { readNetChangeKey } from './read-net-change-key';
 import type { PullRequestState } from './read-pull-request-state';
 import { readThreadDispositions } from './read-thread-dispositions';
 import { readUnreadFixes } from './read-unread-fixes';
 
 export interface GitHubCheckInput {
-  failedReporters: readonly string[];
   state: PullRequestState;
   policy: DeferralPolicy;
 
@@ -25,6 +23,12 @@ export async function readGitHubCheck(
   const client = connection.client;
   const state = input.state;
 
+  if (state.baseRef !== input.policy.baseRef) {
+    throw new Error(
+      `the base branch of the pull request moved from ${input.policy.baseRef} to ${state.baseRef} while noslop read its config; run the check again`,
+    );
+  }
+
   const dispositions = await readCheckDispositions(client, pr, input);
   const existingIssues = await readExistingIssues(client, pr, dispositions, input.policy.issueKeys);
 
@@ -36,24 +40,13 @@ export async function readGitHubCheck(
     head: state.headSha,
   });
 
-  const currentKey =
-    summary?.key === undefined
-      ? { head: state.headSha }
-      : await readNetChangeKey(client, pr, state.headSha);
-
   return buildCheckOutcome({
     findings: state.threads.map((thread) => thread.marker),
     dispositions,
     summary,
-    currentHead: state.headSha,
-    currentKey,
     existingIssues,
     unread,
-    failedReporters: input.failedReporters,
     unreadable: state.unreadable,
-    ...(state.baseRef === input.policy.baseRef
-      ? {}
-      : { movedBase: { from: input.policy.baseRef, to: state.baseRef } }),
   });
 }
 

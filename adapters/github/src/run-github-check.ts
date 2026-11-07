@@ -11,7 +11,6 @@ import { withWriteRetry } from './with-write-retry';
 export const CHECK_NAME = 'noslop';
 
 export interface GitHubCheckOptions {
-  failedReporters: readonly string[];
   policy: DeferralPolicy;
 
   state?: PullRequestState;
@@ -31,7 +30,6 @@ export async function runGitHubCheck(
   await createFormsReplies(connection, pr, state.threads);
 
   const outcome = await readGitHubCheck(connection, pr, {
-    failedReporters: options.failedReporters,
     state,
     policy: options.policy,
     ...(options.dispositions === undefined ? {} : { dispositions: options.dispositions }),

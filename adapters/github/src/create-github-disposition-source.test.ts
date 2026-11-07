@@ -61,7 +61,7 @@ test('it reads the typed replies of each finding thread and whether their author
       head: 'b'.repeat(40),
       findings: [],
     },
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   expect(dispositions).toStrictEqual([
@@ -105,7 +105,7 @@ test('it ignores a marker that a person pasted into their own comment', async ()
       head: 'b'.repeat(40),
       findings: [],
     },
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   expect(dispositions).toStrictEqual([]);
@@ -141,7 +141,7 @@ test('it records each answer of a reply that answers the findings of a folded co
       head: 'b'.repeat(40),
       findings: [],
     },
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   expect(dispositions).toStrictEqual([
@@ -205,7 +205,7 @@ test('it records a one-answer reply to a folded comment on each finding it holds
       head: 'b'.repeat(40),
       findings: [],
     },
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   expect(dispositions).toStrictEqual([
@@ -259,7 +259,7 @@ test('it records each answer of an issue comment that answers the findings of a 
       head: 'b'.repeat(40),
       findings: [],
     },
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   expect(dispositions).toStrictEqual([
@@ -314,7 +314,7 @@ test('it records no answer from a reply to a folded comment whose last line hold
       head: 'b'.repeat(40),
       findings: [],
     },
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   expect(dispositions).toStrictEqual([]);
@@ -349,7 +349,7 @@ test('it records no answer from an issue comment on a folded issue comment whose
       head: 'b'.repeat(40),
       findings: [],
     },
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   expect(dispositions).toStrictEqual([]);
@@ -384,7 +384,7 @@ test('it records an issue comment that names one id on each finding of the folde
       head: 'b'.repeat(40),
       findings: [],
     },
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   expect(dispositions).toStrictEqual([

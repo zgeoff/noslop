@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test';
 import { buildCheckOutcome } from './build-check-outcome';
 
-test('it passes when the review ran on the head and every finding holds a valid disposition', () => {
+test('it passes when every finding holds a valid disposition', () => {
   const outcome = buildCheckOutcome({
     findings: [
       {
@@ -45,58 +45,20 @@ test('it passes when the review ran on the head and every finding holds a valid 
     ],
     summary: {
       head: 'f'.repeat(40),
-      reviews: 2,
       reported: [],
       failedCalls: 0,
-      followUps: [],
       confirmed: ['1111111111111111:abc1234'],
     },
-    currentHead: 'f'.repeat(40),
-    currentKey: { head: 'f'.repeat(40) },
     existingIssues: new Set(['#12']),
     unread: new Set(),
-    failedReporters: [],
     unreadable: 0,
   });
 
   expect(outcome).toStrictEqual({
     conclusion: 'success',
-    title: 'Every finding holds a valid disposition (2)',
+    title: 'No open finding (2)',
     summary: '',
     open: [],
-    reviewed: true,
-  });
-});
-
-test('it fails first on a base branch that moved while noslop read its config', () => {
-  const outcome = buildCheckOutcome({
-    findings: [],
-    dispositions: [],
-    summary: {
-      head: 'f'.repeat(40),
-      reviews: 1,
-      reported: [],
-      failedCalls: 0,
-      followUps: [],
-      confirmed: [],
-    },
-    currentHead: 'f'.repeat(40),
-    currentKey: { head: 'f'.repeat(40) },
-    existingIssues: new Set(),
-    unread: new Set(),
-    failedReporters: ['webhook'],
-    unreadable: 0,
-    movedBase: { from: 'main', to: 'release' },
-  });
-
-  expect(outcome).toStrictEqual({
-    conclusion: 'failure',
-    title:
-      'The base branch moved from main to release while noslop read its config; run the check again.',
-    summary:
-      'The base branch moved from main to release while noslop read its config; run the check again.\nThese reporters failed: webhook.',
-    open: [],
-    reviewed: true,
   });
 });
 
@@ -189,47 +151,54 @@ test('it lists each finding whose disposition is not valid, with the reason', ()
     ],
     summary: {
       head: 'f'.repeat(40),
-      reviews: 2,
       reported: [],
       failedCalls: 0,
-      followUps: [],
       confirmed: [],
     },
-    currentHead: 'f'.repeat(40),
-    currentKey: { head: 'f'.repeat(40) },
     existingIssues: new Set(['#12']),
     unread: new Set(),
-    failedReporters: [],
     unreadable: 0,
   });
 
-  expect(outcome.open).toStrictEqual([
-    {
-      id: '1111111111111111',
-      title: 'Await the write',
-      reason: 'the change wrote this code, so it takes fixed, not-a-defect or accepted-risk',
-    },
-    {
-      id: '2222222222222222',
-      title: 'Check the token',
-      reason:
-        'a P1, a security finding or a risk-class finding blocks the merge and cannot be deferred',
-    },
-    {
-      id: '3333333333333333',
-      title: 'Keep the jobs',
-      reason: 'only a repo owner gives accepted-risk',
-    },
-    {
-      id: '4444444444444444',
-      title: 'Lock the row',
-      reason: 'no re-review has read the commit abc1234 yet',
-    },
-    { id: '5555555555555555', title: 'Close the file', reason: 'no disposition' },
-  ]);
+  expect(outcome).toStrictEqual({
+    conclusion: 'failure',
+    title: '5 findings are open.',
+    summary: [
+      '5 findings are open.',
+      '- `1111111111111111` Await the write: the change wrote this code, so it takes fixed, not-a-defect or accepted-risk',
+      '- `2222222222222222` Check the token: a P1, a security finding or a risk-class finding blocks the merge and cannot be deferred',
+      '- `3333333333333333` Keep the jobs: only a repo owner gives accepted-risk',
+      '- `4444444444444444` Lock the row: no fix check has confirmed the commit abc1234 yet',
+      '- `5555555555555555` Close the file: no disposition',
+    ].join('\n'),
+    open: [
+      {
+        id: '1111111111111111',
+        title: 'Await the write',
+        reason: 'the change wrote this code, so it takes fixed, not-a-defect or accepted-risk',
+      },
+      {
+        id: '2222222222222222',
+        title: 'Check the token',
+        reason:
+          'a P1, a security finding or a risk-class finding blocks the merge and cannot be deferred',
+      },
+      {
+        id: '3333333333333333',
+        title: 'Keep the jobs',
+        reason: 'only a repo owner gives accepted-risk',
+      },
+      {
+        id: '4444444444444444',
+        title: 'Lock the row',
+        reason: 'no fix check has confirmed the commit abc1234 yet',
+      },
+      { id: '5555555555555555', title: 'Close the file', reason: 'no disposition' },
+    ],
+  });
 });
 
-test('it fails a fixed finding that is still found or that no re-review read', () => {
+test('it fails a fixed finding that is still found or that no fix check confirmed', () => {
   const outcome = buildCheckOutcome({
     findings: [
       {
@@ -291,24 +260,19 @@ test('it fails a fixed finding that is still found or that no re-review read', (
     ],
     summary: {
       head: 'f'.repeat(40),
-      reviews: 2,
       reported: ['1111111111111111'],
       failedCalls: 0,
-      followUps: [],
       confirmed: [],
     },
-    currentHead: 'f'.repeat(40),
-    currentKey: { head: 'f'.repeat(40) },
     existingIssues: new Set(),
     unread: new Set(),
-    failedReporters: [],
     unreadable: 0,
   });
 
   expect(outcome.open.map((item) => item.reason)).toStrictEqual([
     'the re-review still finds it',
     'the issue #99 does not exist',
-    'no re-review has read the commit abc1234 yet',
+    'no fix check has confirmed the commit abc1234 yet',
   ]);
 });
 
@@ -338,17 +302,12 @@ test('it passes a fixed finding whose sha the branch no longer holds once a revi
     ],
     summary: {
       head: 'f'.repeat(40),
-      reviews: 2,
       reported: [],
       failedCalls: 0,
-      followUps: [],
       confirmed: ['1111111111111111:abc1234'],
     },
-    currentHead: 'f'.repeat(40),
-    currentKey: { head: 'f'.repeat(40) },
     existingIssues: new Set(),
     unread: new Set(),
-    failedReporters: [],
     unreadable: 0,
   });
 
@@ -381,17 +340,12 @@ test('it fails a fixed finding that the latest review reports but never read the
     ],
     summary: {
       head: 'e'.repeat(40),
-      reviews: 2,
       reported: ['1111111111111111'],
       failedCalls: 0,
-      followUps: [],
       confirmed: [],
     },
-    currentHead: 'f'.repeat(40),
-    currentKey: { head: 'f'.repeat(40) },
     existingIssues: new Set(),
     unread: new Set(['1111111111111111']),
-    failedReporters: [],
     unreadable: 0,
   });
 
@@ -430,17 +384,12 @@ test('it fails a fixed finding that the latest review neither reports nor read t
     ],
     summary: {
       head: 'e'.repeat(40),
-      reviews: 2,
       reported: [],
       failedCalls: 0,
-      followUps: [],
       confirmed: [],
     },
-    currentHead: 'f'.repeat(40),
-    currentKey: { head: 'f'.repeat(40) },
     existingIssues: new Set(),
     unread: new Set(['1111111111111111']),
-    failedReporters: [],
     unreadable: 0,
   });
 
@@ -481,24 +430,19 @@ test('it passes a fixed finding that a fix call confirmed although the latest re
     ],
     summary: {
       head: 'e'.repeat(40),
-      reviews: 2,
       reported: [],
       failedCalls: 0,
-      followUps: [],
       confirmed: ['1111111111111111:abc1234'],
     },
-    currentHead: 'f'.repeat(40),
-    currentKey: { head: 'f'.repeat(40) },
     existingIssues: new Set(),
     unread: new Set(['1111111111111111']),
-    failedReporters: [],
     unreadable: 0,
   });
 
   expect(outcome.open).toStrictEqual([]);
 });
 
-test('it fails a bare fixed finding that no review confirmed and names the fix', () => {
+test('it fails a bare fixed finding that no fix check confirmed and names the fix', () => {
   const outcome = buildCheckOutcome({
     findings: [
       {
@@ -524,17 +468,12 @@ test('it fails a bare fixed finding that no review confirmed and names the fix',
     ],
     summary: {
       head: 'f'.repeat(40),
-      reviews: 2,
       reported: [],
       failedCalls: 0,
-      followUps: [],
       confirmed: [],
     },
-    currentHead: 'f'.repeat(40),
-    currentKey: { head: 'f'.repeat(40) },
     existingIssues: new Set(),
     unread: new Set(),
-    failedReporters: [],
     unreadable: 0,
   });
 
@@ -542,7 +481,7 @@ test('it fails a bare fixed finding that no review confirmed and names the fix',
     {
       id: '1111111111111111',
       title: 'Await the write',
-      reason: 'no re-review has read the fix yet',
+      reason: 'no fix check has confirmed the fix yet',
     },
   ]);
 });
@@ -573,17 +512,12 @@ test('it fails a fixed finding whose answer a review confirmed only for another 
     ],
     summary: {
       head: 'f'.repeat(40),
-      reviews: 2,
       reported: [],
       failedCalls: 0,
-      followUps: [],
       confirmed: ['2222222222222222:abc1234'],
     },
-    currentHead: 'f'.repeat(40),
-    currentKey: { head: 'f'.repeat(40) },
     existingIssues: new Set(),
     unread: new Set(),
-    failedReporters: [],
     unreadable: 0,
   });
 
@@ -591,7 +525,7 @@ test('it fails a fixed finding whose answer a review confirmed only for another 
     {
       id: '1111111111111111',
       title: 'Await the write',
-      reason: 'no re-review has read the commit abc1234 yet',
+      reason: 'no fix check has confirmed the commit abc1234 yet',
     },
   ]);
 });
@@ -602,17 +536,12 @@ test('it fails when a finding comment holds a marker noslop cannot read', () => 
     dispositions: [],
     summary: {
       head: 'f'.repeat(40),
-      reviews: 1,
       reported: [],
       failedCalls: 0,
-      followUps: [],
       confirmed: [],
     },
-    currentHead: 'f'.repeat(40),
-    currentKey: { head: 'f'.repeat(40) },
     existingIssues: new Set(),
     unread: new Set(),
-    failedReporters: [],
     unreadable: 2,
   });
 
@@ -621,157 +550,7 @@ test('it fails when a finding comment holds a marker noslop cannot read', () => 
     title: '2 finding comments hold a marker noslop cannot read.',
     summary: '2 finding comments hold a marker noslop cannot read.',
     open: [],
-    reviewed: true,
   });
-});
-
-test('it fails when no review ran on the current head, a call failed or a reporter failed', () => {
-  const outcome = buildCheckOutcome({
-    findings: [],
-    dispositions: [],
-    summary: {
-      head: 'e'.repeat(40),
-      reviews: 1,
-      reported: [],
-      failedCalls: 2,
-      followUps: [],
-      confirmed: [],
-    },
-    currentHead: 'f'.repeat(40),
-    currentKey: { head: 'f'.repeat(40) },
-    existingIssues: new Set(),
-    unread: new Set(),
-    failedReporters: ['sqlite'],
-    unreadable: 0,
-  });
-
-  expect(outcome).toStrictEqual({
-    conclusion: 'failure',
-    title: 'No noslop review for this commit, ffffffffffff.',
-    summary: [
-      'No noslop review for this commit, ffffffffffff.',
-      '2 calls of the review failed.',
-      'These reporters failed: sqlite.',
-    ].join('\n'),
-    open: [],
-    reviewed: false,
-  });
-});
-
-test('it passes at a new head whose net change holds the same patch id for each file as the review', () => {
-  const outcome = buildCheckOutcome({
-    findings: [],
-    dispositions: [],
-    summary: {
-      head: 'e'.repeat(40),
-      key: { files: { 'src/a.ts': '0123456789abcdef', 'src/b.ts': 'fedcba9876543210' } },
-      reviews: 1,
-      reported: [],
-      failedCalls: 0,
-      followUps: [],
-      confirmed: [],
-    },
-    currentHead: 'f'.repeat(40),
-    currentKey: { files: { 'src/a.ts': '0123456789abcdef', 'src/b.ts': 'fedcba9876543210' } },
-    existingIssues: new Set(),
-    unread: new Set(),
-    failedReporters: [],
-    unreadable: 0,
-  });
-
-  expect(outcome).toStrictEqual({
-    conclusion: 'success',
-    title: 'Every finding holds a valid disposition (0)',
-    summary: '',
-    open: [],
-    reviewed: true,
-  });
-});
-
-test('it fails at a new head and names each file whose patch id changed, came or went since the review', () => {
-  const outcome = buildCheckOutcome({
-    findings: [],
-    dispositions: [],
-    summary: {
-      head: 'e'.repeat(40),
-      key: {
-        files: {
-          'src/a.ts': '0123456789abcdef',
-          'src/b.ts': 'fedcba9876543210',
-          'src/c.ts': '1111111111111111',
-        },
-      },
-      reviews: 1,
-      reported: [],
-      failedCalls: 0,
-      followUps: [],
-      confirmed: [],
-    },
-    currentHead: 'f'.repeat(40),
-    currentKey: {
-      files: {
-        'src/a.ts': '0123456789abcdef',
-        'src/b.ts': '2222222222222222',
-        'src/d.ts': '3333333333333333',
-      },
-    },
-    existingIssues: new Set(),
-    unread: new Set(),
-    failedReporters: [],
-    unreadable: 0,
-  });
-
-  expect(outcome.title).toBe(
-    'No noslop review of this change to src/b.ts, src/c.ts, src/d.ts: the patch changed since the review of eeeeeeeeeeee.',
-  );
-});
-
-test('it fails at a new head when GitHub gives no whole file list, though the review keyed each file', () => {
-  const outcome = buildCheckOutcome({
-    findings: [],
-    dispositions: [],
-    summary: {
-      head: 'e'.repeat(40),
-      key: { files: { 'src/a.ts': '0123456789abcdef' } },
-      reviews: 1,
-      reported: [],
-      failedCalls: 0,
-      followUps: [],
-      confirmed: [],
-    },
-    currentHead: 'f'.repeat(40),
-    currentKey: { head: 'f'.repeat(40) },
-    existingIssues: new Set(),
-    unread: new Set(),
-    failedReporters: [],
-    unreadable: 0,
-  });
-
-  expect(outcome.title).toBe('No noslop review for this commit, ffffffffffff.');
-});
-
-test('it passes a review keyed on its head only at that head', () => {
-  const outcome = buildCheckOutcome({
-    findings: [],
-    dispositions: [],
-    summary: {
-      head: 'f'.repeat(40),
-      key: { head: 'f'.repeat(40) },
-      reviews: 1,
-      reported: [],
-      failedCalls: 0,
-      followUps: [],
-      confirmed: [],
-    },
-    currentHead: 'f'.repeat(40),
-    currentKey: { head: 'f'.repeat(40) },
-    existingIssues: new Set(),
-    unread: new Set(),
-    failedReporters: [],
-    unreadable: 0,
-  });
-
-  expect(outcome.conclusion).toBe('success');
 });
 
 test('it judges a finding by its latest disposition', () => {
@@ -809,19 +588,38 @@ test('it judges a finding by its latest disposition', () => {
     ],
     summary: {
       head: 'f'.repeat(40),
-      reviews: 1,
       reported: [],
       failedCalls: 0,
-      followUps: [],
       confirmed: [],
     },
-    currentHead: 'f'.repeat(40),
-    currentKey: { head: 'f'.repeat(40) },
     existingIssues: new Set(),
     unread: new Set(),
-    failedReporters: [],
     unreadable: 0,
   });
 
   expect(outcome.conclusion).toBe('success');
+});
+
+test('it passes with no open finding though the last review read another head and a call failed', () => {
+  const outcome = buildCheckOutcome({
+    findings: [],
+    dispositions: [],
+    summary: {
+      head: 'e'.repeat(40),
+      key: { files: { 'src/a.ts': '0123456789abcdef' } },
+      reported: [],
+      failedCalls: 2,
+      confirmed: [],
+    },
+    existingIssues: new Set(),
+    unread: new Set(),
+    unreadable: 0,
+  });
+
+  expect(outcome).toStrictEqual({
+    conclusion: 'success',
+    title: 'No open finding (0)',
+    summary: '',
+    open: [],
+  });
 });

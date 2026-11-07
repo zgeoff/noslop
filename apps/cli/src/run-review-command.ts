@@ -97,7 +97,6 @@ export async function runReviewCommand(values: ReviewValues, ctx: CLIContext): P
         repoDir,
         repo: change.repo,
         pullRequest: change.pullRequest,
-        base: change.base,
         head: change.head,
         mergeBase: change.pullRequestBase,
         title: change.title,
@@ -109,7 +108,6 @@ export async function runReviewCommand(values: ReviewValues, ctx: CLIContext): P
         adapter,
         tempDir,
         logger: ctx.logger,
-        resolution: { config: loaded.config, dismissedFindings: change.dismissedFindings },
         staticCheck: {
           config: loaded.config,
           linkedIssue: issueText ?? change.linkedIssue,
@@ -121,12 +119,6 @@ export async function runReviewCommand(values: ReviewValues, ctx: CLIContext): P
 
       for (const check of run.fixChecks ?? []) {
         ctx.logger.info('the fix of {findingID} holds: {fixed}, {reason}', { ...check });
-      }
-
-      for (const check of run.resolutionChecks ?? []) {
-        ctx.logger.info('the resolution of merge {merge} is sound: {sound}, {reason}', {
-          ...check,
-        });
       }
 
       result = reviewResultSchema.parse(run);
@@ -311,30 +303,12 @@ async function resolvePullRequestChange(
   const connection = trusted.connection;
   const state = trusted.state;
   const summary = state.summary?.marker ?? null;
-  const full = summary !== null && summary.failedCalls === 0 ? summary.head : null;
-  const reviewed = values.fixesOnly ? (full ?? findLensHead(summary)) : null;
 
-  await ctx.runner.run(
-    [
-      'git',
-      'fetch',
-      '--quiet',
-      'origin',
-      state.baseSha,
-      state.headSha,
-      ...(reviewed === null ? [] : [reviewed]),
-    ],
-    { cwd: repoDir },
-  );
+  await ctx.runner.run(['git', 'fetch', '--quiet', 'origin', state.baseSha, state.headSha], {
+    cwd: repoDir,
+  });
 
   const start = await readGitText(ctx, repoDir, ['merge-base', state.baseSha, state.headSha]);
-
-  const ancestry = await ctx.runner.run(
-    ['git', 'merge-base', '--is-ancestor', reviewed ?? state.headSha, state.headSha],
-    { cwd: repoDir },
-  );
-
-  const isHeld = reviewed !== null && ancestry.exitCode === 0;
 
   const paths =
     values.full || values.fixesOnly ? null : await readChangedPaths(connection, pullRequest, state);
@@ -358,7 +332,7 @@ async function resolvePullRequestChange(
   return {
     repo,
 
-    base: isHeld && reviewed !== null ? reviewed : start,
+    base: start,
     head: state.headSha,
     config,
     title: state.title,

@@ -6,10 +6,8 @@ test('it reads the lens head a marker keeps', () => {
     findLensHead({
       head: 'b'.repeat(40),
       lensHead: 'a'.repeat(40),
-      reviews: 1,
       reported: [],
       failedCalls: 1,
-      followUps: [],
       confirmed: [],
       checked: [],
     }),
@@ -20,10 +18,8 @@ test("it counts an older marker's own head when its lens review had no failed ca
   expect(
     findLensHead({
       head: 'b'.repeat(40),
-      reviews: 1,
       reported: [],
       failedCalls: 0,
-      followUps: [],
       confirmed: [],
     }),
   ).toBe('b'.repeat(40));
@@ -36,9 +32,7 @@ test.each([
   expect(
     findLensHead({
       head: 'b'.repeat(40),
-      reviews: 1,
       reported: [],
-      followUps: [],
       confirmed: [],
       ...fields,
     }),

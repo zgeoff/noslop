@@ -28,17 +28,11 @@ export async function runReporters(
     reporters.push(reporter);
   }
 
-  const ordered = [
-    ...reporters.filter((reporter) => reporter.runsLast !== true),
-    ...reporters.filter((reporter) => reporter.runsLast === true),
-  ];
-
-  for (const reporter of ordered) {
+  for (const reporter of reporters) {
     try {
       await reporter.report(result, {
         logger: ctx.logger,
         options: config.reporters[reporter.id] ?? {},
-        failedReporters: [...failed],
       });
     } catch (error) {
       ctx.logger.error('the {id} reporter failed: {error}', { id: reporter.id, error });

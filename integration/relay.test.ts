@@ -171,10 +171,11 @@ test('it carries a review from a developer machine through the relay and passes 
     ctx.createContext(ctx.ciEnv, repo.path, stub),
   );
 
-  expect({ code: unreviewed, stderr: ctx.stderr.splice(0).join('') }).toStrictEqual({
-    code: 1,
-    stderr: 'noslop: no noslop review for this commit\n',
-  });
+  expect({
+    code: unreviewed,
+    stderr: ctx.stderr.splice(0).join(''),
+    check: githubCollections.checkRuns.all().at(-1)?.title,
+  }).toStrictEqual({ code: 0, stderr: '', check: 'No open finding (0)' });
 
   const reviewed = await runCLI(
     ['review', '--pr', '9', '--repo', 'example/app', '--report', 'webhook'],
@@ -195,7 +196,7 @@ test('it carries a review from a developer machine through the relay and passes 
   expect(githubCollections.checkRuns.all().at(-1)).toMatchObject({
     headSha: repo.commits[1] ?? '',
     conclusion: 'failure',
-    title: '1 findings hold no valid disposition.',
+    title: '1 findings are open.',
   });
 
   await githubCollections.reviewComments.create({

@@ -77,7 +77,7 @@ function findFixedRefusal(
     return buildRefusal('the re-review still finds it');
   }
 
-  return isConfirmed ? null : buildRefusal(`no re-review has read ${fix} yet`);
+  return isConfirmed ? null : buildRefusal(`no fix check has confirmed ${fix} yet`);
 }
 
 function findDeferredRefusal(

@@ -1,4 +1,4 @@
-export type MarkerKind = 'finding' | 'summary' | 'forms' | 'follow-up';
+export type MarkerKind = 'finding' | 'summary' | 'forms';
 
 // the JSON escapes of `>` and `<`, built from their parts so no formatter folds them back
 const ESCAPED_GREATER_THAN = `${String.fromCodePoint(92)}u003e`;

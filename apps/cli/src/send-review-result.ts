@@ -39,7 +39,7 @@ export async function sendReviewResult(
     readDeferralPolicy: (pr) => readDeferralPolicy(deps.loadConnection, pr),
   });
 
-  await reporter.report(result, { logger: deps.logger, options: {}, failedReporters: [] });
+  await reporter.report(result, { logger: deps.logger, options: {} });
 
   return result;
 }

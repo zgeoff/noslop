@@ -26,7 +26,6 @@ test('it sends the result as JSON with the secret header from the environment', 
       secretHeader: 'x-noslop-secret',
       secretEnv: 'NOSLOP_HOOK_SECRET',
     },
-    failedReporters: [],
   });
 
   expect(received).toHaveBeenCalledExactlyOnceWith({ secret: 's3cret', body: result });
@@ -41,7 +40,6 @@ test('it fails when the webhook answers with an error status', () => {
     createWebhookReporter({ env: {} }).report(buildMockReviewResult(), {
       logger: getLogger(['test']),
       options: { url: 'https://hooks.example.test/noslop' },
-      failedReporters: [],
     }),
   ).rejects.toThrowWithMessage(Error, 'the webhook at hooks.example.test answered 503');
 });
@@ -55,7 +53,6 @@ test('it refuses to send when the secret variable is not set', () => {
         secretHeader: 'x-noslop-secret',
         secretEnv: 'NOSLOP_HOOK_SECRET',
       },
-      failedReporters: [],
     }),
   ).rejects.toThrowWithMessage(
     Error,
@@ -68,7 +65,6 @@ test('it refuses to send when the config names no URL', () => {
     createWebhookReporter({ env: {} }).report(buildMockReviewResult(), {
       logger: getLogger(['test']),
       options: {},
-      failedReporters: [],
     }),
   ).rejects.toThrowWithMessage(
     Error,
