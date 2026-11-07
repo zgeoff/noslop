@@ -2,11 +2,16 @@ import type { Finding } from '@noslop/contract';
 import { findingSchema } from '@noslop/contract';
 import type { Store } from './load-store';
 
+export interface RecordedFindings {
+  findings: Finding[];
+  unreadable: number;
+}
+
 export async function readRecordedFindings(
   store: Store,
   repo: string,
   pullRequest: number,
-): Promise<Finding[]> {
+): Promise<RecordedFindings> {
   const rows = await store
     .selectFrom('findings')
     .innerJoin('reviews', 'reviews.review_id', 'findings.review_id')
@@ -15,19 +20,25 @@ export async function readRecordedFindings(
     .where('reviews.repo', '=', repo)
     .where('reviews.pull_request', '=', pullRequest)
     .orderBy('reviews.started_at', 'desc')
+    .orderBy('findings.finding_id')
     .execute();
 
-  const latest = new Map<string, Finding>();
+  const seen = new Set<string>();
+
+  const findings: Finding[] = [];
+  let unreadable = 0;
 
   for (const row of rows) {
-    if (latest.has(row.finding_id)) {
+    if (seen.has(row.finding_id)) {
       continue;
     }
+
+    seen.add(row.finding_id);
 
     const secondLocation: unknown =
       row.second_location === null ? undefined : JSON.parse(row.second_location);
 
-    const finding = findingSchema.parse({
+    const parsed = findingSchema.safeParse({
       id: row.finding_id,
       lens: row.lens,
       callID: row.call_id,
@@ -46,8 +57,12 @@ export async function readRecordedFindings(
       anchorCommit: row.anchor_commit ?? row.head,
     });
 
-    latest.set(row.finding_id, finding);
+    if (parsed.success) {
+      findings.push(parsed.data);
+    } else {
+      unreadable += 1;
+    }
   }
 
-  return [...latest.values()];
+  return { findings, unreadable };
 }

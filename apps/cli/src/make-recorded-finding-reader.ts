@@ -12,7 +12,19 @@ export function makeRecordedFindingReader(
       const store = await loadStore(path, { version: cliPackage.version });
 
       try {
-        return await readRecordedFindings(store, `${pr.owner}/${pr.repo}`, pr.number);
+        const recorded = await readRecordedFindings(store, `${pr.owner}/${pr.repo}`, pr.number);
+
+        if (recorded.unreadable > 0) {
+          logger.warn(
+            '{count} recorded findings of {pr} break the finding contract, so none of them posts',
+            {
+              count: recorded.unreadable,
+              pr: pr.number,
+            },
+          );
+        }
+
+        return recorded.findings;
       } finally {
         await store.destroy();
       }

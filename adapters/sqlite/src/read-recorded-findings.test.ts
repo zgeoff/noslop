@@ -72,16 +72,48 @@ test('it reads each finding of a pull request once, from its latest review, anch
     }),
   );
 
-  const findings = await readRecordedFindings(ctx.store, 'example/app', 7);
+  const recorded = await readRecordedFindings(ctx.store, 'example/app', 7);
 
-  expect(findings).toStrictEqual([
-    buildMockFinding({
-      id: '1111111111111111',
-      title: 'Skip the header line',
-      anchorCommit: 'b'.repeat(40),
+  expect(recorded).toStrictEqual({
+    findings: [
+      buildMockFinding({
+        id: '1111111111111111',
+        title: 'Skip the header line',
+        anchorCommit: 'b'.repeat(40),
+      }),
+      { ...located, anchorCommit: 'a'.repeat(40) },
+    ],
+    unreadable: 0,
+  });
+});
+
+test('it counts a stored finding that breaks the finding contract and reads the rest', async () => {
+  const ctx = await setupTest();
+
+  const kept = buildMockFinding({ id: '2222222222222222' });
+
+  await writeReview(
+    ctx.store,
+    buildMockReviewResult({
+      reviewID: 'review-1',
+      pullRequest: { owner: 'example', repo: 'app', number: 7 },
+      head: 'a'.repeat(40),
+      findings: [buildMockFinding({ id: '1111111111111111' }), kept],
     }),
-    { ...located, anchorCommit: 'a'.repeat(40) },
-  ]);
+  );
+
+  await ctx.store
+    .updateTable('findings')
+    .set({ severity: 'P1' })
+    .where('finding_id', '=', '1111111111111111')
+    .execute();
+
+  const recorded = await readRecordedFindings(ctx.store, 'example/app', 7);
+
+  expect(recorded).toStrictEqual({
+    findings: [{ ...kept, anchorCommit: 'a'.repeat(40) }],
+    unreadable: 1,
+  });
 });
 
 test('it reads a finding anchored at another commit than its review head at that commit', async () => {
@@ -99,7 +131,7 @@ test('it reads a finding anchored at another commit than its review head at that
     }),
   );
 
-  const findings = await readRecordedFindings(ctx.store, 'example/app', 7);
+  const recorded = await readRecordedFindings(ctx.store, 'example/app', 7);
 
-  expect(findings).toStrictEqual([moved]);
+  expect(recorded).toStrictEqual({ findings: [moved], unreadable: 0 });
 });
