@@ -17,26 +17,28 @@ const turnFailedSchema = z
 const errorEventSchema = z.union([errorSchema, turnFailedSchema]);
 
 export function formatCodexFailure(stdout: string, stderr: string): string {
-  const events = stdout
+  const eventMessages = stdout
     .split('\n')
     .map((line) => errorEventSchema.safeParse(parseJSONLine(line)))
     .flatMap((event) => (event.success ? [event.data] : []));
 
   const stderrLines = stderr.split('\n');
 
-  const errorLines = stderrLines
+  const stderrMessages = stderrLines
     .filter((line) => isErrorLine(line))
     .map((line) => line.trim().slice(ERROR_PREFIX.length).trim());
 
-  const messages = [...new Set([...events, ...errorLines])].join('; ').slice(-TAIL_CHARACTERS);
+  const messageText = [...new Set([...eventMessages, ...stderrMessages])]
+    .join('; ')
+    .slice(-TAIL_CHARACTERS);
 
-  const tail = stderrLines
+  const stderrTail = stderrLines
     .filter((line) => !isErrorLine(line))
     .join('\n')
     .trim()
     .slice(-TAIL_CHARACTERS);
 
-  return [messages, tail].filter((part) => part !== '').join('; ');
+  return [messageText, stderrTail].filter((part) => part !== '').join('; ');
 }
 
 function isErrorLine(line: string): boolean {
