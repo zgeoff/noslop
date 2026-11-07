@@ -67,6 +67,7 @@ export interface FindingRow {
   effort: string | null;
 
   comment_url: string | null;
+  anchor_commit: string | null;
 }
 
 export interface DroppedFindingRow {

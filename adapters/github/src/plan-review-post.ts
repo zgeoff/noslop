@@ -1,9 +1,11 @@
 import type { Finding, ReviewResult } from '@noslop/contract';
+import type { UnpostedInput } from './collect-unposted-findings';
+import { collectUnpostedFindings } from './collect-unposted-findings';
 import type { SummaryMarker } from './summary-marker';
 
-export interface PostPrior {
+export interface PostPrior extends UnpostedInput {
   summary: SummaryMarker | null;
-  posted: ReadonlySet<string>;
+  followUpIDs: ReadonlySet<string>;
 }
 
 export interface PostPlan {
@@ -11,6 +13,8 @@ export interface PostPlan {
   reviews: number;
   reviewIDs: string[];
   inline: Finding[];
+  carried: Finding[];
+  carriedFiled: string[];
   followUps: Finding[];
 }
 
@@ -27,6 +31,8 @@ export function planReviewPost(prior: PostPrior, result: ReviewResult): PostPlan
       reviews: prior.summary?.reviews ?? 0,
       reviewIDs: counted,
       inline: [],
+      carried: [],
+      carriedFiled: [],
       followUps: [],
     };
   }
@@ -38,6 +44,7 @@ export function planReviewPost(prior: PostPrior, result: ReviewResult): PostPlan
 
   const reviews = (prior.summary?.reviews ?? 0) + (isRound ? 1 : 0);
   const fresh = result.findings.filter((finding) => !prior.posted.has(finding.id));
+  const unposted = collectUnpostedFindings(prior, result);
 
   const followUps =
     reviews > RECHECKED_REVIEWS
@@ -49,6 +56,10 @@ export function planReviewPost(prior: PostPrior, result: ReviewResult): PostPlan
     reviews,
     reviewIDs: isRepost ? counted : [...counted, result.reviewID],
     inline: fresh.filter((finding) => !followUps.includes(finding)),
+    carried: unposted.filter((finding) => !prior.followUpIDs.has(finding.id)),
+    carriedFiled: unposted
+      .filter((finding) => prior.followUpIDs.has(finding.id))
+      .map((finding) => finding.id),
     followUps,
   };
 }

@@ -1,5 +1,6 @@
 import { expect, mock, test } from 'bun:test';
 import { getLogger } from '@logtape/logtape';
+import type { Finding } from '@noslop/contract';
 import {
   GITHUB_API_URL,
   STUB_APP_LOGIN,
@@ -33,9 +34,17 @@ function setupTest() {
       recordDispositions,
     });
 
+  const createRecordedReporter = (recorded: Finding[]) =>
+    createGitHubReporter({
+      readDeferralPolicy: () => Promise.resolve({ baseRef: 'main', issueKeys: [] }),
+      loadConnection,
+      readRecordedFindings: () => Promise.resolve(recorded),
+    });
+
   return {
     reporter: createReporter({ baseRef: 'main', issueKeys: [] }),
     createReporter,
+    createRecordedReporter,
     sleep,
     recordDispositions,
     logger: getLogger(['test']),
@@ -2757,6 +2766,156 @@ test('it posts a finding whose lines a later commit rewrote as an issue comment 
   );
 
   expect(comments[0]).toInclude(`"head":"${'e'.repeat(40)}"`);
+});
+
+test('it posts a recorded finding that no comment holds as an issue comment that names the commit its review ran against', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'c'.repeat(40),
+  });
+
+  const reporter = ctx.createRecordedReporter([
+    buildMockFinding({ id: '1111111111111111', anchorCommit: 'e'.repeat(40) }),
+  ]);
+
+  const result = buildMockReviewResult({
+    pullRequest: { owner: 'example', repo: 'app', number: 5 },
+    head: 'c'.repeat(40),
+    findings: [],
+  });
+
+  await reporter.report(result, { logger: ctx.logger, options: {}, failedReporters: [] });
+
+  const comments = githubCollections.issueComments
+    .all()
+    .map((comment) => comment.body)
+    .filter((body) => body.includes('<!-- noslop:finding'));
+
+  expect(comments).toHaveLength(1);
+
+  expect(comments[0]).toStartWith(
+    `An earlier review raised this finding at \`src/a.ts:1-1\` of \`${'e'.repeat(40)}\`, and its post never reached the pull request, so this review posts it. Answer it in a comment that starts with its id, \`1111111111111111\`.`,
+  );
+
+  expect(comments[0]).toInclude(`"head":"${'e'.repeat(40)}"`);
+});
+
+test('it lists no issue when every recorded finding is a finding of the review', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'c'.repeat(40),
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/a.ts',
+    lines: [1],
+  });
+
+  githubServer.use(
+    http.get(
+      `${GITHUB_API_URL}/repos/:owner/:repo/issues`,
+      () => new HttpResponse(null, { status: 500 }),
+    ),
+  );
+
+  const finding = buildMockFinding({ id: '1111111111111111' });
+  const reporter = ctx.createRecordedReporter([{ ...finding, anchorCommit: 'c'.repeat(40) }]);
+
+  const result = buildMockReviewResult({
+    pullRequest: { owner: 'example', repo: 'app', number: 5 },
+    head: 'c'.repeat(40),
+    findings: [finding],
+  });
+
+  await reporter.report(result, { logger: ctx.logger, options: {}, failedReporters: [] });
+
+  expect(githubCollections.reviewComments.all()).toHaveLength(1);
+});
+
+test('it posts no recorded finding that a follow-up issue holds, and keeps its id among the filed follow-ups', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'c'.repeat(40),
+  });
+
+  await githubCollections.issues.create({
+    owner: 'example',
+    repo: 'app',
+    number: 1,
+    title: 'Close the old file',
+    body: '<!-- noslop:follow-up {"id":"1111111111111111","pullRequest":5} -->',
+    authorLogin: STUB_APP_LOGIN,
+  });
+
+  const reporter = ctx.createRecordedReporter([
+    buildMockFinding({ id: '1111111111111111', anchorCommit: 'e'.repeat(40) }),
+  ]);
+
+  const result = buildMockReviewResult({
+    pullRequest: { owner: 'example', repo: 'app', number: 5 },
+    head: 'c'.repeat(40),
+    findings: [],
+  });
+
+  await reporter.report(result, { logger: ctx.logger, options: {}, failedReporters: [] });
+
+  const bodies = githubCollections.issueComments.all().map((comment) => comment.body);
+
+  expect(bodies).toHaveLength(1);
+  expect(bodies[0]).toInclude('"followUps":["1111111111111111"]');
+});
+
+test('it posts no recorded finding while a finding comment holds a marker it cannot read', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'c'.repeat(40),
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: '<!-- noslop:finding {"id":"1111111111111111","title":"Close the old file"} -->',
+  });
+
+  const reporter = ctx.createRecordedReporter([
+    buildMockFinding({ id: '1111111111111111', anchorCommit: 'e'.repeat(40) }),
+  ]);
+
+  const result = buildMockReviewResult({
+    pullRequest: { owner: 'example', repo: 'app', number: 5 },
+    head: 'c'.repeat(40),
+    findings: [],
+  });
+
+  await reporter.report(result, { logger: ctx.logger, options: {}, failedReporters: [] });
+
+  const carried = githubCollections.issueComments
+    .all()
+    .filter((comment) => comment.body.startsWith('An earlier review raised this finding'));
+
+  expect(carried).toStrictEqual([]);
 });
 
 test('it passes the check at a rebased head whose files hold the reviewed patches at moved lines', async () => {

@@ -77,6 +77,7 @@ export async function writeReview(store: Store, result: ReviewResult): Promise<v
               written_by_change: finding.writtenByChange ? 1 : 0,
               risk_class: finding.riskClass ?? null,
               fix: finding.fix ?? null,
+              anchor_commit: finding.anchorCommit ?? null,
               depth: call?.depth ?? result.depth,
               model: call?.model ?? null,
               effort: call?.effort ?? null,
