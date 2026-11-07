@@ -15,17 +15,17 @@ export interface PostPlan {
 }
 
 export function planReviewPost(prior: PostPrior, result: ReviewResult): PostPlan {
-  const postedIDs = prior.summary?.reviewIDs ?? [];
-  const isRepost = postedIDs.includes(result.reviewID);
-  const isLatest = postedIDs.at(-1) === result.reviewID;
+  const listedReviewIDs = prior.summary?.reviewIDs ?? [];
+  const isRepost = listedReviewIDs.includes(result.reviewID);
+  const isLatest = listedReviewIDs.at(-1) === result.reviewID;
 
   if ((isRepost && !isLatest) || (!isRepost && isEarlier(result, prior.summary))) {
-    return { writesSummary: false, reviewIDs: postedIDs, inline: [], carried: [] };
+    return { writesSummary: false, reviewIDs: listedReviewIDs, inline: [], carried: [] };
   }
 
   return {
     writesSummary: true,
-    reviewIDs: isRepost ? postedIDs : [...postedIDs, result.reviewID],
+    reviewIDs: isRepost ? listedReviewIDs : [...listedReviewIDs, result.reviewID],
     inline: result.findings.filter((finding) => !prior.posted.has(finding.id)),
     carried: collectUnpostedFindings(prior, result),
   };
