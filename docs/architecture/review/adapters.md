@@ -97,8 +97,9 @@ the schema rejects. The review module retries a rejected call once on the same a
 failure lists the call as failed in the review result while the other calls run on. Each adapter
 puts the CLI's own error text in the failed call's reason, so a reader of the result sees a cause
 such as a spent usage limit. The Claude adapter takes that text from Claude's JSON result, or from
-stderr when stdout holds no result. The Codex adapter takes the error events Codex prints on stdout
-under `--json`, the `ERROR:` lines on stderr, and the last 500 characters of stderr.
+stderr when stdout holds no result. The Codex adapter takes each distinct message from the error
+events Codex prints on stdout under `--json` and from the `ERROR:` lines on stderr, keeps the last
+500 characters of those messages, and adds the last 500 characters of the rest of stderr.
 [The GitHub App](../output/github-app.md) covers how a failed call holds back the check run.
 
 ## The reference reviewer

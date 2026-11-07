@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { parseJSONLine } from './parse-json-line';
 
-const STDERR_TAIL_CHARACTERS = 500;
+const TAIL_CHARACTERS = 500;
 const ERROR_PREFIX = 'ERROR:';
 
 // with --json, Codex prints its own error, such as a usage limit, as events on stdout and leaves
@@ -16,19 +16,29 @@ const turnFailedSchema = z
 
 const errorEventSchema = z.union([errorSchema, turnFailedSchema]);
 
-export function parseCodexFailure(stdout: string, stderr: string): string {
-  const tail = stderr.trim().slice(-STDERR_TAIL_CHARACTERS);
-
+export function formatCodexFailure(stdout: string, stderr: string): string {
   const events = stdout
     .split('\n')
     .map((line) => errorEventSchema.safeParse(parseJSONLine(line)))
     .flatMap((event) => (event.success ? [event.data] : []));
 
-  const errorLines = stderr
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line.startsWith(ERROR_PREFIX) && !tail.includes(line))
-    .map((line) => line.slice(ERROR_PREFIX.length).trim());
+  const stderrLines = stderr.split('\n');
 
-  return [...new Set([...events, ...errorLines]), tail].filter((part) => part !== '').join('; ');
+  const errorLines = stderrLines
+    .filter((line) => isErrorLine(line))
+    .map((line) => line.trim().slice(ERROR_PREFIX.length).trim());
+
+  const messages = [...new Set([...events, ...errorLines])].join('; ').slice(-TAIL_CHARACTERS);
+
+  const tail = stderrLines
+    .filter((line) => !isErrorLine(line))
+    .join('\n')
+    .trim()
+    .slice(-TAIL_CHARACTERS);
+
+  return [messages, tail].filter((part) => part !== '').join('; ');
+}
+
+function isErrorLine(line: string): boolean {
+  return line.trimStart().startsWith(ERROR_PREFIX);
 }
