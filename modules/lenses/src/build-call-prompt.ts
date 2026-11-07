@@ -82,6 +82,8 @@ export function buildCallPrompt(input: CallPromptInput): string {
   return `${sections.join('\n\n')}\n`;
 }
 
+const RULES_FILE_END = '</rules-file>';
+
 function renderRules(rules: CallPromptInput['rules']): string {
   if (rules === null || rules.length === 0) {
     return '## Rules file\n\nThe repo names no rules file, so report no finding that rests on a rule.';
@@ -89,7 +91,10 @@ function renderRules(rules: CallPromptInput['rules']): string {
 
   return [
     '## Rules file',
-    ...rules.map((rule) => `<rules-file name="${rule.name}">\n${rule.body.trim()}\n</rules-file>`),
+    ...rules.map(
+      (rule) =>
+        `<rules-file>\nname: ${rule.name}\n\n${rule.body.replaceAll(RULES_FILE_END, String.raw`<\/rules-file>`)}\n${RULES_FILE_END}`,
+    ),
   ].join('\n\n');
 }
 
