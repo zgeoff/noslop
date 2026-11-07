@@ -52,8 +52,10 @@ only when both of these hold:
 - the last lens review had no failed call.
 
 Such a run read the whole net diff at its head, so the key it writes matches what its calls read.
-Any other run, such as one with no `fixed` answer to judge, copies the three fields from the summary
-marker before it. When no summary marker exists, the run writes the merge base as the head.
+Any other run, such as one with no `fixed` answer to judge, copies the head and the key from the
+summary marker before it. As the count of failed calls, that run writes its own failed calls, plus
+the earlier count when the earlier marker holds no lens review's head. When no summary marker
+exists, the run writes the merge base as the head and its own failed calls as the count.
 
 A `fixed` reply posted after an earlier fixes-only run gets a call too, so the next run, at the same
 head or a later one, checks it. A fix the summary already holds as confirmed gets no call. The run's
