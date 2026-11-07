@@ -4,6 +4,7 @@ import type { Tokens } from '@noslop/contract';
 import { mergeTokens } from '@noslop/contract';
 import { z } from 'zod';
 import { buildTokensFromCodexUsage, codexUsageSchema } from './build-tokens-from-codex-usage';
+import { parseJSONLine } from './parse-json-line';
 
 export interface ReviewSessionQuery {
   codexHome: string;
@@ -108,12 +109,4 @@ async function readSessionFiles(query: ReviewSessionQuery): Promise<string[]> {
   }
 
   return files;
-}
-
-function parseJSONLine(line: string): unknown {
-  try {
-    return JSON.parse(line);
-  } catch {
-    return null;
-  }
 }

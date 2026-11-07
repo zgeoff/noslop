@@ -6,6 +6,7 @@ import { buildOutputJSONSchema } from '@noslop/contract';
 import type { Runner } from '@noslop/runner';
 import { z } from 'zod';
 import { countCodexTokens } from './count-codex-tokens';
+import { formatCodexFailure } from './format-codex-failure';
 
 export interface CodexAdapterOptions {
   runner: Runner;
@@ -140,7 +141,7 @@ async function runCodexCall<Output>(
 
   if (result.exitCode !== 0) {
     throw new Error(
-      `codex exited ${result.exitCode} on call ${call.callID}: ${result.stderr.trim().slice(-500)}`,
+      `codex exited ${result.exitCode} on call ${call.callID}: ${formatCodexFailure(result.stdout, result.stderr)}`,
     );
   }
 
