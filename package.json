@@ -53,7 +53,7 @@
     "schema:config": "bun scripts/write-config-schema.ts",
     "ci:pick-release-ship": "bun scripts/release/run-pick-release-ship-step.ts",
     "ci:publish-cli": "bun scripts/release/run-publish-cli-step.ts apps/cli/dist",
-    "check:docs": "chex prose length links skill",
+    "check:docs": "chex prose length links readmes skill",
     "check:package-types": "bun scripts/run-package-types-check.ts"
   },
   "devDependencies": {
