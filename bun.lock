@@ -14,6 +14,7 @@
         "@tsconfig/strictest": "2.0.8",
         "@types/bun": "1.4.4",
         "@zgeoff/bun-test-extended": "0.2.3",
+        "@zgeoff/chex": "0.1.8",
         "@zgeoff/diet": "0.2.1",
         "@zgeoff/format-codemod": "0.3.5",
         "@zgeoff/oxlint-config": "0.8.5",
@@ -796,6 +797,8 @@
     "@zgeoff/agent-hooks": ["@zgeoff/agent-hooks@0.2.6", "", { "bin": { "agent-hooks": "dist/cli.js" } }, "sha512-Ex99nLNCeeVG6GkbjJYKCpepr8VRESSB9SJaA7mRwt6Ls9ndtB+Qps4BbYg5oKueiYZoT3lvNZWzv/Mygv8x5A=="],
 
     "@zgeoff/bun-test-extended": ["@zgeoff/bun-test-extended@0.2.3", "", { "dependencies": { "jest-extended": "7.0.0", "jest-matcher-utils": "30.5.2" } }, "sha512-4ZNPft3LunVKp+s2esoJXSe64EaEywsu3z6Cg5/s/MJcdygmrQeAyfECioePCo5RuAIcaPfgF3lhYsPKcmVJ4w=="],
+
+    "@zgeoff/chex": ["@zgeoff/chex@0.1.8", "", { "dependencies": { "@zgeoff/std": "0.4.2", "oxc-parser": "0.156.0", "ts-pattern": "5.9.2" }, "bin": { "chex": "src/cli.ts" } }, "sha512-+k2NDAr3P1W2AxKyY92SBqq4gLtPmIzrUgCEjw91KWnIq3fIVqyOnhFf1EAWnyYxbQOKSA/+Qqd7Uovz6Li34Q=="],
 
     "@zgeoff/diet": ["@zgeoff/diet@0.2.1", "", { "bin": { "diet": "diet.sh" } }, "sha512-8xzPM1AlurcFcXt3aDdyGblvEtdtlDP2CAie3lf/AVGWkK4y1Qz40RGz22fl9Ad9SioEb+9EJHUPGshEtt7fjw=="],
 
