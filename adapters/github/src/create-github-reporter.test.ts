@@ -2384,6 +2384,38 @@ test('it posts a recorded finding that no comment holds as an issue comment that
   expect(comments[0]).toInclude(`"head":"${'e'.repeat(40)}"`);
 });
 
+test('it posts a recorded finding that no comment holds for a fixes-only result, which raises no finding of its own', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'c'.repeat(40),
+  });
+
+  const reporter = ctx.createRecordedReporter([
+    buildMockFinding({ id: '6b2e0f9a4c7d1358', anchorCommit: 'e'.repeat(40) }),
+  ]);
+
+  await reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'c'.repeat(40),
+      findings: [],
+      fixChecks: [],
+    }),
+    { logger: ctx.logger, options: {} },
+  );
+
+  const posted = githubCollections.issueComments
+    .all()
+    .filter((comment) => comment.body.includes('<!-- noslop:finding'))
+    .map((comment) => comment.body.includes('"id":"6b2e0f9a4c7d1358"'));
+
+  expect(posted).toStrictEqual([true]);
+});
+
 test('it lists no issue when every recorded finding is a finding of the review', async () => {
   const ctx = setupTest();
 

@@ -65,7 +65,11 @@ whether the CLI or `noslop post` sends it. A yes confirms the fix under
 run reporting the finding again, so the check names it as still found, and the summary gives the
 reason. The summary marker keeps the findings the run judged fixed with its range, and that range
 confirms no other fix, so a fix the run did not ask about stays unconfirmed, a `fixed` reply posted
-after the run included. The run posts no finding comment.
+after the run included.
+
+The run raises no new finding. With the `sqlite` reporter in its report list, the `github` reporter
+still posts each earlier finding that the store holds and no finding comment holds, such as one
+whose post failed, under [what a review posts](./github-app.md#what-a-review-posts).
 
 ## A repeated finding
 
