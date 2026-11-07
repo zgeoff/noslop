@@ -12,6 +12,7 @@ import { buildFindingPosts } from './build-finding-posts';
 import { buildFixConfirmations } from './build-fix-confirmations';
 import { buildMergeLists } from './build-merge-lists';
 import { buildReviewedChange } from './build-reviewed-change';
+import { collectUnpostedFindings } from './collect-unposted-findings';
 import type { GitHubClient, GitHubConnection } from './create-github-connection';
 import type { ReadDeferralPolicy } from './deferral-policy';
 import { findLensHead } from './find-lens-head';
@@ -120,15 +121,21 @@ async function runReviewPost(
 
   const recorded = await readRecorded(pr);
 
-  const filedIssues =
-    recorded.length === 0 ? new Set<string>() : await readFiledFollowUpIDs(connection, pr);
+  const unposted = collectUnpostedFindings(
+    { posted, recorded, unreadable: before.unreadable },
+    result,
+  );
+
+  let listed: Promise<Set<string>> | undefined;
+  const readFollowUpIDs = () => (listed ??= readFiledFollowUpIDs(connection, pr));
+  const carriedFollowUpIDs = unposted.length === 0 ? new Set<string>() : await readFollowUpIDs();
 
   const plan = planReviewPost(
     {
       summary: before.summary?.marker ?? null,
       posted,
       recorded,
-      filedIssues,
+      followUpIDs: carriedFollowUpIDs,
       unreadable: before.unreadable,
     },
     result,
@@ -178,10 +185,8 @@ async function runReviewPost(
     );
   }
 
-  const issued =
-    followUps.length === 0 ? new Set<string>() : await readFiledFollowUpIDs(connection, pr);
-
-  const unfiled = followUps.filter((finding) => !issued.has(finding.id));
+  const followUpIDs = followUps.length === 0 ? new Set<string>() : await readFollowUpIDs();
+  const unfiled = followUps.filter((finding) => !followUpIDs.has(finding.id));
 
   for (const finding of unfiled) {
     await write(() => createFollowUpIssue(connection, pr, finding));

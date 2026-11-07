@@ -6,7 +6,7 @@ test('it writes the first review of a pull request in full and counts it', () =>
   const finding = buildMockFinding({ id: '1111111111111111' });
 
   const plan = planReviewPost(
-    { summary: null, posted: new Set(), recorded: [], filedIssues: new Set(), unreadable: 0 },
+    { summary: null, posted: new Set(), recorded: [], followUpIDs: new Set(), unreadable: 0 },
     buildMockReviewResult({ reviewID: 'review-a', findings: [finding] }),
   );
 
@@ -36,7 +36,7 @@ test('it counts a repost of the latest review as no new review', () => {
       },
       posted: new Set(),
       recorded: [],
-      filedIssues: new Set(),
+      followUpIDs: new Set(),
       unreadable: 0,
     },
     buildMockReviewResult({ reviewID: 'review-b', startedAt: '2026-10-17T10:05:00.000Z' }),
@@ -68,7 +68,7 @@ test('it counts no new review for a fixes-only run', () => {
       },
       posted: new Set(),
       recorded: [],
-      filedIssues: new Set(),
+      followUpIDs: new Set(),
       unreadable: 0,
     },
     buildMockReviewResult({
@@ -105,7 +105,7 @@ test('it counts no new review for a review that ran no lens and raised no findin
       },
       posted: new Set(),
       recorded: [],
-      filedIssues: new Set(),
+      followUpIDs: new Set(),
       unreadable: 0,
     },
     buildMockReviewResult({
@@ -143,7 +143,7 @@ test('it counts a new review for a lens review that made fix calls', () => {
       },
       posted: new Set(),
       recorded: [],
-      filedIssues: new Set(),
+      followUpIDs: new Set(),
       unreadable: 0,
     },
     buildMockReviewResult({
@@ -170,7 +170,7 @@ test('it leaves the summary to a later review when a counted earlier review is r
       },
       posted: new Set(),
       recorded: [],
-      filedIssues: new Set(),
+      followUpIDs: new Set(),
       unreadable: 0,
     },
     buildMockReviewResult({
@@ -205,7 +205,7 @@ test('it leaves the summary to a later review when an uncounted review that star
       },
       posted: new Set(),
       recorded: [],
-      filedIssues: new Set(),
+      followUpIDs: new Set(),
       unreadable: 0,
     },
     buildMockReviewResult({
@@ -244,7 +244,7 @@ test.each([
       },
       posted: new Set(),
       recorded: [],
-      filedIssues: new Set(),
+      followUpIDs: new Set(),
       unreadable: 0,
     },
     buildMockReviewResult({ reviewID: 'review-b', startedAt }),
@@ -275,7 +275,7 @@ test('it writes an uncounted review in full when the summary marker holds no sta
       },
       posted: new Set(),
       recorded: [],
-      filedIssues: new Set(),
+      followUpIDs: new Set(),
       unreadable: 0,
     },
     buildMockReviewResult({ reviewID: 'review-a', startedAt: '2026-10-17T09:00:00.000Z' }),
@@ -300,7 +300,7 @@ test('it posts no finding that a comment or a follow-up issue already carries', 
       summary: null,
       posted: new Set(['1111111111111111', '2222222222222222']),
       recorded: [],
-      filedIssues: new Set(),
+      followUpIDs: new Set(),
       unreadable: 0,
     },
     buildMockReviewResult({
@@ -328,7 +328,7 @@ test('it carries each recorded finding that no comment, follow-up or finding of 
         buildMockFinding({ id: '2222222222222222', anchorCommit: 'a'.repeat(40) }),
         unposted,
       ],
-      filedIssues: new Set(),
+      followUpIDs: new Set(),
       unreadable: 0,
     },
     buildMockReviewResult({
@@ -342,19 +342,19 @@ test('it carries each recorded finding that no comment, follow-up or finding of 
 
 test.each<{
   label: string;
-  filedIssues: Set<string>;
+  followUpIDs: Set<string>;
   unreadable: number;
   carriedFiled: string[];
 }>([
   {
     label: 'a follow-up issue holds it',
-    filedIssues: new Set(['1111111111111111']),
+    followUpIDs: new Set(['1111111111111111']),
     unreadable: 0,
     carriedFiled: ['1111111111111111'],
   },
   {
     label: 'a finding comment holds a marker noslop cannot read',
-    filedIssues: new Set<string>(),
+    followUpIDs: new Set<string>(),
     unreadable: 1,
     carriedFiled: [],
   },
@@ -364,7 +364,7 @@ test.each<{
       summary: null,
       posted: new Set(),
       recorded: [buildMockFinding({ id: '1111111111111111', anchorCommit: 'a'.repeat(40) })],
-      filedIssues: row.filedIssues,
+      followUpIDs: row.followUpIDs,
       unreadable: row.unreadable,
     },
     buildMockReviewResult({ reviewID: 'review-b', findings: [] }),
@@ -396,7 +396,7 @@ test('it carries a recorded finding onto the pull request after the re-check, no
       },
       posted: new Set(),
       recorded: [unposted],
-      filedIssues: new Set(),
+      followUpIDs: new Set(),
       unreadable: 0,
     },
     buildMockReviewResult({ reviewID: 'review-c', findings: [] }),
@@ -437,7 +437,7 @@ test('it files each new finding outside security in code the change did not writ
       },
       posted: new Set(),
       recorded: [],
-      filedIssues: new Set(),
+      followUpIDs: new Set(),
       unreadable: 0,
     },
     buildMockReviewResult({ reviewID: 'review-c', findings: [unwritten, security, written] }),
@@ -470,7 +470,7 @@ test('it files no follow-up on the one re-check', () => {
       },
       posted: new Set(),
       recorded: [],
-      filedIssues: new Set(),
+      followUpIDs: new Set(),
       unreadable: 0,
     },
     buildMockReviewResult({ reviewID: 'review-b', findings: [unwritten] }),

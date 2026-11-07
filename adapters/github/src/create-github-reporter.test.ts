@@ -2804,6 +2804,45 @@ test('it posts a recorded finding that no comment holds as an issue comment that
   expect(comments[0]).toInclude(`"head":"${'e'.repeat(40)}"`);
 });
 
+test('it lists no issue when every recorded finding is a finding of the review', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'c'.repeat(40),
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/a.ts',
+    lines: [1],
+  });
+
+  githubServer.use(
+    http.get(
+      `${GITHUB_API_URL}/repos/:owner/:repo/issues`,
+      () => new HttpResponse(null, { status: 500 }),
+    ),
+  );
+
+  const finding = buildMockFinding({ id: '1111111111111111' });
+  const reporter = ctx.createRecordedReporter([{ ...finding, anchorCommit: 'c'.repeat(40) }]);
+
+  const result = buildMockReviewResult({
+    pullRequest: { owner: 'example', repo: 'app', number: 5 },
+    head: 'c'.repeat(40),
+    findings: [finding],
+  });
+
+  await reporter.report(result, { logger: ctx.logger, options: {}, failedReporters: [] });
+
+  expect(githubCollections.reviewComments.all()).toHaveLength(1);
+});
+
 test('it posts no recorded finding that a follow-up issue holds, and keeps its id among the filed follow-ups', async () => {
   const ctx = setupTest();
 
