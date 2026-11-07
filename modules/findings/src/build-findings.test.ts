@@ -206,6 +206,89 @@ test('it drops a finding on a context line unless it cites a second location or 
   ]);
 });
 
+test('it reads a second location that names no repo as none, so only a finding that needs it drops', () => {
+  const file = buildMockChangedFile({
+    hunks: [
+      {
+        oldStart: 1,
+        oldLines: 2,
+        newStart: 1,
+        newLines: 3,
+        lines: [
+          { kind: 'context', text: 'const a = 1;', oldLine: 1, newLine: 1 },
+          { kind: 'added', text: 'const b = 2;', oldLine: null, newLine: 2 },
+          { kind: 'context', text: 'const c = 3;', oldLine: 2, newLine: 3 },
+        ],
+      },
+    ],
+  });
+
+  const result = buildFindings({
+    raw: [
+      {
+        lens: 'correctness',
+        callID: 'correctness',
+        finding: {
+          title: 'Read the total from the ledger',
+          body: 'The added line reads the total from a cache that the ledger never updates.',
+          anchor: { path: 'src/a.ts', startLine: 2, endLine: 2 },
+          secondLocation: {
+            repo: '',
+            commit: 'c'.repeat(40),
+            path: 'src/ledger.ts',
+            startLine: 4,
+            endLine: 6,
+          },
+          severity: 'P2',
+          criterion: 'wrong-behaviour-edge-path',
+          rule: null,
+          ruleQuote: null,
+          verdict: 'CONFIRMED',
+          unverifiedFact: null,
+          missingChange: false,
+          fix: null,
+        },
+      },
+      {
+        lens: 'correctness',
+        callID: 'correctness',
+        finding: {
+          title: 'Fix the context line',
+          body: 'The line the change left alone is wrong.',
+          anchor: { path: 'src/a.ts', startLine: 3, endLine: 3 },
+          secondLocation: {
+            repo: '',
+            commit: 'c'.repeat(40),
+            path: 'src/ledger.ts',
+            startLine: 4,
+            endLine: 6,
+          },
+          severity: 'P2',
+          criterion: 'wrong-behaviour-edge-path',
+          rule: null,
+          ruleQuote: null,
+          verdict: 'CONFIRMED',
+          unverifiedFact: null,
+          missingChange: false,
+          fix: null,
+        },
+      },
+    ],
+    files: [file],
+    rules: [],
+    riskClasses: [],
+    config: BUILT_IN_DEFAULTS,
+  });
+
+  expect([
+    result.findings.map((finding) => [finding.title, finding.secondLocation]),
+    result.dropped.map((item) => [item.raw.finding.title, item.reason]),
+  ]).toStrictEqual([
+    [['Read the total from the ledger', undefined]],
+    [['Fix the context line', 'outside-diff-without-location']],
+  ]);
+});
+
 test.each([
   ['vendor/rules/naming.md', ['vendor/**'], false],
   ['docs/naming.md', ['vendor/**'], true],

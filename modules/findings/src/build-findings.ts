@@ -8,7 +8,12 @@ import type {
   Rule,
   Thresholds,
 } from '@noslop/contract';
-import { CRITERION_SEVERITY, TITLE_MAX_LENGTH, findingSchema } from '@noslop/contract';
+import {
+  CRITERION_SEVERITY,
+  TITLE_MAX_LENGTH,
+  findingSchema,
+  secondLocationSchema,
+} from '@noslop/contract';
 import { buildChangedLines, isGlobMatch } from '@noslop/static-stage';
 import { buildFindingID } from './build-finding-id';
 import { findRuleCitation } from './find-rule-citation';
@@ -66,7 +71,8 @@ function buildFinding(
   }
 
   const touched = isOnChangedLine(file, anchor.startLine, anchor.endLine, true);
-  const secondLocation = model.secondLocation ?? undefined;
+  const location = secondLocationSchema.safeParse(model.secondLocation);
+  const secondLocation = location.success ? location.data : undefined;
 
   if (!touched && secondLocation === undefined && !model.missingChange) {
     return 'outside-diff-without-location';

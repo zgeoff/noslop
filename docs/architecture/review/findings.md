@@ -46,6 +46,8 @@ reason, so the CLI logs it and the [store](../measurement/store.md) records it.
    context lines included, are the diff a finding may anchor to.
 2. A finding whose anchor holds no line the change touched is dropped, unless it carries a second
    location for the affected code, or it marks a missing change anchored to the code that needs it.
+   A second location that fails its schema, such as one with no repo, counts as none, so it never
+   drops a finding on a touched line.
 3. A taste finding, or a finding of any other criterion that quotes a rule, is dropped when it names
    no rules file, or quotes words that file does not hold, so a model cannot invent a rule. The
    quote matches with whitespace collapsed and case kept, so a quote across a line wrap still
