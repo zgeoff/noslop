@@ -2,16 +2,20 @@
 
 ## [0.4.29](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.28...@noslop/cli@0.4.29) (2026-11-07)
 
-
 ### Features
 
-* **github:** pass the check when no finding is open ([#280](https://github.com/zgeoff/noslop/issues/280)) ([20eb5fe](https://github.com/zgeoff/noslop/commit/20eb5fedbe6366ec6aa012230e344903f4061538))
-* **lenses:** check seeding against the rules file's seeding rule ([#278](https://github.com/zgeoff/noslop/issues/278)) ([badcb4a](https://github.com/zgeoff/noslop/commit/badcb4a541803a1d7a1688dcb9206db92da5f15a))
-
+- **github:** pass the check when no finding is open
+  ([#280](https://github.com/zgeoff/noslop/issues/280))
+  ([20eb5fe](https://github.com/zgeoff/noslop/commit/20eb5fedbe6366ec6aa012230e344903f4061538))
+- **lenses:** check seeding against the rules file's seeding rule
+  ([#278](https://github.com/zgeoff/noslop/issues/278))
+  ([badcb4a](https://github.com/zgeoff/noslop/commit/badcb4a541803a1d7a1688dcb9206db92da5f15a))
 
 ### Bug Fixes
 
-* **lenses:** cite the rules file's own section names ([#279](https://github.com/zgeoff/noslop/issues/279)) ([a8f0e7e](https://github.com/zgeoff/noslop/commit/a8f0e7ec2cc90868f2265e69f16e7ee33c604241))
+- **lenses:** cite the rules file's own section names
+  ([#279](https://github.com/zgeoff/noslop/issues/279))
+  ([a8f0e7e](https://github.com/zgeoff/noslop/commit/a8f0e7ec2cc90868f2265e69f16e7ee33c604241))
 
 ## [0.4.28](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.27...@noslop/cli@0.4.28) (2026-11-07)
 
