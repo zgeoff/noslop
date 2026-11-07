@@ -87,7 +87,10 @@ test('it reads each finding of a pull request once, from its latest review, anch
   });
 });
 
-test('it counts a stored finding that breaks the finding contract and reads the rest', async () => {
+test.each<{ label: string; change: { severity?: string; second_location?: string } }>([
+  { label: 'a severity its criterion does not set', change: { severity: 'P1' } },
+  { label: 'a second location that is not JSON', change: { second_location: '{"repo":' } },
+])('it counts a stored finding with $label as unreadable and reads the rest', async (row) => {
   const ctx = await setupTest();
 
   const kept = buildMockFinding({ id: '2222222222222222' });
@@ -104,7 +107,7 @@ test('it counts a stored finding that breaks the finding contract and reads the 
 
   await ctx.store
     .updateTable('findings')
-    .set({ severity: 'P1' })
+    .set(row.change)
     .where('finding_id', '=', '1111111111111111')
     .execute();
 

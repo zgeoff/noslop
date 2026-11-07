@@ -35,8 +35,15 @@ export async function readRecordedFindings(
 
     seen.add(row.finding_id);
 
-    const secondLocation: unknown =
-      row.second_location === null ? undefined : JSON.parse(row.second_location);
+    const located =
+      row.second_location === null ? { value: undefined } : parseJSONText(row.second_location);
+
+    if (located === null) {
+      unreadable += 1;
+      continue;
+    }
+
+    const secondLocation = located.value;
 
     const parsed = findingSchema.safeParse({
       id: row.finding_id,
@@ -65,4 +72,14 @@ export async function readRecordedFindings(
   }
 
   return { findings, unreadable };
+}
+
+function parseJSONText(text: string): { value: unknown } | null {
+  try {
+    const value: unknown = JSON.parse(text);
+
+    return { value };
+  } catch {
+    return null;
+  }
 }
