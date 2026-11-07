@@ -14,6 +14,7 @@ import { HttpResponse, http } from 'msw';
 import { buildNetChangeKey } from './build-net-change-key';
 import { createGitHubConnection } from './create-github-connection';
 import { createGitHubReporter } from './create-github-reporter';
+import type { DeferralPolicy } from './deferral-policy';
 import { readPullRequestState } from './read-pull-request-state';
 import { runGitHubCheck } from './run-github-check';
 
@@ -22,14 +23,23 @@ function setupTest() {
   const sleep = mock((delayMs: number) => Promise.resolve(delayMs));
   const recordDispositions = mock(() => Promise.resolve());
 
-  const reporter = createGitHubReporter({
-    readDeferralPolicy: () => Promise.resolve({ baseRef: 'main', issueKeys: [] }),
-    loadConnection: () =>
-      createGitHubConnection({ appID: 1, privateKey, installationID: 7 }, null, sleep),
-    recordDispositions,
-  });
+  const loadConnection = () =>
+    createGitHubConnection({ appID: 1, privateKey, installationID: 7 }, null, sleep);
 
-  return { reporter, sleep, recordDispositions, logger: getLogger(['test']) };
+  const createReporter = (policy: DeferralPolicy) =>
+    createGitHubReporter({
+      readDeferralPolicy: () => Promise.resolve(policy),
+      loadConnection,
+      recordDispositions,
+    });
+
+  return {
+    reporter: createReporter({ baseRef: 'main', issueKeys: [] }),
+    createReporter,
+    sleep,
+    recordDispositions,
+    logger: getLogger(['test']),
+  };
 }
 
 test('it posts a review with an inline comment per finding, the summary, and a failing check', async () => {
@@ -1009,19 +1019,8 @@ test('it files a new finding in code the change did not write as one issue after
 });
 
 test('it passes its check on a finding the change did not write that is deferred to a tracker key the policy matches', async () => {
-  const privateKey = buildStubAppKey();
-  const logger = getLogger(['test']);
-
-  const reporter = createGitHubReporter({
-    readDeferralPolicy: () =>
-      Promise.resolve({ baseRef: 'main', issueKeys: [String.raw`^ABC-\d+$`] }),
-    loadConnection: () =>
-      createGitHubConnection(
-        { appID: 1, privateKey, installationID: 7 },
-        null,
-        mock((delayMs: number) => Promise.resolve(delayMs)),
-      ),
-  });
+  const ctx = setupTest();
+  const reporter = ctx.createReporter({ baseRef: 'main', issueKeys: [String.raw`^ABC-\d+$`] });
 
   await githubCollections.pullRequests.create({
     owner: 'example',
@@ -1046,7 +1045,7 @@ test('it passes its check on a finding the change did not write that is deferred
     findings: [buildMockFinding({ id: '1111111111111111', writtenByChange: false })],
   });
 
-  await reporter.report(result, { logger, options: {}, failedReporters: [] });
+  await reporter.report(result, { logger: ctx.logger, options: {}, failedReporters: [] });
 
   const [thread] = githubCollections.reviewComments.all();
 
@@ -1059,7 +1058,7 @@ test('it passes its check on a finding the change did not write that is deferred
     inReplyToID: thread?.id ?? null,
   });
 
-  await reporter.report(result, { logger, options: {}, failedReporters: [] });
+  await reporter.report(result, { logger: ctx.logger, options: {}, failedReporters: [] });
 
   expect(githubCollections.checkRuns.all().map((run) => run.conclusion)).toStrictEqual([
     'failure',
@@ -1068,19 +1067,8 @@ test('it passes its check on a finding the change did not write that is deferred
 });
 
 test('it fails its check when the pull request names another base branch than the policy it read', async () => {
-  const privateKey = buildStubAppKey();
-  const logger = getLogger(['test']);
-
-  const reporter = createGitHubReporter({
-    readDeferralPolicy: () =>
-      Promise.resolve({ baseRef: 'main', issueKeys: [String.raw`^ABC-\d+$`] }),
-    loadConnection: () =>
-      createGitHubConnection(
-        { appID: 1, privateKey, installationID: 7 },
-        null,
-        mock((delayMs: number) => Promise.resolve(delayMs)),
-      ),
-  });
+  const ctx = setupTest();
+  const reporter = ctx.createReporter({ baseRef: 'main', issueKeys: [String.raw`^ABC-\d+$`] });
 
   await githubCollections.pullRequests.create({
     owner: 'example',
@@ -1097,7 +1085,7 @@ test('it fails its check when the pull request names another base branch than th
     findings: [],
   });
 
-  await reporter.report(result, { logger, options: {}, failedReporters: [] });
+  await reporter.report(result, { logger: ctx.logger, options: {}, failedReporters: [] });
 
   expect(githubCollections.checkRuns.all().map((run) => [run.conclusion, run.title])).toStrictEqual(
     [
