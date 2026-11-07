@@ -1,5 +1,6 @@
 import { expect, mock, test } from 'bun:test';
 import { getLogger } from '@logtape/logtape';
+import type { Finding } from '@noslop/contract';
 import {
   GITHUB_API_URL,
   STUB_APP_LOGIN,
@@ -33,9 +34,17 @@ function setupTest() {
       recordDispositions,
     });
 
+  const createRecordedReporter = (recorded: Finding[]) =>
+    createGitHubReporter({
+      readDeferralPolicy: () => Promise.resolve({ baseRef: 'main', issueKeys: [] }),
+      loadConnection,
+      readRecordedFindings: () => Promise.resolve(recorded),
+    });
+
   return {
     reporter: createReporter({ baseRef: 'main', issueKeys: [] }),
     createReporter,
+    createRecordedReporter,
     sleep,
     recordDispositions,
     logger: getLogger(['test']),
@@ -2754,6 +2763,42 @@ test('it posts a finding whose lines a later commit rewrote as an issue comment 
 
   expect(comments[0]).toStartWith(
     `This finding sits at \`src/a.ts:1-1\` of \`${'e'.repeat(40)}\`, and a later commit rewrote those lines, so GitHub cannot anchor it at the head. Answer it in a comment that starts with its id, \`1111111111111111\`.`,
+  );
+
+  expect(comments[0]).toInclude(`"head":"${'e'.repeat(40)}"`);
+});
+
+test('it posts a recorded finding that no comment holds as an issue comment that names the commit its review ran against', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'c'.repeat(40),
+  });
+
+  const reporter = ctx.createRecordedReporter([
+    buildMockFinding({ id: '1111111111111111', anchorCommit: 'e'.repeat(40) }),
+  ]);
+
+  const result = buildMockReviewResult({
+    pullRequest: { owner: 'example', repo: 'app', number: 5 },
+    head: 'c'.repeat(40),
+    findings: [],
+  });
+
+  await reporter.report(result, { logger: ctx.logger, options: {}, failedReporters: [] });
+
+  const comments = githubCollections.issueComments
+    .all()
+    .map((comment) => comment.body)
+    .filter((body) => body.includes('<!-- noslop:finding'));
+
+  expect(comments).toHaveLength(1);
+
+  expect(comments[0]).toStartWith(
+    `An earlier review raised this finding at \`src/a.ts:1-1\` of \`${'e'.repeat(40)}\`, and its post never reached the pull request, so this review posts it. Answer it in a comment that starts with its id, \`1111111111111111\`.`,
   );
 
   expect(comments[0]).toInclude(`"head":"${'e'.repeat(40)}"`);

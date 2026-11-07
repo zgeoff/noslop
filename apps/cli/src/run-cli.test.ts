@@ -10,6 +10,7 @@ import { buildNetChangeKey, createGitHubReporter } from '@noslop/github';
 import { createRunner } from '@noslop/runner';
 import { createSQLiteReporter, loadStore, runStoreQuery, writeReview } from '@noslop/sqlite';
 import {
+  GITHUB_API_URL,
   STUB_APP_LOGIN,
   buildMockFinding,
   buildMockReviewResult,
@@ -22,6 +23,7 @@ import {
   githubServer,
   readTempPrefix,
 } from '@noslop/testing';
+import { HttpResponse, http } from 'msw';
 import cliPackage from '../package.json' with { type: 'json' };
 import type { CLIContext } from './cli-context';
 import { createCLIContext } from './create-cli-context';
@@ -1116,6 +1118,515 @@ test('it keeps the link to each posted finding comment in the store the config n
   expect(rows).toMatchObject([
     { commentURL: `https://github.com/example/app/pull/9#discussion_r${comment?.id}` },
   ]);
+});
+
+test('it lists a finding whose review failed its post as open after a later review raises nothing new', async () => {
+  const ctx = await setupTest();
+
+  const storePath = join(ctx.directory, 'custom', 'findings.sqlite');
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'review.json': `${JSON.stringify({ reporters: { sqlite: { path: storePath } } })}\n`,
+        'src/total.ts': 'export const zero = 0;\n',
+      },
+    },
+    {
+      message: 'Add the total',
+      files: { 'src/total.ts': 'export const zero = 0;\nexport const one = zero - 1;\n' },
+    },
+    {
+      message: 'Describe the total',
+      files: { 'README.md': '# total\n' },
+    },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    title: 'Add the total',
+    body: 'Adds one.',
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[1] ?? '',
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[1] ?? '',
+    files: ['src/total.ts'],
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/total.ts',
+    lines: [2],
+  });
+
+  const stub = buildStubAdapter({
+    light: [
+      {
+        findings: {
+          correctness: [
+            {
+              title: 'Add one, not subtract it',
+              body: 'The constant is named one but holds -1.',
+              anchor: { path: 'src/total.ts', startLine: 2, endLine: 2 },
+              secondLocation: null,
+              severity: 'P2',
+              criterion: 'wrong-behaviour-edge-path',
+              rule: null,
+              ruleQuote: null,
+              verdict: 'CONFIRMED',
+              unverifiedFact: null,
+              missingChange: false,
+              fix: null,
+            },
+          ],
+        },
+      },
+      { findings: {} },
+    ],
+  });
+
+  const installed = createCLIContext({
+    XDG_DATA_HOME: join(ctx.directory, 'data'),
+    XDG_CACHE_HOME: join(ctx.directory, 'cache'),
+    NOSLOP_GITHUB_APP_ID: '1',
+    NOSLOP_GITHUB_APP_PRIVATE_KEY: buildStubAppKey(),
+    NOSLOP_GITHUB_APP_INSTALLATION_ID: '7',
+  });
+
+  const context = {
+    ...ctx.buildContext(repo.path, stub.adapter),
+    createReporter: installed.createReporter,
+  };
+
+  githubServer.use(
+    http.post(
+      `${GITHUB_API_URL}/repos/:owner/:repo/pulls/:number/reviews`,
+      () => new HttpResponse(null, { status: 502 }),
+      { once: true },
+    ),
+  );
+
+  await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'sqlite,github', '--json'],
+    context,
+  );
+
+  await githubCollections.pullRequests.update((query) => query.where({ number: 9 }), {
+    data(record) {
+      record.headSha = repo.commits[2] ?? '';
+    },
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[2] ?? '',
+    files: ['README.md'],
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'README.md',
+    lines: [1],
+  });
+
+  await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'sqlite,github', '--json'],
+    context,
+  );
+
+  ctx.stdout.length = 0;
+
+  const code = await runCLI(['findings', '--pr', '9', '--repo', 'example/app', '--json'], context);
+
+  const list = findingListSchema.parse(JSON.parse(ctx.stdout.join('')));
+
+  expect(code).toBe(0);
+
+  expect(list).toStrictEqual({
+    findings: [
+      {
+        id: '7abb833d92aba610',
+        path: 'src/total.ts',
+        severity: 'P2',
+        state: 'open',
+        author: null,
+        reason: 'no disposition',
+        unjudged: false,
+      },
+    ],
+  });
+});
+
+test.each([
+  [
+    'closes it with an answer that starts with its id',
+    '7abb833d92aba610 not-a-defect the total counts down from zero',
+    { state: 'not-a-defect', author: 'dev', reason: null } as const,
+  ],
+  [
+    'keeps it open with a comment that names no id',
+    'not-a-defect the total counts down from zero',
+    { state: 'open', author: null, reason: 'no disposition' } as const,
+  ],
+])(
+  'it %s, for a finding whose review failed its post and a later review posted',
+  async (_label, answer, expected) => {
+    const ctx = await setupTest();
+
+    const storePath = join(ctx.directory, 'custom', 'findings.sqlite');
+
+    const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+      {
+        message: 'base',
+        files: {
+          'review.json': `${JSON.stringify({ reporters: { sqlite: { path: storePath } } })}\n`,
+          'src/total.ts': 'export const zero = 0;\n',
+        },
+      },
+      {
+        message: 'Add the total',
+        files: { 'src/total.ts': 'export const zero = 0;\nexport const one = zero - 1;\n' },
+      },
+      {
+        message: 'Describe the total',
+        files: { 'README.md': '# total\n' },
+      },
+    ]);
+
+    await githubCollections.pullRequests.create({
+      owner: 'example',
+      repo: 'app',
+      number: 9,
+      title: 'Add the total',
+      body: 'Adds one.',
+      baseSha: repo.commits[0] ?? '',
+      headSha: repo.commits[1] ?? '',
+    });
+
+    await githubCollections.pullCommits.create({
+      owner: 'example',
+      repo: 'app',
+      number: 9,
+      sha: repo.commits[1] ?? '',
+      files: ['src/total.ts'],
+    });
+
+    await githubCollections.pullFiles.create({
+      owner: 'example',
+      repo: 'app',
+      number: 9,
+      path: 'src/total.ts',
+      lines: [2],
+    });
+
+    const stub = buildStubAdapter({
+      light: [
+        {
+          findings: {
+            correctness: [
+              {
+                title: 'Add one, not subtract it',
+                body: 'The constant is named one but holds -1.',
+                anchor: { path: 'src/total.ts', startLine: 2, endLine: 2 },
+                secondLocation: null,
+                severity: 'P2',
+                criterion: 'wrong-behaviour-edge-path',
+                rule: null,
+                ruleQuote: null,
+                verdict: 'CONFIRMED',
+                unverifiedFact: null,
+                missingChange: false,
+                fix: null,
+              },
+            ],
+          },
+        },
+        { findings: {} },
+      ],
+    });
+
+    const installed = createCLIContext({
+      XDG_DATA_HOME: join(ctx.directory, 'data'),
+      XDG_CACHE_HOME: join(ctx.directory, 'cache'),
+      NOSLOP_GITHUB_APP_ID: '1',
+      NOSLOP_GITHUB_APP_PRIVATE_KEY: buildStubAppKey(),
+      NOSLOP_GITHUB_APP_INSTALLATION_ID: '7',
+    });
+
+    const context = {
+      ...ctx.buildContext(repo.path, stub.adapter),
+      createReporter: installed.createReporter,
+    };
+
+    githubServer.use(
+      http.post(
+        `${GITHUB_API_URL}/repos/:owner/:repo/pulls/:number/reviews`,
+        () => new HttpResponse(null, { status: 502 }),
+        { once: true },
+      ),
+    );
+
+    await runCLI(
+      ['review', '--pr', '9', '--repo', 'example/app', '--report', 'sqlite,github', '--json'],
+      context,
+    );
+
+    await githubCollections.pullRequests.update((query) => query.where({ number: 9 }), {
+      data(record) {
+        record.headSha = repo.commits[2] ?? '';
+      },
+    });
+
+    await githubCollections.pullCommits.create({
+      owner: 'example',
+      repo: 'app',
+      number: 9,
+      sha: repo.commits[2] ?? '',
+      files: ['README.md'],
+    });
+
+    await githubCollections.pullFiles.create({
+      owner: 'example',
+      repo: 'app',
+      number: 9,
+      path: 'README.md',
+      lines: [1],
+    });
+
+    await runCLI(
+      ['review', '--pr', '9', '--repo', 'example/app', '--report', 'sqlite,github', '--json'],
+      context,
+    );
+
+    await githubCollections.issueComments.create({
+      owner: 'example',
+      repo: 'app',
+      number: 9,
+      body: answer,
+      authorLogin: 'dev',
+    });
+
+    ctx.stdout.length = 0;
+
+    const code = await runCLI(
+      ['findings', '--pr', '9', '--repo', 'example/app', '--json'],
+      context,
+    );
+
+    const list = findingListSchema.parse(JSON.parse(ctx.stdout.join('')));
+
+    expect(code).toBe(0);
+
+    expect(list).toStrictEqual({
+      findings: [
+        {
+          id: '7abb833d92aba610',
+          path: 'src/total.ts',
+          severity: 'P2',
+          ...expected,
+          unjudged: false,
+        },
+      ],
+    });
+  },
+);
+
+test('it lists a fixed answer to a finding whose review failed its post as fixed once a later fix check confirms it', async () => {
+  const ctx = await setupTest();
+
+  const storePath = join(ctx.directory, 'custom', 'findings.sqlite');
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'review.json': `${JSON.stringify({ reporters: { sqlite: { path: storePath } } })}\n`,
+        'src/total.ts': 'export const zero = 0;\n',
+      },
+    },
+    {
+      message: 'Add the total',
+      files: { 'src/total.ts': 'export const zero = 0;\nexport const one = zero - 1;\n' },
+    },
+    {
+      message: 'Describe the total',
+      files: { 'README.md': '# total\n' },
+    },
+    {
+      message: 'Add one to the total',
+      files: { 'src/total.ts': 'export const zero = 0;\nexport const one = zero + 1;\n' },
+    },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    title: 'Add the total',
+    body: 'Adds one.',
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[1] ?? '',
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[1] ?? '',
+    files: ['src/total.ts'],
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'src/total.ts',
+    lines: [2],
+  });
+
+  const stub = buildStubAdapter({
+    light: [
+      {
+        findings: {
+          correctness: [
+            {
+              title: 'Add one, not subtract it',
+              body: 'The constant is named one but holds -1.',
+              anchor: { path: 'src/total.ts', startLine: 2, endLine: 2 },
+              secondLocation: null,
+              severity: 'P2',
+              criterion: 'wrong-behaviour-edge-path',
+              rule: null,
+              ruleQuote: null,
+              verdict: 'CONFIRMED',
+              unverifiedFact: null,
+              missingChange: false,
+              fix: null,
+            },
+          ],
+        },
+      },
+      { findings: {} },
+      { findings: {} },
+    ],
+    'fix-7abb833d92aba610': [{ fixed: true, reason: 'The constant adds one now.' }],
+  });
+
+  const installed = createCLIContext({
+    XDG_DATA_HOME: join(ctx.directory, 'data'),
+    XDG_CACHE_HOME: join(ctx.directory, 'cache'),
+    NOSLOP_GITHUB_APP_ID: '1',
+    NOSLOP_GITHUB_APP_PRIVATE_KEY: buildStubAppKey(),
+    NOSLOP_GITHUB_APP_INSTALLATION_ID: '7',
+  });
+
+  const context = {
+    ...ctx.buildContext(repo.path, stub.adapter),
+    createReporter: installed.createReporter,
+  };
+
+  githubServer.use(
+    http.post(
+      `${GITHUB_API_URL}/repos/:owner/:repo/pulls/:number/reviews`,
+      () => new HttpResponse(null, { status: 502 }),
+      { once: true },
+    ),
+  );
+
+  await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'sqlite,github', '--json'],
+    context,
+  );
+
+  await githubCollections.pullRequests.update((query) => query.where({ number: 9 }), {
+    data(record) {
+      record.headSha = repo.commits[2] ?? '';
+    },
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[2] ?? '',
+    files: ['README.md'],
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    path: 'README.md',
+    lines: [1],
+  });
+
+  await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'sqlite,github', '--json'],
+    context,
+  );
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    body: `7abb833d92aba610 fixed ${repo.commits[3] ?? ''}`,
+    authorLogin: 'dev',
+  });
+
+  await githubCollections.pullRequests.update((query) => query.where({ number: 9 }), {
+    data(record) {
+      record.headSha = repo.commits[3] ?? '';
+    },
+  });
+
+  await githubCollections.pullCommits.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    sha: repo.commits[3] ?? '',
+    files: ['src/total.ts'],
+  });
+
+  await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'sqlite,github', '--json'],
+    context,
+  );
+
+  ctx.stdout.length = 0;
+
+  const code = await runCLI(['findings', '--pr', '9', '--repo', 'example/app', '--json'], context);
+
+  const list = findingListSchema.parse(JSON.parse(ctx.stdout.join('')));
+
+  expect(code).toBe(0);
+
+  expect(list).toStrictEqual({
+    findings: [
+      {
+        id: '7abb833d92aba610',
+        path: 'src/total.ts',
+        severity: 'P2',
+        state: 'fixed',
+        author: 'dev',
+        reason: null,
+        unjudged: false,
+      },
+    ],
+  });
 });
 
 test('it creates no store when a review posts to GitHub with no sqlite reporter', async () => {

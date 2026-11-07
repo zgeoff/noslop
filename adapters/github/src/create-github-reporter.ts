@@ -16,12 +16,14 @@ import type { GitHubClient, GitHubConnection } from './create-github-connection'
 import type { ReadDeferralPolicy } from './deferral-policy';
 import { findLensHead } from './find-lens-head';
 import { followUpMarkerSchema } from './follow-up-marker';
+import { formatCarriedComment } from './format-carried-comment';
 import { formatFindingComment } from './format-finding-comment';
 import { formatFixedFindingComment } from './format-fixed-finding-comment';
 import { formatMarker } from './format-marker';
 import { formatRewrittenComment } from './format-rewritten-comment';
 import type { FixConfirmation } from './format-summary-comment';
 import { formatSummaryComment } from './format-summary-comment';
+import { formatUnanchoredComment } from './format-unanchored-comment';
 import type { NetChangeKey } from './net-change-key';
 import { parseMarker } from './parse-marker';
 import { planReviewPost } from './plan-review-post';
@@ -37,6 +39,8 @@ import { withWriteRetry } from './with-write-retry';
 export interface GitHubReporterOptions {
   loadConnection: () => Promise<GitHubConnection>;
   readDeferralPolicy: ReadDeferralPolicy;
+
+  readRecordedFindings?: (pr: PullRequestRef) => Promise<Finding[]>;
 
   recordCommentURLs?: (pr: PullRequestRef, links: ReadonlyMap<string, string>) => Promise<void>;
 
@@ -115,7 +119,15 @@ async function runReviewPost(
 
   const posted = new Set([...before.threads.map((thread) => thread.marker.id), ...filed]);
 
-  const plan = planReviewPost({ summary: before.summary?.marker ?? null, posted }, result);
+  const readRecorded = options.readRecordedFindings ?? (() => Promise.resolve([]));
+
+  const recorded = await readRecorded(pr);
+
+  const plan = planReviewPost(
+    { summary: before.summary?.marker ?? null, posted, recorded },
+    result,
+  );
+
   const reported = collectReported(result);
 
   if (!plan.writesSummary) {
@@ -148,6 +160,14 @@ async function runReviewPost(
     await write(() =>
       withWriteRetry('rewritten finding comment', 'once', connection.sleep, () =>
         createIssueComment(client, pr, formatRewrittenComment(finding, result.head)),
+      ),
+    );
+  }
+
+  for (const finding of plan.carried) {
+    await write(() =>
+      withWriteRetry('carried finding comment', 'once', connection.sleep, () =>
+        createIssueComment(client, pr, formatCarriedComment(finding, result.head)),
       ),
     );
   }
@@ -383,17 +403,6 @@ async function createIssueComment(
     issue_number: pr.number,
     body,
   });
-}
-
-function formatUnanchoredComment(post: FindingPost, head: string): string {
-  const finding = post.lead;
-  const anchor = `\`${finding.anchor.path}:${finding.anchor.startLine}-${finding.anchor.endLine}\``;
-
-  return [
-    `GitHub cannot anchor this finding at ${anchor}, outside the diff. Answer it in a comment that starts with its id, \`${finding.id}\`.`,
-    '',
-    formatFindingComment(finding, head, post.folded),
-  ].join('\n');
 }
 
 async function loadUnfiledFollowUps(

@@ -4,6 +4,7 @@ import type { SummaryMarker } from './summary-marker';
 export interface PostPrior {
   summary: SummaryMarker | null;
   posted: ReadonlySet<string>;
+  recorded: readonly Finding[];
 }
 
 export interface PostPlan {
@@ -11,6 +12,7 @@ export interface PostPlan {
   reviews: number;
   reviewIDs: string[];
   inline: Finding[];
+  carried: Finding[];
   followUps: Finding[];
 }
 
@@ -27,6 +29,7 @@ export function planReviewPost(prior: PostPrior, result: ReviewResult): PostPlan
       reviews: prior.summary?.reviews ?? 0,
       reviewIDs: counted,
       inline: [],
+      carried: [],
       followUps: [],
     };
   }
@@ -39,6 +42,12 @@ export function planReviewPost(prior: PostPrior, result: ReviewResult): PostPlan
   const reviews = (prior.summary?.reviews ?? 0) + (isRound ? 1 : 0);
   const fresh = result.findings.filter((finding) => !prior.posted.has(finding.id));
 
+  const reported = new Set(result.findings.map((finding) => finding.id));
+
+  const carried = prior.recorded.filter(
+    (finding) => !prior.posted.has(finding.id) && !reported.has(finding.id),
+  );
+
   const followUps =
     reviews > RECHECKED_REVIEWS
       ? fresh.filter((finding) => finding.lens !== 'security' && !finding.writtenByChange)
@@ -49,6 +58,7 @@ export function planReviewPost(prior: PostPrior, result: ReviewResult): PostPlan
     reviews,
     reviewIDs: isRepost ? counted : [...counted, result.reviewID],
     inline: fresh.filter((finding) => !followUps.includes(finding)),
+    carried,
     followUps,
   };
 }

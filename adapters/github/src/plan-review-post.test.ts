@@ -6,7 +6,7 @@ test('it writes the first review of a pull request in full and counts it', () =>
   const finding = buildMockFinding({ id: '1111111111111111' });
 
   const plan = planReviewPost(
-    { summary: null, posted: new Set() },
+    { summary: null, posted: new Set(), recorded: [] },
     buildMockReviewResult({ reviewID: 'review-a', findings: [finding] }),
   );
 
@@ -15,6 +15,7 @@ test('it writes the first review of a pull request in full and counts it', () =>
     reviews: 1,
     reviewIDs: ['review-a'],
     inline: [finding],
+    carried: [],
     followUps: [],
   });
 });
@@ -33,6 +34,7 @@ test('it counts a repost of the latest review as no new review', () => {
         startedAt: '2026-10-17T10:05:00.000Z',
       },
       posted: new Set(),
+      recorded: [],
     },
     buildMockReviewResult({ reviewID: 'review-b', startedAt: '2026-10-17T10:05:00.000Z' }),
   );
@@ -42,6 +44,7 @@ test('it counts a repost of the latest review as no new review', () => {
     reviews: 2,
     reviewIDs: ['review-a', 'review-b'],
     inline: [],
+    carried: [],
     followUps: [],
   });
 });
@@ -60,6 +63,7 @@ test('it counts no new review for a fixes-only run', () => {
         startedAt: '2026-10-17T10:05:00.000Z',
       },
       posted: new Set(),
+      recorded: [],
     },
     buildMockReviewResult({
       reviewID: 'review-c',
@@ -74,6 +78,7 @@ test('it counts no new review for a fixes-only run', () => {
     reviews: 2,
     reviewIDs: ['review-a', 'review-b', 'review-c'],
     inline: [],
+    carried: [],
     followUps: [],
   });
 });
@@ -92,6 +97,7 @@ test('it counts no new review for a review that ran no lens and raised no findin
         startedAt: '2026-10-17T10:05:00.000Z',
       },
       posted: new Set(),
+      recorded: [],
     },
     buildMockReviewResult({
       reviewID: 'review-c',
@@ -107,6 +113,7 @@ test('it counts no new review for a review that ran no lens and raised no findin
     reviews: 2,
     reviewIDs: ['review-a', 'review-b', 'review-c'],
     inline: [],
+    carried: [],
     followUps: [],
   });
 });
@@ -125,6 +132,7 @@ test('it counts a new review for a lens review that made fix calls', () => {
         startedAt: '2026-10-17T10:05:00.000Z',
       },
       posted: new Set(),
+      recorded: [],
     },
     buildMockReviewResult({
       reviewID: 'review-b',
@@ -149,6 +157,7 @@ test('it leaves the summary to a later review when a counted earlier review is r
         reviewIDs: ['review-a', 'review-b'],
       },
       posted: new Set(),
+      recorded: [],
     },
     buildMockReviewResult({
       reviewID: 'review-a',
@@ -161,6 +170,7 @@ test('it leaves the summary to a later review when a counted earlier review is r
     reviews: 2,
     reviewIDs: ['review-a', 'review-b'],
     inline: [],
+    carried: [],
     followUps: [],
   });
 });
@@ -179,6 +189,7 @@ test('it leaves the summary to a later review when an uncounted review that star
         startedAt: '2026-10-17T10:05:00.000Z',
       },
       posted: new Set(),
+      recorded: [],
     },
     buildMockReviewResult({
       reviewID: 'review-a',
@@ -192,6 +203,7 @@ test('it leaves the summary to a later review when an uncounted review that star
     reviews: 1,
     reviewIDs: ['review-b'],
     inline: [],
+    carried: [],
     followUps: [],
   });
 });
@@ -213,6 +225,7 @@ test.each([
         startedAt: '2026-10-17T10:05:00.000Z',
       },
       posted: new Set(),
+      recorded: [],
     },
     buildMockReviewResult({ reviewID: 'review-b', startedAt }),
   );
@@ -222,6 +235,7 @@ test.each([
     reviews: 2,
     reviewIDs: ['review-a', 'review-b'],
     inline: [],
+    carried: [],
     followUps: [],
   });
 });
@@ -239,6 +253,7 @@ test('it writes an uncounted review in full when the summary marker holds no sta
         reviewIDs: ['review-b'],
       },
       posted: new Set(),
+      recorded: [],
     },
     buildMockReviewResult({ reviewID: 'review-a', startedAt: '2026-10-17T09:00:00.000Z' }),
   );
@@ -248,6 +263,7 @@ test('it writes an uncounted review in full when the summary marker holds no sta
     reviews: 2,
     reviewIDs: ['review-b', 'review-a'],
     inline: [],
+    carried: [],
     followUps: [],
   });
 });
@@ -256,7 +272,11 @@ test('it posts no finding that a comment or a follow-up issue already carries', 
   const fresh = buildMockFinding({ id: '3333333333333333' });
 
   const plan = planReviewPost(
-    { summary: null, posted: new Set(['1111111111111111', '2222222222222222']) },
+    {
+      summary: null,
+      posted: new Set(['1111111111111111', '2222222222222222']),
+      recorded: [],
+    },
     buildMockReviewResult({
       reviewID: 'review-a',
       findings: [
@@ -268,6 +288,62 @@ test('it posts no finding that a comment or a follow-up issue already carries', 
   );
 
   expect(plan.inline).toStrictEqual([fresh]);
+});
+
+test('it carries each recorded finding that no comment, follow-up or finding of the review holds', () => {
+  const unposted = buildMockFinding({ id: '3333333333333333', anchorCommit: 'a'.repeat(40) });
+
+  const plan = planReviewPost(
+    {
+      summary: null,
+      posted: new Set(['1111111111111111']),
+      recorded: [
+        buildMockFinding({ id: '1111111111111111', anchorCommit: 'a'.repeat(40) }),
+        buildMockFinding({ id: '2222222222222222', anchorCommit: 'a'.repeat(40) }),
+        unposted,
+      ],
+    },
+    buildMockReviewResult({
+      reviewID: 'review-b',
+      findings: [buildMockFinding({ id: '2222222222222222' })],
+    }),
+  );
+
+  expect(plan.carried).toStrictEqual([unposted]);
+});
+
+test('it carries a recorded finding onto the pull request after the re-check, not into a follow-up', () => {
+  const unposted = buildMockFinding({
+    id: '1111111111111111',
+    writtenByChange: false,
+    anchorCommit: 'a'.repeat(40),
+  });
+
+  const plan = planReviewPost(
+    {
+      summary: {
+        head: 'b'.repeat(40),
+        reviews: 2,
+        reported: [],
+        failedCalls: 0,
+        followUps: [],
+        confirmed: [],
+        reviewIDs: ['review-a', 'review-b'],
+      },
+      posted: new Set(),
+      recorded: [unposted],
+    },
+    buildMockReviewResult({ reviewID: 'review-c', findings: [] }),
+  );
+
+  expect(plan).toStrictEqual({
+    writesSummary: true,
+    reviews: 3,
+    reviewIDs: ['review-a', 'review-b', 'review-c'],
+    inline: [],
+    carried: [unposted],
+    followUps: [],
+  });
 });
 
 test('it files each new finding outside security in code the change did not write as a follow-up after the re-check', () => {
@@ -293,6 +369,7 @@ test('it files each new finding outside security in code the change did not writ
         reviewIDs: ['review-a', 'review-b'],
       },
       posted: new Set(),
+      recorded: [],
     },
     buildMockReviewResult({ reviewID: 'review-c', findings: [unwritten, security, written] }),
   );
@@ -302,6 +379,7 @@ test('it files each new finding outside security in code the change did not writ
     reviews: 3,
     reviewIDs: ['review-a', 'review-b', 'review-c'],
     inline: [security, written],
+    carried: [],
     followUps: [unwritten],
   });
 });
@@ -321,6 +399,7 @@ test('it files no follow-up on the one re-check', () => {
         reviewIDs: ['review-a'],
       },
       posted: new Set(),
+      recorded: [],
     },
     buildMockReviewResult({ reviewID: 'review-b', findings: [unwritten] }),
   );

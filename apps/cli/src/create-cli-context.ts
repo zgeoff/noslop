@@ -14,6 +14,7 @@ import { createGitHubConnectionLoader } from './create-github-connection-loader'
 import { createJSONReporter } from './create-json-reporter';
 import { makeCommentURLRecorder } from './make-comment-url-recorder';
 import { makeDispositionRecorder } from './make-disposition-recorder';
+import { makeRecordedFindingReader } from './make-recorded-finding-reader';
 import { readDeferralPolicy } from './read-deferral-policy';
 
 export function createCLIContext(env: Readonly<Record<string, string | undefined>>): CLIContext {
@@ -30,8 +31,9 @@ export function createCLIContext(env: Readonly<Record<string, string | undefined
   const loadGitHubConnection = github.load;
   const logger = getLogger(['noslop']);
 
-  // Opening a SQLite store creates its file, so a run with no sqlite reporter records no comment
-  // links or dispositions rather than make a store the config never asked for.
+  // Opening a SQLite store creates its file, so a run with no sqlite reporter reads no recorded
+  // finding and records no comment links or dispositions, rather than make a store the config
+  // never asked for.
   const reporters: Record<string, (storePath: string | null) => Reporter> = {
     json: () => createJSONReporter(writeStdout),
     sqlite: () =>
@@ -43,6 +45,7 @@ export function createCLIContext(env: Readonly<Record<string, string | undefined
         ...(storePath === null
           ? {}
           : {
+              readRecordedFindings: makeRecordedFindingReader(storePath, logger),
               recordCommentURLs: makeCommentURLRecorder(storePath, logger),
               recordDispositions: makeDispositionRecorder(storePath, logger),
             }),

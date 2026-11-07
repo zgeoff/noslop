@@ -97,17 +97,23 @@ it posts anything.
    comment on its own. A finding GitHub still refuses goes into an issue comment on the pull request
    that names its anchor. A person answers it with an issue comment that starts with the finding's
    id.
-4. After the one re-check, a new finding that is no security finding and sits in code the change did
+4. When the review's reporters include `sqlite`, the reporter reads the findings that earlier
+   reviews of the pull request recorded in the store. It posts each one that no finding comment,
+   filed follow-up or finding of this review holds, because such a finding comes from a review whose
+   own post failed after the store kept it. Each goes into an issue comment that holds the commit
+   the earlier review ran against, never into a follow-up issue. A person answers it with an issue
+   comment that starts with its id.
+5. After the one re-check, a new finding that is no security finding and sits in code the change did
    not write goes to a follow-up issue in the repo instead of the pull request. The summary marker
    keeps each filed id, so a later review files the issue once. Each follow-up issue holds a marker
    with its finding and pull request, so a retried post that failed before the summary finds the
    issue it opened and files none twice. The reporter runs one post of a pull request at a time in a
    process, so 2 posts of one review cannot both miss the issue and both file it.
-5. It edits the comment of each finding whose fix the review confirms: it strikes the heading
+6. It edits the comment of each finding whose fix the review confirms: it strikes the heading
    through, names the commit the answer gives or the head for a bare `fixed`, and collapses the
    comment as posted under them, with the marker kept byte for byte. When a later review no longer
    confirms the fix, the reporter restores the comment as posted.
-6. It writes the summary comment, which it creates on the first review and edits in place after
+7. It writes the summary comment, which it creates on the first review and edits in place after
    that. The summary opens with the count of the findings this review reports and a risk level: high
    with any P1 or risk-class finding, medium with any P2, and low otherwise. A review with a failed
    call says it is partial, and the summary names the first files that no call read, with their
@@ -116,7 +122,7 @@ it posts anything.
    fixed only when every finding an earlier review posted holds a confirmed fix. A table links each
    finding to its comment, and the reviewed head and base, the depth, the lenses, a special change
    and each failed call sit in a collapsed block.
-7. It sets the check run.
+8. It sets the check run.
 
 The reporter sends a write again when GitHub refuses it with a rate limit, because GitHub asks for a
 wait and a refused write saves nothing. It waits as long as the answer's `retry-after` header gives,
