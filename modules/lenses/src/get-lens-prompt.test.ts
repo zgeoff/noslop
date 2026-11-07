@@ -31,6 +31,17 @@ test('it tells the naming lens to report a one-off script under a rule and skip 
   ]);
 });
 
+test('it labels the naming lens items with the rules file section names', () => {
+  const prompt = getLensPrompt('naming-shape-and-comments');
+
+  expect(prompt).toIncludeMultiple([
+    '1. Function names: a verb whose guarantee in the verb table the function breaks',
+    '2. Comments.',
+    '3. Types. The `typeClaims` slice',
+    '4. One-off codemods. The `scripts` slice',
+  ]);
+});
+
 test('it tells the naming lens to quote a verb table row and skip a choice between two verbs', () => {
   const prompt = getLensPrompt('naming-shape-and-comments');
 
