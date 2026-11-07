@@ -16,7 +16,7 @@ export function makeRecordedFindingReader(
 
         if (recorded.unreadable > 0) {
           logger.warn(
-            '{count} recorded findings of {pr} break the finding contract, so none of them posts',
+            'recorded findings of {pr} that break the finding contract, so the review posts none of them: {count}',
             {
               count: recorded.unreadable,
               pr: pr.number,
