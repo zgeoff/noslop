@@ -109,7 +109,7 @@ on it with a real model CLI, and checks that the findings land at anchors in the
    ```
 
    Expect `1 pass` and `0 fail`. The seeded-defects review calls the model, so it can run for up to
-   30 minutes, and it uses that account's quota. Without the variable, the lane fails.
+   100 s, and it uses that account's quota. Without the variable, the lane fails.
 
 ## Build the npm package
 

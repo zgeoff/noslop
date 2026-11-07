@@ -15,7 +15,9 @@ minimumReleaseAgeExcludes = [
   "@zgeoff/diet",
   "@zgeoff/format-codemod",
   "@zgeoff/oxlint-config",
+  "@zgeoff/rig",
   "@zgeoff/skill-gate",
+  "@zgeoff/std",
 ]
 
 [test]
