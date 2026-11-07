@@ -38,7 +38,8 @@ Never swallow an error in a catch block. Rethrow it, or log it with the input th
    ```
 
 2. To give the lenses more than one file, list them. The lenses read every file that applies to the
-   change, each under its label, which is the path as you wrote it unless the entry sets `label`.
+   change, each in a block named by its label, which is the path as you wrote it unless the entry
+   sets `label`.
 
    ```json
    {

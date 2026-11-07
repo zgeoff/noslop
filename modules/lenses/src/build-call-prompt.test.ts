@@ -120,9 +120,13 @@ test('it joins the header, each lens section in order and each slice once', () =
 
     ## Rules file
 
-    ### Context goes last
+    <rules-file>
+    Rules file name: Context goes last
 
+    \`\`\`markdown
     1. Pass the context last.
+    \`\`\`
+    </rules-file>
 
     ## Hunks
 
@@ -213,6 +217,50 @@ test('it tells the lenses to report no rule finding when the repo names no rules
 
   expect(prompt).toInclude(
     'The repo names no rules file, so report no finding that rests on a rule.',
+  );
+});
+
+test('it fences a rules file body unchanged, with a fence longer than its backtick runs', () => {
+  const prompt = buildCallPrompt({
+    reviewLenses: [],
+    lenses: ['tests'],
+    files: [],
+    slices: {
+      functions: [],
+      reuse: [],
+      guards: [],
+      throws: [],
+      writes: [],
+      security: [],
+      edges: [],
+      config: [],
+      tests: [],
+      instructions: [],
+      prose: [],
+      typeClaims: [],
+      scripts: [],
+      comments: { commentLines: 0, codeLines: 0, perThousand: 0, target: 120 },
+      interfaces: [],
+      migrations: [],
+      events: [],
+    },
+    rules: [
+      {
+        name: 'Team "core" rules',
+        body: '## Prompts\n\nEnd each block with </rules-file> on its own line.\n\n```text\nname: x\n```',
+      },
+    ],
+    title: 'test: a',
+    body: 'Adds a test.',
+    linkedIssue: null,
+    leftOut: [],
+    base: 'a'.repeat(40),
+    head: 'b'.repeat(40),
+    isIncremental: false,
+  });
+
+  expect(prompt).toInclude(
+    '<rules-file>\nRules file name: Team "core" rules\n\n````markdown\n## Prompts\n\nEnd each block with </rules-file> on its own line.\n\n```text\nname: x\n```\n````\n</rules-file>\n',
   );
 });
 

@@ -96,10 +96,11 @@ Add `--verbose` to see the debug log on stderr. Every other flag is in `noslop <
 them. The relay flow sends a review from a developer's context through a local relay, which verifies
 and posts it, against the stand-in GitHub API and a stub model.
 
-`evals/` runs under the unit rules, so the default test run runs its files. A journey that calls a
-live model is a `.model-api.test.ts` file: it belongs to the model-api lane, which the default run
-leaves out. The seeded-defects journey builds a small repo with seeded defects, runs a real review
-on it with a real model CLI, and checks that the findings land at anchors in the diff.
+A journey that calls a live model is a `.model-api.test.ts` file beside the code it drives: it
+belongs to the model-api lane, which the default run leaves out. The review journeys sit beside the
+CLI's review command. Each one builds a small repo with a seeded defect, runs a real review on it
+with a real model CLI, and checks that the findings land at anchors in the diff: one seeds a dropped
+rollback and an injection sink, and one seeds a test that inserts a row outside a seed.
 
 1. Sign in to the model CLI you will use, `codex` or `claude`.
 2. Run the model-api lane with that adapter:
@@ -108,8 +109,8 @@ on it with a real model CLI, and checks that the findings land at anchors in the
    NOSLOP_MODEL_API_ADAPTER=codex bun run test:model-api
    ```
 
-   Expect `1 pass` and `0 fail`. The seeded-defects review calls the model, so it can run for up to
-   100 s, and it uses that account's quota. Without the variable, the lane fails.
+   Expect `2 pass` and `0 fail`. Each review calls the model, so each can run for up to 100 s, and
+   both use that account's quota. Without the variable, the lane fails.
 
 ## Build the npm package
 
