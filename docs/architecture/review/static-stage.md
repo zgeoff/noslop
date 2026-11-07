@@ -128,6 +128,12 @@ files keep the change from routing as a sync, so the lenses still review them. T
 GitHub login of the account that opened the pull request, so a local review, which has none, always
 runs it.
 
+The format-only check compares each run of changed lines in a hunk on its own: the deleted lines and
+the added lines directly after them, with no unchanged line between. It reports a hunk that deletes
+and adds at least one line each, and only when the two sides of every run match once whitespace
+outside string literals is removed. A run that only drops or adds blank lines matches. A hunk that
+moves a block deletes the block in one run and adds it in another, so it gets no finding.
+
 The review takes the linked issue and a reader for consumer manifests from its caller. The CLI takes
 the linked issue from `--issue-file` when it is given, so an issue that lives outside GitHub reaches
 the review with no tracker code in noslop. Without it, a review of a pull request reads the GitHub
