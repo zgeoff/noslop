@@ -20,7 +20,7 @@ export function formatCodexFailure(stdout: string, stderr: string): string {
   const eventMessages = stdout
     .split('\n')
     .map((line) => errorEventSchema.safeParse(parseJSONLine(line)))
-    .flatMap((event) => (event.success ? [event.data] : []));
+    .flatMap((parsedEvent) => (parsedEvent.success ? [parsedEvent.data] : []));
 
   const stderrLines = stderr.split('\n');
 
