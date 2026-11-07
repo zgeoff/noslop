@@ -10,9 +10,7 @@ async function setupTest() {
 
   onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  const tsc = join(import.meta.dir, '..', 'node_modules', '.bin', 'tsc');
-
-  return { directory, tsc };
+  return { directory };
 }
 
 test('it builds a manifest that names the bundle, the subpath exports and no workspace dependency', async () => {
@@ -81,88 +79,4 @@ test('it bundles the lens prompts and leaves the native parser to npm', async ()
   expect(bundle).toStartWith('#!/usr/bin/env bun\n');
   expect(bundle).toInclude('{{criteria}}');
   expect(bundle).not.toInclude('oxc-parser/binding-');
-});
-
-test('it ships declarations that a project importing the contract from the tarball type-checks against', async () => {
-  const ctx = await setupTest();
-
-  const packageDir = join(ctx.directory, 'package');
-  const projectDir = join(ctx.directory, 'project');
-
-  await writeCLIPackage(packageDir);
-
-  await Bun.$`bun pm pack --quiet`.cwd(packageDir).quiet();
-
-  const packed = await readdir(packageDir);
-
-  const tarball = packed.find((file) => file.endsWith('.tgz'));
-
-  await Bun.write(
-    join(projectDir, 'package.json'),
-    JSON.stringify({
-      name: 'project',
-      private: true,
-      type: 'module',
-      dependencies: { '@noslop/cli': `file:${join(packageDir, tarball ?? '')}` },
-    }),
-  );
-
-  await Bun.write(
-    join(projectDir, 'tsconfig.json'),
-    JSON.stringify({
-      compilerOptions: {
-        strict: true,
-        module: 'nodenext',
-        moduleResolution: 'nodenext',
-        target: 'esnext',
-        noEmit: true,
-        skipLibCheck: false,
-        types: [],
-      },
-      include: ['index.ts'],
-    }),
-  );
-
-  await Bun.write(
-    join(projectDir, 'index.ts'),
-    [
-      "import type { ReviewResult } from '@noslop/cli/contract';",
-      "import { REVIEW_OUTPUT_VERSION, reviewResultSchema } from '@noslop/cli/contract';",
-      "import { check } from '@noslop/cli/check';",
-      "import { sendResult } from '@noslop/cli/post';",
-      "import { verify } from '@noslop/cli/verify';",
-      '',
-      'export function verifyHead(value: unknown): Promise<string> {',
-      '  return verify(value, { env: {} }).then((result) => result.head);',
-      '}',
-      '',
-      'export function postHead(value: unknown): Promise<string> {',
-      '  return sendResult(value, { env: {}, verify: false }).then((result) => result.head);',
-      '}',
-      '',
-      'export function isReviewed(): Promise<boolean> {',
-      "  return check({ owner: 'o', repo: 'r', number: 1 }, { env: {} }).then((outcome) => outcome.reviewed);",
-      '}',
-      '',
-      'export function countFindings(value: unknown): number {',
-      '  const result: ReviewResult = reviewResultSchema.parse(value);',
-      '  const version: typeof REVIEW_OUTPUT_VERSION = result.version;',
-      '',
-      '  return result.findings.length + version;',
-      '}',
-      '',
-      '// @ts-expect-error a finding count is no string',
-      'export const wrong: string = countFindings({});',
-      '',
-    ].join('\n'),
-  );
-
-  await Bun.$`bun install --silent`.cwd(projectDir).quiet();
-
-  const checked = await Bun.$`${ctx.tsc} -p ${projectDir}`.nothrow().quiet();
-
-  expect({ exitCode: checked.exitCode, stdout: checked.stdout.toString() }).toStrictEqual({
-    exitCode: 0,
-    stdout: '',
-  });
 });

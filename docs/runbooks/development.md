@@ -37,10 +37,10 @@ bun run check
 ```
 
 Expect each script to pass in turn: audit, dead code, the format check, the type-aware lint,
-typecheck, the dependency boundaries, the prose check and the tests. CI runs the same list on each
-pull request and each push to `main`, from the `BUN_CHECK_SCRIPTS` repo variable, so a change to the
-list changes `bun run check` in the same commit. `bun run format` fixes what the format check
-reports.
+typecheck, the dependency boundaries, the prose check, the tests and the package-types check. CI
+runs the same list, less the package-types check, on each pull request and each push to `main`, from
+the `BUN_CHECK_SCRIPTS` repo variable, so a change to the list changes `bun run check` in the same
+commit. `bun run format` fixes what the format check reports.
 
 Run one package's tests, or one file, with a path:
 
@@ -64,8 +64,9 @@ lefthook runs the hooks that `bun install` installed.
 - Before a commit, it fixes the staged files with oxlint and oxfmt, runs format-codemod on staged
   TypeScript, and scans the staged diff with gitleaks.
 - On the commit message, it runs commitlint.
-- Before a push, it runs the dependency boundaries and the prose check, then the format check and
-  typecheck over the whole tree, then lint and the related tests over what the branch changes.
+- Before a push, it runs the dependency boundaries, the prose check and the package-types check,
+  then the format check and typecheck over the whole tree, then lint and the related tests over what
+  the branch changes.
 
 The type-aware lint, the dead-code check and the whole test suite run only in `bun run check` and
 CI, so a push that passes the hooks can still fail CI.
@@ -119,3 +120,9 @@ with a manifest that holds no workspace dependency, and prints
 `built @noslop/cli@<version> in apps/cli/dist`. Use it to check the package that a release
 publishes. [The CLI](../architecture/output/cli.md) covers what the bundle holds, and
 [Releasing](./releasing.md) covers the publish.
+
+`bun run check:package-types` builds and packs the package, installs the tarball in a scratch
+project, and runs tsc on a file that imports each library subpath. It prints
+`package types: a project that imports the tarball's subpaths type-checks`, or tsc's exit code and
+errors. The install fetches the package's dependencies from npm, so the check runs before a push,
+and the unit tests leave it out.

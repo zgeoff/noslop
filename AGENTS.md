@@ -128,6 +128,6 @@ Before you commit, grep the diff for `sk-ant`, `GOCSPX`, `AGE-SECRET-KEY`, `ops_
   place, because stock tsgolint runs out of memory under 2 GiB. `lint:full` runs in CI and in
   `bun run check`, never in a git hook.
 - lefthook runs oxlint, oxfmt, format-codemod and gitleaks before a commit, and commitlint on the
-  message. Before a push it runs boundaries and the prose check, then the shared pre-push baseline:
-  the format check and typecheck over the whole tree, and lint and the tests over what the branch
-  changes.
+  message. Before a push it runs boundaries, the prose check and the package-types check, then the
+  shared pre-push baseline: the format check and typecheck over the whole tree, and lint and the
+  tests over what the branch changes.
