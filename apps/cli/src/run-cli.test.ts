@@ -7967,7 +7967,7 @@ test('it lists an accepted-risk finding as open when its author has no admin per
   });
 });
 
-test('it lists a finding deferred to a tracker key as deferred when a pattern of the base config matches the key, and as open when none does', async () => {
+test('it lists a finding deferred to a tracker key as deferred when a pattern of the base config matches the key, and as open when none does or the answer is a GitHub issue that does not exist', async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
@@ -7995,12 +7995,13 @@ test('it lists a finding deferred to a tracker key as deferred when a pattern of
     repo: 'app',
     ref: repo.commits[0] ?? '',
     path: 'review.json',
-    content: JSON.stringify({ issueKeys: [String.raw`^ABC-\d+$`] }),
+    content: JSON.stringify({ issueKeys: [String.raw`ABC-\d+`] }),
   });
 
   const findings = [
     ['1111111111111111', 'deferred ABC-41'],
     ['2222222222222222', 'deferred TASK-7'],
+    ['3333333333333333', 'deferred https://github.com/example/ABC-41/issues/999'],
   ];
 
   for (const [id, answer] of findings) {
@@ -8037,6 +8038,7 @@ test('it lists a finding deferred to a tracker key as deferred when a pattern of
     [
       ['deferred', null],
       ['open', 'the issue TASK-7 does not exist'],
+      ['open', 'the issue https://github.com/example/ABC-41/issues/999 does not exist'],
     ],
   ]);
 });
