@@ -119,11 +119,15 @@ never need to touch the finding's file only to name it. The fix check reads the 
 and body as they stand, so for a finding about the description, edit the description and reply
 `fixed`.
 
-When noslop lists the reason `no fix check has confirmed the fix yet` in the check run, or
-`no fix check has confirmed the commit <sha> yet` for a `fixed <sha>` reply, no fix check has judged
-your reply, because the last review ran before you posted the reply. Ask whoever runs the App to run
-the fix checks with the App's credentials in the environment:
-`noslop review --pr <number> --fixes-only --report github`. When the reason is
+noslop lists one of these reasons in the check run when no fix check has judged your reply yet,
+because the last review ran before you posted the reply or pushed the fix:
+
+- `no fix check has confirmed the fix yet`, for a bare `fixed`;
+- `no fix check has confirmed the commit <sha> yet`, for a `fixed <sha>` reply;
+- `no fix check has read the commit <sha> yet`, for a fix commit pushed after the last review.
+
+For each of these, ask whoever runs the App to run the fix checks with the App's credentials in the
+environment: `noslop review --pr <number> --fixes-only --report github`. When the reason is
 `the re-review still finds it`, the review reported the finding again or the fix check judged it not
 fixed: fix it again, or answer with another kind.
 
