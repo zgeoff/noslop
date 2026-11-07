@@ -304,12 +304,14 @@ an error. Under `--read-only` it sets no check run and exits 1 unless the check 
 ### The net-change key
 
 The summary marker keeps the key of the pull request's net change, the diff from its merge base to
-its head, as the review read it, and the next review reads only the files whose id moved. The key
-holds one patch id per changed file. The `github` reporter and the CLI each build it the same way,
-from the patches GitHub lists for the pull request's files. Each hunk header loses its line numbers,
-because a change of the base above a hunk moves them, and keeps the heading of the code the hunk
-sits in, so 2 like edits in 2 functions get 2 ids. The id hashes the file's status, its earlier path
-and that patch. A binary or large file, of which GitHub gives no patch, keys on its blob.
+its head, as the review read it. It also keeps the key and the head of the last review that ran the
+lenses, and the next review reads only the files whose id moved since that lens review, under
+[re-review and fix confirmation](#re-review-and-fix-confirmation). The key holds one patch id per
+changed file. The `github` reporter and the CLI each build it the same way, from the patches GitHub
+lists for the pull request's files. Each hunk header loses its line numbers, because a change of the
+base above a hunk moves them, and keeps the heading of the code the hunk sits in, so 2 like edits in
+2 functions get 2 ids. The id hashes the file's status, its earlier path and that patch. A binary or
+large file, of which GitHub gives no patch, keys on its blob.
 
 A clean rebase and a merge of the base that touches no line near the pull request's hunks leave
 every patch id where it was, so the next review reads no file. A push that changes a file's patch
@@ -324,4 +326,5 @@ reads the whole change:
 
 When the summary marker holds no key, as a marker that an older release wrote, the next review of
 another head reads the whole change and writes the key. A [fixes-only run](./fixes-only-run.md) that
-writes its own head writes the key too.
+writes its own head writes the key at that head too, and leaves the lens review's key in place, so
+the next review's scope stays the same.
