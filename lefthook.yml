@@ -22,7 +22,7 @@ pre-commit:
     - name: format-codemod
       glob: '*.{ts,tsx}'
       exclude:
-        - '.claude/hooks/skill-gate/**'
+        - '.claude/hooks/start.ts'
         - '**/dist/**'
         - '**/coverage/**'
         - '.worktrees/**'

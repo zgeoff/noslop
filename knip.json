@@ -4,9 +4,9 @@
   "ignore": [".claude/**"],
   // the Bun plugin takes its test files from a `bun test` script, and rig runs the tests
   "bun": { "entry": ["**/*.test.{ts,tsx}"] },
-  // the shared oxlint config loads the plugin, and the synced skill-gate hook in .claude/ imports
+  // the shared oxlint config loads the plugin, and the synced start-up stub in .claude/ imports
   // the package, so knip sees neither
-  "ignoreDependencies": ["@stylistic/eslint-plugin", "@zgeoff/skill-gate"],
+  "ignoreDependencies": ["@stylistic/eslint-plugin", "@zgeoff/agent-hooks"],
   // repo-sync delivers these scripts from zgeoff/tools and overwrites a local edit, and they export
   // types that only their own file uses
   "ignoreIssues": {

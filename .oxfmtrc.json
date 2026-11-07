@@ -5,7 +5,7 @@
     // verbatim copies that repo-sync delivers from zgeoff/tools; edit them there
     ".claude/skills/docs-writing/**",
     ".claude/skills/testing/**",
-    ".claude/hooks/skill-gate/**"
+    ".claude/hooks/start.ts"
   ],
   "proseWrap": "always",
   "semi": true,
