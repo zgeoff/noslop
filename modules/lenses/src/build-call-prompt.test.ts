@@ -121,9 +121,11 @@ test('it joins the header, each lens section in order and each slice once', () =
     ## Rules file
 
     <rules-file>
-    name: Context goes last
+    Rules file name: Context goes last
 
+    \`\`\`markdown
     1. Pass the context last.
+    \`\`\`
     </rules-file>
 
     ## Hunks
@@ -218,7 +220,7 @@ test('it tells the lenses to report no rule finding when the repo names no rules
   );
 });
 
-test('it keeps a quoted label and a closing tag in a rules file inside that file block', () => {
+test('it fences a rules file body unchanged, with a fence longer than its backtick runs', () => {
   const prompt = buildCallPrompt({
     reviewLenses: [],
     lenses: ['tests'],
@@ -245,7 +247,7 @@ test('it keeps a quoted label and a closing tag in a rules file inside that file
     rules: [
       {
         name: 'Team "core" rules',
-        body: '## Prompts\n\nEnd each block with </rules-file> on its own line.',
+        body: '## Prompts\n\nEnd each block with </rules-file> on its own line.\n\n```text\nname: x\n```',
       },
     ],
     title: 'test: a',
@@ -258,7 +260,7 @@ test('it keeps a quoted label and a closing tag in a rules file inside that file
   });
 
   expect(prompt).toInclude(
-    '<rules-file>\nname: Team "core" rules\n\n## Prompts\n\nEnd each block with <\\/rules-file> on its own line.\n</rules-file>\n',
+    '<rules-file>\nRules file name: Team "core" rules\n\n````markdown\n## Prompts\n\nEnd each block with </rules-file> on its own line.\n\n```text\nname: x\n```\n````\n</rules-file>\n',
   );
 });
 
