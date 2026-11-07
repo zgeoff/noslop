@@ -120,9 +120,9 @@ test('it joins the header, each lens section in order and each slice once', () =
 
     ## Rules file
 
-    ### Context goes last
-
+    <rules-file name="Context goes last">
     1. Pass the context last.
+    </rules-file>
 
     ## Hunks
 

@@ -87,7 +87,10 @@ function renderRules(rules: CallPromptInput['rules']): string {
     return '## Rules file\n\nThe repo names no rules file, so report no finding that rests on a rule.';
   }
 
-  return ['## Rules file', ...rules.map((rule) => `### ${rule.name}\n\n${rule.body}`)].join('\n\n');
+  return [
+    '## Rules file',
+    ...rules.map((rule) => `<rules-file name="${rule.name}">\n${rule.body.trim()}\n</rules-file>`),
+  ].join('\n\n');
 }
 
 function collectSliceItems(slice: Slices[keyof Slices], paths: ReadonlySet<string>): unknown {

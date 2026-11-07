@@ -11224,7 +11224,7 @@ test("it reads the repo: rules of an eval case from the case's repo and records 
 
   const runs: unknown = await Bun.file(join(ctx.directory, 'out', 'runs.json')).json();
 
-  expect(stub.requests[0]?.prompt).toInclude('### RULES.md\n\n## Naming');
+  expect(stub.requests[0]?.prompt).toInclude('<rules-file name="RULES.md">\n## Naming');
 
   expect(runs).toMatchObject([
     {

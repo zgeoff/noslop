@@ -885,8 +885,8 @@ test('it gives the calls only the reference rules whose globs match a changed pa
 
   const prompt = stub.requests[0]?.prompt ?? '';
 
-  expect(prompt).toInclude('### SKILL.md: Naming');
-  expect(prompt).toInclude('### references/ts.md: Types');
+  expect(prompt).toInclude('<rules-file name="SKILL.md: Naming">');
+  expect(prompt).toInclude('<rules-file name="references/ts.md: Types">');
   expect(prompt).not.toInclude('references/nix.md');
 });
 
