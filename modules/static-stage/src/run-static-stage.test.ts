@@ -1052,6 +1052,128 @@ test('it reports a stray format hunk that splits one statement over several line
   ]);
 });
 
+test('it reports a stray format hunk that splits a statement and drops a blank line', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/sizes.ts': [
+          "export const sizes = ['small', 'large'];",
+          'export const first = sizes[0];',
+          '',
+          '',
+          'export const last = sizes[1];',
+          '',
+        ].join('\n'),
+        'src/shop.ts': "export const shop = 'open';\n",
+      },
+    },
+    {
+      message: 'head',
+      files: {
+        'src/sizes.ts': [
+          'export const sizes = [',
+          "  'small',",
+          "  'large'",
+          '];',
+          'export const first = sizes[0];',
+          '',
+          'export const last = sizes[1];',
+          '',
+        ].join('\n'),
+        'src/shop.ts': "export const shop = 'closed';\n",
+      },
+    },
+  ]);
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config: BUILT_IN_DEFAULTS,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config: BUILT_IN_DEFAULTS,
+    title: 'feat: close the shop',
+    body: '',
+    linkedIssue: 'Close the shop in src/shop.ts.',
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(result.findings.map((finding) => finding.title)).toStrictEqual([
+    'Format-only edit to sizes.ts, outside the linked issue',
+  ]);
+});
+
+test('it anchors a stray format hunk of two reflows from the first added line to the last', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/grid.ts': [
+          'export const rows = [1, 2];',
+          'export const gap = 3;',
+          'export const columns = [4, 5];',
+          '',
+        ].join('\n'),
+        'src/page.ts': 'export const page = 1;\n',
+      },
+    },
+    {
+      message: 'head',
+      files: {
+        'src/grid.ts': [
+          'export const rows = [',
+          '  1,',
+          '  2',
+          '];',
+          'export const gap = 3;',
+          'export const columns = [',
+          '  4,',
+          '  5',
+          '];',
+          '',
+        ].join('\n'),
+        'src/page.ts': 'export const page = 2;\n',
+      },
+    },
+  ]);
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config: BUILT_IN_DEFAULTS,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config: BUILT_IN_DEFAULTS,
+    title: 'feat: start on the second page',
+    body: '',
+    linkedIssue: 'Start on page 2 in src/page.ts.',
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(result.findings.map((finding) => finding.anchor)).toStrictEqual([
+    { path: 'src/grid.ts', startLine: 1, endLine: 9 },
+  ]);
+});
+
 test('it reports no stray format hunk when the linked issue asks for a reformat', async () => {
   const ctx = await setupTest();
 

@@ -261,8 +261,15 @@ function collectStrayFormatHunks(inputs: ChangeFindingInputs): ModelFinding[] {
     return entry.file.hunks.flatMap((hunk) => {
       const added = hunk.lines.filter((line) => line.kind === 'added');
       const first = added[0]?.newLine;
+      const last = added.at(-1)?.newLine;
 
-      if (!isFormatOnlyHunk(hunk) || first === undefined || first === null) {
+      if (
+        !isFormatOnlyHunk(hunk) ||
+        first === undefined ||
+        first === null ||
+        last === undefined ||
+        last === null
+      ) {
         return [];
       }
 
@@ -273,7 +280,7 @@ function collectStrayFormatHunks(inputs: ChangeFindingInputs): ModelFinding[] {
           anchor: {
             path,
             startLine: first,
-            endLine: Math.min(first + added.length - 1, first + 9),
+            endLine: Math.min(last, first + 9),
           },
           criterion: 'intent-mismatch',
           fix: 'Drop the hunk, or move it to its own change.',
@@ -284,15 +291,11 @@ function collectStrayFormatHunks(inputs: ChangeFindingInputs): ModelFinding[] {
 }
 
 function isFormatOnlyHunk(hunk: Hunk): boolean {
-  const runs = collectChangeRuns(hunk.lines);
-
   return (
-    runs.length > 0 &&
-    runs.every(
-      (run) =>
-        run.deleted.length > 0 &&
-        run.added.length > 0 &&
-        normalizeSpace(run.deleted.join('')) === normalizeSpace(run.added.join('')),
+    hunk.lines.some((line) => line.kind === 'deleted') &&
+    hunk.lines.some((line) => line.kind === 'added') &&
+    collectChangeRuns(hunk.lines).every(
+      (run) => normalizeSpace(run.deleted.join('')) === normalizeSpace(run.added.join('')),
     )
   );
 }

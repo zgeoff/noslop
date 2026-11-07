@@ -122,16 +122,17 @@ of a job's `uses:` call to a workflow in another repo, because the sync that del
 pins the call to its own ref. The check parses both versions as YAML to find which values changed,
 and it compares the changed lines as text, because a parse drops comments.
 
-The format-only check compares each run of changed lines in a hunk on its own: the deleted lines and
-the added lines directly after them, with no unchanged line between. It reports the hunk only when
-both sides of every run match once whitespace outside string literals is removed. A hunk that moves
-a block deletes the block in one run and adds it in another, so it gets no finding.
-
 The synced-copy check also skips a pull request that an account in the config's sync authors opened.
 A sync can change files outside the synced paths, such as a manifest or the repo's config, and those
 files keep the change from routing as a sync, so the lenses still review them. The check matches the
 GitHub login of the account that opened the pull request, so a local review, which has none, always
 runs it.
+
+The format-only check compares each run of changed lines in a hunk on its own: the deleted lines and
+the added lines directly after them, with no unchanged line between. It reports a hunk that deletes
+and adds at least one line each, and only when the two sides of every run match once whitespace
+outside string literals is removed. A run that only drops or adds blank lines matches. A hunk that
+moves a block deletes the block in one run and adds it in another, so it gets no finding.
 
 The review takes the linked issue and a reader for consumer manifests from its caller. The CLI takes
 the linked issue from `--issue-file` when it is given, so an issue that lives outside GitHub reaches
