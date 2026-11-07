@@ -15,11 +15,10 @@ import { buildReviewedChange } from './build-reviewed-change';
 import type { GitHubClient, GitHubConnection } from './create-github-connection';
 import type { ReadDeferralPolicy } from './deferral-policy';
 import { findLensHead } from './find-lens-head';
-import { formatCarriedComment } from './format-carried-comment';
+import { formatCommitComment } from './format-commit-comment';
 import { formatFindingComment } from './format-finding-comment';
 import { formatFixedFindingComment } from './format-fixed-finding-comment';
 import { formatMarker } from './format-marker';
-import { formatRewrittenComment } from './format-rewritten-comment';
 import type { FixConfirmation } from './format-summary-comment';
 import { formatSummaryComment } from './format-summary-comment';
 import { formatUnanchoredComment } from './format-unanchored-comment';
@@ -166,7 +165,7 @@ async function runReviewPost(
   for (const finding of rewritten) {
     await write(() =>
       withWriteRetry('rewritten finding comment', 'once', connection.sleep, () =>
-        createIssueComment(client, pr, formatRewrittenComment(finding, result.head)),
+        createIssueComment(client, pr, formatCommitComment(finding, result.head, 'rewritten')),
       ),
     );
   }
@@ -174,7 +173,7 @@ async function runReviewPost(
   for (const finding of plan.carried) {
     await write(() =>
       withWriteRetry('carried finding comment', 'once', connection.sleep, () =>
-        createIssueComment(client, pr, formatCarriedComment(finding, result.head)),
+        createIssueComment(client, pr, formatCommitComment(finding, result.head, 'carried')),
       ),
     );
   }
