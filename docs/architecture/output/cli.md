@@ -28,20 +28,20 @@ packages they reach, so the published types import nothing but zod.
 
 ## Commands
 
-| Command                                                      | Does                                                                       |
-| ------------------------------------------------------------ | -------------------------------------------------------------------------- |
-| `noslop review [--base <ref>] [--head <ref>]`                | Reviews the change between 2 commits of the current repo                   |
-| `noslop review --pr <number> [--full] [--repo <owner/name>]` | Reviews a pull request, from its base and head                             |
-| `noslop review --pr <number> --fixes-only`                   | Checks each `fixed` answer and each merge resolution since the last review |
-| `noslop findings --pr <number> [--repo <owner/name>]`        | Lists each finding of a pull request with its state, and writes nothing    |
-| `noslop verify <file>`                                       | Checks a review result against its pull request's head and base config     |
-| `noslop post <file> [--no-verify]`                           | Posts a verified review result to its pull request as the App              |
-| `noslop check --pr <number> --repo <owner/name>`             | Sets a pull request's check run from its dispositions, with no review      |
-| `noslop check --read-only --pr <number> --repo <owner/name>` | Prints a pull request's check outcome and writes nothing to GitHub         |
-| `noslop config`                                              | Prints the merged config and the file each key comes from                  |
-| `noslop store query <name>`                                  | Runs a named query on the [findings store](../measurement/store.md)        |
-| `noslop store escape --repo --issue --head --defect`         | Records a defect that a review missed                                      |
-| `noslop eval --corpus <path>`                                | Replays a corpus through the current config and scores it per lens         |
+| Command                                                      | Does                                                                    |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------- |
+| `noslop review [--base <ref>] [--head <ref>]`                | Reviews the change between 2 commits of the current repo                |
+| `noslop review --pr <number> [--full] [--repo <owner/name>]` | Reviews a pull request, from its base and head                          |
+| `noslop review --pr <number> --fixes-only`                   | Checks each `fixed` answer, with no review                              |
+| `noslop findings --pr <number> [--repo <owner/name>]`        | Lists each finding of a pull request with its state, and writes nothing |
+| `noslop verify <file>`                                       | Checks a review result against its pull request's head and base config  |
+| `noslop post <file> [--no-verify]`                           | Posts a verified review result to its pull request as the App           |
+| `noslop check --pr <number> --repo <owner/name>`             | Sets a pull request's check run from its dispositions, with no review   |
+| `noslop check --read-only --pr <number> --repo <owner/name>` | Prints a pull request's check outcome and writes nothing to GitHub      |
+| `noslop config`                                              | Prints the merged config and the file each key comes from               |
+| `noslop store query <name>`                                  | Runs a named query on the [findings store](../measurement/store.md)     |
+| `noslop store escape --repo --issue --head --defect`         | Records a defect that a review missed                                   |
+| `noslop eval --corpus <path>`                                | Replays a corpus through the current config and scores it per lens      |
 
 `review` also takes `--report <ids>`, a comma-separated list of reporters that replaces the config's
 list, `--adapter codex|claude`, which replaces the config's adapter, and `--push`, which reviews a
@@ -54,9 +54,8 @@ command's flags.
 
 Logs go to stderr, so stdout holds only a command's output. A command exits 0 when it completed. It
 exits 1 when it could not run, such as on a bad flag, a git failure or an adapter the CLI does not
-have, and `review` exits 1 when any reporter fails. `check` exits 0 whatever else the check
-concludes, because its job is to set the check run, and the check run carries the conclusion. One
-exception: `check` exits 1 when no noslop review covers the pull request's head, under
+have, and `review` exits 1 when any reporter fails. `check` exits 0 whatever the check concludes,
+because its job is to set the check run, and the check run carries the conclusion under
 [the check run](./github-app.md#the-check-run). `check --read-only` sets no check run, so it exits 1
 unless the check passes.
 
@@ -76,8 +75,8 @@ remote's URL. The config comes from the tip of the pull request's base branch, u
 request's base and head. A re-review reads only the files whose patch changed since the last review,
 under the rule in [re-review and fix confirmation](./github-app.md#re-review-and-fix-confirmation),
 so a review of a head whose patches the last review read reads no file and exits 0. `--full` reads
-every file of the pull request again. `--fixes-only` runs no lens over the whole change and never
-refuses on the pull request's history, under [the fixes-only run](./fixes-only-run.md).
+every file of the pull request again. `--fixes-only` checks each `fixed` answer and raises no
+finding, under [the fixes-only run](./fixes-only-run.md).
 
 ## Output and reporters
 
@@ -132,8 +131,8 @@ check share one set of rules for an answer, under [dispositions](./github-app.md
 - A `deferred` answer is refused for a P1, security or risk-class finding.
 - A `fixed` answer holds once a fix check confirmed it, and stays `open` while the latest review
   still reports the finding. A `fixed <commit>` answer whose commit the pull request's head holds
-  and the latest review's head does not stays `open` until a fix check confirms it, because no
-  review has read the fix. A `fixed` answer whose fix the latest fix check could not judge, such as
+  and the latest review's head does not stays `open` until a fix check confirms it, because no fix
+  check has read the fix. A `fixed` answer whose fix the latest fix check could not judge, such as
   one whose code passes the file limit, stays `open` and unjudged.
 - An `accepted-risk` answer holds only when its author has admin permission on the repo.
 

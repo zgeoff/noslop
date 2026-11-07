@@ -47,6 +47,7 @@ export interface GitHubReporterOptions {
 export function createGitHubReporter(options: GitHubReporterOptions): Reporter {
   return {
     id: 'github',
+    runsLast: true,
     report: async (result, ctx) => {
       const pr = result.pullRequest;
 

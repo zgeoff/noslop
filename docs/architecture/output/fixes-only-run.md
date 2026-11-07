@@ -1,15 +1,22 @@
 # The fixes-only run
 
-A fixes-only run lets a fix that lands after the last review round pass the check without a new
-review round. It runs whatever the pull request's history holds: a merge of the base, a rebase, a
-squash of a lower layer, or no earlier review at all. It runs no lens over the diff, and it raises a
-finding only on what a merge commit wrote, under [the resolution check](#the-resolution-check). For
-each finding of a model lens whose latest disposition is `fixed`, it makes one small call that
-judges the finding at the pull request's head, and [a repeated finding](#a-repeated-finding) shares
-the call of the finding it repeats. A sha after `fixed` points the call at
-[the fix commit](#the-fix-commit), but no verdict needs one, so a bare `fixed` gets the call too,
-and so does a sha that a rebase or a squash took off the branch. A finding of the static stage gets
+`noslop review --pr <number> --fixes-only` checks each `fixed` answer and runs no review: it runs no
+lens and raises no finding. It runs the same whatever the pull request's history holds, such as a
+merge of the base, a rebase, or no earlier review. A relay, the service an org runs to decide
+merges, can cap the reviews of a pull request and use this run past the cap, as
+[enforce a review with a relay](../../guides/enforce-a-review-with-a-relay.md) describes.
+
+For each finding of a model lens whose latest answer is `fixed`, the run makes one small fix call
+that judges the finding at the pull request's head. [A repeated finding](#a-repeated-finding) shares
+the call of the finding it repeats. A finding of the static stage gets
 [its static check](#static-findings) in place of the call.
+[Dispositions](./github-app.md#dispositions) lists the answers an author can give.
+
+A sha after `fixed` points the call at [the fix commit](#the-fix-commit). The call never needs a sha
+to reach a verdict, so the run makes the call for these answers as well:
+
+- a bare `fixed`;
+- a `fixed` whose sha a rebase or a squash took off the branch.
 
 With no fix commit to read, the fix call reads the finding, its code at the head, the pull request's
 net diff from its merge base to the head, and the pull request's title and body as they stand when
@@ -37,14 +44,16 @@ A fix with no verdict, from that file limit or from a failed call, is unjudged. 
 with the reason, and the summary shows it as not judged, never as not fixed. Its answer stays
 unconfirmed until a later run judges it.
 
-The summary vouches for the run's head only when a fix call or static check returned a verdict and
-an earlier lens review had no failed call. The fix calls read the whole net diff, so such a run
-writes the [net-change key](./github-app.md#the-net-change-key) at the head. Any other run, such as
-one with no `fixed` answer to judge or one after a lens review whose call failed, keeps the head,
-the key and the failed calls of the summary before it. The check then stays on the net change a
-review read and passes no commit that no call read. With no summary before it, the run vouches for
-the merge base alone. A clean rebase needs no run when the summary marker keys each file, because it
-leaves that key where it was.
+The run sets three fields of the summary marker from its own head: the head, the
+[net-change key](./github-app.md#the-net-change-key) and the count of failed calls. It sets them
+only when both of these hold:
+
+- a fix call or a static check returned a verdict;
+- the last lens review had no failed call.
+
+Such a run read the whole net diff at its head, so the key it writes matches what its calls read.
+Any other run, such as one with no `fixed` answer to judge, copies the three fields from the summary
+marker before it. When no summary marker exists, the run writes the merge base as the head.
 
 A `fixed` reply posted after an earlier fixes-only run gets a call too, so the next run, at the same
 head or a later one, checks it. A fix the summary already holds as confirmed gets no call. The run's
@@ -56,8 +65,7 @@ whether the CLI or `noslop post` sends it. A yes confirms the fix under
 run reporting the finding again, so the check names it as still found, and the summary gives the
 reason. The summary marker keeps the findings the run judged fixed with its range, and that range
 confirms no other fix, so a fix the run did not ask about stays unconfirmed, a `fixed` reply posted
-after the run included. The run keeps the count of reviews. It posts a finding comment only for a
-finding of a resolution check.
+after the run included. The run posts no finding comment.
 
 ## A repeated finding
 
@@ -129,43 +137,8 @@ assertion. A version bump compares a manifest with its side at the base, so a di
 alone sees both sides already bumped. The stage also reads the pull request's title, its body and
 its linked issue, so the run reads the linked issue when it judges a static fix.
 
-## After a rebase
+## Merge commits
 
-A rebase after the last review takes its head off the branch, so the run checks the merges from the
-pull request's merge base. Each fix call judges the head and reads the net diff, so a rebase, a
-squash of a lower layer, or a merge of the base changes nothing about what the call reads.
-
-## The resolution check
-
-A merge commit among the new commits gets a resolution check in place of a review round. The run
-rebuilds the merge with `git merge-tree --write-tree` from its 2 parents. A merge whose tree equals
-the rebuilt tree is a clean merge and gets no check. Any other merge holds conflict resolutions or
-hand edits, and gets one call over the diff from the rebuilt tree to the merge's tree. That diff
-holds only what the merge itself wrote: in a file git could not merge, the deleted lines hold the
-conflict markers with each side's lines between them, and the added lines hold the resolution. The
-code either side brought in stays out of the call, which reads a worktree of the merge for context.
-
-The call carries the correctness and security lenses. It answers whether the resolution keeps the
-change each side made and adds no defect, gives a one-line reason, and reports each defect it finds
-as a finding on the resolution's lines. Assemble applies the finding rules to those findings, and a
-finding that matches one answered `not-a-defect` drops, as in a review. The reporter posts each
-finding at the pull request's head, so the run moves its anchor from the merge's lines to the same
-lines at the head. A finding whose lines a later commit rewrote keeps its anchor at the merge and
-goes to an issue comment that names the merge and those lines. A resolution with a finding is not
-sound, whatever the call answers. A not-sound answer that rests only on findings the author answered
-`not-a-defect` holds. A merge of more than 2 parents is not sound with no call, because
-`git merge-tree` rebuilds a merge of 2 parents only.
-
-The result lists each verdict in its resolution checks, and the summary shows each one with its
-reason. The summary marker keeps each merge whose resolution a run judged sound, with the ones the
-summary before it kept, so a reader that counts the commits since the last lens review can count
-such a merge as checked. A later verdict on the same merge replaces the earlier one.
-
-A not-sound verdict that raised a finding fails the check through that finding, until the author
-answers it. A not-sound verdict with no finding has nothing to answer, so the summary marker keeps
-the merge as rejected, and the check fails while the marker holds a rejected merge. A later
-fixes-only run keeps the list, and a lens review starts it again. A merge whose call failed, or
-whose diff passes the config's call limit, stays unchecked. The run counts it as a failed call, so
-the check fails, and the next fixes-only run starts from the head before this run and checks the
-merge again. The failed call records the skipped resolution, so the run lists none of its files as
-not reviewed, and a small file of a large merge gets no too-large label.
+The run never reads a merge commit as a separate input. A conflict resolution or a hand edit in a
+merge changes the patch of each file it touches, so the next review reads that file under the
+[net-change key](./github-app.md#the-net-change-key), as it reads any other changed file.

@@ -167,7 +167,7 @@ test('it lists each finding whose disposition is not valid, with the reason', ()
       '5 findings are open.',
       '- `1111111111111111` Await the write: the change wrote this code, so it takes fixed, not-a-defect or accepted-risk',
       '- `2222222222222222` Check the token: a P1, a security finding or a risk-class finding blocks the merge and cannot be deferred',
-      '- `3333333333333333` Keep the jobs: only a repo owner gives accepted-risk',
+      '- `3333333333333333` Keep the jobs: only a repo admin gives accepted-risk',
       '- `4444444444444444` Lock the row: no fix check has confirmed the commit abc1234 yet',
       '- `5555555555555555` Close the file: no disposition',
     ].join('\n'),
@@ -186,7 +186,7 @@ test('it lists each finding whose disposition is not valid, with the reason', ()
       {
         id: '3333333333333333',
         title: 'Keep the jobs',
-        reason: 'only a repo owner gives accepted-risk',
+        reason: 'only a repo admin gives accepted-risk',
       },
       {
         id: '4444444444444444',

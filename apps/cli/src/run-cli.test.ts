@@ -8235,7 +8235,7 @@ test('it lists each finding of a pull request with its state and the author of i
         state: 'open',
         author: 'dev',
         unjudged: false,
-        reason: 'only a repo owner gives accepted-risk',
+        reason: 'only a repo admin gives accepted-risk',
       },
       {
         id: '6666666666666666',
@@ -8329,7 +8329,7 @@ test('it lists an accepted-risk finding as open when its author has no admin per
         state: 'open',
         author: 'dev',
         unjudged: false,
-        reason: 'only a repo owner gives accepted-risk',
+        reason: 'only a repo admin gives accepted-risk',
       },
       {
         id: '2222222222222222',

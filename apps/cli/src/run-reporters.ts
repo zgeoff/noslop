@@ -28,7 +28,12 @@ export async function runReporters(
     reporters.push(reporter);
   }
 
-  for (const reporter of reporters) {
+  const ordered = [
+    ...reporters.filter((reporter) => reporter.runsLast !== true),
+    ...reporters.filter((reporter) => reporter.runsLast === true),
+  ];
+
+  for (const reporter of ordered) {
     try {
       await reporter.report(result, {
         logger: ctx.logger,

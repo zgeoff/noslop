@@ -48,6 +48,8 @@ export interface ReporterContext {
 
 export interface Reporter {
   id: string;
+
+  runsLast?: boolean;
   report: (result: ReviewResult, ctx: ReporterContext) => Promise<void>;
 }
 

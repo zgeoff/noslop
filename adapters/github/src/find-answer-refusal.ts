@@ -43,7 +43,7 @@ export function findAnswerRefusal(
   }
 
   if (disposition.kind === 'accepted-risk' && !disposition.authorIsOwner) {
-    return buildRefusal('only a repo owner gives accepted-risk');
+    return buildRefusal('only a repo admin gives accepted-risk');
   }
 
   return null;

@@ -2,54 +2,68 @@
 
 - Date: 2026-10-17
 - Status: decided
-- Updated: 2026-11-06
+- Updated: 2026-11-07
 
-noslop posts as its own GitHub App. It posts each finding as an inline review comment and posts a
-required check run. The check passes only when every finding, P3 included, has a disposition, on the
-reviewed head.
+noslop posts as its own GitHub App. It posts each finding as an inline review comment, and it sets a
+check run named `noslop` that passes only when no finding is open. noslop never decides the merge. A
+relay decides it: a service the repo's org runs, which reads the open findings and applies its own
+rules, such as green CI, as
+[enforce a review with a relay](../guides/enforce-a-review-with-a-relay.md) describes. A repo with
+no relay can require the check in its branch rules.
 
-The author answers in the finding's thread with a typed disposition, which the App parses. Free text
-is not a disposition.
+A finding is open until someone replies in its thread with a valid disposition, a typed answer that
+the App parses. The App answers a free-text reply with the accepted forms, and the finding stays
+open. Every finding needs a disposition, whatever its severity, from P1, the highest, to P3.
 
-| Disposition              | Use                                                                                                 |
-| ------------------------ | --------------------------------------------------------------------------------------------------- |
-| `fixed <sha>`            | The fix is in that commit. The re-review confirms it                                                |
-| `not-a-defect <reason>`  | The finding is wrong, with the reason                                                               |
-| `deferred <issue>`       | The fix goes to an issue, which the App checks exists, or to a tracker key a config pattern matches |
-| `accepted-risk <reason>` | The owner accepts the risk                                                                          |
+| Disposition              | Use                                                                                                                  |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| `fixed [<sha>]`          | The head no longer holds the defect. A fix check, a model call or a static rerun, must confirm it; the sha is a hint |
+| `not-a-defect <reason>`  | The finding is wrong, with the reason                                                                                |
+| `deferred <issue>`       | The fix goes to an issue that exists, or to an issue key that matches a pattern in the config's `issueKeys`          |
+| `accepted-risk <reason>` | The reply's writer accepts the risk; the App counts it only when that writer is a repo admin                         |
 
-A finding on a line that the pull request added or changed takes `fixed`, `not-a-defect` or
-`accepted-risk`. `deferred` is allowed only for code the pull request did not write: a pre-existing
-defect it exposes, a consumer in another repo, a fix that needs another repo, or a file the config
-marks synced, whose source is another repo. For that code, every security finding, every risk-class
-finding and every P1 blocks the merge.
+`deferred` is valid only for code the pull request did not write:
 
-A re-review covers only the files whose patch changed since the last review, and it confirms each
-fix as fixed or not fixed. There is one re-check. A new finding after it becomes a follow-up issue,
-unless it is a security finding or sits in code the pull request wrote. When the head moves, the App
-reviews the files whose patch the push changed.
+- a pre-existing defect the pull request exposes;
+- a consumer in another repo;
+- a fix that needs another repo;
+- a file the config marks synced, whose source is another repo.
 
-A later review drops a new finding that matches one the author answered `not-a-defect` on the same
-pull request, so the author answers each finding once. A head whose every patch a review with no
-failed call read gets a review of no file, so a rebase raises no finding again and is never refused.
+Even for that code, `deferred` is never valid for a security finding, a P1, or a finding in a path
+the config marks as a risk class. A finding on a line the pull request wrote takes `fixed`,
+`not-a-defect` or `accepted-risk`.
+
+When the head moves, the App reviews only the files whose patch changed since the last review, and
+each review posts its new findings on the pull request. A push that changes no patch, such as a
+clean rebase, therefore gets a review that reads no file and posts no finding. A later review also
+drops each new finding that matches one the author answered `not-a-defect`, under
+[findings answered not-a-defect](../architecture/review/findings.md#findings-answered-not-a-defect),
+so the author answers each finding once.
 
 ## Why
 
-- A record from the reviewer's own identity cannot be replaced by an author's summary.
-- A gate that checks every answer stops findings from merging unanswered.
+- The App posts under its own identity, so the author cannot replace its record with a summary of
+  their own.
+- The check needs an answer to every finding, so a relay or a branch rule can stop a pull request
+  that leaves a finding unanswered.
+- The check reads only the findings and their dispositions, so it means the same in every repo. The
+  relay knows the repo's merge policy, such as a noslop review of each new head commit, and noslop
+  does not.
 - Code written in the pull request is cheapest to fix in that pull request, so deferring it only
   moves the work.
 
 ## Alternatives
 
-- **A disposition only for blocking findings.** Non-blocking findings go unanswered.
-- **Deferral allowed by severity.** Authors defer every finding below the blocking line.
+- **A disposition only for P1 and P2 findings.** P3 findings go unanswered.
+- **Deferral allowed by severity.** Authors defer every finding below the severity that needs an
+  answer.
 - **A summary in the pull request body.** The author writes it, so it can say the review found
   nothing when it did.
 
 ## Consequences
 
-- Only the owner gives `accepted-risk`.
+- Only a repo admin can accept a risk, so an author with write access alone must fix or answer the
+  finding another way.
 - Findings and dispositions go to the findings store, under [0012](0012-the-findings-store.md).
 
 ## Changes
@@ -62,3 +76,5 @@ failed call read gets a review of no file, so a rebase raises no finding again a
   write, so it can take `deferred`.
 - 2026-11-06: a deferral can name a key of another tracker that a pattern in the config matches, and
   noslop takes the key as an existing issue with no lookup.
+- 2026-11-07: the check means only that no finding is open, and a relay decides the merge. noslop
+  counts no reviews and files no follow-up issue.
