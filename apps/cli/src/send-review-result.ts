@@ -3,6 +3,7 @@ import type { ReviewResult } from '@noslop/contract';
 import { reviewResultSchema } from '@noslop/contract';
 import type { GitHubConnection } from '@noslop/github';
 import { createGitHubReporter } from '@noslop/github';
+import { readDeferralPolicy } from './read-deferral-policy';
 import { verifyReviewResult } from './verify-review-result';
 
 export interface SendDependencies {
@@ -33,7 +34,10 @@ export async function sendReviewResult(
     );
   }
 
-  const reporter = createGitHubReporter({ loadConnection: deps.loadConnection });
+  const reporter = createGitHubReporter({
+    loadConnection: deps.loadConnection,
+    readDeferralPolicy: (pr) => readDeferralPolicy(deps.loadConnection, pr),
+  });
 
   await reporter.report(result, { logger: deps.logger, options: {}, failedReporters: [] });
 

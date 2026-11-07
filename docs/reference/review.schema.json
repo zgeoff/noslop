@@ -1138,7 +1138,7 @@
       ]
     },
     "synced": {
-      "description": "Path globs of copies that another repo syncs in, which a change must not edit",
+      "description": "Path globs of copies that another repo syncs in, which a change must not edit; entries append across extends",
       "anyOf": [
         {
           "type": "array",
@@ -1154,6 +1154,21 @@
     },
     "syncAuthors": {
       "description": "GitHub logins of the accounts that open sync pull requests, such as <slug>[bot]; the synced-copy check skips a pull request one of them opened",
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "issueKeys": {
+      "description": "Regex patterns of issue keys in a tracker outside GitHub, such as ^ABC-\\d+$; a deferred answer that names a matching key counts as naming an existing issue, with no lookup",
       "anyOf": [
         {
           "type": "array",

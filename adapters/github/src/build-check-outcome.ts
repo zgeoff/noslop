@@ -5,6 +5,11 @@ import type { FindingMarker } from './finding-marker';
 import type { NetChangeKey } from './net-change-key';
 import type { SummaryMarker } from './summary-marker';
 
+interface MovedBase {
+  from: string;
+  to: string;
+}
+
 export interface CheckOutcomeInput {
   findings: readonly FindingMarker[];
 
@@ -20,6 +25,8 @@ export interface CheckOutcomeInput {
   failedReporters: readonly string[];
 
   unreadable: number;
+
+  movedBase?: MovedBase;
 }
 
 interface OpenFinding {
@@ -58,6 +65,12 @@ export function buildCheckOutcome(input: CheckOutcomeInput): CheckOutcome {
 
   const problems: string[] = [];
   const unreviewed = findUnreviewedReason(input);
+
+  if (input.movedBase !== undefined) {
+    problems.push(
+      `The base branch moved from ${input.movedBase.from} to ${input.movedBase.to} while noslop read its config; run the check again.`,
+    );
+  }
 
   if (unreviewed !== null) {
     problems.push(unreviewed);

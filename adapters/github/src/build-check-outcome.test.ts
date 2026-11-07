@@ -68,6 +68,38 @@ test('it passes when the review ran on the head and every finding holds a valid 
   });
 });
 
+test('it fails first on a base branch that moved while noslop read its config', () => {
+  const outcome = buildCheckOutcome({
+    findings: [],
+    dispositions: [],
+    summary: {
+      head: 'f'.repeat(40),
+      reviews: 1,
+      reported: [],
+      failedCalls: 0,
+      followUps: [],
+      confirmed: [],
+    },
+    currentHead: 'f'.repeat(40),
+    currentKey: { head: 'f'.repeat(40) },
+    existingIssues: new Set(),
+    unread: new Set(),
+    failedReporters: ['webhook'],
+    unreadable: 0,
+    movedBase: { from: 'main', to: 'release' },
+  });
+
+  expect(outcome).toStrictEqual({
+    conclusion: 'failure',
+    title:
+      'The base branch moved from main to release while noslop read its config; run the check again.',
+    summary:
+      'The base branch moved from main to release while noslop read its config; run the check again.\nThese reporters failed: webhook.',
+    open: [],
+    reviewed: true,
+  });
+});
+
 test('it lists each finding whose disposition is not valid, with the reason', () => {
   const outcome = buildCheckOutcome({
     findings: [

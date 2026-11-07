@@ -206,6 +206,45 @@ test('it drops a finding on a context line unless it cites a second location or 
   ]);
 });
 
+test.each([
+  ['vendor/rules/naming.md', ['vendor/**'], false],
+  ['docs/naming.md', ['vendor/**'], true],
+])(
+  'it marks a finding on an added line of %s, with the synced globs %j, as written by the change: %p',
+  (path, synced, writtenByChange) => {
+    const result = buildFindings({
+      raw: [
+        {
+          lens: 'documentation',
+          callID: 'documentation',
+          finding: {
+            title: 'Name the rule the list repeats',
+            body: 'The list repeats a rule that another file owns.',
+            anchor: { path, startLine: 1, endLine: 1 },
+            secondLocation: null,
+            severity: 'P3',
+            criterion: 'documentation-prose',
+            rule: null,
+            ruleQuote: null,
+            verdict: 'CONFIRMED',
+            unverifiedFact: null,
+            missingChange: false,
+            fix: null,
+          },
+        },
+      ],
+      files: [buildMockChangedFile({ path, status: 'added' })],
+      rules: [],
+      riskClasses: [],
+      config: { ...BUILT_IN_DEFAULTS, synced },
+    });
+
+    expect(result.findings.map((finding) => finding.writtenByChange)).toStrictEqual([
+      writtenByChange,
+    ]);
+  },
+);
+
 test('it merges 2 findings of one defect into the one with the higher severity', () => {
   const result = buildFindings({
     raw: [

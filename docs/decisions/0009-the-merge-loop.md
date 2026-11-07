@@ -2,7 +2,7 @@
 
 - Date: 2026-10-17
 - Status: decided
-- Updated: 2026-10-22
+- Updated: 2026-11-06
 
 noslop posts as its own GitHub App. It posts each finding as an inline review comment and posts a
 required check run. The check passes only when every finding, P3 included, has a disposition, on the
@@ -11,17 +11,18 @@ reviewed head.
 The author answers in the finding's thread with a typed disposition, which the App parses. Free text
 is not a disposition.
 
-| Disposition              | Use                                                   |
-| ------------------------ | ----------------------------------------------------- |
-| `fixed <sha>`            | The fix is in that commit. The re-review confirms it  |
-| `not-a-defect <reason>`  | The finding is wrong, with the reason                 |
-| `deferred <issue>`       | The fix goes to an issue, which the App checks exists |
-| `accepted-risk <reason>` | The owner accepts the risk                            |
+| Disposition              | Use                                                                                                 |
+| ------------------------ | --------------------------------------------------------------------------------------------------- |
+| `fixed <sha>`            | The fix is in that commit. The re-review confirms it                                                |
+| `not-a-defect <reason>`  | The finding is wrong, with the reason                                                               |
+| `deferred <issue>`       | The fix goes to an issue, which the App checks exists, or to a tracker key a config pattern matches |
+| `accepted-risk <reason>` | The owner accepts the risk                                                                          |
 
 A finding on a line that the pull request added or changed takes `fixed`, `not-a-defect` or
 `accepted-risk`. `deferred` is allowed only for code the pull request did not write: a pre-existing
-defect it exposes, a consumer in another repo, or a fix that needs another repo. For that code,
-every security finding, every risk-class finding and every P1 blocks the merge.
+defect it exposes, a consumer in another repo, a fix that needs another repo, or a file the config
+marks synced, whose source is another repo. For that code, every security finding, every risk-class
+finding and every P1 blocks the merge.
 
 A re-review covers only the files whose patch changed since the last review, and it confirms each
 fix as fixed or not fixed. There is one re-check. A new finding after it becomes a follow-up issue,
@@ -57,3 +58,7 @@ failed call read gets a review of no file, so a rebase raises no finding again a
   that a complete review covered gets a second review only in full.
 - 2026-10-22: a re-review reads only the files whose patch changed since the last review, so a head
   with no changed patch gets a review of no file in place of a refusal.
+- 2026-11-05: a finding in a file the config marks synced counts as code the pull request did not
+  write, so it can take `deferred`.
+- 2026-11-06: a deferral can name a key of another tracker that a pattern in the config matches, and
+  noslop takes the key as an existing issue with no lookup.

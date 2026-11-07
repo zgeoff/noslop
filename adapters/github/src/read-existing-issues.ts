@@ -5,6 +5,7 @@ export async function readExistingIssues(
   client: GitHubClient,
   pr: PullRequestRef,
   dispositions: readonly Disposition[],
+  issueKeys: readonly string[],
 ): Promise<Set<string>> {
   const values = new Set(
     dispositions.filter((item) => item.kind === 'deferred').map((item) => item.value),
@@ -16,6 +17,10 @@ export async function readExistingIssues(
     const issue = parseIssueRef(value, pr);
 
     if (issue === null) {
+      if (isIssueKey(value, issueKeys)) {
+        existing.add(value);
+      }
+
       continue;
     }
 
@@ -55,6 +60,12 @@ function parseIssueRef(value: string, pr: PullRequestRef): IssueRef | null {
     repo: groups['repo'] ?? pr.repo,
     number: Number(groups['number']),
   };
+}
+
+function isIssueKey(value: string, issueKeys: readonly string[]): boolean {
+  const token = value.split(/\s/u, 1)[0] ?? '';
+
+  return issueKeys.some((pattern) => new RegExp(pattern, 'u').test(token));
 }
 
 async function probeIssue(client: GitHubClient, issue: IssueRef): Promise<boolean> {

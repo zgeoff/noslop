@@ -70,7 +70,8 @@ A line the change deleted has no head line of its own, so the static stage maps 
 where it sat. Assemble reads the changed lines through the same function, so a lens finding and a
 direct finding anchor a deletion to the same line. A finding counts as written by the change only
 when its anchor holds an added line, because a finding beside a deletion is about code the change
-left in place.
+left in place. A finding in a file that the config's `synced` globs match never counts as written by
+the change, because its fix belongs in the repo the copy comes from.
 
 ## Identity across re-reviews
 

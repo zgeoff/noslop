@@ -31,10 +31,13 @@ rules govern each merge:
 
 1. Objects merge by key, so a file that sets one risk class or one lens override keeps the inherited
    ones.
-2. Arrays replace, so a file that lists paths owns the whole list. One exception: `rules` entries
-   append to the inherited ones, because rules are taste that each layer adds to, while every other
-   array is a list a repo owns. An entry whose resolved path matches an inherited entry replaces it,
-   so a repo can change that file's references.
+2. Arrays replace, so a file that lists paths owns the whole list. Two exceptions:
+   - `rules` entries append to the inherited ones, because rules are taste that each layer adds to.
+     An entry whose resolved path matches an inherited entry replaces it, so a repo can change that
+     file's references.
+   - `synced` globs append to the inherited ones, once each, because a shared config lists the
+     copies every repo receives and a repo adds the ones only it receives. `null` drops the
+     inherited globs.
 3. `null` removes an inherited key. A key the defaults leave null, such as the rules file, reads as
    none once a file removes it. A key the schema requires fails the load once a file removes it.
 

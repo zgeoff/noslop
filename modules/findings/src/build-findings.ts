@@ -107,7 +107,9 @@ function buildFinding(
     ...(model.verdict === 'PLAUSIBLE' && model.unverifiedFact !== null
       ? { unverifiedFact: model.unverifiedFact }
       : {}),
-    writtenByChange: isOnChangedLine(file, anchor.startLine, anchor.endLine, false),
+    writtenByChange:
+      !isGlobMatch(anchor.path, input.config.synced) &&
+      isOnChangedLine(file, anchor.startLine, anchor.endLine, false),
     ...(riskClass === undefined ? {} : { riskClass }),
     ...(model.fix === null || model.fix === '' ? {} : { fix: model.fix }),
   });

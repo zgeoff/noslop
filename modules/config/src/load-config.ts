@@ -44,7 +44,9 @@ export async function loadConfig(options: LoadConfigOptions): Promise<LoadedConf
     { source: BUILT_IN_SOURCE, value: { ...BUILT_IN_DEFAULTS } },
     ...files.map((file) => ({
       source: formatConfigLocation(file.location),
-      value: Object.fromEntries(Object.entries(file.value).filter(([key]) => key !== 'rules')),
+      value: Object.fromEntries(
+        Object.entries(file.value).filter(([key]) => key !== 'rules' && key !== 'synced'),
+      ),
     })),
   ];
 
@@ -56,6 +58,13 @@ export async function loadConfig(options: LoadConfigOptions): Promise<LoadedConf
   if (rulesLayer !== null) {
     value['rules'] = rulesLayer.rules;
     sources['rules'] = rulesLayer.source;
+  }
+
+  const syncedLayer = mergeSyncedLayers(files);
+
+  if (syncedLayer !== null) {
+    value['synced'] = syncedLayer.synced;
+    sources['synced'] = syncedLayer.source;
   }
 
   for (const [key, fallback] of Object.entries(BUILT_IN_DEFAULTS)) {
@@ -287,6 +296,39 @@ function isSamePath(left: unknown, right: unknown): boolean {
     right !== null &&
     Reflect.get(right, 'path') === path
   );
+}
+
+function mergeSyncedLayers(
+  files: readonly ChainFile[],
+): { synced: unknown; source: string } | null {
+  let merged: { synced: unknown; source: string } | null = null;
+
+  for (const file of files) {
+    const next = file.value['synced'];
+
+    if (next === undefined) {
+      continue;
+    }
+
+    const source = formatConfigLocation(file.location);
+
+    if (next === null) {
+      merged = { synced: [], source };
+      continue;
+    }
+
+    if (!Array.isArray(next)) {
+      merged = { synced: next, source };
+      continue;
+    }
+
+    const inherited: unknown[] = Array.isArray(merged?.synced) ? merged.synced : [];
+    const globs: unknown[] = next;
+
+    merged = { synced: [...new Set([...inherited, ...globs])], source };
+  }
+
+  return merged;
 }
 
 interface RulesSource {

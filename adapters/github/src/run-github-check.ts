@@ -2,6 +2,7 @@ import type { Disposition, PullRequestRef } from '@noslop/contract';
 import type { CheckOutcome } from './build-check-outcome';
 import { createFormsReplies } from './create-forms-replies';
 import type { GitHubConnection } from './create-github-connection';
+import type { DeferralPolicy } from './deferral-policy';
 import { readGitHubCheck } from './read-github-check';
 import type { PullRequestState } from './read-pull-request-state';
 import { readPullRequestState } from './read-pull-request-state';
@@ -11,6 +12,7 @@ export const CHECK_NAME = 'noslop';
 
 export interface GitHubCheckOptions {
   failedReporters: readonly string[];
+  policy: DeferralPolicy;
 
   state?: PullRequestState;
 
@@ -31,6 +33,7 @@ export async function runGitHubCheck(
   const outcome = await readGitHubCheck(connection, pr, {
     failedReporters: options.failedReporters,
     state,
+    policy: options.policy,
     ...(options.dispositions === undefined ? {} : { dispositions: options.dispositions }),
   });
 

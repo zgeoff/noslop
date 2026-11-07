@@ -14,6 +14,7 @@ import { createGitHubConnectionLoader } from './create-github-connection-loader'
 import { createJSONReporter } from './create-json-reporter';
 import { makeCommentURLRecorder } from './make-comment-url-recorder';
 import { makeDispositionRecorder } from './make-disposition-recorder';
+import { readDeferralPolicy } from './read-deferral-policy';
 
 export function createCLIContext(env: Readonly<Record<string, string | undefined>>): CLIContext {
   const runner = createRunner();
@@ -38,6 +39,7 @@ export function createCLIContext(env: Readonly<Record<string, string | undefined
     github: (storePath) =>
       createGitHubReporter({
         loadConnection: loadGitHubConnection,
+        readDeferralPolicy: (pr) => readDeferralPolicy(loadGitHubConnection, pr),
         ...(storePath === null
           ? {}
           : {

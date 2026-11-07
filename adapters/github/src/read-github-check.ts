@@ -2,6 +2,7 @@ import type { Disposition, PullRequestRef } from '@noslop/contract';
 import type { CheckOutcome } from './build-check-outcome';
 import { buildCheckOutcome } from './build-check-outcome';
 import type { GitHubClient, GitHubConnection } from './create-github-connection';
+import type { DeferralPolicy } from './deferral-policy';
 import { readExistingIssues } from './read-existing-issues';
 import { readNetChangeKey } from './read-net-change-key';
 import type { PullRequestState } from './read-pull-request-state';
@@ -11,6 +12,7 @@ import { readUnreadFixes } from './read-unread-fixes';
 export interface GitHubCheckInput {
   failedReporters: readonly string[];
   state: PullRequestState;
+  policy: DeferralPolicy;
 
   dispositions?: readonly Disposition[];
 }
@@ -24,7 +26,7 @@ export async function readGitHubCheck(
   const state = input.state;
 
   const dispositions = await readCheckDispositions(client, pr, input);
-  const existingIssues = await readExistingIssues(client, pr, dispositions);
+  const existingIssues = await readExistingIssues(client, pr, dispositions, input.policy.issueKeys);
 
   const summary = state.summary?.marker ?? null;
 
@@ -49,6 +51,9 @@ export async function readGitHubCheck(
     unread,
     failedReporters: input.failedReporters,
     unreadable: state.unreadable,
+    ...(state.baseRef === input.policy.baseRef
+      ? {}
+      : { movedBase: { from: input.policy.baseRef, to: state.baseRef } }),
   });
 }
 
