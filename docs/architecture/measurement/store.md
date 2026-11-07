@@ -42,7 +42,8 @@ per escape. A list or an object sits in its column as JSON text, and a boolean a
   yield, noise and recall count per lens. A finding that no call reported, such as one from the
   static stage, takes the review's depth and no model. The row keeps the link to the finding's
   comment on its pull request once the `github` reporter has posted it. A row from a store older
-  than that column holds no link.
+  than that column holds no link. A row from a store older than the anchor commit column holds no
+  anchor commit, so the `github` reporter reads the review's head in its place.
 - A dropped finding row keeps a finding that Assemble dropped: its lens, call, title, anchor and
   criterion, the reason it was dropped, and the rules file and quote the finding gave. The rows let
   a reader check whether a finding rule throws away real findings.

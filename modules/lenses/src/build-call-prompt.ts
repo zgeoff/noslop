@@ -87,7 +87,22 @@ function renderRules(rules: CallPromptInput['rules']): string {
     return '## Rules file\n\nThe repo names no rules file, so report no finding that rests on a rule.';
   }
 
-  return ['## Rules file', ...rules.map((rule) => `### ${rule.name}\n\n${rule.body}`)].join('\n\n');
+  return [
+    '## Rules file',
+    ...rules.map((rule) => {
+      const fence = buildFence(rule.body);
+
+      return `<rules-file>\nRules file name: ${rule.name}\n\n${fence}markdown\n${rule.body}\n${fence}\n</rules-file>`;
+    }),
+  ].join('\n\n');
+}
+
+// escaping the body would make a word-for-word quote differ from the file that the citation check
+// reads; a fence longer than every backtick run in the body keeps it unchanged and can't end inside it
+function buildFence(body: string): string {
+  const longest = Math.max(0, ...[...body.matchAll(/`+/gu)].map((run) => run[0].length));
+
+  return '`'.repeat(Math.max(3, longest + 1));
 }
 
 function collectSliceItems(slice: Slices[keyof Slices], paths: ReadonlySet<string>): unknown {

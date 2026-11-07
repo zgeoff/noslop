@@ -12,20 +12,20 @@ import { buildFindingPosts } from './build-finding-posts';
 import { buildFixConfirmations } from './build-fix-confirmations';
 import { buildMergeLists } from './build-merge-lists';
 import { buildReviewedChange } from './build-reviewed-change';
+import { collectUnpostedFindings } from './collect-unposted-findings';
 import type { GitHubClient, GitHubConnection } from './create-github-connection';
 import type { ReadDeferralPolicy } from './deferral-policy';
 import { findLensHead } from './find-lens-head';
-import { followUpMarkerSchema } from './follow-up-marker';
+import { formatCommitComment } from './format-commit-comment';
 import { formatFindingComment } from './format-finding-comment';
 import { formatFixedFindingComment } from './format-fixed-finding-comment';
 import { formatMarker } from './format-marker';
-import { formatRewrittenComment } from './format-rewritten-comment';
 import type { FixConfirmation } from './format-summary-comment';
 import { formatSummaryComment } from './format-summary-comment';
+import { formatUnanchoredComment } from './format-unanchored-comment';
 import type { NetChangeKey } from './net-change-key';
-import { parseMarker } from './parse-marker';
 import { planReviewPost } from './plan-review-post';
-import { readAllPages } from './read-all-pages';
+import { readFiledFollowUpIDs } from './read-filed-follow-up-ids';
 import { readNetChangeKey } from './read-net-change-key';
 import type { FindingThread, PullRequestState } from './read-pull-request-state';
 import { readPullRequestState } from './read-pull-request-state';
@@ -37,6 +37,8 @@ import { withWriteRetry } from './with-write-retry';
 export interface GitHubReporterOptions {
   loadConnection: () => Promise<GitHubConnection>;
   readDeferralPolicy: ReadDeferralPolicy;
+
+  readRecordedFindings?: (pr: PullRequestRef) => Promise<Finding[]>;
 
   recordCommentURLs?: (pr: PullRequestRef, links: ReadonlyMap<string, string>) => Promise<void>;
 
@@ -115,7 +117,30 @@ async function runReviewPost(
 
   const posted = new Set([...before.threads.map((thread) => thread.marker.id), ...filed]);
 
-  const plan = planReviewPost({ summary: before.summary?.marker ?? null, posted }, result);
+  const readRecorded = options.readRecordedFindings ?? (() => Promise.resolve([]));
+
+  const recorded = await readRecorded(pr);
+
+  const unposted = collectUnpostedFindings(
+    { posted, recorded, unreadable: before.unreadable },
+    result,
+  );
+
+  let listed: Promise<Set<string>> | undefined;
+  const readFollowUpIDs = () => (listed ??= readFiledFollowUpIDs(connection, pr));
+  const carriedFollowUpIDs = unposted.length === 0 ? new Set<string>() : await readFollowUpIDs();
+
+  const plan = planReviewPost(
+    {
+      summary: before.summary?.marker ?? null,
+      posted,
+      recorded,
+      followUpIDs: carriedFollowUpIDs,
+      unreadable: before.unreadable,
+    },
+    result,
+  );
+
   const reported = collectReported(result);
 
   if (!plan.writesSummary) {
@@ -147,13 +172,21 @@ async function runReviewPost(
   for (const finding of rewritten) {
     await write(() =>
       withWriteRetry('rewritten finding comment', 'once', connection.sleep, () =>
-        createIssueComment(client, pr, formatRewrittenComment(finding, result.head)),
+        createIssueComment(client, pr, formatCommitComment(finding, result.head, 'rewritten')),
       ),
     );
   }
 
-  const unfiled =
-    followUps.length === 0 ? [] : await loadUnfiledFollowUps(connection, pr, followUps);
+  for (const finding of plan.carried) {
+    await write(() =>
+      withWriteRetry('carried finding comment', 'once', connection.sleep, () =>
+        createIssueComment(client, pr, formatCommitComment(finding, result.head, 'carried')),
+      ),
+    );
+  }
+
+  const followUpIDs = followUps.length === 0 ? new Set<string>() : await readFollowUpIDs();
+  const unfiled = followUps.filter((finding) => !followUpIDs.has(finding.id));
 
   for (const finding of unfiled) {
     await write(() => createFollowUpIssue(connection, pr, finding));
@@ -203,7 +236,7 @@ async function runReviewPost(
     reviewIDs: plan.reviewIDs,
     reported,
     failedCalls: reviewed.failedCalls,
-    followUps: [...filed, ...followUps.map((finding) => finding.id)],
+    followUps: [...filed, ...followUps.map((finding) => finding.id), ...plan.carriedFiled],
     confirmed: confirmations
       .filter((item) => item.status === 'fixed')
       .map((item) => `${item.id}:${item.commit}`),
@@ -383,49 +416,6 @@ async function createIssueComment(
     issue_number: pr.number,
     body,
   });
-}
-
-function formatUnanchoredComment(post: FindingPost, head: string): string {
-  const finding = post.lead;
-  const anchor = `\`${finding.anchor.path}:${finding.anchor.startLine}-${finding.anchor.endLine}\``;
-
-  return [
-    `GitHub cannot anchor this finding at ${anchor}, outside the diff. Answer it in a comment that starts with its id, \`${finding.id}\`.`,
-    '',
-    formatFindingComment(finding, head, post.folded),
-  ].join('\n');
-}
-
-async function loadUnfiledFollowUps(
-  connection: GitHubConnection,
-  pr: PullRequestRef,
-  followUps: readonly Finding[],
-): Promise<Finding[]> {
-  const issues = await readAllPages(async (page, perPage) => {
-    const response = await connection.client.request('GET /repos/{owner}/{repo}/issues', {
-      owner: pr.owner,
-      repo: pr.repo,
-      state: 'all',
-      page,
-      per_page: perPage,
-    });
-
-    return response.data;
-  });
-
-  const filed = new Set(
-    issues.flatMap((issue) => {
-      const isOwn = connection.appLogin !== null && issue.user?.login === connection.appLogin;
-
-      const marker = isOwn
-        ? parseMarker('follow-up', followUpMarkerSchema, issue.body ?? '')
-        : null;
-
-      return marker?.pullRequest === pr.number ? [marker.id] : [];
-    }),
-  );
-
-  return followUps.filter((finding) => !filed.has(finding.id));
 }
 
 async function createFollowUpIssue(

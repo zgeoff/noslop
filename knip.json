@@ -4,9 +4,9 @@
   "ignore": [".claude/**"],
   // the Bun plugin takes its test files from a `bun test` script, and rig runs the tests
   "bun": { "entry": ["**/*.test.{ts,tsx}"] },
-  // the shared oxlint config loads the plugin, and the synced skill-gate hook in .claude/ imports
-  // the package, so knip sees neither; the chex baseline in node_modules runs diet
-  "ignoreDependencies": ["@stylistic/eslint-plugin", "@zgeoff/skill-gate", "@zgeoff/diet"],
+  // the shared oxlint config loads the plugin, the synced start-up stub in .claude/ imports the
+  // package, and the chex baseline in node_modules runs diet, so knip sees none of them
+  "ignoreDependencies": ["@stylistic/eslint-plugin", "@zgeoff/agent-hooks", "@zgeoff/diet"],
   "workspaces": {
     // rig loads its config by name
     ".": { "entry": ["rig.config.ts"] },

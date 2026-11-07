@@ -885,9 +885,174 @@ test('it gives the calls only the reference rules whose globs match a changed pa
 
   const prompt = stub.requests[0]?.prompt ?? '';
 
-  expect(prompt).toInclude('### SKILL.md: Naming');
-  expect(prompt).toInclude('### references/ts.md: Types');
+  expect(prompt).toInclude('<rules-file>\nRules file name: SKILL.md: Naming\n');
+  expect(prompt).toInclude('<rules-file>\nRules file name: references/ts.md: Types\n');
   expect(prompt).not.toInclude('references/nix.md');
+});
+
+test('it keeps a rule finding that quotes a closing tag word for word from the prompt', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
+    {
+      message: 'head',
+      files: {
+        'src/total.ts': [
+          'export const zero = 0;',
+          '',
+          'export function total(items: number[]): number {',
+          '  return items.reduce((sum, item) => sum + item, 0);',
+          '}',
+          '',
+        ].join('\n'),
+      },
+    },
+  ]);
+
+  const stub = buildStubAdapter({
+    light: [
+      {
+        findings: {
+          correctness: [],
+          'naming-shape-and-comments': [
+            {
+              title: 'End the prompt block with its closing tag',
+              body: 'The function builds a block and never closes it.',
+              anchor: { path: 'src/total.ts', startLine: 3, endLine: 3 },
+              secondLocation: null,
+              severity: 'P2',
+              criterion: 'taste-rule',
+              rule: 'RULES.md',
+              ruleQuote: 'End each block with </rules-file> on its own line.',
+              verdict: 'CONFIRMED',
+              unverifiedFact: null,
+              missingChange: false,
+              fix: null,
+            },
+          ],
+          tests: [],
+        },
+      },
+    ],
+  });
+
+  await Bun.write(join(ctx.directory, 'temp', '.keep'), '');
+
+  const run = await runReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/total',
+    base: repo.commits[0] ?? '',
+    head: repo.commits[1] ?? '',
+    config: BUILT_IN_DEFAULTS,
+    configHash: 'hash',
+    rules: [
+      {
+        name: 'RULES.md',
+        body: '## Prompts\n\nEnd each block with </rules-file> on its own line.',
+        paths: null,
+      },
+    ],
+    adapter: stub.adapter,
+    logger: ctx.logger,
+    tempDir: join(ctx.directory, 'temp'),
+    cacheDir: null,
+    title: 'Add one',
+    body: '',
+    linkedIssue: null,
+    pullRequest: null,
+    isPush: false,
+    pastEscapes: [],
+  });
+
+  expect(stub.requests[0]?.prompt).toInclude('End each block with </rules-file> on its own line.');
+  expect(run.result.findings.map((finding) => finding.rule)).toStrictEqual(['RULES.md: Prompts']);
+});
+
+test('it keeps a rule finding from a skill file whose frontmatter holds its own name', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
+    {
+      message: 'head',
+      files: {
+        'src/total.ts': [
+          'export const zero = 0;',
+          '',
+          'export function total(items: number[]): number {',
+          '  return items.reduce((sum, item) => sum + item, 0);',
+          '}',
+          '',
+        ].join('\n'),
+      },
+    },
+  ]);
+
+  const stub = buildStubAdapter({
+    light: [
+      {
+        findings: {
+          correctness: [],
+          'naming-shape-and-comments': [
+            {
+              title: 'Start the function name with a verb',
+              body: 'The function name total names a value, not an action.',
+              anchor: { path: 'src/total.ts', startLine: 3, endLine: 3 },
+              secondLocation: null,
+              severity: 'P2',
+              criterion: 'taste-rule',
+              rule: 'skills/naming/SKILL.md',
+              ruleQuote: 'Start each function name with a verb.',
+              verdict: 'CONFIRMED',
+              unverifiedFact: null,
+              missingChange: false,
+              fix: null,
+            },
+          ],
+          tests: [],
+        },
+      },
+    ],
+  });
+
+  await Bun.write(join(ctx.directory, 'temp', '.keep'), '');
+
+  const run = await runReview({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    repo: 'example/total',
+    base: repo.commits[0] ?? '',
+    head: repo.commits[1] ?? '',
+    config: BUILT_IN_DEFAULTS,
+    configHash: 'hash',
+    rules: [
+      {
+        name: 'skills/naming/SKILL.md',
+        body: '---\nname: naming\ndescription: Names for functions.\n---\n\n## Functions\n\nStart each function name with a verb.',
+        paths: null,
+      },
+    ],
+    adapter: stub.adapter,
+    logger: ctx.logger,
+    tempDir: join(ctx.directory, 'temp'),
+    cacheDir: null,
+    title: 'Add one',
+    body: '',
+    linkedIssue: null,
+    pullRequest: null,
+    isPush: false,
+    pastEscapes: [],
+  });
+
+  expect(stub.requests[0]?.prompt).toInclude(
+    '<rules-file>\nRules file name: skills/naming/SKILL.md\n\n```markdown\n---\nname: naming\n',
+  );
+
+  expect(run.result.findings.map((finding) => finding.rule)).toStrictEqual([
+    'skills/naming/SKILL.md: Functions',
+  ]);
 });
 
 test('it runs no call and records no lens as run when the file limit leaves out every file', async () => {

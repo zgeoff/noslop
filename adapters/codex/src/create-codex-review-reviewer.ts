@@ -7,6 +7,7 @@ import type { Runner } from '@noslop/runner';
 import { z } from 'zod';
 import { loadReviewSession } from './load-review-session';
 import { parseCodexReview } from './parse-codex-review';
+import { parseJSONLine } from './parse-json-line';
 
 export interface CodexReviewReviewerOptions {
   runner: Runner;
@@ -96,12 +97,4 @@ function findThreadID(stdout: string): string | null {
   }
 
   return null;
-}
-
-function parseJSONLine(line: string): unknown {
-  try {
-    return JSON.parse(line);
-  } catch {
-    return null;
-  }
 }

@@ -2,6 +2,7 @@ import type { Tokens } from '@noslop/contract';
 import { mergeTokens } from '@noslop/contract';
 import { z } from 'zod';
 import { buildTokensFromCodexUsage, codexUsageSchema } from './build-tokens-from-codex-usage';
+import { parseJSONLine } from './parse-json-line';
 
 const turnSchema = z.looseObject({ type: z.literal('turn.completed'), usage: codexUsageSchema });
 
@@ -13,12 +14,4 @@ export function countCodexTokens(stdout: string): Tokens {
     .flatMap((event) => (event.success ? [buildTokensFromCodexUsage(event.data.usage)] : []));
 
   return mergeTokens(turns);
-}
-
-function parseJSONLine(line: string): unknown {
-  try {
-    return JSON.parse(line);
-  } catch {
-    return null;
-  }
 }

@@ -1,6 +1,6 @@
 {
   "name": "noslop",
-  "version": "0.4.27",
+  "version": "0.4.28",
   "private": true,
   "description": "A reviewer for pull requests that coding agents write",
   "license": "MIT",
@@ -38,7 +38,7 @@
     "audit": "bun audit --ignore=GHSA-g3hv-75wg-m249",
     "boundaries": "turbo boundaries",
     "check": "bun run audit && bun run deadcode && bun run format:check && bun run lint:full && bun run typecheck && bun run boundaries && bun run prose && bun run test && bun run check:package-types",
-    "deadcode": "knip",
+    "deadcode": "bash scripts/run-knip.sh",
     "format": "oxfmt . && { [ -z \"$(git ls-files -co --exclude-standard -- '*.ts' '*.tsx' $(sed -e '/^#/d' -e '/^$/d' -e 's/^/:(exclude,glob)/' .formatignore))\" ] || format-codemod --quiet .; }",
     "format:check": "oxfmt --check . && { [ -z \"$(git ls-files -co --exclude-standard -- '*.ts' '*.tsx' $(sed -e '/^#/d' -e '/^$/d' -e 's/^/:(exclude,glob)/' .formatignore))\" ] || format-codemod --check --quiet .; }",
     "lint": "oxlint",
@@ -60,18 +60,17 @@
     "@commitlint/cli": "21.2.4",
     "@maschwenk/tsrslint": "0.1.6",
     "@noslop/contract": "workspace:*",
-    "@noslop/runner": "workspace:*",
     "@noslop/testing": "workspace:*",
     "@stylistic/eslint-plugin": "5.10.0",
     "@tsconfig/strictest": "2.0.8",
     "@types/bun": "1.4.4",
+    "@zgeoff/agent-hooks": "0.2.9",
     "@zgeoff/bun-test-extended": "0.2.3",
     "@zgeoff/chex": "0.1.8",
-    "@zgeoff/diet": "0.2.1",
+    "@zgeoff/diet": "0.2.2",
     "@zgeoff/format-codemod": "0.3.5",
-    "@zgeoff/oxlint-config": "0.8.5",
+    "@zgeoff/oxlint-config": "0.8.6",
     "@zgeoff/rig": "0.1.5",
-    "@zgeoff/skill-gate": "0.2.22",
     "knip": "6.43.0",
     "lefthook": "2.2.2",
     "msw": "catalog:",
@@ -80,7 +79,8 @@
     "tsdown": "0.23.2",
     "tsrs": "0.18.0-ts7.1.0-dev.20260929",
     "turbo": "2.11.10",
-    "typescript": "7.0.2"
+    "typescript": "7.0.2",
+    "zod": "catalog:"
   },
   "overrides": {
     "rolldown-plugin-dts": "0.28.8"

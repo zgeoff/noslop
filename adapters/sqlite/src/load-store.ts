@@ -224,6 +224,12 @@ const STORE_MIGRATIONS: Record<string, Migration> = {
       await db.schema.alterTable('findings').addColumn('comment_url', 'text').execute();
     },
   },
+
+  '0009-findings-with-anchor-commits': {
+    up: async (db) => {
+      await db.schema.alterTable('findings').addColumn('anchor_commit', 'text').execute();
+    },
+  },
 };
 
 export interface LoadStoreOptions {

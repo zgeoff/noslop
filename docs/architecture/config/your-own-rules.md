@@ -10,9 +10,10 @@ config repo can hand the same three to several repos.
 ## The rules file
 
 A rules file is a Markdown file of taste rules, named by the config's `rules` key, which names one
-file or a list of them. Each file reaches the taste lenses whole, under its label, the path as the
-config wrote it. noslop reads no structure into it, so a repo's skills serve as its rules unchanged,
-and a renamed heading changes nothing.
+file or a list of them. Each file reaches the taste lenses whole, in a block named by its label, the
+path as the config wrote it, so the model never takes a heading inside the file for the file's name.
+noslop reads no structure into it, so a repo's skills serve as its rules unchanged, and a renamed
+heading changes nothing.
 
 A finding that rests on a rule, a taste finding or one of another criterion, names the file it rests
 on and quotes it, at least one full sentence, word for word. Assemble looks for the quote in the

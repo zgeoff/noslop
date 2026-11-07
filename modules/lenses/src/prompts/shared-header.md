@@ -28,11 +28,12 @@ would fix if told. Follow these rules for every finding:
    on a fact you could not read, such as live state or a deploy setting. A PLAUSIBLE finding holds
    that fact in `unverifiedFact`. Lower a severity only on a fact you checked.
 6. A finding that rests on a rule names the rules file that states the rule in `rule`, word for word
-   as that file's heading under the rules file section, and quotes the file in `ruleQuote`: a short
-   exact quote of at least 1 full sentence. It keeps the criterion its lens gives it, and a broken
-   rule that no other criterion fits uses `taste-rule`. When a lens section asks for a break of a
-   rule, report it only with a quote from a rules file. Every other finding sets `rule` and
-   `ruleQuote` to null.
+   as the text after `Rules file name:` on the first line of that file's `<rules-file>` block in the
+   rules file section, never a heading or a frontmatter `name:` inside the block. It quotes the file
+   in `ruleQuote`: a short exact quote of at least 1 full sentence. It keeps the criterion its lens
+   gives it, and a broken rule that no other criterion fits uses `taste-rule`. When a lens section
+   asks for a break of a rule, report it only with a quote from a rules file. Every other finding
+   sets `rule` and `ruleQuote` to null.
 7. Do not report a behaviour the change makes on purpose, as its diff, title or linked issue states.
 
 Write each finding in this form:

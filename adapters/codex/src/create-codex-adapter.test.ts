@@ -302,6 +302,92 @@ test('it rejects a call that codex fails', async () => {
   ).rejects.toThrowWithMessage(Error, /codex exited 1 on call security: model unavailable/u);
 });
 
+test('it rejects a call with the usage-limit line of a stderr that ends with other output', async () => {
+  const ctx = await setupTest();
+
+  const stub = await createStubCLI(ctx.directory, {
+    outputFlag: '-o',
+    lastMessage: null,
+    stdout: '',
+    stderr: [
+      'ERROR: You have hit your usage limit. Try again on the 3rd.',
+      ...Array.from({ length: 20 }, (_, index) => `debug: closed connection ${index} to the model`),
+      '',
+    ].join('\n'),
+    exitCode: 1,
+    delayMs: 0,
+  });
+
+  const adapter = createCodexAdapter({
+    runner: ctx.runner,
+    command: stub.path,
+    codexHome: join(ctx.directory, 'no-home'),
+  });
+
+  expect(
+    adapter.runCall(
+      {
+        callID: 'security',
+        lenses: ['security'],
+        prompt: 'Review the change.',
+        outputSchema: buildCallOutputSchema(['security']),
+        effort: 'medium',
+        model: null,
+        cwd: ctx.directory,
+        timeoutMs: 10_000,
+      },
+      { tempDir: ctx.directory, logger: ctx.logger },
+    ),
+  ).rejects.toThrowWithMessage(
+    Error,
+    /codex exited 1 on call security: You have hit your usage limit\. Try again on the 3rd\.; /u,
+  );
+});
+
+test('it rejects a call with the error that codex prints as a JSON event', async () => {
+  const ctx = await setupTest();
+
+  const stub = await createStubCLI(ctx.directory, {
+    outputFlag: '-o',
+    lastMessage: null,
+    stdout: [
+      '{"type":"thread.started","thread_id":"t_1"}',
+      '{"type":"turn.started"}',
+      '{"type":"error","message":"You have hit your usage limit. Try again on the 3rd."}',
+      '{"type":"turn.failed","error":{"message":"You have hit your usage limit. Try again on the 3rd."}}',
+      '',
+    ].join('\n'),
+    stderr: '',
+    exitCode: 1,
+    delayMs: 0,
+  });
+
+  const adapter = createCodexAdapter({
+    runner: ctx.runner,
+    command: stub.path,
+    codexHome: join(ctx.directory, 'no-home'),
+  });
+
+  expect(
+    adapter.runCall(
+      {
+        callID: 'security',
+        lenses: ['security'],
+        prompt: 'Review the change.',
+        outputSchema: buildCallOutputSchema(['security']),
+        effort: 'medium',
+        model: null,
+        cwd: ctx.directory,
+        timeoutMs: 10_000,
+      },
+      { tempDir: ctx.directory, logger: ctx.logger },
+    ),
+  ).rejects.toThrowWithMessage(
+    Error,
+    /^codex exited 1 on call security: You have hit your usage limit\. Try again on the 3rd\.$/u,
+  );
+});
+
 test('it rejects a call that runs past its timeout', async () => {
   const ctx = await setupTest();
 

@@ -40,6 +40,17 @@ test('it tells the naming lens to quote a role table row and skip a choice betwe
   ]);
 });
 
+test('it tells the tests lens to report a direct write outside a seed with a quote of the seeding rule', () => {
+  const prompt = getLensPrompt('tests');
+
+  expect(prompt).toIncludeMultiple([
+    '3. Seeding stored state: a test that writes database rows or files on disk directly, such as with a',
+    "   query builder's insert call or an SQL `INSERT` statement, in a place the seeding rule does not",
+    '4. For a direct write, quote the seeding rule, name the write, and name what the rule says the test',
+    '4. A direct write in a place the seeding rule allows.',
+  ]);
+});
+
 test.each([
   ['naming-shape-and-comments'],
   ['architecture-and-boundaries'],
