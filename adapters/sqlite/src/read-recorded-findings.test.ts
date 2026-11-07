@@ -83,3 +83,23 @@ test('it reads each finding of a pull request once, from its latest review, anch
     { ...located, anchorCommit: 'a'.repeat(40) },
   ]);
 });
+
+test('it reads a finding anchored at another commit than its review head at that commit', async () => {
+  const ctx = await setupTest();
+
+  const moved = buildMockFinding({ id: '1111111111111111', anchorCommit: 'd'.repeat(40) });
+
+  await writeReview(
+    ctx.store,
+    buildMockReviewResult({
+      reviewID: 'review-1',
+      pullRequest: { owner: 'example', repo: 'app', number: 7 },
+      head: 'a'.repeat(40),
+      findings: [moved],
+    }),
+  );
+
+  const findings = await readRecordedFindings(ctx.store, 'example/app', 7);
+
+  expect(findings).toStrictEqual([moved]);
+});

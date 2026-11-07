@@ -43,7 +43,7 @@ export async function readRecordedFindings(
       writtenByChange: row.written_by_change === 1,
       ...(row.risk_class === null ? {} : { riskClass: row.risk_class }),
       ...(row.fix === null ? {} : { fix: row.fix }),
-      anchorCommit: row.head,
+      anchorCommit: row.anchor_commit ?? row.head,
     });
 
     latest.set(row.finding_id, finding);

@@ -54,6 +54,7 @@ test('it keys each disposition a store held before on the one repo whose reviews
   database.run('ALTER TABLE calls DROP COLUMN cached_input_tokens');
   database.run('ALTER TABLE calls DROP COLUMN cache_write_tokens');
   database.run('ALTER TABLE findings DROP COLUMN comment_url');
+  database.run('ALTER TABLE findings DROP COLUMN anchor_commit');
   database.run('DROP TABLE dispositions');
   database.run('DROP TABLE dropped_findings');
 
@@ -101,6 +102,7 @@ test('it gives a call the store held before no cache counts', async () => {
   database.run('ALTER TABLE calls DROP COLUMN cached_input_tokens');
   database.run('ALTER TABLE calls DROP COLUMN cache_write_tokens');
   database.run('ALTER TABLE findings DROP COLUMN comment_url');
+  database.run('ALTER TABLE findings DROP COLUMN anchor_commit');
   database.run('DROP TABLE dropped_findings');
   database.close();
 
@@ -128,6 +130,7 @@ test('it gives a disposition the store held before no pull request', async () =>
 
   database.run(`DELETE FROM kysely_migration WHERE name >= '0007'`);
   database.run('ALTER TABLE findings DROP COLUMN comment_url');
+  database.run('ALTER TABLE findings DROP COLUMN anchor_commit');
   database.run('DROP TABLE dispositions');
 
   database.run(`CREATE TABLE dispositions (repo text NOT NULL, finding_id text NOT NULL,
@@ -172,6 +175,7 @@ test('it opens a store written before findings kept a comment link and gives its
 
   database.run(`DELETE FROM kysely_migration WHERE name >= '0008'`);
   database.run('ALTER TABLE findings DROP COLUMN comment_url');
+  database.run('ALTER TABLE findings DROP COLUMN anchor_commit');
   database.close();
 
   const store = await loadStore(ctx.path);
@@ -181,6 +185,36 @@ test('it opens a store written before findings kept a comment link and gives its
   const rows = await store.selectFrom('findings').select(['finding_id', 'comment_url']).execute();
 
   expect(rows).toStrictEqual([{ finding_id: '1111111111111111', comment_url: null }]);
+});
+
+test('it opens a store written before findings kept an anchor commit and gives its findings none', async () => {
+  const ctx = await setupTest();
+  const first = await loadStore(ctx.path);
+
+  await writeReview(
+    first,
+    buildMockReviewResult({
+      reviewID: 'review-1',
+      pullRequest: { owner: 'example', repo: 'app', number: 7 },
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+  );
+
+  await first.destroy();
+
+  const database = new Database(ctx.path, { strict: true });
+
+  database.run(`DELETE FROM kysely_migration WHERE name >= '0009'`);
+  database.run('ALTER TABLE findings DROP COLUMN anchor_commit');
+  database.close();
+
+  const store = await loadStore(ctx.path);
+
+  onTestFinished(() => store.destroy());
+
+  const rows = await store.selectFrom('findings').select(['finding_id', 'anchor_commit']).execute();
+
+  expect(rows).toStrictEqual([{ finding_id: '1111111111111111', anchor_commit: null }]);
 });
 
 test('it refuses a store migrated past the newest migration it knows and leaves the store as it was', async () => {
