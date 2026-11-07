@@ -8,7 +8,13 @@ import type { ReviewAdapter } from '@noslop/contract';
 import { findingListSchema, reviewResultSchema } from '@noslop/contract';
 import { buildNetChangeKey, createGitHubReporter } from '@noslop/github';
 import { createRunner } from '@noslop/runner';
-import { createSQLiteReporter, loadStore, runStoreQuery, writeReview } from '@noslop/sqlite';
+import {
+  createSQLiteReporter,
+  loadStore,
+  readDispositions,
+  runStoreQuery,
+  writeReview,
+} from '@noslop/sqlite';
 import {
   GITHUB_API_URL,
   STUB_APP_LOGIN,
@@ -9301,6 +9307,7 @@ test('it records the dispositions of a pull request in the store when it sets th
     authorLogin: 'dev',
     inReplyToID: thread.id,
     body: 'not-a-defect the caller awaits it',
+    createdAt: '2026-10-17T11:00:00.000Z',
   });
 
   await runCLI(
@@ -9312,17 +9319,17 @@ test('it records the dispositions of a pull request in the store when it sets th
 
   onTestFinished(() => store.destroy());
 
-  const rows = await store
-    .selectFrom('dispositions')
-    .select(['finding_id', 'pull_request', 'kind', 'value'])
-    .execute();
+  const dispositions = await readDispositions(store, 'example/app', 9);
 
-  expect(rows).toStrictEqual([
+  expect(dispositions).toStrictEqual([
     {
-      finding_id: '1111111111111111',
-      pull_request: 9,
+      findingID: '1111111111111111',
       kind: 'not-a-defect',
       value: 'the caller awaits it',
+      author: 'dev',
+      authorIsOwner: false,
+      source: 'github',
+      at: '2026-10-17T11:00:00.000Z',
     },
   ]);
 });

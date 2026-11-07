@@ -1,5 +1,6 @@
 export * from './create-sqlite-reporter';
 export * from './load-store';
+export * from './read-dispositions';
 export * from './read-escape-paths';
 export * from './read-recorded-findings';
 export * from './run-store-query';
