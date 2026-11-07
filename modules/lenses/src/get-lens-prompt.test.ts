@@ -25,17 +25,17 @@ test('it tells the naming lens to report a one-off script under a rule and skip 
 
   expect(prompt).toIncludeMultiple([
     'Look for a script that ran once to change the tree',
-    'script or a one-off rewrite of text, when the rules file states a rule against committing one.',
+    'codemod, a rename script or a one-off rewrite of text, when the rules file states a rule against',
     '5. A script the repo runs again, such as a build, check or release script, or a helper that one of',
     'P2 for a one-off script, under the criterion',
   ]);
 });
 
-test('it tells the naming lens to quote a role table row and skip a choice between two verbs', () => {
+test('it tells the naming lens to quote a verb table row and skip a choice between two verbs', () => {
   const prompt = getLensPrompt('naming-shape-and-comments');
 
   expect(prompt).toIncludeMultiple([
-    '2. For a function name, quote the one row of the role table whose promise the name breaks.',
+    '2. For a function name, quote the one row of the verb table whose guarantee the name breaks.',
     '4. A choice between two verbs, such as `read` or `load`. A function name finding reports a broken',
   ]);
 });
