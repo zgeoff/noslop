@@ -56,6 +56,10 @@ every part.
     back
   - [The GitHub App](architecture/output/github-app.md): inline comments, the check run,
     dispositions and the App server
+  - [Re-review and fix confirmation](architecture/output/re-review.md): what a later review reads,
+    how a fix gets confirmed, and the net-change key
+  - [The fixes-only run](architecture/output/fixes-only-run.md): the run that checks each `fixed`
+    answer with no review
 - Measurement
   - [The findings store](architecture/measurement/store.md): the SQLite store and its queries
   - [The eval harness](architecture/measurement/eval.md): the replay of a labelled corpus, scored

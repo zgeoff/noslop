@@ -45,8 +45,8 @@ with the reason, and the summary shows it as not judged, never as not fixed. Its
 unconfirmed until a later run judges it.
 
 The run sets three fields of the summary marker from its own head: the head, the
-[net-change key](./github-app.md#the-net-change-key) and the count of failed calls. It sets them
-only when both of these hold:
+[net-change key](./re-review.md#the-net-change-key) and the count of failed calls. It sets them only
+when both of these hold:
 
 - a fix call or a static check returned a verdict;
 - the last lens review had no failed call.
@@ -63,11 +63,11 @@ range starts at the merge base, because each call reads the whole net diff.
 
 The result lists each verdict in its fix checks, so the `github` reporter reads the same verdicts
 whether the CLI or `noslop post` sends it. A yes confirms the fix under
-[re-review and fix confirmation](./github-app.md#re-review-and-fix-confirmation). A no counts as the
-run reporting the finding again, so the check names it as still found, and the summary gives the
-reason. The summary marker keeps the findings the run judged fixed with its range, and that range
-confirms no other fix, so a fix the run did not ask about stays unconfirmed, a `fixed` reply posted
-after the run included.
+[re-review and fix confirmation](./re-review.md#fix-confirmation). A no counts as the run reporting
+the finding again, so the check names it as still found, and the summary gives the reason. The
+summary marker keeps the findings the run judged fixed with its range, and that range confirms no
+other fix, so a fix the run did not ask about stays unconfirmed, a `fixed` reply posted after the
+run included.
 
 The run raises no new finding. With the `sqlite` reporter in its report list, the `github` reporter
 still posts each earlier finding that the store holds and no finding comment holds, such as one
@@ -147,4 +147,4 @@ its linked issue, so the run reads the linked issue when it judges a static fix.
 
 The run never reads a merge commit as a separate input. A conflict resolution or a hand edit in a
 merge changes the patch of each file it touches, so the next review reads that file under the
-[net-change key](./github-app.md#the-net-change-key), as it reads any other changed file.
+[net-change key](./re-review.md#the-net-change-key), as it reads any other changed file.

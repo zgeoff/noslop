@@ -73,10 +73,10 @@ from there, so it refuses `--base` and `--head`. The repo comes from `--repo`, o
 remote's URL. The config comes from the tip of the pull request's base branch, under
 [resolution](../config/review-config.md#resolution). The base is the merge-base of the pull
 request's base and head. A re-review reads only the files whose patch changed since the last review,
-under the rule in [re-review and fix confirmation](./github-app.md#re-review-and-fix-confirmation),
-so a review of a head whose patches the last review read reads no file and exits 0. `--full` reads
-every file of the pull request again. `--fixes-only` checks each `fixed` answer and raises no
-finding, under [the fixes-only run](./fixes-only-run.md).
+under the rule in [re-review and fix confirmation](./re-review.md#what-a-re-review-reads), so a
+review of a head whose patches the last review read reads no file and exits 0. `--full` reads every
+file of the pull request again. `--fixes-only` checks each `fixed` answer and raises no finding,
+under [the fixes-only run](./fixes-only-run.md).
 
 ## Output and reporters
 
