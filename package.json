@@ -37,7 +37,7 @@
   "scripts": {
     "audit": "bun audit --ignore=GHSA-g3hv-75wg-m249",
     "boundaries": "turbo boundaries",
-    "check": "bun run audit && bun run deadcode && bun run format:check && bun run lint:full && bun run typecheck && bun run boundaries && bun run prose && bun run test",
+    "check": "bun run audit && bun run deadcode && bun run format:check && bun run lint:full && bun run typecheck && bun run boundaries && bun run prose && bun run test && bun run check:package-types",
     "deadcode": "knip",
     "format": "oxfmt . && { [ -z \"$(git ls-files -co --exclude-standard -- '*.ts' '*.tsx' $(sed -e '/^#/d' -e '/^$/d' -e 's/^/:(exclude,glob)/' .formatignore))\" ] || format-codemod --quiet .; }",
     "format:check": "oxfmt --check . && { [ -z \"$(git ls-files -co --exclude-standard -- '*.ts' '*.tsx' $(sed -e '/^#/d' -e '/^$/d' -e 's/^/:(exclude,glob)/' .formatignore))\" ] || format-codemod --check --quiet .; }",
@@ -53,7 +53,8 @@
     "schema:config": "bun scripts/write-config-schema.ts",
     "ci:pick-release-ship": "bun scripts/release/run-pick-release-ship-step.ts",
     "ci:publish-cli": "bun scripts/release/run-publish-cli-step.ts apps/cli/dist",
-    "check:docs": "chex prose length links skill"
+    "check:docs": "chex prose length links skill",
+    "check:package-types": "bun scripts/run-package-types-check.ts"
   },
   "devDependencies": {
     "@commitlint/cli": "21.2.4",

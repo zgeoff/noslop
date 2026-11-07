@@ -61,6 +61,8 @@ pre-push:
       run: bun run boundaries
     - name: prose
       run: bun run prose
+    - name: package-types
+      run: bun run check:package-types
     # the baseline's test job runs rig related, which skips test:related, so
     # the sweep of finished test runs' temp folders runs here
     - name: temp-sweep
