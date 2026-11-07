@@ -448,6 +448,61 @@ test('it writes no kept ranges or review count to the summary marker and reads a
   ]);
 });
 
+test('it posts no comment for a finding that an older marker lists as filed to an issue, and keeps the list', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'c'.repeat(40),
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/a.ts',
+    lines: [1],
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${'b'.repeat(40)}","reviews":4,"followUps":["4e1d9a7c2b5f8036"],"reported":["4e1d9a7c2b5f8036"],"failedCalls":0,"reviewIDs":["review-4"]} -->`,
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      reviewID: 'review-5',
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'c'.repeat(40),
+      findings: [buildMockFinding({ id: '4e1d9a7c2b5f8036' })],
+    }),
+    { logger: ctx.logger, options: {} },
+  );
+
+  const connection = await createGitHubConnection({
+    appID: 1,
+    privateKey: buildStubAppKey(),
+    installationID: 7,
+  });
+
+  const state = await readPullRequestState(connection, {
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+  });
+
+  expect({
+    comments: githubCollections.reviewComments.all().length,
+    followUps: state.summary?.marker.followUps,
+  }).toStrictEqual({ comments: 0, followUps: ['4e1d9a7c2b5f8036'] });
+});
+
 test("it strikes the comment of a fix call's confirmed fix and keeps its marker for the check", async () => {
   const ctx = setupTest();
 

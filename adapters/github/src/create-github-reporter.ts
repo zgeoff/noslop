@@ -109,7 +109,9 @@ async function runReviewPost(
 
   const before = await readPullRequestState(connection, pr);
 
-  const posted = new Set(before.threads.map((thread) => thread.marker.id));
+  const filed = before.summary?.marker.followUps ?? [];
+
+  const posted = new Set([...before.threads.map((thread) => thread.marker.id), ...filed]);
 
   const readRecorded = options.readRecordedFindings ?? (() => Promise.resolve([]));
 
@@ -212,6 +214,7 @@ async function runReviewPost(
       .filter((item) => item.status === 'fixed')
       .map((item) => `${item.id}:${item.commit}`),
     ...(unjudged.length === 0 ? {} : { unjudged }),
+    ...(filed.length === 0 ? {} : { followUps: filed }),
     startedAt: result.startedAt,
     ...(reviewed.key === undefined ? {} : { key: reviewed.key }),
   };

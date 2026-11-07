@@ -19,9 +19,12 @@ export const summaryMarkerSchema = z.strictObject({
   notReviewed: z.unknown().optional(),
   notReviewedByLens: z.unknown().optional(),
   reviews: z.unknown().optional(),
-  followUps: z.unknown().optional(),
   checkedMerges: z.unknown().optional(),
   rejectedMerges: z.unknown().optional(),
+
+  // Markers already posted on GitHub may list findings that went to an issue in place of a comment.
+  // A later review counts them as posted, so it never posts them on the pull request a second time.
+  followUps: z.array(z.string()).optional(),
 
   reported: z.array(z.string()),
   failedCalls: z.int().nonnegative(),

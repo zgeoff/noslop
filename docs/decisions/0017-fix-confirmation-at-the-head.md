@@ -128,8 +128,9 @@ ask the owner for an override and say why.
 - **Stored answers.** A `fixed <sha>` reply stays valid, and its sha becomes the hint. A fix the
   summary marker holds as confirmed stays confirmed.
 - **Summary markers.** noslop reads a marker that an older release wrote and ignores the fields it
-  no longer uses, such as a review count and lists of merges. When a marker holds no key, the next
-  review of another head reads the whole change and writes the key.
+  no longer uses, such as a review count and lists of merges. It keeps the list of findings that an
+  older release filed to an issue, and posts none of them on the pull request. When a marker holds
+  no key, the next review of another head reads the whole change and writes the key.
 - **The GitHub App.** The App server runs the CLI release it ships with, so the App gets each rule
   in this record with no code of its own.
 

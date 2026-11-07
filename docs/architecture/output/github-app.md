@@ -78,9 +78,10 @@ it posts anything.
 
 1. It posts one pull request review at the reviewed head, which is the commit the review ran
    against, with one inline comment per new finding at the finding's anchor. A finding is new when
-   no finding comment holds its id, so a finding that a re-review reports again keeps its first
-   thread. A finding that matches one answered `not-a-defect` posts no comment, because the review
-   drops it before the post, under
+   no finding comment holds its id and the summary marker lists no issue filed for it by an older
+   release, so a finding that a re-review reports again keeps its first thread. A finding that
+   matches one answered `not-a-defect` posts no comment, because the review drops it before the
+   post, under
    [findings answered not-a-defect](../review/findings.md#findings-answered-not-a-defect). Each
    comment opens with the severity, the lens and the title, then the body, the fact a PLAUSIBLE
    finding rests on and the fix. The accepted disposition forms and the finding id with its lens,
