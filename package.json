@@ -75,7 +75,7 @@
     "@zgeoff/bun-test-extended": "0.2.3",
     "@zgeoff/diet": "0.2.1",
     "@zgeoff/format-codemod": "0.3.5",
-    "@zgeoff/oxlint-config": "0.8.5",
+    "@zgeoff/oxlint-config": "0.8.6",
     "@zgeoff/rig": "0.1.5",
     "@zgeoff/skill-gate": "0.2.22",
     "knip": "6.43.0",
