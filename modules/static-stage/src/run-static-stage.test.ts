@@ -929,6 +929,129 @@ test('it reports an edit to a synced copy, a stray format hunk and a test the bo
   ]);
 });
 
+test('it reports no stray format hunk for a hunk that moves a block of code', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/totals.ts': [
+          'function addTax(price: number): number {',
+          '  return price * 1.2;',
+          '}',
+          '',
+          'export function sumPrices(prices: number[]): number {',
+          '  return prices.reduce((sum, price) => sum + addTax(price), 0);',
+          '}',
+          '',
+        ].join('\n'),
+        'src/cart.ts': 'export const items = [];\n',
+      },
+    },
+    {
+      message: 'head',
+      files: {
+        'src/totals.ts': [
+          'export function sumPrices(prices: number[]): number {',
+          '  return prices.reduce((sum, price) => sum + addTax(price), 0);',
+          '}',
+          '',
+          'function addTax(price: number): number {',
+          '  return price * 1.2;',
+          '}',
+          '',
+        ].join('\n'),
+        'src/cart.ts': "export const items = ['pear'];\n",
+      },
+    },
+  ]);
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config: BUILT_IN_DEFAULTS,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config: BUILT_IN_DEFAULTS,
+    title: 'feat: start the cart with a pear',
+    body: '',
+    linkedIssue: 'Put a pear in the cart in src/cart.ts.',
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(result.findings.map((finding) => finding.title)).toStrictEqual([]);
+});
+
+test('it reports a stray format hunk that splits one statement over several lines', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/colors.ts': [
+          "export const colors = ['red', 'green', 'blue'];",
+          '',
+          'export const count = colors.length;',
+          '',
+        ].join('\n'),
+        'src/theme.ts': "export const theme = 'light';\n",
+      },
+    },
+    {
+      message: 'head',
+      files: {
+        'src/colors.ts': [
+          'export const colors = [',
+          "  'red',",
+          "  'green',",
+          "  'blue'",
+          '];',
+          '',
+          'export const count = colors.length;',
+          '',
+        ].join('\n'),
+        'src/theme.ts': "export const theme = 'dark';\n",
+      },
+    },
+  ]);
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config: BUILT_IN_DEFAULTS,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config: BUILT_IN_DEFAULTS,
+    title: 'feat: default to the dark theme',
+    body: '',
+    linkedIssue: 'Make dark the default theme in src/theme.ts.',
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(result.findings.map((finding) => [finding.title, finding.anchor])).toStrictEqual([
+    [
+      'Format-only edit to colors.ts, outside the linked issue',
+      { path: 'src/colors.ts', startLine: 1, endLine: 5 },
+    ],
+  ]);
+});
+
 test('it reports no stray format hunk when the linked issue asks for a reformat', async () => {
   const ctx = await setupTest();
 

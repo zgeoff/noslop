@@ -1,5 +1,5 @@
 import { basename } from 'node:path';
-import type { ModelFinding, ReviewConfig } from '@noslop/contract';
+import type { DiffLine, Hunk, ModelFinding, ReviewConfig } from '@noslop/contract';
 import type { AnalyzedFile, PackageManifest } from './analyzed-file';
 import { buildStaticFinding } from './build-static-finding';
 import { isGlobMatch } from './is-glob-match';
@@ -259,17 +259,10 @@ function collectStrayFormatHunks(inputs: ChangeFindingInputs): ModelFinding[] {
     }
 
     return entry.file.hunks.flatMap((hunk) => {
-      const deleted = hunk.lines.filter((line) => line.kind === 'deleted').map((line) => line.text);
       const added = hunk.lines.filter((line) => line.kind === 'added');
       const first = added[0]?.newLine;
 
-      const isFormatOnly =
-        deleted.length > 0 &&
-        added.length > 0 &&
-        normalizeSpace(deleted.join('')) ===
-          normalizeSpace(added.map((line) => line.text).join(''));
-
-      if (!isFormatOnly || first === undefined || first === null) {
+      if (!isFormatOnlyHunk(hunk) || first === undefined || first === null) {
         return [];
       }
 
@@ -288,6 +281,47 @@ function collectStrayFormatHunks(inputs: ChangeFindingInputs): ModelFinding[] {
       ];
     });
   });
+}
+
+function isFormatOnlyHunk(hunk: Hunk): boolean {
+  const runs = collectChangeRuns(hunk.lines);
+
+  return (
+    runs.length > 0 &&
+    runs.every(
+      (run) =>
+        run.deleted.length > 0 &&
+        run.added.length > 0 &&
+        normalizeSpace(run.deleted.join('')) === normalizeSpace(run.added.join('')),
+    )
+  );
+}
+
+interface ChangeRun {
+  deleted: string[];
+  added: string[];
+}
+
+function collectChangeRuns(lines: readonly DiffLine[]): ChangeRun[] {
+  const runs: ChangeRun[] = [];
+  let current: ChangeRun | null = null;
+
+  for (const line of lines) {
+    if (line.kind === 'context') {
+      current = null;
+      continue;
+    }
+
+    if (current === null) {
+      current = { deleted: [], added: [] };
+
+      runs.push(current);
+    }
+
+    current[line.kind].push(line.text);
+  }
+
+  return runs;
 }
 
 // whitespace inside a string literal is part of its value, so a change there is never format-only
