@@ -6,10 +6,7 @@
     "es2024": true
   },
   "ignorePatterns": [".claude/**", ".reviews/**", ".worktrees/**"],
-  "rules": {
-    // `*.model-api.test.ts` calls a live model, so it runs in its own lane under the lane's 120 s
-    "zgeoff/max-test-timeout": ["error", { "lanes": ["model-api"] }]
-  },
+  "rules": {},
   // the App server stands where an org's own relay stands, so it builds only on what @noslop/cli
   // publishes; its tests also reach the stand-ins of @noslop/testing
   "overrides": [
