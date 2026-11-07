@@ -91,6 +91,73 @@ test('it reads the dispositions of one pull request of a repo in the order they 
   ]);
 });
 
+test('it orders dispositions given at one time by finding, then by source', async () => {
+  const ctx = await setupTest();
+
+  await writeDispositions(ctx.store, 'example/app', 7, [
+    {
+      findingID: '2222222222222222',
+      kind: 'fixed',
+      value: '1a2b3c4',
+      author: 'dev',
+      authorIsOwner: false,
+      source: 'github',
+      at: '2026-10-17T11:00:00.000Z',
+    },
+    {
+      findingID: '1111111111111111',
+      kind: 'fixed',
+      value: '1a2b3c4',
+      author: 'dev',
+      authorIsOwner: false,
+      source: 'github',
+      at: '2026-10-17T11:00:00.000Z',
+    },
+    {
+      findingID: '1111111111111111',
+      kind: 'fixed',
+      value: '1a2b3c4',
+      author: 'dev',
+      authorIsOwner: false,
+      source: 'eval',
+      at: '2026-10-17T11:00:00.000Z',
+    },
+  ]);
+
+  const dispositions = await readDispositions(ctx.store, 'example/app', 7);
+
+  expect(
+    dispositions.map((disposition) => [disposition.findingID, disposition.source]),
+  ).toStrictEqual([
+    ['1111111111111111', 'eval'],
+    ['1111111111111111', 'github'],
+    ['2222222222222222', 'github'],
+  ]);
+});
+
+test('it leaves out a disposition recorded with no pull request', async () => {
+  const ctx = await setupTest();
+
+  await ctx.store
+    .insertInto('dispositions')
+    .values({
+      repo: 'example/app',
+      pull_request: null,
+      finding_id: '1111111111111111',
+      kind: 'fixed',
+      value: '1a2b3c4',
+      author: 'dev',
+      author_is_owner: 0,
+      source: 'github',
+      at: '2026-10-17T11:00:00.000Z',
+    })
+    .execute();
+
+  const dispositions = await readDispositions(ctx.store, 'example/app', 7);
+
+  expect(dispositions).toStrictEqual([]);
+});
+
 test('it reads no dispositions of a pull request with none', async () => {
   const ctx = await setupTest();
   const dispositions = await readDispositions(ctx.store, 'example/app', 7);
