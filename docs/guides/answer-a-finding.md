@@ -135,7 +135,10 @@ fixed: fix it again, or answer with another kind.
 
 The check passes when no finding is open. noslop writes the first problem as the check's title, and
 in the check's text it lists each open finding with its id, its title and the reason. noslop sets
-the check from the findings and their dispositions alone. A push or a rebase leaves the check as it
-was until the next review ends, so the check can pass at a commit that no review has read yet. A new
-finding in that commit shows when the next review ends.
-[The check run](../architecture/output/github-app.md#the-check-run) lists every condition.
+the check from the findings and their dispositions alone.
+
+Each check run belongs to one commit. After a push or a rebase, the new head has no `noslop` check
+run until the next review or `noslop check` sets one. That check reads only the findings and their
+dispositions, so it can pass at a commit that no review has read yet. A new finding in that commit
+shows when the next review ends. [The check run](../architecture/output/github-app.md#the-check-run)
+lists every condition.
