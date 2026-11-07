@@ -2804,6 +2804,81 @@ test('it posts a recorded finding that no comment holds as an issue comment that
   expect(comments[0]).toInclude(`"head":"${'e'.repeat(40)}"`);
 });
 
+test('it posts no recorded finding that a follow-up issue holds, and keeps its id among the filed follow-ups', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'c'.repeat(40),
+  });
+
+  await githubCollections.issues.create({
+    owner: 'example',
+    repo: 'app',
+    number: 1,
+    title: 'Close the old file',
+    body: '<!-- noslop:follow-up {"id":"1111111111111111","pullRequest":5} -->',
+    authorLogin: STUB_APP_LOGIN,
+  });
+
+  const reporter = ctx.createRecordedReporter([
+    buildMockFinding({ id: '1111111111111111', anchorCommit: 'e'.repeat(40) }),
+  ]);
+
+  const result = buildMockReviewResult({
+    pullRequest: { owner: 'example', repo: 'app', number: 5 },
+    head: 'c'.repeat(40),
+    findings: [],
+  });
+
+  await reporter.report(result, { logger: ctx.logger, options: {}, failedReporters: [] });
+
+  const bodies = githubCollections.issueComments.all().map((comment) => comment.body);
+
+  expect(bodies).toHaveLength(1);
+  expect(bodies[0]).toInclude('"followUps":["1111111111111111"]');
+});
+
+test('it posts no recorded finding while a finding comment holds a marker it cannot read', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'c'.repeat(40),
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: '<!-- noslop:finding {"id":"1111111111111111","title":"Close the old file"} -->',
+  });
+
+  const reporter = ctx.createRecordedReporter([
+    buildMockFinding({ id: '1111111111111111', anchorCommit: 'e'.repeat(40) }),
+  ]);
+
+  const result = buildMockReviewResult({
+    pullRequest: { owner: 'example', repo: 'app', number: 5 },
+    head: 'c'.repeat(40),
+    findings: [],
+  });
+
+  await reporter.report(result, { logger: ctx.logger, options: {}, failedReporters: [] });
+
+  const carried = githubCollections.issueComments
+    .all()
+    .filter((comment) => comment.body.startsWith('An earlier review raised this finding'));
+
+  expect(carried).toStrictEqual([]);
+});
+
 test('it passes the check at a rebased head whose files hold the reviewed patches at moved lines', async () => {
   const ctx = setupTest();
 

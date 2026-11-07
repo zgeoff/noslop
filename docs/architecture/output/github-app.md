@@ -99,10 +99,11 @@ it posts anything.
    id.
 4. When the review's reporters include `sqlite`, the reporter reads the findings that earlier
    reviews of the pull request recorded in the store. It posts each one that no finding comment,
-   filed follow-up or finding of this review holds, because such a finding comes from a review whose
-   own post failed after the store kept it. Each goes into an issue comment that holds the commit
-   the earlier review ran against, never into a follow-up issue. A person answers it with an issue
-   comment that starts with its id.
+   follow-up issue or finding of this review holds, such as a finding of a review whose own post
+   failed after the store kept it. Each goes into an issue comment that holds the commit the finding
+   sits at, never into a follow-up issue. A person answers it with an issue comment that starts with
+   its id. While a finding comment holds a marker the reporter cannot read, it posts none of them,
+   because it cannot tell which finding that comment holds.
 5. After the one re-check, a new finding that is no security finding and sits in code the change did
    not write goes to a follow-up issue in the repo instead of the pull request. The summary marker
    keeps each filed id, so a later review files the issue once. Each follow-up issue holds a marker

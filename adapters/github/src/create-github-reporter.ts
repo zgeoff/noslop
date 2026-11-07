@@ -120,8 +120,7 @@ async function runReviewPost(
   const posted = new Set([...before.threads.map((thread) => thread.marker.id), ...filed]);
 
   const readRecorded = options.readRecordedFindings ?? (() => Promise.resolve([]));
-
-  const recorded = await readRecorded(pr);
+  const recorded = before.unreadable > 0 ? [] : await readRecorded(pr);
 
   const plan = planReviewPost(
     { summary: before.summary?.marker ?? null, posted, recorded },
@@ -164,7 +163,12 @@ async function runReviewPost(
     );
   }
 
-  for (const finding of plan.carried) {
+  const carried =
+    plan.carried.length === 0 ? [] : await loadUnfiledFollowUps(connection, pr, plan.carried);
+
+  const carriedFiled = plan.carried.filter((finding) => !carried.includes(finding));
+
+  for (const finding of carried) {
     await write(() =>
       withWriteRetry('carried finding comment', 'once', connection.sleep, () =>
         createIssueComment(client, pr, formatCarriedComment(finding, result.head)),
@@ -223,7 +227,7 @@ async function runReviewPost(
     reviewIDs: plan.reviewIDs,
     reported,
     failedCalls: reviewed.failedCalls,
-    followUps: [...filed, ...followUps.map((finding) => finding.id)],
+    followUps: [...filed, ...[...followUps, ...carriedFiled].map((finding) => finding.id)],
     confirmed: confirmations
       .filter((item) => item.status === 'fixed')
       .map((item) => `${item.id}:${item.commit}`),
