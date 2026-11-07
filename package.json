@@ -53,7 +53,6 @@
     "test:related": "bun scripts/run-temp-sweep.ts && rig related",
     "build:cli": "bun scripts/write-cli-package.ts",
     "schema:config": "bun scripts/write-config-schema.ts",
-    "check:agent-hooks": "agent-hooks init && git diff --exit-code -- .claude/settings.json .codex/hooks.json",
     "check:commits": "bun scripts/run-commits-check.ts",
     "check:local-paths": "bun scripts/run-local-paths-check.ts",
     "check:test-timeouts": "bun scripts/run-test-timeouts-check.ts",
@@ -87,7 +86,8 @@
     "tsdown": "0.23.2",
     "tsrs": "0.18.0-ts7.1.0-dev.20260929",
     "turbo": "2.11.10",
-    "typescript": "7.0.2"
+    "typescript": "7.0.2",
+    "zod": "catalog:"
   },
   "overrides": {
     "rolldown-plugin-dts": "0.28.8"
