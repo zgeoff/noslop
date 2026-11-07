@@ -72,12 +72,12 @@
     "@stylistic/eslint-plugin": "5.10.0",
     "@tsconfig/strictest": "2.0.8",
     "@types/bun": "1.4.4",
+    "@zgeoff/agent-hooks": "0.2.7",
     "@zgeoff/bun-test-extended": "0.2.3",
     "@zgeoff/diet": "0.2.1",
     "@zgeoff/format-codemod": "0.3.5",
     "@zgeoff/oxlint-config": "0.8.6",
     "@zgeoff/rig": "0.1.5",
-    "@zgeoff/skill-gate": "0.2.23",
     "knip": "6.43.0",
     "lefthook": "2.2.2",
     "msw": "catalog:",
@@ -86,7 +86,8 @@
     "tsdown": "0.23.2",
     "tsrs": "0.18.0-ts7.1.0-dev.20260929",
     "turbo": "2.11.10",
-    "typescript": "7.0.2"
+    "typescript": "7.0.2",
+    "zod": "catalog:"
   },
   "overrides": {
     "rolldown-plugin-dts": "0.28.8"

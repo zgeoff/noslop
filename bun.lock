@@ -13,12 +13,12 @@
         "@stylistic/eslint-plugin": "5.10.0",
         "@tsconfig/strictest": "2.0.8",
         "@types/bun": "1.4.4",
+        "@zgeoff/agent-hooks": "0.2.7",
         "@zgeoff/bun-test-extended": "0.2.3",
         "@zgeoff/diet": "0.2.1",
         "@zgeoff/format-codemod": "0.3.5",
         "@zgeoff/oxlint-config": "0.8.6",
         "@zgeoff/rig": "0.1.5",
-        "@zgeoff/skill-gate": "0.2.23",
         "knip": "6.43.0",
         "lefthook": "2.2.2",
         "msw": "catalog:",
@@ -28,6 +28,7 @@
         "tsrs": "0.18.0-ts7.1.0-dev.20260929",
         "turbo": "2.11.10",
         "typescript": "7.0.2",
+        "zod": "catalog:",
       },
     },
     "adapters/claude": {
@@ -804,8 +805,6 @@
     "@zgeoff/oxlint-config": ["@zgeoff/oxlint-config@0.8.6", "", { "dependencies": { "@stylistic/eslint-plugin": "5.10.0" }, "peerDependencies": { "oxlint": ">=1.78.0" } }, "sha512-gBnGBTPgUNK3j4S6CDMwMlGMxPrjmcdDSLAiXs0bAl252PMBILMujeqGnmBZ6NVo+WwCAHvWQFrsjixHozl1DA=="],
 
     "@zgeoff/rig": ["@zgeoff/rig@0.1.5", "", { "dependencies": { "@zgeoff/diet": "0.2.1", "@zgeoff/std": "0.4.2", "gunshi": "1.0.0-rc.1", "ts-pattern": "5.9.2", "zod": "4.6.7" }, "bin": { "rig": "src/cli.ts" } }, "sha512-Jt1oLijiuV+WY8CuBIHPaFDAdBDL8IxEaZAWpamVsp9TRpO99jjNrWNBV3+jxuy4XrV4zcTwnuwbxG1S8LcZQw=="],
-
-    "@zgeoff/skill-gate": ["@zgeoff/skill-gate@0.2.23", "", { "dependencies": { "@zgeoff/agent-hooks": "0.2.7" } }, "sha512-ytwHizyjWYwr0VqD/MeDpISkD3glpW8YEqATRMkQv/pCWVCbv9DHlN0cAQwrLFBN/RmICo6pTmeXq/grRurLgw=="],
 
     "@zgeoff/std": ["@zgeoff/std@0.4.2", "", {}, "sha512-GZnnOkrYHe6p071BWYe7XIq5klqhvVb4j/JWOrrUTSj76uLA/ZnzlqDKIq16LblMcuRF9tjfvKvGK8sLRN8fMg=="],
 
