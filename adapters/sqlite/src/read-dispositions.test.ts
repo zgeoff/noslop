@@ -126,12 +126,34 @@ test('it orders dispositions given at one time by finding, then by source', asyn
 
   const dispositions = await readDispositions(ctx.store, 'example/app', 7);
 
-  expect(
-    dispositions.map((disposition) => [disposition.findingID, disposition.source]),
-  ).toStrictEqual([
-    ['1111111111111111', 'eval'],
-    ['1111111111111111', 'github'],
-    ['2222222222222222', 'github'],
+  expect(dispositions).toStrictEqual([
+    {
+      findingID: '1111111111111111',
+      kind: 'fixed',
+      value: '1a2b3c4',
+      author: 'dev',
+      authorIsOwner: false,
+      source: 'eval',
+      at: '2026-10-17T11:00:00.000Z',
+    },
+    {
+      findingID: '1111111111111111',
+      kind: 'fixed',
+      value: '1a2b3c4',
+      author: 'dev',
+      authorIsOwner: false,
+      source: 'github',
+      at: '2026-10-17T11:00:00.000Z',
+    },
+    {
+      findingID: '2222222222222222',
+      kind: 'fixed',
+      value: '1a2b3c4',
+      author: 'dev',
+      authorIsOwner: false,
+      source: 'github',
+      at: '2026-10-17T11:00:00.000Z',
+    },
   ]);
 });
 
