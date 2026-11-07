@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.4.28](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.27...@noslop/cli@0.4.28) (2026-11-07)
+
+
+### Features
+
+* **config:** let a synced-file finding take a tracker-key deferral ([#249](https://github.com/zgeoff/noslop/issues/249)) ([4f74fb9](https://github.com/zgeoff/noslop/commit/4f74fb93d91e5fbcb798bddc64cbb43cefb83532))
+
+
+### Bug Fixes
+
+* **codex:** give the codex error text in a failed call's reason ([#263](https://github.com/zgeoff/noslop/issues/263)) ([2dc37b1](https://github.com/zgeoff/noslop/commit/2dc37b18d5abfcde30689214df82da6ed19d3c7b))
+* **github:** post a recorded finding whose own review never posted it ([#262](https://github.com/zgeoff/noslop/issues/262)) ([dba8f3d](https://github.com/zgeoff/noslop/commit/dba8f3d0685a43bf2477e98d607b8ac8fed2008d))
+* **static-stage:** compare a format-only hunk per change run ([#270](https://github.com/zgeoff/noslop/issues/270)) ([13694d3](https://github.com/zgeoff/noslop/commit/13694d3a2e87cdfde4269e194c0c7a4a380891b1))
+
 ## [0.4.27](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.26...@noslop/cli@0.4.27) (2026-11-06)
 
 ### Bug Fixes
