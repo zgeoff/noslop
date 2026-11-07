@@ -10,12 +10,13 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { readTempPrefix } from '@noslop/testing';
 import { z } from 'zod';
 
 // A temp git project that holds this repo's hook entries, stub and skill-gate rules, with this
 // repo's node_modules, so each entry runs as it runs in a session in a checkout of this repo.
 function setupTest() {
-  const directory = mkdtempSync(join(tmpdir(), 'agent-hook-entries-'));
+  const directory = mkdtempSync(join(tmpdir(), `${readTempPrefix()}agent-hook-entries-`));
 
   onTestFinished(() => {
     rmSync(directory, { recursive: true, force: true });
