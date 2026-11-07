@@ -44,9 +44,10 @@ test('it tells the tests lens to report a direct write outside a seed with a quo
   const prompt = getLensPrompt('tests');
 
   expect(prompt).toIncludeMultiple([
-    '3. Seeding stored state: a test that writes database rows or files on disk directly, such as with an',
-    '4. For a direct write, quote the seeding rule, name the write, and name the module whose seeds the',
-    '4. A direct write in a place the seeding rule allows, such as inside a seed.',
+    '3. Seeding stored state: a test that writes database rows or files on disk directly, such as with a',
+    "   query builder's insert call or an SQL `INSERT` statement, in a place the seeding rule does not",
+    '4. For a direct write, quote the seeding rule, name the write, and name what the rule says the test',
+    '4. A direct write in a place the seeding rule allows.',
   ]);
 });
 
