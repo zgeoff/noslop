@@ -1,9 +1,8 @@
 import type { PullRequestRef } from '@noslop/contract';
 import type { CheckOutcome } from '@noslop/github';
 import { readGitHubCheck, readPullRequestState, runGitHubCheck } from '@noslop/github';
-import { checkSameBase } from './check-same-base';
 import type { GitHubConnectionLoader } from './create-github-connection-loader';
-import { loadBaseConfig } from './load-base-config';
+import { readDeferralPolicy } from './read-deferral-policy';
 import { readTrustedState } from './read-trusted-state';
 
 export type PullRequestCheck = CheckOutcome;
@@ -23,7 +22,7 @@ export async function checkPullRequest(
     return readGitHubCheck(trusted.connection, pr, {
       failedReporters: [],
       state: trusted.state,
-      issueKeys: trusted.config.issueKeys,
+      policy: { baseRef: trusted.state.baseRef, issueKeys: trusted.config.issueKeys },
     });
   }
 
@@ -35,14 +34,8 @@ export async function checkPullRequest(
     );
   }
 
-  const base = await loadBaseConfig(loader.load, pr);
+  const policy = await readDeferralPolicy(loader.load, pr);
   const state = await readPullRequestState(connection, pr);
 
-  checkSameBase(base, state);
-
-  return runGitHubCheck(connection, pr, {
-    failedReporters: [],
-    issueKeys: base.loaded.config.issueKeys,
-    state,
-  });
+  return runGitHubCheck(connection, pr, { failedReporters: [], policy, state });
 }

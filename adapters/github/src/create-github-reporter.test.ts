@@ -23,7 +23,7 @@ function setupTest() {
   const recordDispositions = mock(() => Promise.resolve());
 
   const reporter = createGitHubReporter({
-    issueKeys: [],
+    readDeferralPolicy: () => Promise.resolve({ baseRef: 'main', issueKeys: [] }),
     loadConnection: () =>
       createGitHubConnection({ appID: 1, privateKey, installationID: 7 }, null, sleep),
     recordDispositions,
@@ -679,7 +679,7 @@ test('it hands the link to each finding comment to the comment link recorder', a
   const recordCommentURLs = mock(() => Promise.resolve());
 
   const reporter = createGitHubReporter({
-    issueKeys: [],
+    readDeferralPolicy: () => Promise.resolve({ baseRef: 'main', issueKeys: [] }),
     loadConnection: () => createGitHubConnection({ appID: 1, privateKey, installationID: 7 }),
     recordCommentURLs,
   });
@@ -1005,6 +1005,107 @@ test('it files a new finding in code the change did not write as one issue after
 
   expect(githubCollections.reviewComments.all().map((comment) => comment.body)).toSatisfyAll(
     (body: string) => body.includes('Await the new write'),
+  );
+});
+
+test('it passes its check on a finding the change did not write that is deferred to a tracker key the policy matches', async () => {
+  const privateKey = buildStubAppKey();
+  const logger = getLogger(['test']);
+
+  const reporter = createGitHubReporter({
+    readDeferralPolicy: () =>
+      Promise.resolve({ baseRef: 'main', issueKeys: [String.raw`^ABC-\d+$`] }),
+    loadConnection: () =>
+      createGitHubConnection(
+        { appID: 1, privateKey, installationID: 7 },
+        null,
+        mock((delayMs: number) => Promise.resolve(delayMs)),
+      ),
+  });
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    baseRef: 'main',
+    headSha: 'b'.repeat(40),
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/a.ts',
+    lines: [1],
+  });
+
+  const result = buildMockReviewResult({
+    reviewID: 'review-a',
+    pullRequest: { owner: 'example', repo: 'app', number: 5 },
+    head: 'b'.repeat(40),
+    findings: [buildMockFinding({ id: '1111111111111111', writtenByChange: false })],
+  });
+
+  await reporter.report(result, { logger, options: {}, failedReporters: [] });
+
+  const [thread] = githubCollections.reviewComments.all();
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    body: 'deferred ABC-41',
+    authorLogin: 'dev',
+    inReplyToID: thread?.id ?? null,
+  });
+
+  await reporter.report(result, { logger, options: {}, failedReporters: [] });
+
+  expect(githubCollections.checkRuns.all().map((run) => run.conclusion)).toStrictEqual([
+    'failure',
+    'success',
+  ]);
+});
+
+test('it fails its check when the pull request names another base branch than the policy it read', async () => {
+  const privateKey = buildStubAppKey();
+  const logger = getLogger(['test']);
+
+  const reporter = createGitHubReporter({
+    readDeferralPolicy: () =>
+      Promise.resolve({ baseRef: 'main', issueKeys: [String.raw`^ABC-\d+$`] }),
+    loadConnection: () =>
+      createGitHubConnection(
+        { appID: 1, privateKey, installationID: 7 },
+        null,
+        mock((delayMs: number) => Promise.resolve(delayMs)),
+      ),
+  });
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    baseRef: 'release',
+    headSha: 'b'.repeat(40),
+  });
+
+  const result = buildMockReviewResult({
+    reviewID: 'review-a',
+    pullRequest: { owner: 'example', repo: 'app', number: 5 },
+    head: 'b'.repeat(40),
+    findings: [],
+  });
+
+  await reporter.report(result, { logger, options: {}, failedReporters: [] });
+
+  expect(githubCollections.checkRuns.all().map((run) => [run.conclusion, run.title])).toStrictEqual(
+    [
+      [
+        'failure',
+        'The base branch moved from main to release while noslop read its config; run the check again.',
+      ],
+    ],
   );
 });
 
@@ -2159,7 +2260,7 @@ test('it answers once a comment of one line per finding that names findings of t
   await runGitHubCheck(
     connection,
     { owner: 'example', repo: 'app', number: 5 },
-    { failedReporters: [], issueKeys: [] },
+    { failedReporters: [], policy: { baseRef: 'main', issueKeys: [] } },
   );
 
   const answers = githubCollections.issueComments.findMany((query) =>
@@ -2408,7 +2509,7 @@ test('it passes the check once the finding of a not-sound resolution holds a val
   const outcome = await runGitHubCheck(
     connection,
     { owner: 'example', repo: 'app', number: 5 },
-    { failedReporters: [], issueKeys: [] },
+    { failedReporters: [], policy: { baseRef: 'main', issueKeys: [] } },
   );
 
   expect(outcome.conclusion).toBe('success');
@@ -2542,7 +2643,7 @@ test('it posts the second of two rewritten finding comments only once a second-l
   const stub = buildStubSleep();
 
   const reporter = createGitHubReporter({
-    issueKeys: [],
+    readDeferralPolicy: () => Promise.resolve({ baseRef: 'main', issueKeys: [] }),
     loadConnection: () =>
       createGitHubConnection(
         { appID: 1, privateKey: buildStubAppKey(), installationID: 7 },
@@ -2734,7 +2835,7 @@ test('it passes the check at a rebased head whose files hold the reviewed patche
   const outcome = await runGitHubCheck(
     connection,
     { owner: 'example', repo: 'app', number: 5 },
-    { failedReporters: [], issueKeys: [] },
+    { failedReporters: [], policy: { baseRef: 'main', issueKeys: [] } },
   );
 
   expect(outcome.conclusion).toBe('success');
@@ -2799,7 +2900,7 @@ test('it fails the check at a new head whose file holds a changed patch, and nam
   const outcome = await runGitHubCheck(
     connection,
     { owner: 'example', repo: 'app', number: 5 },
-    { failedReporters: [], issueKeys: [] },
+    { failedReporters: [], policy: { baseRef: 'main', issueKeys: [] } },
   );
 
   expect(outcome.title).toBe(
@@ -2900,7 +3001,7 @@ test('it keys a review on its head when the pull request changes more files than
 
 test('it refuses to post under a token, whose comments no later review trusts', async () => {
   const reporter = createGitHubReporter({
-    issueKeys: [],
+    readDeferralPolicy: () => Promise.resolve({ baseRef: 'main', issueKeys: [] }),
     loadConnection: () => createGitHubConnection(null, 'ghp_reader'),
   });
 
@@ -3707,7 +3808,7 @@ test('it takes one reply to a folded comment as the answer to each finding it ho
   const outcome = await runGitHubCheck(
     connection,
     { owner: 'example', repo: 'app', number: 5 },
-    { failedReporters: [], issueKeys: [] },
+    { failedReporters: [], policy: { baseRef: 'main', issueKeys: [] } },
   );
 
   expect(githubCollections.reviewComments.all()).toHaveLength(2);
@@ -3771,7 +3872,7 @@ test('it leaves open only the folded findings that a reply of one line per findi
   const outcome = await runGitHubCheck(
     connection,
     { owner: 'example', repo: 'app', number: 5 },
-    { failedReporters: [], issueKeys: [] },
+    { failedReporters: [], policy: { baseRef: 'main', issueKeys: [] } },
   );
 
   expect(githubCollections.reviewComments.all()).toHaveLength(2);
@@ -3830,7 +3931,7 @@ test('it answers once with the accepted forms a reply of one line per finding wh
   const outcome = await runGitHubCheck(
     connection,
     { owner: 'example', repo: 'app', number: 5 },
-    { failedReporters: [], issueKeys: [] },
+    { failedReporters: [], policy: { baseRef: 'main', issueKeys: [] } },
   );
 
   const answers = githubCollections.reviewComments.findMany((query) =>

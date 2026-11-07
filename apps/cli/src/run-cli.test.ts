@@ -28,6 +28,7 @@ import { createCLIContext } from './create-cli-context';
 import type { GitHubConnectionLoader } from './create-github-connection-loader';
 import { createGitHubConnectionLoader } from './create-github-connection-loader';
 import { createJSONReporter } from './create-json-reporter';
+import { readDeferralPolicy } from './read-deferral-policy';
 import { runCLI } from './run-cli';
 
 async function setupTest() {
@@ -62,13 +63,16 @@ async function setupTest() {
       stderr.push(text);
     },
     createAdapter: () => adapter,
-    createReporter: (id, _storePath, issueKeys) =>
+    createReporter: (id) =>
       ({
         json: createJSONReporter((text) => {
           stdout.push(text);
         }),
         sqlite: createSQLiteReporter(join(directory, 'data', 'store.sqlite')),
-        github: createGitHubReporter({ loadConnection: github.load, issueKeys }),
+        github: createGitHubReporter({
+          loadConnection: github.load,
+          readDeferralPolicy: (pr) => readDeferralPolicy(github.load, pr),
+        }),
       })[id] ?? null,
     loadGitHubConnection: github.load,
     setGitHubAppSlug: github.setAppSlug,
@@ -8037,7 +8041,7 @@ test('it lists a finding deferred to a tracker key as deferred when a pattern of
   ]);
 });
 
-test('it refuses to set the check when the pull request moves to another base branch while the check reads its config', async () => {
+test('it fails the check when the pull request moves to another base branch while the check reads its config', async () => {
   const ctx = await setupTest();
 
   await githubCollections.pullRequests.create({
@@ -8055,18 +8059,30 @@ test('it refuses to set the check when the pull request moves to another base br
     sha: 'a'.repeat(40),
   });
 
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${'b'.repeat(40)}","reviews":1,"reported":[],"failedCalls":0} -->`,
+  });
+
   githubServer.use(createStubRetargetDuringRead({ number: 9, baseRef: 'release' }));
 
-  const code = await runCLI(
+  await runCLI(
     ['check', '--pr', '9', '--repo', 'example/app'],
     ctx.buildContext(ctx.directory, buildStubAdapter({}).adapter),
   );
 
-  expect([code, ctx.stderr.join(''), githubCollections.checkRuns.all()]).toStrictEqual([
-    1,
-    'noslop: the base branch of the pull request changed from main to release during the read; run the command again\n',
-    [],
-  ]);
+  expect(githubCollections.checkRuns.all().map((run) => [run.conclusion, run.title])).toStrictEqual(
+    [
+      [
+        'failure',
+        'The base branch moved from main to release while noslop read its config; run the check again.',
+      ],
+    ],
+  );
 });
 
 test('it lists a deferred finding as open while its issue does not exist', async () => {

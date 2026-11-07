@@ -216,7 +216,9 @@ kind is valid under its own rule:
   `<owner>/<repo>#<number>`, or an issue URL, which the check looks up on GitHub. It can also be a
   key of another tracker that a pattern in the base config's `issueKeys` matches, such as `ABC-41`
   under `^ABC-\d+$`. noslop takes such a key as an existing issue, with no lookup, because it holds
-  no tracker code.
+  no tracker code. Each check reads the patterns from the config at the tip of the pull request's
+  current base branch, and fails when the base branch moves while it reads them, so a retarget never
+  lends one branch's patterns to another.
 - `accepted-risk <reason>` is valid when the author has admin permission on the repo.
 
 A finding in code the change wrote therefore takes `fixed`, `not-a-defect` or `accepted-risk`,

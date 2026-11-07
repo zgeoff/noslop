@@ -17,7 +17,7 @@ export async function runReporters(
       continue;
     }
 
-    const reporter = ctx.createReporter(id, storePath, config.issueKeys);
+    const reporter = ctx.createReporter(id, storePath);
 
     if (reporter === null) {
       ctx.logger.error('the config lists a reporter noslop does not have: {id}', { id });

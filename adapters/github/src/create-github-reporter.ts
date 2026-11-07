@@ -13,6 +13,7 @@ import { buildFixConfirmations } from './build-fix-confirmations';
 import { buildMergeLists } from './build-merge-lists';
 import { buildReviewedChange } from './build-reviewed-change';
 import type { GitHubClient, GitHubConnection } from './create-github-connection';
+import type { ReadDeferralPolicy } from './deferral-policy';
 import { findLensHead } from './find-lens-head';
 import { followUpMarkerSchema } from './follow-up-marker';
 import { formatFindingComment } from './format-finding-comment';
@@ -35,7 +36,7 @@ import { withWriteRetry } from './with-write-retry';
 
 export interface GitHubReporterOptions {
   loadConnection: () => Promise<GitHubConnection>;
-  issueKeys: readonly string[];
+  readDeferralPolicy: ReadDeferralPolicy;
 
   recordCommentURLs?: (pr: PullRequestRef, links: ReadonlyMap<string, string>) => Promise<void>;
 
@@ -252,6 +253,7 @@ async function runCheck(
 ): Promise<void> {
   const pullRequest = target.pullRequest;
 
+  const policy = await options.readDeferralPolicy(pullRequest);
   const state = await readPullRequestState(connection, pullRequest);
   const dispositions = await readThreadDispositions(connection.client, pullRequest, state.threads);
 
@@ -259,7 +261,7 @@ async function runCheck(
 
   const outcome = await runGitHubCheck(connection, pullRequest, {
     failedReporters: ctx.failedReporters,
-    issueKeys: options.issueKeys,
+    policy,
     state,
     dispositions,
   });
