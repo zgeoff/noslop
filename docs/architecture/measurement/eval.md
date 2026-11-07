@@ -39,11 +39,10 @@ title and body, the labelled findings, and the escapes. A case may also hold the
 issue, which the intent lens needs to run, and the head an earlier review of the pull request
 covered. A case with that reviewed head is a re-review: each reviewer replays it from the reviewed
 head, so the diff holds only the push to the files the change makes since its base, and noslop runs
-it as the [re-review](../output/github-app.md#re-review-and-fix-confirmation) of a live pull
-request, with the description left unjudged. A labelled finding holds its anchor, title, severity,
-the lens it belongs to when one fits, and its label: `true-positive`, `false-positive` or
-`disputed`. An escape holds the defect, whether the diff showed it, and its anchor and lens when
-they are known.
+it as the [re-review](../output/re-review.md) of a live pull request, with the description left
+unjudged. A labelled finding holds its anchor, title, severity, the lens it belongs to when one
+fits, and its label: `true-positive`, `false-positive` or `disputed`. An escape holds the defect,
+whether the diff showed it, and its anchor and lens when they are known.
 
 A case may also hold silences, each a lens it expects to report no finding, with the reason and,
 when the silence holds only near some lines, an anchor. A silence turns a check against a false

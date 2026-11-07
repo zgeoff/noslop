@@ -26,7 +26,6 @@ test('it records a review with its calls and findings in the file its options na
     {
       logger: getLogger(['test']),
       options: { path: join(ctx.directory, 'nested', 'store.sqlite') },
-      failedReporters: [],
     },
   );
 
@@ -60,7 +59,7 @@ test('it keeps the first review when a second write of the same review fails', a
   const ctx = await setupTest();
 
   const reporter = createSQLiteReporter(join(ctx.directory, 'store.sqlite'));
-  const context = { logger: getLogger(['test']), options: {}, failedReporters: [] };
+  const context = { logger: getLogger(['test']), options: {} };
 
   await reporter.report(buildMockReviewResult(), context);
 
@@ -81,7 +80,7 @@ test('it names the review whose store record a failed write lost', async () => {
   const ctx = await setupTest();
 
   const reporter = createSQLiteReporter(join(ctx.directory, 'store.sqlite'));
-  const context = { logger: getLogger(['test']), options: {}, failedReporters: [] };
+  const context = { logger: getLogger(['test']), options: {} };
 
   await reporter.report(
     buildMockReviewResult({
@@ -121,7 +120,7 @@ test('it names the review whose store record it lost when the store schema is ne
 
   const reporter = createSQLiteReporter(path, { version: '0.4.6' });
   const result = buildMockReviewResult({ head: 'd'.repeat(40) });
-  const context = { logger: getLogger(['test']), options: {}, failedReporters: [] };
+  const context = { logger: getLogger(['test']), options: {} };
 
   expect(reporter.report(result, context)).rejects.toThrowWithMessage(
     Error,

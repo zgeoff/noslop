@@ -34,10 +34,8 @@ test('it writes the count, risk, table, details and marker of a first review', (
       result,
       {
         head: 'a'.repeat(40),
-        reviews: 1,
         reported: [],
         failedCalls: 0,
-        followUps: [],
         confirmed: [],
       },
       { confirmations: [], posted: 0 },
@@ -55,9 +53,9 @@ test('it writes the count, risk, table, details and marker of a first review', (
 
     <details><summary>Review details</summary>
 
-    Review 1 · \`aaaaaaaaaaaa\` against \`bbbbbbbbbbbb\` · light depth · lenses correctness, tests · special change: sync
+    \`aaaaaaaaaaaa\` against \`bbbbbbbbbbbb\` · light depth · lenses correctness, tests · special change: sync
     </details>
-    <!-- noslop:summary {"head":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","reviews":1,"reported":[],"failedCalls":0,"followUps":[],"confirmed":[]} -->"
+    <!-- noslop:summary {"head":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","reported":[],"failedCalls":0,"confirmed":[]} -->"
   `);
 });
 
@@ -78,10 +76,8 @@ test('it writes the severity mix, the failed calls and each fix of a re-review',
       result,
       {
         head: 'b'.repeat(40),
-        reviews: 2,
         reported: [],
         failedCalls: 1,
-        followUps: [],
         confirmed: [],
       },
       {
@@ -129,11 +125,11 @@ test('it writes the severity mix, the failed calls and each fix of a re-review',
 
     <details><summary>Review details</summary>
 
-    Review 2 · \`bbbbbbbbbbbb\` against \`aaaaaaaaaaaa\` · light depth · lenses correctness
+    \`bbbbbbbbbbbb\` against \`aaaaaaaaaaaa\` · light depth · lenses correctness
 
     Failed call \`security\` (security): codex timed out
     </details>
-    <!-- noslop:summary {"head":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","reviews":2,"reported":[],"failedCalls":1,"followUps":[],"confirmed":[]} -->"
+    <!-- noslop:summary {"head":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","reported":[],"failedCalls":1,"confirmed":[]} -->"
   `);
 });
 
@@ -151,10 +147,8 @@ test('it writes each hostile file name as inert code', () => {
     result,
     {
       head: 'b'.repeat(40),
-      reviews: 1,
       reported: [],
       failedCalls: 0,
-      followUps: [],
       confirmed: [],
     },
     { confirmations: [], posted: 0 },
@@ -193,10 +187,8 @@ test('it names the first 20 files the review did not read and counts the rest', 
     result,
     {
       head: 'b'.repeat(40),
-      reviews: 1,
       reported: [],
       failedCalls: 0,
-      followUps: [],
       confirmed: [],
     },
     { confirmations: [], posted: 0 },
@@ -222,10 +214,8 @@ test('it names each file the review did not read beneath the headline', () => {
       result,
       {
         head: 'b'.repeat(40),
-        reviews: 1,
         reported: [],
         failedCalls: 0,
-        followUps: [],
         confirmed: [],
       },
       { confirmations: [], posted: 0 },
@@ -240,9 +230,9 @@ test('it names each file the review did not read beneath the headline', () => {
 
     <details><summary>Review details</summary>
 
-    Review 1 · \`bbbbbbbbbbbb\` against \`aaaaaaaaaaaa\` · light depth · lenses correctness
+    \`bbbbbbbbbbbb\` against \`aaaaaaaaaaaa\` · light depth · lenses correctness
     </details>
-    <!-- noslop:summary {"head":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","reviews":1,"reported":[],"failedCalls":0,"followUps":[],"confirmed":[]} -->"
+    <!-- noslop:summary {"head":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","reported":[],"failedCalls":0,"confirmed":[]} -->"
   `);
 });
 
@@ -254,10 +244,8 @@ test('it heads a re-review with no findings whose every fix is confirmed as all 
       result,
       {
         head: 'b'.repeat(40),
-        reviews: 2,
         reported: [],
         failedCalls: 0,
-        followUps: [],
         confirmed: [],
       },
       {
@@ -280,10 +268,8 @@ test('it names a fix that a bare fixed answer gives as fixed at the head', () =>
       result,
       {
         head: 'b'.repeat(40),
-        reviews: 2,
         reported: [],
         failedCalls: 0,
-        followUps: [],
         confirmed: [],
       },
       {
@@ -305,10 +291,8 @@ test('it heads a re-review with no new findings when an earlier finding has no c
       result,
       {
         head: 'b'.repeat(40),
-        reviews: 2,
         reported: [],
         failedCalls: 0,
-        followUps: [],
         confirmed: [],
       },
       {
@@ -331,10 +315,8 @@ test('it heads a review with no findings without a risk line', () => {
       result,
       {
         head: 'b'.repeat(40),
-        reviews: 1,
         reported: [],
         failedCalls: 0,
-        followUps: [],
         confirmed: [],
       },
       { confirmations: [], posted: 0 },
@@ -356,10 +338,8 @@ test.each([
       result,
       {
         head: 'b'.repeat(40),
-        reviews: 1,
         reported: [],
         failedCalls: 0,
-        followUps: [],
         confirmed: [],
       },
       { confirmations: [], posted: 0 },
@@ -377,10 +357,8 @@ test('it gives a P3 finding in a marked risk class high risk', () => {
       result,
       {
         head: 'b'.repeat(40),
-        reviews: 1,
         reported: [],
         failedCalls: 0,
-        followUps: [],
         confirmed: [],
       },
       { confirmations: [], posted: 0 },

@@ -38,7 +38,6 @@ export async function runReporters(
       await reporter.report(result, {
         logger: ctx.logger,
         options: config.reporters[reporter.id] ?? {},
-        failedReporters: [...failed],
       });
     } catch (error) {
       ctx.logger.error('the {id} reporter failed: {error}', { id: reporter.id, error });

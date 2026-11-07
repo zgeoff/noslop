@@ -44,8 +44,6 @@ export interface ReviewAdapter {
 export interface ReporterContext {
   logger: Logger;
   options: ReporterOptions;
-
-  failedReporters: readonly string[];
 }
 
 export interface Reporter {

@@ -1,32 +1,19 @@
 import type { Disposition } from '@noslop/contract';
 import { findAnswerRefusal } from './find-answer-refusal';
-import { findUnreviewedReason } from './find-unreviewed-reason';
 import type { FindingMarker } from './finding-marker';
-import type { NetChangeKey } from './net-change-key';
 import type { SummaryMarker } from './summary-marker';
-
-interface MovedBase {
-  from: string;
-  to: string;
-}
 
 export interface CheckOutcomeInput {
   findings: readonly FindingMarker[];
 
   dispositions: readonly Disposition[];
   summary: SummaryMarker | null;
-  currentHead: string;
-
-  currentKey: NetChangeKey;
 
   existingIssues: ReadonlySet<string>;
 
   unread: ReadonlySet<string>;
-  failedReporters: readonly string[];
 
   unreadable: number;
-
-  movedBase?: MovedBase;
 }
 
 interface OpenFinding {
@@ -40,8 +27,6 @@ export interface CheckOutcome {
   title: string;
   summary: string;
   open: OpenFinding[];
-
-  reviewed: boolean;
 }
 
 export function buildCheckOutcome(input: CheckOutcomeInput): CheckOutcome {
@@ -63,51 +48,29 @@ export function buildCheckOutcome(input: CheckOutcomeInput): CheckOutcome {
       : [{ id: finding.id, title: finding.title, reason: refusal.reason }];
   });
 
-  const problems: string[] = [];
-  const unreviewed = findUnreviewedReason(input);
+  const problems = [
+    ...(input.unreadable > 0
+      ? [`${input.unreadable} finding comments hold a marker noslop cannot read.`]
+      : []),
+    ...(open.length > 0 ? [`${open.length} findings are open.`] : []),
+  ];
 
-  if (input.movedBase !== undefined) {
-    problems.push(
-      `The base branch moved from ${input.movedBase.from} to ${input.movedBase.to} while noslop read its config; run the check again.`,
-    );
+  if (problems.length === 0) {
+    return {
+      conclusion: 'success',
+      title: `No open finding (${input.findings.length})`,
+      summary: '',
+      open,
+    };
   }
-
-  if (unreviewed !== null) {
-    problems.push(unreviewed);
-  }
-
-  if ((input.summary?.failedCalls ?? 0) > 0) {
-    problems.push(`${input.summary?.failedCalls} calls of the review failed.`);
-  }
-
-  if (input.failedReporters.length > 0) {
-    problems.push(`These reporters failed: ${input.failedReporters.join(', ')}.`);
-  }
-
-  if (input.unreadable > 0) {
-    problems.push(`${input.unreadable} finding comments hold a marker noslop cannot read.`);
-  }
-
-  for (const merge of input.summary?.rejectedMerges ?? []) {
-    problems.push(`The resolution of merge ${merge.slice(0, 12)} does not hold.`);
-  }
-
-  if (open.length > 0) {
-    problems.push(`${open.length} findings hold no valid disposition.`);
-  }
-
-  const passed = problems.length === 0;
 
   return {
-    conclusion: passed ? 'success' : 'failure',
-    title: passed
-      ? `Every finding holds a valid disposition (${input.findings.length})`
-      : (problems[0] ?? ''),
+    conclusion: 'failure',
+    title: problems[0] ?? '',
     summary: [
       ...problems,
       ...open.map((item) => `- \`${item.id}\` ${item.title}: ${item.reason}`),
     ].join('\n'),
     open,
-    reviewed: unreviewed === null,
   };
 }

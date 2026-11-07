@@ -108,6 +108,8 @@ export const reviewResultSchema = z.strictObject({
   fixChecks: z.array(fixCheckSchema).optional(),
   unjudgedFixes: z.array(unjudgedFixSchema).optional(),
 
+  // Results that older CLI releases wrote may hold this field, which nothing writes or reads now. The
+  // schema rejects an unknown key, so it keeps the field to parse such a result.
   resolutionChecks: z.array(resolutionCheckSchema).optional(),
   startedAt: z.iso.datetime(),
   endedAt: z.iso.datetime(),

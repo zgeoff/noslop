@@ -1010,7 +1010,7 @@ test('it passes a finding in a synced file the change added that is deferred to 
 
   expect(outcome).toStrictEqual({
     conclusion: 'failure',
-    title: '1 findings hold no valid disposition.',
+    title: '1 findings are open.',
     summary: expect.any(String),
     open: [
       {
@@ -1019,7 +1019,6 @@ test('it passes a finding in a synced file the change added that is deferred to 
         reason: 'the change wrote this code, so it takes fixed, not-a-defect or accepted-risk',
       },
     ],
-    reviewed: true,
   });
 });
 
@@ -1960,7 +1959,7 @@ test('it sends the lenses only the file that a 1-line commit changed since the l
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","key":${JSON.stringify(key)},"reviews":1,"reported":[],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","key":${JSON.stringify(key)},"reported":[],"failedCalls":0} -->`,
   });
 
   const stub = buildStubAdapter({
@@ -2048,7 +2047,7 @@ test('it sends the lenses a file whose patch changed since the last lens review 
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[2] ?? ''}","key":${JSON.stringify(key)},"lensHead":"${repo.commits[1] ?? ''}","lensKey":${JSON.stringify(lensKey)},"checked":[],"reviews":1,"reported":[],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[2] ?? ''}","key":${JSON.stringify(key)},"lensHead":"${repo.commits[1] ?? ''}","lensKey":${JSON.stringify(lensKey)},"checked":[],"reported":[],"failedCalls":0} -->`,
   });
 
   const stub = buildStubAdapter({ light: [{ findings: { correctness: [] } }] });
@@ -2174,7 +2173,7 @@ test('it reads a summary by the App the config names as an earlier review, with 
     number: 9,
     authorLogin: 'example-reviewer[bot]',
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","reviews":1,"reported":[],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","reported":[],"failedCalls":0} -->`,
   });
 
   const stub = buildStubAdapter({
@@ -2232,7 +2231,7 @@ test('it runs a first review of a pull request when a summary comes from another
     number: 9,
     authorLogin: 'impostor-reviewer[bot]',
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","reviews":1,"reported":[],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","reported":[],"failedCalls":0} -->`,
   });
 
   const stub = buildStubAdapter({
@@ -2430,7 +2429,7 @@ test('it reviews only the files the pull request changes after it merges its bas
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","reviews":1,"reported":[],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","reported":[],"failedCalls":0} -->`,
   });
 
   const stub = buildStubAdapter({});
@@ -2548,7 +2547,7 @@ test('it confirms no fix through a merge from the base branch that brings in a s
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":1,"reported":["${findingID}"],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reported":["${findingID}"],"failedCalls":0} -->`,
   });
 
   const stub = buildStubAdapter({ light: [{ findings: { correctness: [] } }] });
@@ -2661,7 +2660,7 @@ test('it confirms a fix through a merge from the base branch that brings in a lo
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":1,"reported":["${findingID}"],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reported":["${findingID}"],"failedCalls":0} -->`,
   });
 
   const stub = buildStubAdapter({
@@ -2739,7 +2738,7 @@ test('it confirms no fix of a finding a re-review no longer reports when no fix 
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","reviews":1,"reported":["${findingID}"],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","reported":["${findingID}"],"failedCalls":0} -->`,
   });
 
   const stub = buildStubAdapter({
@@ -2797,7 +2796,7 @@ test('it reviews the whole pull request from its merge base under --full', async
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","reviews":1,"reported":[],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","reported":[],"failedCalls":0} -->`,
   });
 
   const stub = buildStubAdapter({
@@ -2896,7 +2895,7 @@ test('it raises no finding again on a new head that matches a finding answered n
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":1,"reported":["1111111111111111"],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reported":["1111111111111111"],"failedCalls":0} -->`,
   });
 
   const stub = buildStubAdapter({
@@ -3042,7 +3041,7 @@ test('it confirms no fix of a finding answered not-a-defect when the review that
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":1,"reported":["1111111111111111"],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reported":["1111111111111111"],"failedCalls":0} -->`,
   });
 
   const stub = buildStubAdapter({
@@ -3121,7 +3120,7 @@ test('it reviews the whole pull request again at a head a complete review covere
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","reviews":1,"reported":[],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","reported":[],"failedCalls":0} -->`,
   });
 
   const stub = buildStubAdapter({
@@ -3167,7 +3166,7 @@ test('it reviews no file and refuses nothing at the head that a review with no f
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","reviews":1,"reported":[],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","reported":[],"failedCalls":0} -->`,
   });
 
   const stub = buildStubAdapter({});
@@ -3240,7 +3239,7 @@ test('it reviews nothing new and refuses nothing after a rebase that changes no 
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[2] ?? ''}","key":${JSON.stringify(key)},"reviews":1,"reported":[],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[2] ?? ''}","key":${JSON.stringify(key)},"reported":[],"failedCalls":0} -->`,
   });
 
   const stub = buildStubAdapter({});
@@ -3287,7 +3286,7 @@ test('it runs no design pass on a review after a failed review that followed a c
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","lensKey":{"files":{"src/total.ts":"1111111111111111"}},"reviews":2,"reported":[],"failedCalls":1} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","lensKey":{"files":{"src/total.ts":"1111111111111111"}},"reported":[],"failedCalls":1} -->`,
   });
 
   const stub = buildStubAdapter({ light: [{ findings: { correctness: [] } }] });
@@ -3327,7 +3326,7 @@ test('it reviews the head again after the review that covered it had a failed ca
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","reviews":1,"reported":[],"failedCalls":1} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","reported":[],"failedCalls":1} -->`,
   });
 
   const stub = buildStubAdapter({
@@ -3431,7 +3430,7 @@ test('it tells the calls not to judge the description when it reviews only the f
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","key":${JSON.stringify(key)},"reviews":1,"reported":[],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","key":${JSON.stringify(key)},"reported":[],"failedCalls":0} -->`,
   });
 
   const stub = buildStubAdapter({
@@ -3647,7 +3646,7 @@ test("it confirms a design finding's fix through its fix call on a later review,
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":1,"reported":["2222222222222222"],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reported":["2222222222222222"],"failedCalls":0} -->`,
   });
 
   const stub = buildStubAdapter({
@@ -3762,7 +3761,7 @@ test("it judges a design finding's fix with a fix call when the config turns the
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":1,"reported":["2222222222222222"],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reported":["2222222222222222"],"failedCalls":0} -->`,
   });
 
   const stub = buildStubAdapter({
@@ -3864,7 +3863,7 @@ test('it confirms the fix of a design finding when the design call reports it no
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":1,"reported":["2222222222222222"],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reported":["2222222222222222"],"failedCalls":0} -->`,
   });
 
   const stub = buildStubAdapter({
@@ -4009,7 +4008,7 @@ test('it refuses --fixes-only beside --full', async () => {
   );
 });
 
-test('it runs --fixes-only on a pull request that no review covered yet with no call, and fails the check', async () => {
+test('it runs --fixes-only on a pull request that no review covered yet with no call, and passes the check with no finding', async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
@@ -4039,8 +4038,8 @@ test('it runs --fixes-only on a pull request that no review covered yet with no 
   expect(stub.requests).toStrictEqual([]);
 
   expect(githubCollections.checkRuns.all().at(-1)).toMatchObject({
-    conclusion: 'failure',
-    title: `No noslop review for this commit, ${(repo.commits[1] ?? '').slice(0, 12)}.`,
+    conclusion: 'success',
+    title: 'No open finding (0)',
   });
 });
 
@@ -4119,7 +4118,7 @@ test('it confirms a fixed reply under --fixes-only and posts nothing new', async
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":2,"reported":["1111111111111111"],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reported":["1111111111111111"],"failedCalls":0} -->`,
   });
 
   const stub = buildStubAdapter({
@@ -4139,7 +4138,7 @@ test('it confirms a fixed reply under --fixes-only and posts nothing new', async
     `"confirmed":["1111111111111111:${(repo.commits[2] ?? '').slice(0, 7)}"]`,
   );
 
-  expect(summary?.body).toInclude('"reviews":2,');
+  expect(summary?.body).not.toInclude('"reviews"');
   expect(githubCollections.reviews.all()).toStrictEqual([]);
   expect(githubCollections.reviewComments.all()).toHaveLength(2);
   expect(githubCollections.issueComments.all()).toHaveLength(1);
@@ -4228,7 +4227,7 @@ test('it confirms a fixed reply under --fixes-only in a thread of the App the co
     number: 9,
     authorLogin: 'example-reviewer[bot]',
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":2,"reported":["1111111111111111"],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reported":["1111111111111111"],"failedCalls":0} -->`,
   });
 
   const stub = buildStubAdapter({
@@ -4340,7 +4339,7 @@ test('it confirms a fixed reply under --fixes-only from the merge base when a re
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[2] ?? ''}","key":${JSON.stringify(key)},"base":"${repo.commits[0] ?? ''}","reviews":2,"reported":["1111111111111111"],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[2] ?? ''}","key":${JSON.stringify(key)},"base":"${repo.commits[0] ?? ''}","reported":["1111111111111111"],"failedCalls":0} -->`,
   });
 
   const stub = buildStubAdapter({
@@ -4464,7 +4463,7 @@ test('it runs the fix call under --fixes-only when a rebase changed the patch of
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[2] ?? ''}","key":${JSON.stringify(key)},"base":"${repo.commits[0] ?? ''}","reviews":2,"reported":["1111111111111111"],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[2] ?? ''}","key":${JSON.stringify(key)},"base":"${repo.commits[0] ?? ''}","reported":["1111111111111111"],"failedCalls":0} -->`,
   });
 
   const stub = buildStubAdapter({
@@ -4560,7 +4559,7 @@ test('it runs the fix call of a bare fixed reply under --fixes-only on a stacked
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[2] ?? ''}","key":${JSON.stringify(key)},"reviews":2,"reported":["1111111111111111"],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[2] ?? ''}","key":${JSON.stringify(key)},"reported":["1111111111111111"],"failedCalls":0} -->`,
   });
 
   const stub = buildStubAdapter({
@@ -4614,7 +4613,7 @@ test('it runs --fixes-only with no fixed answer after a rebase when the summary 
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[2] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":1,"reported":[],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[2] ?? ''}","base":"${repo.commits[0] ?? ''}","reported":[],"failedCalls":0} -->`,
   });
 
   const stub = buildStubAdapter({});
@@ -4634,8 +4633,8 @@ test('it runs --fixes-only with no fixed answer after a rebase when the summary 
 
   expect(githubCollections.checkRuns.all().at(-1)).toMatchObject({
     headSha: repo.commits[3] ?? '',
-    conclusion: 'failure',
-    title: `No noslop review for this commit, ${(repo.commits[3] ?? '').slice(0, 12)}.`,
+    conclusion: 'success',
+    title: 'No open finding (0)',
   });
 });
 
@@ -4758,7 +4757,7 @@ test('it confirms a fixed reply under --fixes-only that names a fix commit the r
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[2] ?? ''}","key":${JSON.stringify(key)},"base":"${repo.commits[0] ?? ''}","reviews":2,"reported":["1111111111111111"],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[2] ?? ''}","key":${JSON.stringify(key)},"base":"${repo.commits[0] ?? ''}","reported":["1111111111111111"],"failedCalls":0} -->`,
   });
 
   const stub = buildStubAdapter({
@@ -4869,7 +4868,7 @@ test('it keeps the review of a fixes-only run at a clean rebase of its head, so 
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[2] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":1,"reported":["1111111111111111"],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[2] ?? ''}","base":"${repo.commits[0] ?? ''}","reported":["1111111111111111"],"failedCalls":0} -->`,
   });
 
   const stub = buildStubAdapter({
@@ -4989,7 +4988,7 @@ test('it keeps the review of a fixes-only run at a conflict-free merge of the ba
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":1,"reported":["1111111111111111"],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reported":["1111111111111111"],"failedCalls":0} -->`,
   });
 
   const stub = buildStubAdapter({
@@ -5028,7 +5027,7 @@ test('it keeps the review of a fixes-only run at a conflict-free merge of the ba
   });
 });
 
-test('it fails the check at a new head whose push changed the patch of a reviewed file', async () => {
+test('it passes the check with no open finding at a new head whose late push changed the patch of a reviewed file', async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
@@ -5108,7 +5107,7 @@ test('it fails the check at a new head whose push changed the patch of a reviewe
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":1,"reported":["1111111111111111"],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reported":["1111111111111111"],"failedCalls":0} -->`,
   });
 
   const stub = buildStubAdapter({
@@ -5146,111 +5145,12 @@ test('it fails the check at a new head whose push changed the patch of a reviewe
 
   expect(githubCollections.checkRuns.all().at(-1)).toMatchObject({
     headSha: repo.commits[3] ?? '',
-    conclusion: 'failure',
-    title: `No noslop review of this change to src/scan.ts: the patch changed since the review of ${(repo.commits[2] ?? '').slice(0, 12)}.`,
+    conclusion: 'success',
+    title: 'No open finding (1)',
   });
 });
 
-test('it checks the resolution of a merge with a conflict under --fixes-only, marks the merge as checked, and keeps the check on the reviewed head with no fix judged', async () => {
-  const ctx = await setupTest();
-
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
-    {
-      message: 'base',
-      files: { 'src/options.ts': 'export const options = { retries: 1, timeoutMs: 1000 };\n' },
-    },
-    {
-      message: 'Retry 3 times',
-      files: { 'src/options.ts': 'export const options = { retries: 3, timeoutMs: 1000 };\n' },
-    },
-    {
-      message: 'Wait longer',
-      files: { 'src/options.ts': 'export const options = { retries: 1, timeoutMs: 5000 };\n' },
-      parent: 0,
-    },
-    {
-      message: 'Merge main',
-      files: { 'src/options.ts': 'export const options = { retries: 3, timeoutMs: 5000 };\n' },
-      parent: 1,
-      merged: 2,
-    },
-  ]);
-
-  const merge = repo.commits[3] ?? '';
-
-  await githubCollections.pullRequests.create({
-    owner: 'example',
-    repo: 'app',
-    number: 9,
-    title: 'Retry a failed request',
-    body: 'Retries a failed request 3 times.',
-    baseSha: repo.commits[2] ?? '',
-    headSha: merge,
-  });
-
-  await githubCollections.pullCommits.create({
-    owner: 'example',
-    repo: 'app',
-    number: 9,
-    sha: repo.commits[1] ?? '',
-    files: ['src/options.ts'],
-  });
-
-  await githubCollections.pullCommits.create({
-    owner: 'example',
-    repo: 'app',
-    number: 9,
-    sha: merge,
-    files: ['src/options.ts'],
-  });
-
-  await githubCollections.pullFiles.create({
-    owner: 'example',
-    repo: 'app',
-    number: 9,
-    path: 'src/options.ts',
-    lines: [1],
-  });
-
-  await githubCollections.issueComments.create({
-    owner: 'example',
-    repo: 'app',
-    number: 9,
-    authorLogin: STUB_APP_LOGIN,
-    authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":2,"reported":[],"failedCalls":0} -->`,
-  });
-
-  const stub = buildStubAdapter({
-    [`resolution-${merge.slice(0, 12)}`]: [
-      {
-        sound: true,
-        reason: 'The merge keeps 3 retries and the 5000 ms timeout.',
-        findings: { correctness: [], security: [] },
-      },
-    ],
-  });
-
-  await runCLI(
-    ['review', '--pr', '9', '--repo', 'example/app', '--fixes-only', '--report', 'github'],
-    ctx.buildContext(repo.path, stub.adapter),
-  );
-
-  const summary = githubCollections.issueComments
-    .all()
-    .findLast((comment) => comment.body.includes('<!-- noslop:summary'));
-
-  expect(summary?.body).toInclude(`"checkedMerges":["${merge}"]`);
-  expect(summary?.body).toInclude('"reviews":2,');
-  expect(githubCollections.reviews.all()).toStrictEqual([]);
-
-  expect(githubCollections.checkRuns.all().at(-1)).toMatchObject({
-    conclusion: 'failure',
-    title: `No noslop review for this commit, ${merge.slice(0, 12)}.`,
-  });
-});
-
-test('it posts the finding of a resolution that drops a change under --fixes-only, fails the check and counts no review', async () => {
+test('it makes no call and posts no finding over a merge whose resolution drops a change under --fixes-only', async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
@@ -5317,56 +5217,22 @@ test('it posts the finding of a resolution that drops a change under --fixes-onl
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":2,"reported":[],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reported":[],"failedCalls":0} -->`,
   });
 
-  const stub = buildStubAdapter({
-    [`resolution-${merge.slice(0, 12)}`]: [
-      {
-        sound: false,
-        reason: 'The resolution drops the 5000 ms timeout the base branch set.',
-        findings: {
-          correctness: [
-            {
-              title: 'Keep the 5000 ms timeout from the base branch',
-              body: 'The base branch raised the timeout to 5000 ms, and the resolution keeps 1000 ms, so slow requests fail again.',
-              anchor: { path: 'src/options.ts', startLine: 1, endLine: 1 },
-              secondLocation: null,
-              severity: 'P1',
-              criterion: 'wrong-result-main-path',
-              rule: null,
-              ruleQuote: null,
-              verdict: 'CONFIRMED',
-              unverifiedFact: null,
-              missingChange: false,
-              fix: 'Set timeoutMs to 5000.',
-            },
-          ],
-          security: [],
-        },
-      },
-    ],
-  });
+  const stub = buildStubAdapter({});
 
-  await runCLI(
+  const code = await runCLI(
     ['review', '--pr', '9', '--repo', 'example/app', '--fixes-only', '--report', 'github'],
     ctx.buildContext(repo.path, stub.adapter),
   );
 
-  const summary = githubCollections.issueComments
-    .all()
-    .findLast((comment) => comment.body.includes('<!-- noslop:summary'));
-
-  const comments = githubCollections.reviewComments.all();
-
-  expect(comments.map((comment) => [comment.path, comment.line])).toStrictEqual([
-    ['src/options.ts', 1],
-  ]);
-
-  expect(comments[0]?.body).toInclude('Keep the 5000 ms timeout from the base branch');
-  expect(summary?.body).toInclude('"reviews":2,');
-  expect(summary?.body).not.toInclude('checkedMerges');
-  expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('failure');
+  expect({
+    code,
+    requests: stub.requests,
+    comments: githubCollections.reviewComments.all(),
+    conclusion: githubCollections.checkRuns.all().at(-1)?.conclusion,
+  }).toStrictEqual({ code: 0, requests: [], comments: [], conclusion: 'success' });
 });
 
 test('it rejects a fixed reply under --fixes-only when the call finds the fix does not fix the finding, and fails the check', async () => {
@@ -5444,7 +5310,7 @@ test('it rejects a fixed reply under --fixes-only when the call finds the fix do
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":2,"reported":["1111111111111111"],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reported":["1111111111111111"],"failedCalls":0} -->`,
   });
 
   const stub = buildStubAdapter({
@@ -5555,7 +5421,7 @@ test('it passes the check under --fixes-only with no call when the only open fin
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":7,"reported":["1111111111111111"],"failedCalls":0,"confirmed":[]} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reported":["1111111111111111"],"failedCalls":0,"confirmed":[]} -->`,
   });
 
   const stub = buildStubAdapter({});
@@ -5570,7 +5436,7 @@ test('it passes the check under --fixes-only with no call when the only open fin
   expect(githubCollections.checkRuns.all().at(-1)).toMatchObject({
     headSha: repo.commits[1] ?? '',
     conclusion: 'success',
-    title: 'Every finding holds a valid disposition (1)',
+    title: 'No open finding (1)',
   });
 });
 
@@ -5655,7 +5521,7 @@ test('it confirms a fixed reply to a static finding under --fixes-only when its 
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":1,"reported":["f3a135d185244d40"],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reported":["f3a135d185244d40"],"failedCalls":0} -->`,
   });
 
   const stub = buildStubAdapter({});
@@ -5775,7 +5641,7 @@ test('it confirms a fixed reply to a synced-copy finding under --fixes-only on a
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":1,"reported":["5c0d1e2f3a4b5c6d"],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reported":["5c0d1e2f3a4b5c6d"],"failedCalls":0} -->`,
   });
 
   const stub = buildStubAdapter({});
@@ -5877,7 +5743,7 @@ test('it rejects a fixed reply to a static finding under --fixes-only when the s
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":1,"reported":["f3a135d185244d40"],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reported":["f3a135d185244d40"],"failedCalls":0} -->`,
   });
 
   const stub = buildStubAdapter({});
@@ -6012,7 +5878,7 @@ test('it rejects a fixed reply to a static finding under --fixes-only when a reb
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[2] ?? ''}","key":${JSON.stringify(key)},"base":"${repo.commits[0] ?? ''}","reviews":1,"reported":["f3a135d185244d40"],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[2] ?? ''}","key":${JSON.stringify(key)},"base":"${repo.commits[0] ?? ''}","reported":["f3a135d185244d40"],"failedCalls":0} -->`,
   });
 
   const stub = buildStubAdapter({});
@@ -6133,7 +5999,7 @@ test('it rejects a fixed reply to a format-only finding under --fixes-only by th
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":1,"reported":["822c3dcaa0cd615c"],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reported":["822c3dcaa0cd615c"],"failedCalls":0} -->`,
   });
 
   const stub = buildStubAdapter({});
@@ -6237,7 +6103,7 @@ test('it makes one call per fixed reply under --fixes-only, no lens call, and ju
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":2,"reported":["1111111111111111"],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reported":["1111111111111111"],"failedCalls":0} -->`,
   });
 
   const other = await githubCollections.reviewComments.create({
@@ -6416,7 +6282,7 @@ test('it makes one fix call per fixed reply under --fixes-only on a pull request
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","reviews":2,"reported":["1111111111111111","3333333333333333"],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","reported":["1111111111111111","3333333333333333"],"failedCalls":0} -->`,
   });
 
   const stub = buildStubAdapter({
@@ -6526,7 +6392,7 @@ test('it confirms no fixed reply posted after a --fixes-only review that never c
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":2,"reported":["1111111111111111","2222222222222222"],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reported":["1111111111111111","2222222222222222"],"failedCalls":0} -->`,
   });
 
   const checked = await githubCollections.reviewComments.create({
@@ -6575,7 +6441,7 @@ test('it confirms no fixed reply posted after a --fixes-only review that never c
     headSha: repo.commits[2] ?? '',
     conclusion: 'failure',
     summary: expect.toInclude(
-      `\`1111111111111111\` Reject an empty separator: no re-review has read the commit ${(repo.commits[2] ?? '').slice(0, 7)} yet`,
+      `\`1111111111111111\` Reject an empty separator: no fix check has confirmed the commit ${(repo.commits[2] ?? '').slice(0, 7)} yet`,
     ),
   });
 });
@@ -6655,7 +6521,7 @@ test('it keeps a fixed reply posted after 2 --fixes-only reviews open until a --
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":2,"reported":["1111111111111111","2222222222222222","3333333333333333"],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reported":["1111111111111111","2222222222222222","3333333333333333"],"failedCalls":0} -->`,
   });
 
   const first = await githubCollections.reviewComments.create({
@@ -6751,7 +6617,7 @@ test('it keeps a fixed reply posted after 2 --fixes-only reviews open until a --
   expect(before).toMatchObject({
     conclusion: 'failure',
     summary: expect.toInclude(
-      `\`1111111111111111\` Reject an empty separator: no re-review has read the commit ${(repo.commits[2] ?? '').slice(0, 7)} yet`,
+      `\`1111111111111111\` Reject an empty separator: no fix check has confirmed the commit ${(repo.commits[2] ?? '').slice(0, 7)} yet`,
     ),
   });
 
@@ -6767,7 +6633,7 @@ test('it keeps a fixed reply posted after 2 --fixes-only reviews open until a --
   });
 });
 
-test('it runs --fixes-only with no fixed answer to check, and the summary stays on its head, so the check fails at the new head', async () => {
+test('it runs --fixes-only with no fixed answer to check, keeps the summary on its head, and passes the check at the new head with no open finding', async () => {
   const ctx = await setupTest();
 
   const repo = await createTestRepo(join(ctx.directory, 'repo'), [
@@ -6851,7 +6717,7 @@ test('it runs --fixes-only with no fixed answer to check, and the summary stays 
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[2] ?? ''}","base":"${repo.commits[1] ?? ''}","notReviewed":[],"checked":["1111111111111111"],"earlier":[{"base":"${repo.commits[0] ?? ''}","head":"${repo.commits[1] ?? ''}","reported":["1111111111111111"],"notReviewed":[]}],"reviews":2,"reported":[],"failedCalls":0,"confirmed":["1111111111111111:${(repo.commits[2] ?? '').slice(0, 7)}"]} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[2] ?? ''}","base":"${repo.commits[1] ?? ''}","notReviewed":[],"checked":["1111111111111111"],"earlier":[{"base":"${repo.commits[0] ?? ''}","head":"${repo.commits[1] ?? ''}","reported":["1111111111111111"],"notReviewed":[]}],"reported":[],"failedCalls":0,"confirmed":["1111111111111111:${(repo.commits[2] ?? '').slice(0, 7)}"]} -->`,
   });
 
   const stub = buildStubAdapter({});
@@ -6876,8 +6742,8 @@ test('it runs --fixes-only with no fixed answer to check, and the summary stays 
 
   expect(githubCollections.checkRuns.all().at(-1)).toMatchObject({
     headSha: repo.commits[3] ?? '',
-    conclusion: 'failure',
-    title: `No noslop review for this commit, ${(repo.commits[3] ?? '').slice(0, 12)}.`,
+    conclusion: 'success',
+    title: 'No open finding (1)',
   });
 });
 
@@ -6947,7 +6813,7 @@ test('it confirms a fixed reply posted after a --fixes-only run that found no fi
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":1,"reported":["1111111111111111"],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reported":["1111111111111111"],"failedCalls":0} -->`,
   });
 
   const stub = buildStubAdapter({
@@ -7113,7 +6979,7 @@ test('it confirms a fixed reply posted after a clean rebase under --fixes-only, 
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[3] ?? ''}","key":${JSON.stringify(key)},"base":"${repo.commits[2] ?? ''}","notReviewed":[],"checked":["1111111111111111"],"earlier":[{"base":"${repo.commits[0] ?? ''}","head":"${repo.commits[2] ?? ''}","reported":["1111111111111111","2222222222222222"],"notReviewed":[]}],"reviews":1,"reported":[],"failedCalls":0,"confirmed":["1111111111111111:${repo.commits[3] ?? ''}"]} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[3] ?? ''}","key":${JSON.stringify(key)},"base":"${repo.commits[2] ?? ''}","notReviewed":[],"checked":["1111111111111111"],"earlier":[{"base":"${repo.commits[0] ?? ''}","head":"${repo.commits[2] ?? ''}","reported":["1111111111111111","2222222222222222"],"notReviewed":[]}],"reported":[],"failedCalls":0,"confirmed":["1111111111111111:${repo.commits[3] ?? ''}"]} -->`,
   });
 
   const stub = buildStubAdapter({
@@ -7285,7 +7151,7 @@ test('it confirms a fixed reply at a rewritten sha under --fixes-only when a len
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[6] ?? ''}","base":"${repo.commits[5] ?? ''}","notReviewed":[],"checked":["4444444444444444"],"earlier":[{"base":"${repo.commits[0] ?? ''}","head":"${repo.commits[3] ?? ''}","reported":["4444444444444444"],"notReviewed":[]},{"base":"${repo.commits[2] ?? ''}","head":"${repo.commits[3] ?? ''}","reported":["4444444444444444"],"notReviewed":[],"checked":["3333333333333333"]},{"base":"${repo.commits[0] ?? ''}","head":"${repo.commits[2] ?? ''}","reported":["3333333333333333","4444444444444444"],"notReviewed":[]}],"reviews":2,"reported":[],"failedCalls":0,"confirmed":["4444444444444444:${repo.commits[6] ?? ''}"]} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[6] ?? ''}","base":"${repo.commits[5] ?? ''}","notReviewed":[],"checked":["4444444444444444"],"earlier":[{"base":"${repo.commits[0] ?? ''}","head":"${repo.commits[3] ?? ''}","reported":["4444444444444444"],"notReviewed":[]},{"base":"${repo.commits[2] ?? ''}","head":"${repo.commits[3] ?? ''}","reported":["4444444444444444"],"notReviewed":[],"checked":["3333333333333333"]},{"base":"${repo.commits[0] ?? ''}","head":"${repo.commits[2] ?? ''}","reported":["3333333333333333","4444444444444444"],"notReviewed":[]}],"reported":[],"failedCalls":0,"confirmed":["4444444444444444:${repo.commits[6] ?? ''}"]} -->`,
   });
 
   const stub = buildStubAdapter({
@@ -7429,7 +7295,7 @@ test('it confirms a fixed reply at a rewritten sha under --fixes-only after 2 re
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[7] ?? ''}","base":"${repo.commits[7] ?? ''}","notReviewed":[],"checked":[],"earlier":[{"base":"${repo.commits[4] ?? ''}","head":"${repo.commits[5] ?? ''}","reported":[],"notReviewed":[],"checked":["5555555555555555"]},{"base":"${repo.commits[0] ?? ''}","head":"${repo.commits[3] ?? ''}","reported":["5555555555555555"],"notReviewed":[]}],"reviews":1,"reported":[],"failedCalls":0,"confirmed":[]} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[7] ?? ''}","base":"${repo.commits[7] ?? ''}","notReviewed":[],"checked":[],"earlier":[{"base":"${repo.commits[4] ?? ''}","head":"${repo.commits[5] ?? ''}","reported":[],"notReviewed":[],"checked":["5555555555555555"]},{"base":"${repo.commits[0] ?? ''}","head":"${repo.commits[3] ?? ''}","reported":["5555555555555555"],"notReviewed":[]}],"reported":[],"failedCalls":0,"confirmed":[]} -->`,
   });
 
   const stub = buildStubAdapter({
@@ -7603,7 +7469,7 @@ test('it confirms a fixed reply at a rewritten sha under --fixes-only after 2 ca
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[8] ?? ''}","base":"${repo.commits[8] ?? ''}","notReviewed":[],"checked":[],"earlier":[{"base":"${repo.commits[6] ?? ''}","head":"${repo.commits[6] ?? ''}","reported":[],"notReviewed":[],"checked":[]},{"base":"${repo.commits[3] ?? ''}","head":"${repo.commits[4] ?? ''}","reported":[],"notReviewed":[],"checked":["7777777777777777"]},{"base":"${repo.commits[0] ?? ''}","head":"${repo.commits[3] ?? ''}","reported":["6666666666666666","7777777777777777"],"notReviewed":[]}],"reviews":1,"reported":[],"failedCalls":0,"confirmed":[]} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[8] ?? ''}","base":"${repo.commits[8] ?? ''}","notReviewed":[],"checked":[],"earlier":[{"base":"${repo.commits[6] ?? ''}","head":"${repo.commits[6] ?? ''}","reported":[],"notReviewed":[],"checked":[]},{"base":"${repo.commits[3] ?? ''}","head":"${repo.commits[4] ?? ''}","reported":[],"notReviewed":[],"checked":["7777777777777777"]},{"base":"${repo.commits[0] ?? ''}","head":"${repo.commits[3] ?? ''}","reported":["6666666666666666","7777777777777777"],"notReviewed":[]}],"reported":[],"failedCalls":0,"confirmed":[]} -->`,
   });
 
   const stub = buildStubAdapter({
@@ -7710,7 +7576,7 @@ test('it judges a --fixes-only fix from the last lens review and passes the chec
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[2] ?? ''}","lensHead":"${repo.commits[1] ?? ''}","reviews":2,"reported":[],"failedCalls":1,"checked":[]} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[2] ?? ''}","lensHead":"${repo.commits[1] ?? ''}","reported":[],"failedCalls":1,"checked":[]} -->`,
   });
 
   const stub = buildStubAdapter({
@@ -7757,7 +7623,7 @@ test('it runs --fixes-only after a lens review whose call failed and no lens rev
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","reviews":1,"reported":[],"failedCalls":1} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","reported":[],"failedCalls":1} -->`,
   });
 
   const stub = buildStubAdapter({});
@@ -7776,8 +7642,8 @@ test('it runs --fixes-only after a lens review whose call failed and no lens rev
   expect(summary?.body).toInclude('"failedCalls":1,');
 
   expect(githubCollections.checkRuns.all().at(-1)).toMatchObject({
-    conclusion: 'failure',
-    title: '1 calls of the review failed.',
+    conclusion: 'success',
+    title: 'No open finding (0)',
   });
 });
 
@@ -7856,7 +7722,7 @@ test('it moves the summary head to the head a --fixes-only review read, so the c
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":2,"reported":["1111111111111111"],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reported":["1111111111111111"],"failedCalls":0} -->`,
   });
 
   const stub = buildStubAdapter({
@@ -7962,7 +7828,7 @@ test('it judges a bare fixed reply under --fixes-only at the head, strikes the f
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reviews":2,"reported":["1111111111111111"],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","base":"${repo.commits[0] ?? ''}","reported":["1111111111111111"],"failedCalls":0} -->`,
   });
 
   const stub = buildStubAdapter({
@@ -8062,7 +7928,7 @@ test('it makes a fix call for an open fixed reply on a normal review and strikes
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","key":${JSON.stringify(key)},"reviews":1,"reported":["1111111111111111"],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","key":${JSON.stringify(key)},"reported":["1111111111111111"],"failedCalls":0} -->`,
   });
 
   const stub = buildStubAdapter({
@@ -8165,7 +8031,7 @@ test('it makes only the fix call on a review that reads no file and strikes the 
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[2] ?? ''}","key":${JSON.stringify(key)},"reviews":1,"reported":["1111111111111111"],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[2] ?? ''}","key":${JSON.stringify(key)},"reported":["1111111111111111"],"failedCalls":0} -->`,
   });
 
   const stub = buildStubAdapter({
@@ -8310,7 +8176,7 @@ test('it lists each finding of a pull request with its state and the author of i
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[0] ?? ''}","reviews":1,"reported":[],"failedCalls":0,"confirmed":["1111111111111111:1a2b3c4"]} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[0] ?? ''}","reported":[],"failedCalls":0,"confirmed":["1111111111111111:1a2b3c4"]} -->`,
   });
 
   const stub = buildStubAdapter({});
@@ -8342,7 +8208,7 @@ test('it lists each finding of a pull request with its state and the author of i
         state: 'open',
         author: 'dev',
         unjudged: false,
-        reason: 'no re-review has read the commit 5d6e7f8 yet',
+        reason: 'no fix check has confirmed the commit 5d6e7f8 yet',
       },
       {
         id: '3333333333333333',
@@ -8369,7 +8235,7 @@ test('it lists each finding of a pull request with its state and the author of i
         state: 'open',
         author: 'dev',
         unjudged: false,
-        reason: 'only a repo owner gives accepted-risk',
+        reason: 'only a repo admin gives accepted-risk',
       },
       {
         id: '6666666666666666',
@@ -8463,7 +8329,7 @@ test('it lists an accepted-risk finding as open when its author has no admin per
         state: 'open',
         author: 'dev',
         unjudged: false,
-        reason: 'only a repo owner gives accepted-risk',
+        reason: 'only a repo admin gives accepted-risk',
       },
       {
         id: '2222222222222222',
@@ -8554,7 +8420,7 @@ test('it lists a finding deferred to a tracker key as deferred when a pattern of
   ]);
 });
 
-test('it fails the check when the pull request moves to another base branch while the check reads its config', async () => {
+test('it exits 1 and sets no check run when the pull request moves to another base branch while the check reads its config', async () => {
   const ctx = await setupTest();
 
   await githubCollections.pullRequests.create({
@@ -8578,24 +8444,26 @@ test('it fails the check when the pull request moves to another base branch whil
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${'b'.repeat(40)}","reviews":1,"reported":[],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${'b'.repeat(40)}","reported":[],"failedCalls":0} -->`,
   });
 
   githubServer.use(createStubRetargetDuringRead({ number: 9, baseRef: 'release' }));
 
-  await runCLI(
+  const code = await runCLI(
     ['check', '--pr', '9', '--repo', 'example/app'],
     ctx.buildContext(ctx.directory, buildStubAdapter({}).adapter),
   );
 
-  expect(githubCollections.checkRuns.all().map((run) => [run.conclusion, run.title])).toStrictEqual(
-    [
-      [
-        'failure',
-        'The base branch moved from main to release while noslop read its config; run the check again.',
-      ],
-    ],
-  );
+  expect({
+    code,
+    stderr: ctx.stderr.join(''),
+    checkRuns: githubCollections.checkRuns.all(),
+  }).toStrictEqual({
+    code: 1,
+    stderr:
+      'noslop: the base branch of the pull request moved from main to release while noslop read its config; run the check again\n',
+    checkRuns: [],
+  });
 });
 
 test('it lists a deferred finding as open while its issue does not exist', async () => {
@@ -8924,7 +8792,7 @@ test('it lists a fixed finding as open while the latest review still reports it'
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[0] ?? ''}","reviews":2,"reported":["1111111111111111"],"failedCalls":0,"confirmed":["1111111111111111:1a2b3c4","2222222222222222:5d6e7f8"]} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[0] ?? ''}","reported":["1111111111111111"],"failedCalls":0,"confirmed":["1111111111111111:1a2b3c4","2222222222222222:5d6e7f8"]} -->`,
   });
 
   const stub = buildStubAdapter({});
@@ -9030,7 +8898,7 @@ test('it lists a fixed finding as open with its reason while no fix check has re
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${reviewed}","reviews":2,"reported":["1111111111111111","2222222222222222","3333333333333333"],"failedCalls":0,"confirmed":[]} -->`,
+    body: `<!-- noslop:summary {"head":"${reviewed}","reported":["1111111111111111","2222222222222222","3333333333333333"],"failedCalls":0,"confirmed":[]} -->`,
   });
 
   const stub = buildStubAdapter({});
@@ -9137,7 +9005,7 @@ test('it lists a fixed finding as fixed once a fix call confirmed its commit, wh
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${reviewed}","checked":["1111111111111111"],"reviews":2,"reported":[],"failedCalls":0,"confirmed":["1111111111111111:${fix.slice(0, 7)}"]} -->`,
+    body: `<!-- noslop:summary {"head":"${reviewed}","checked":["1111111111111111"],"reported":[],"failedCalls":0,"confirmed":["1111111111111111:${fix.slice(0, 7)}"]} -->`,
   });
 
   const code = await runCLI(
@@ -9245,7 +9113,7 @@ test('it lists a fixed finding whose fix check skipped its code as too large as 
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","reviews":1,"reported":["1111111111111111"],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[1] ?? ''}","reported":["1111111111111111"],"failedCalls":0} -->`,
   });
 
   const stub = buildStubAdapter({});
@@ -9323,7 +9191,7 @@ test('it prints an unjudged fixed finding with its reason in the text list', asy
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${repo.commits[0] ?? ''}","reviews":2,"reported":[],"failedCalls":0,"unjudged":[{"id":"1111111111111111","commit":"1a2b3c4","reason":"its fix call failed"}]} -->`,
+    body: `<!-- noslop:summary {"head":"${repo.commits[0] ?? ''}","reported":[],"failedCalls":0,"unjudged":[{"id":"1111111111111111","commit":"1a2b3c4","reason":"its fix call failed"}]} -->`,
   });
 
   const stub = buildStubAdapter({});
@@ -9475,7 +9343,7 @@ test('it sets the check of a pull request again from its replies', async () => {
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${'b'.repeat(40)}","reviews":1,"reported":[],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${'b'.repeat(40)}","reported":[],"failedCalls":0} -->`,
   });
 
   const code = await runCLI(
@@ -10387,11 +10255,11 @@ test('it posts a result that does not verify under --no-verify', async () => {
   expect(code).toBe(0);
 
   expect(githubCollections.checkRuns.all()).toMatchObject([
-    { name: 'noslop', headSha: 'c'.repeat(40), conclusion: 'failure' },
+    { name: 'noslop', headSha: 'c'.repeat(40), conclusion: 'success' },
   ]);
 });
 
-test('it posts a fixes-only result as no new review and gives the reason a fix is not fixed', async () => {
+test('it posts a fixes-only result with no review count and gives the reason a fix is not fixed', async () => {
   const ctx = await setupTest();
 
   await githubCollections.pullRequests.create({
@@ -10427,7 +10295,7 @@ test('it posts a fixes-only result as no new review and gives the reason a fix i
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${'b'.repeat(40)}","base":"${'a'.repeat(40)}","reviews":2,"reported":["1111111111111111"],"failedCalls":0,"reviewIDs":["review-a","review-b"]} -->`,
+    body: `<!-- noslop:summary {"head":"${'b'.repeat(40)}","base":"${'a'.repeat(40)}","reported":["1111111111111111"],"failedCalls":0,"reviewIDs":["review-a","review-b"]} -->`,
   });
 
   const result = buildMockReviewResult({
@@ -10457,12 +10325,12 @@ test('it posts a fixes-only result as no new review and gives the reason a fix i
     .all()
     .findLast((comment) => comment.body.includes('<!-- noslop:summary'));
 
-  expect(summary?.body).toInclude('"reviews":2,');
+  expect(summary?.body).not.toInclude('"reviews"');
   expect(summary?.body).toInclude('(The separator can still be empty.)');
   expect(summary?.body).toInclude('"reported":["1111111111111111"]');
 });
 
-test('it fails the check when no noslop review covers the head of the pull request', async () => {
+test('it passes the check with no open finding when the last review read an earlier head', async () => {
   const ctx = await setupTest();
 
   await githubCollections.pullRequests.create({
@@ -10478,74 +10346,7 @@ test('it fails the check when no noslop review covers the head of the pull reque
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${'a'.repeat(40)}","reviews":1,"reported":[],"failedCalls":0} -->`,
-  });
-
-  const code = await runCLI(
-    ['check', '--pr', '9', '--repo', 'example/app'],
-    ctx.buildContext(ctx.directory, buildStubAdapter({}).adapter),
-  );
-
-  expect({ code, stderr: ctx.stderr.join('') }).toStrictEqual({
-    code: 1,
-    stderr: 'noslop: no noslop review for this commit\n',
-  });
-
-  expect(githubCollections.checkRuns.all()).toMatchObject([
-    {
-      headSha: 'b'.repeat(40),
-      conclusion: 'failure',
-      title: 'No noslop review for this commit, bbbbbbbbbbbb.',
-    },
-  ]);
-});
-
-test('it fails the check when the pull request holds no noslop summary at all', async () => {
-  const ctx = await setupTest();
-
-  await githubCollections.pullRequests.create({
-    owner: 'example',
-    repo: 'app',
-    number: 9,
-    headSha: 'b'.repeat(40),
-  });
-
-  const code = await runCLI(
-    ['check', '--pr', '9', '--repo', 'example/app'],
-    ctx.buildContext(ctx.directory, buildStubAdapter({}).adapter),
-  );
-
-  expect({ code, stderr: ctx.stderr.join('') }).toStrictEqual({
-    code: 1,
-    stderr: 'noslop: no noslop review for this commit\n',
-  });
-
-  expect(githubCollections.checkRuns.all()).toMatchObject([
-    {
-      headSha: 'b'.repeat(40),
-      conclusion: 'failure',
-      title: 'No noslop review for this commit, bbbbbbbbbbbb.',
-    },
-  ]);
-});
-
-test('it exits 0 and sets a failing check when a review covers the head but a call failed', async () => {
-  const ctx = await setupTest();
-
-  await githubCollections.pullRequests.create({
-    owner: 'example',
-    repo: 'app',
-    number: 9,
-    headSha: 'b'.repeat(40),
-  });
-
-  await githubCollections.issueComments.create({
-    owner: 'example',
-    repo: 'app',
-    number: 9,
-    authorLogin: STUB_APP_LOGIN,
-    authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${'b'.repeat(40)}","reviews":1,"reported":[],"failedCalls":1} -->`,
+    body: `<!-- noslop:summary {"head":"${'a'.repeat(40)}","reported":[],"failedCalls":0} -->`,
   });
 
   const code = await runCLI(
@@ -10556,7 +10357,60 @@ test('it exits 0 and sets a failing check when a review covers the head but a ca
   expect({ code, stderr: ctx.stderr.join('') }).toStrictEqual({ code: 0, stderr: '' });
 
   expect(githubCollections.checkRuns.all()).toMatchObject([
-    { headSha: 'b'.repeat(40), conclusion: 'failure', title: '1 calls of the review failed.' },
+    { headSha: 'b'.repeat(40), conclusion: 'success', title: 'No open finding (0)' },
+  ]);
+});
+
+test('it passes the check when the pull request holds no noslop summary and no finding', async () => {
+  const ctx = await setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    headSha: 'b'.repeat(40),
+  });
+
+  const code = await runCLI(
+    ['check', '--pr', '9', '--repo', 'example/app'],
+    ctx.buildContext(ctx.directory, buildStubAdapter({}).adapter),
+  );
+
+  expect({ code, stderr: ctx.stderr.join('') }).toStrictEqual({ code: 0, stderr: '' });
+
+  expect(githubCollections.checkRuns.all()).toMatchObject([
+    { headSha: 'b'.repeat(40), conclusion: 'success', title: 'No open finding (0)' },
+  ]);
+});
+
+test('it exits 0 and passes the check with no open finding when a call of the review failed', async () => {
+  const ctx = await setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    headSha: 'b'.repeat(40),
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${'b'.repeat(40)}","reported":[],"failedCalls":1} -->`,
+  });
+
+  const code = await runCLI(
+    ['check', '--pr', '9', '--repo', 'example/app'],
+    ctx.buildContext(ctx.directory, buildStubAdapter({}).adapter),
+  );
+
+  expect({ code, stderr: ctx.stderr.join('') }).toStrictEqual({ code: 0, stderr: '' });
+
+  expect(githubCollections.checkRuns.all()).toMatchObject([
+    { headSha: 'b'.repeat(40), conclusion: 'success', title: 'No open finding (0)' },
   ]);
 });
 
@@ -10592,7 +10446,7 @@ test('it fails a read-only check with exit 1 under the job token, and writes not
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${'b'.repeat(40)}","reviews":1,"reported":["1111111111111111"],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${'b'.repeat(40)}","reported":["1111111111111111"],"failedCalls":0} -->`,
   });
 
   const finding = await githubCollections.reviewComments.create({
@@ -10639,7 +10493,7 @@ test('it fails a read-only check with exit 1 under the job token, and writes not
   expect({ code, stdout: ctx.stdout.join('') }).toStrictEqual({
     code: 1,
     stdout:
-      'noslop check: failure, 1 findings hold no valid disposition.\n- `1111111111111111` Sum every item: no disposition\n',
+      'noslop check: failure, 1 findings are open.\n- `1111111111111111` Sum every item: no disposition\n',
   });
 
   expect(requested).toHaveBeenCalledWith('GET /repos/example/app/pulls/9 token ghp_ci_job');
@@ -10735,7 +10589,7 @@ test('it fails the check on a fixed finding whose commit no fix check has read, 
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${reviewed}","reviews":2,"reported":["1111111111111111","2222222222222222"],"failedCalls":0,"confirmed":[]} -->`,
+    body: `<!-- noslop:summary {"head":"${reviewed}","reported":["1111111111111111","2222222222222222"],"failedCalls":0,"confirmed":[]} -->`,
   });
 
   const code = await runCLI(
@@ -10750,7 +10604,7 @@ test('it fails the check on a fixed finding whose commit no fix check has read, 
   expect(code).toBe(1);
 
   expect(ctx.stdout.join('')).toInclude(
-    `2 findings hold no valid disposition.\n- \`1111111111111111\` Reject an empty separator: no fix check has read the commit ${fix.slice(0, 7)} yet\n- \`2222222222222222\` Reject an empty separator: the re-review still finds it\n`,
+    `2 findings are open.\n- \`1111111111111111\` Reject an empty separator: no fix check has read the commit ${fix.slice(0, 7)} yet\n- \`2222222222222222\` Reject an empty separator: the re-review still finds it\n`,
   );
 });
 
@@ -10786,7 +10640,7 @@ test('it keeps a check read-only when the environment also holds the App keys', 
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${'b'.repeat(40)}","reviews":1,"reported":["1111111111111111"],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${'b'.repeat(40)}","reported":["1111111111111111"],"failedCalls":0} -->`,
   });
 
   const finding = await githubCollections.reviewComments.create({
@@ -10871,7 +10725,7 @@ test('it passes a read-only check with exit 0 under the job token, and writes no
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${'b'.repeat(40)}","reviews":1,"reported":[],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${'b'.repeat(40)}","reported":[],"failedCalls":0} -->`,
   });
 
   const requested = mock<(request: string) => void>();
@@ -10895,7 +10749,7 @@ test('it passes a read-only check with exit 0 under the job token, and writes no
 
   expect({ code, stdout: ctx.stdout.join(''), stderr: ctx.stderr.join('') }).toStrictEqual({
     code: 0,
-    stdout: 'noslop check: success, Every finding holds a valid disposition (0)\n',
+    stdout: 'noslop check: success, No open finding (0)\n',
     stderr: '',
   });
 
@@ -10904,7 +10758,7 @@ test('it passes a read-only check with exit 0 under the job token, and writes no
   expect(githubCollections.checkRuns.all()).toStrictEqual([]);
 });
 
-test('it exits 1 from a read-only check when no noslop review covers the head, and sets no check run', async () => {
+test('it exits 0 from a read-only check with no open finding when the last review read an earlier head, and sets no check run', async () => {
   const ctx = await setupTest();
 
   await githubCollections.pullRequests.create({
@@ -10936,7 +10790,7 @@ test('it exits 1 from a read-only check when no noslop review covers the head, a
     number: 9,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${'c'.repeat(40)}","reviews":1,"reported":[],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${'c'.repeat(40)}","reported":[],"failedCalls":0} -->`,
   });
 
   const code = await runCLI(
@@ -10948,15 +10802,11 @@ test('it exits 1 from a read-only check when no noslop review covers the head, a
     ),
   );
 
-  expect({ code, stderr: ctx.stderr.join('') }).toStrictEqual({
-    code: 1,
-    stderr: 'noslop: no noslop review for this commit\n',
-  });
-
+  expect({ code, stderr: ctx.stderr.join('') }).toStrictEqual({ code: 0, stderr: '' });
   expect(githubCollections.checkRuns.all()).toStrictEqual([]);
 });
 
-test('it trusts no summary in a read-only check when the base config names another App', async () => {
+test('it trusts no finding comment in a read-only check when the base config names another App', async () => {
   const ctx = await setupTest();
 
   await githubCollections.pullRequests.create({
@@ -10982,13 +10832,15 @@ test('it trusts no summary in a read-only check when the base config names anoth
     content: '{ "github": { "app": "example-reviewer" } }\n',
   });
 
-  await githubCollections.issueComments.create({
+  await githubCollections.reviewComments.create({
     owner: 'example',
     repo: 'app',
     number: 9,
+    path: 'src/total.ts',
+    line: 2,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${'b'.repeat(40)}","reviews":1,"reported":[],"failedCalls":0} -->`,
+    body: '<!-- noslop:finding {"id":"1111111111111111","title":"Sum every item","path":"src/total.ts","lens":"correctness","severity":"P2","riskClass":null,"writtenByChange":true} -->',
   });
 
   const code = await runCLI(
@@ -11000,9 +10852,9 @@ test('it trusts no summary in a read-only check when the base config names anoth
     ),
   );
 
-  expect({ code, stderr: ctx.stderr.join('') }).toStrictEqual({
-    code: 1,
-    stderr: 'noslop: no noslop review for this commit\n',
+  expect({ code, stdout: ctx.stdout.join('') }).toStrictEqual({
+    code: 0,
+    stdout: 'noslop check: success, No open finding (0)\n',
   });
 });
 

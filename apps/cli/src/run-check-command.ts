@@ -42,12 +42,6 @@ export async function runCheckCommand(values: CheckValues, ctx: CLIContext): Pro
 
   ctx.writeStdout(formatCheckOutput(outcome, values));
 
-  if (!outcome.reviewed) {
-    ctx.writeStderr('noslop: no noslop review for this commit\n');
-
-    return 1;
-  }
-
   return values.readOnly && outcome.conclusion !== 'success' ? 1 : 0;
 }
 
@@ -62,7 +56,7 @@ async function writePullRequestDispositions(
 
   const dispositions = await source.readDispositions(
     { pullRequest, head: '', findings: [] },
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   const store = await loadStore(getStorePath(loaded.config, ctx), {

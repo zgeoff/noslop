@@ -56,6 +56,10 @@ every part.
     back
   - [The GitHub App](architecture/output/github-app.md): inline comments, the check run,
     dispositions and the App server
+  - [Re-review and fix confirmation](architecture/output/re-review.md): what a later review reads,
+    how a fix gets confirmed, and the net-change key
+  - [The fixes-only run](architecture/output/fixes-only-run.md): the run that checks each `fixed`
+    answer with no review
 - Measurement
   - [The findings store](architecture/measurement/store.md): the SQLite store and its queries
   - [The eval harness](architecture/measurement/eval.md): the replay of a labelled corpus, scored
@@ -81,8 +85,8 @@ stable IDs in the order the decisions were made.
   signals, effort by depth
 - [0008: Stacking lenses into calls](decisions/0008-stacking-lenses-into-calls.md): each lens a
   separate unit, grouping as config
-- [0009: The merge loop](decisions/0009-the-merge-loop.md): inline comments, a required check, typed
-  dispositions, the pull request fixes what it wrote
+- [0009: The merge loop](decisions/0009-the-merge-loop.md): inline comments, a check of open
+  findings, typed dispositions, the pull request fixes what it wrote
 - [0010: The reviewer config](decisions/0010-the-reviewer-config.md): `review.json`, built-in
   defaults, `extends` and merge rules
 - [0011: Model adapters](decisions/0011-model-adapters.md): each model CLI behind a read-only

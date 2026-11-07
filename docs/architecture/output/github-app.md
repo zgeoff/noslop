@@ -1,10 +1,13 @@
 # The GitHub App
 
-noslop posts on a pull request as its own GitHub App and gates the merge with a check run named
-`noslop`. For each review, the GitHub adapter posts one pull request review with an inline comment
-per new finding, folds a large class of like findings into one comment, writes one summary comment,
-and sets the check run. The check passes only when a review with no failed call ran on the current
-head and every finding holds a valid disposition, which the author gives as a typed reply. Every
+noslop posts on a pull request as its own GitHub App and sets a check run named `noslop`. For each
+review, the GitHub adapter posts one pull request review with an inline comment per new finding,
+folds a large class of like findings into one comment, writes one summary comment, and sets the
+check run. The check passes when no finding is open: each finding holds a valid disposition, which
+the author gives as a typed reply. noslop never decides the merge. The repo decides it in one of two
+ways: a branch rule that requires the check, or a relay. A relay is a service the repo's org runs,
+which reads the findings and applies its own rules, as
+[enforce a review with a relay](../../guides/enforce-a-review-with-a-relay.md) describes. Every
 piece of state the App keeps lives in hidden markers inside its own comments, so each run reads the
 pull request's state back from GitHub and the server keeps no database.
 [0009](../../decisions/0009-the-merge-loop.md) records the merge loop.
@@ -23,8 +26,9 @@ flowchart LR
   check -->|check run| github
 ```
 
-[Reporters](./reporters.md) covers why the `github` reporter runs after the others, and
-[the CLI](./cli.md) covers the commands the jobs run.
+[Reporters](./reporters.md) covers the order the reporters run in, and [the CLI](./cli.md) covers
+the commands the jobs run. [Re-review and fix confirmation](./re-review.md) covers what a later
+review reads, how a fix gets confirmed, and the net-change key.
 
 ## The App server
 
@@ -75,9 +79,10 @@ it posts anything.
 
 1. It posts one pull request review at the reviewed head, which is the commit the review ran
    against, with one inline comment per new finding at the finding's anchor. A finding is new when
-   no finding comment or filed follow-up holds its id, so a finding that a re-review reports again
-   keeps its first thread. A finding that matches one answered `not-a-defect` posts no comment,
-   because the review drops it before the post, under
+   no finding comment holds its id and the summary marker lists no issue filed for it by an older
+   release, so a finding that a re-review reports again keeps its first thread. A finding that
+   matches one answered `not-a-defect` posts no comment, because the review drops it before the
+   post, under
    [findings answered not-a-defect](../review/findings.md#findings-answered-not-a-defect). Each
    comment opens with the severity, the lens and the title, then the body, the fact a PLAUSIBLE
    finding rests on and the fix. The accepted disposition forms and the finding id with its lens,
@@ -98,23 +103,17 @@ it posts anything.
    that names its anchor. A person answers it with an issue comment that starts with the finding's
    id.
 4. When the review's reporters include `sqlite`, the reporter reads the findings that earlier
-   reviews of the pull request recorded in the store. It posts each one that no finding comment,
-   follow-up issue or finding of this review holds, such as a finding of a review whose own post
-   failed after the store kept it. Each goes into an issue comment that holds the commit the finding
-   sits at, never into a follow-up issue. A person answers it with an issue comment that starts with
-   its id. While a finding comment holds a marker the reporter cannot read, it posts none of them,
-   because it cannot tell which finding that comment holds.
-5. After the one re-check, a new finding that is no security finding and sits in code the change did
-   not write goes to a follow-up issue in the repo instead of the pull request. The summary marker
-   keeps each filed id, so a later review files the issue once. Each follow-up issue holds a marker
-   with its finding and pull request, so a retried post that failed before the summary finds the
-   issue it opened and files none twice. The reporter runs one post of a pull request at a time in a
-   process, so 2 posts of one review cannot both miss the issue and both file it.
-6. It edits the comment of each finding whose fix the review confirms: it strikes the heading
+   reviews of the pull request recorded in the store. It posts each one that no finding comment or
+   finding of this review holds, such as a finding of a review whose own post failed after the store
+   kept it. Each goes into an issue comment that holds the commit the finding sits at. A person
+   answers it with an issue comment that starts with its id. While a finding comment holds a marker
+   the reporter cannot read, it posts none of them, because it cannot tell which finding that
+   comment holds.
+5. It edits the comment of each finding whose fix the review confirms: it strikes the heading
    through, names the commit the answer gives or the head for a bare `fixed`, and collapses the
    comment as posted under them, with the marker kept byte for byte. When a later review no longer
    confirms the fix, the reporter restores the comment as posted.
-7. It writes the summary comment, which it creates on the first review and edits in place after
+6. It writes the summary comment, which it creates on the first review and edits in place after
    that. The summary opens with the count of the findings this review reports and a risk level: high
    with any P1 or risk-class finding, medium with any P2, and low otherwise. A review with a failed
    call says it is partial, and the summary names the first files that no call read, with their
@@ -123,7 +122,7 @@ it posts anything.
    fixed only when every finding an earlier review posted holds a confirmed fix. A table links each
    finding to its comment, and the reviewed head and base, the depth, the lenses, a special change
    and each failed call sit in a collapsed block.
-8. It sets the check run.
+7. It sets the check run.
 
 The reporter sends a write again when GitHub refuses it with a rate limit, because GitHub asks for a
 wait and a refused write saves nothing. It waits as long as the answer's `retry-after` header gives,
@@ -133,11 +132,11 @@ longest wait fails the post at once.
 
 The reporter sends the summary write, each edit of a finding comment, and the check run again on a
 server error too, after a wait that doubles each time and starts at the spacing GitHub asks for
-between writes. A write that creates a finding comment, a reply or a follow-up issue gets no retry
-on a server error, because a write that GitHub saved before it failed would post a second one. Once
-the waits run out, the post fails with an error that names the write, so the round reports a failed
-reporter. The reporter waits that spacing between the comments and issues it creates one at a time,
-so a burst of them meets no secondary limit.
+between writes. A write that creates a finding comment or a reply gets no retry on a server error,
+because a write that GitHub saved before it failed would post a second one. Once the waits run out,
+the post fails with an error that names the write, so the review reports a failed reporter. The
+reporter waits that spacing between the comments it creates one at a time, so a burst of them meets
+no secondary limit.
 
 ## State in markers
 
@@ -150,13 +149,11 @@ A finding marker holds what the check needs to judge a disposition without the r
 id, title, file, lens, severity, risk class, and whether the change wrote the code, with the id,
 title, file, lines, risk class, authorship, description and fix of each finding the comment folds,
 so the fix check of a folded finding reads its own description. The summary marker holds the
-reviewed head and the base of its range, the number of reviews so far, the ids that review reported,
-its count of failed calls, the files it left out of every call or of some lenses' calls, the filed
-follow-ups, the confirmed fixes, the fixes no fix check could judge with each reason, the ids of the
-reviews it counted, and when the review it shows started. A retried post of a review that started
-before that review, such as one that failed at the summary write, leaves the summary in place and
-only sets the check again. A forms marker, on the App's answer to a free-text reply, holds the id of
-the reply it answered.
+reviewed head, the ids that review reported, its count of failed calls, the confirmed fixes, the
+fixes no fix check could judge with each reason, the id of each review result the reporter posted,
+and when the latest of those reviews started. A retried post of an older review, such as one that
+failed at the summary write, leaves the summary in place and only sets the check again. A forms
+marker, on the App's answer to a free-text reply, holds the id of the reply it answered.
 
 Only a comment by the App's own login holds state. The adapter reads that login from GitHub's
 endpoint for the authenticated App when it connects, and treats a comment by anyone else, other bots
@@ -224,116 +221,28 @@ kind is valid under its own rule:
   none of these can be a key of another tracker that a pattern in the base config's `issueKeys`
   matches, such as `ABC-41` under `^ABC-\d+$`. noslop takes such a key as an existing issue, with no
   lookup, because it holds no tracker code. Each check reads the patterns from the config at the tip
-  of the pull request's current base branch, and fails when the base branch moves while it reads
-  them, so a retarget never lends one branch's patterns to another.
+  of the pull request's current base branch, and stops with an error and sets no check run when the
+  base branch moves while it reads them, so a retarget never lends one branch's patterns to another.
 - `accepted-risk <reason>` is valid when the author has admin permission on the repo.
 
 A finding in code the change wrote therefore takes `fixed`, `not-a-defect` or `accepted-risk`,
 because the pull request fixes the code it wrote rather than deferring it to a later one.
 
-## Re-review and fix confirmation
-
-A re-review is a later review of a pull request, and it reads only the files whose patch changed
-since the last lens review. The summary marker keeps that lens review's
-[net-change key](#the-net-change-key) apart from its own key, because a fixes-only run moves its own
-key to the head it judged while no lens read the files. The CLI compares the lens review's key with
-the key of the pull request at its current head, and the review keeps each file whose patch id
-differs or that only one key holds. The diff still runs from the merge base, so the review reads
-each kept file's whole patch, and a merge from the base branch adds none of the base branch's own
-changes. A rebase or a merge of the base that leaves every patch alone therefore reads no file, runs
-no lens call, and refuses nothing. New findings of a re-review come only from the files it reads.
-
-A re-review never refuses a head. It reads the whole change when the keys cannot be matched file by
-file: when the last review had a failed call, when no lens review completed, or when either key is
-on a head and the heads differ. A review of the head that the last review covered reads no file.
-`--full` reads the whole change at any head, under [the CLI](./cli.md). The design pass runs only on
-the first review of a pull request, under [the design lens](../review/lenses.md#the-design-lens).
-
-A re-review leaves the pull request's description unjudged. Its title and body describe the whole
-pull request, while its diff holds only the files whose patch changed, so a file the body names can
-look missing from that diff. The prompt of each re-review call therefore asks the lenses to report
-no mismatch between the description and the diff, and a full review judges the description. The
-[fix call](./fixes-only-run.md) of a `fixed` answer reads the description as it stands, so it can
-confirm the fix of a finding about the description.
-
-Only a fix check's verdict confirms a fix. A re-review runs one fix check for each open `fixed`
-answer whose finding it no longer reports, and the check judges the finding at the pull request's
-head, whatever commit the answer names. The fix check of a model lens's finding is a
-[fix call](./fixes-only-run.md), and a finding that a later review posted again under a new title
-shares the call of the finding it repeats, under
-[a repeated finding](./fixes-only-run.md#a-repeated-finding). The fix check of a static finding is
-[its static check](./fixes-only-run.md#static-findings), which runs the static stage again and makes
-no model call. A finding that the re-review reports again stays open with no check, because the
-report is its verdict. A re-review that only stops reporting a finding therefore confirms nothing,
-since its lens may have left the fix out of every call. A bare `fixed`, or a sha that a rebase or a
-squash took off the branch, counts through the check all the same.
-
-The summary marker keeps each fix a fix check judged fixed, as the finding id and the commit its
-answer names. A confirmed fix holds across later reviews, with no new check, until a review reports
-the finding again. A later `fixed` answer that names another commit is a new answer, so it waits for
-a check of its own. A fix check that judges a finding not fixed, or that fails, leaves the answer
-open, and the summary shows the reason. The summary marker keeps each fix that the latest fix check
-could not judge, as the finding id, the commit its answer names and the reason, so the check run and
-the [findings list](./cli.md#listing-the-findings) give that reason.
-
-A `fixed` reply posted after the last review gets no fix check from the check job that the reply
-queues, because that job reads only what GitHub holds. The fix waits for the next run that runs fix
-checks: the review of a later push, or a fixes-only run. Until that run, the finding stays open
-under [dispositions](#dispositions), so the check passes only on fixes that a fix check read.
-
-The re-check is the second review of a pull request. A review that runs no lens and raises no
-finding, such as one of a head whose every patch an earlier review read, counts as no review. From
-the third review on, the reporter sends each new finding in code the change did not write to a
-follow-up issue. A security finding, and any finding in code the change wrote, goes on the pull
-request at every review.
-
-### The fixes-only run
-
-A fixes-only run checks the `fixed` answers and the merge resolutions after the last review round,
-and raises a finding only on a merge resolution, under [the fixes-only run](./fixes-only-run.md).
-
 ## The check run
 
-The check passes when all of these hold, and fails otherwise:
+The check passes when both of these hold, and fails otherwise:
 
-- The summary marker's [net-change key](#the-net-change-key) matches the pull request at its current
-  head.
-- No call of that review failed.
-- No reporter that ran before the `github` reporter failed.
-- The summary marker holds no merge whose resolution a fixes-only run rejected with no finding.
-- Every finding comment of the App holds a marker noslop can read.
-- Every finding, P3 included, holds a valid disposition.
+- Every finding comment of the App holds a marker noslop can read, because noslop cannot tell
+  whether the finding in a damaged marker is open.
+- Every finding, P3 included, holds a valid disposition under [dispositions](#dispositions).
 
-The check's title states the first problem, and its text lists each finding with no valid
-disposition and the reason. The `github` reporter sets the check after each review, and
+The check reads only the findings and their dispositions. It passes at a head that no review read,
+and after a review with a failed call or a failed reporter. A relay that needs a review of the
+current head or green CI checks each of those itself.
+
+noslop writes the first problem as the check's title, and lists each open finding with its reason in
+the check's text. The `github` reporter sets the check after each review, and
 `noslop check --pr <number> --repo <owner/name>` sets it again from what GitHub holds, with no new
-review. The command exits 0 whatever else the check concludes, because a failing check is an answer,
-not an error. One exception: when no noslop review covers the net change at the current head, it
-prints `no noslop review for this commit` and exits 1, so a CI job that runs it fails until a review
-covers that net change. Under `--read-only` it sets no check run and exits 1 unless the check
-passes, as [checking read-only](./cli.md#checking-read-only) describes. A reporter failure lives
-only in the run that saw it, so a later `noslop check` judges the pull request without it.
-
-### The net-change key
-
-The summary marker keeps the key of the pull request's net change, the diff from its merge base to
-its head, as the review read it. The key holds one patch id per changed file. The `github` reporter
-and the check each build it the same way, from the patches GitHub lists for the pull request's
-files. Each hunk header loses its line numbers, because a change of the base above a hunk moves
-them, and keeps the heading of the code the hunk sits in, so 2 like edits in 2 functions get 2 ids.
-The id hashes the file's status, its earlier path and that patch. A binary or large file, of which
-GitHub gives no patch, keys on its blob.
-
-A clean rebase and a merge of the base that touches no line near the pull request's hunks leave
-every patch id where it was, so the review holds at the new head with no run. A push that changes a
-file's patch moves that file's id. The check's title names the first few files whose id moved, came
-or went, and counts the rest. Three cases key on the head itself, and that key counts only at that
-head:
-
-- GitHub lists fewer files than the pull request changes, past its file-list cap.
-- The patch ids pass the marker's character budget.
-- The pull request's head moved on before the reporter read its files.
-
-A summary marker that holds no key, as one an older release wrote, counts only at its own head. The
-next lens review writes the key, and so does a fixes-only run that
-[vouches for its head](./fixes-only-run.md).
+review. The command exits 0 whatever the check concludes, because a failing check is an answer, not
+an error. Under `--read-only` it sets no check run and exits 1 unless the check passes, as
+[checking read-only](./cli.md#checking-read-only) describes.

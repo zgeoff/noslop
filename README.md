@@ -43,8 +43,9 @@ noslop runs on [Bun](https://bun.sh) and needs a signed-in Codex or Claude Code 
   See [findings](docs/architecture/review/findings.md).
 - **Your own rules**: the taste lenses read your rules files and cite each finding to a quote from
   them. See [your own rules](docs/architecture/config/your-own-rules.md).
-- **A merge gate**: the GitHub App posts inline comments and a check run that passes once every
-  finding has an answer. See [the GitHub App](docs/architecture/output/github-app.md).
+- **A check of open findings**: the GitHub App posts inline comments and a check run that passes
+  once no finding is open, so a relay or a branch rule can gate the merge on it. See
+  [the GitHub App](docs/architecture/output/github-app.md).
 - **Measurement**: a store of every finding and its answer, and an eval harness that replays a
   labelled corpus. See [the findings store](docs/architecture/measurement/store.md).
 

@@ -89,7 +89,7 @@ test('it posts a review with an inline comment per finding, the summary, and a f
         }),
       ],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   const comments = githubCollections.reviewComments.all();
@@ -115,7 +115,7 @@ test('it posts a review with an inline comment per finding, the summary, and a f
       name: 'noslop',
       headSha: 'b'.repeat(40),
       conclusion: 'failure',
-      title: '1 findings hold no valid disposition.',
+      title: '1 findings are open.',
     },
   ]);
 });
@@ -152,7 +152,7 @@ test('it puts a finding outside the diff in an issue comment that people answer 
         }),
       ],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   const inline = githubCollections.reviewComments.all().map((comment) => comment.path);
@@ -201,7 +201,7 @@ test("it confirms a fixed finding on the re-review through its fix call's verdic
       head: 'b'.repeat(40),
       findings: [buildMockFinding({ id: '1111111111111111' })],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   const [thread] = githubCollections.reviewComments.all();
@@ -225,7 +225,7 @@ test("it confirms a fixed finding on the re-review through its fix call's verdic
         { findingID: '1111111111111111', fixed: true, reason: 'The total counts every item.' },
       ],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   const summary = githubCollections.issueComments.all().map((comment) => comment.body);
@@ -263,7 +263,7 @@ test('it confirms no fixed finding that the re-review no longer reports when no 
       head: 'b'.repeat(40),
       findings: [buildMockFinding({ id: '1111111111111111' })],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   const [thread] = githubCollections.reviewComments.all();
@@ -284,7 +284,7 @@ test('it confirms no fixed finding that the re-review no longer reports when no 
       head: 'c'.repeat(40),
       findings: [],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   const connection = await createGitHubConnection({
@@ -303,7 +303,7 @@ test('it confirms no fixed finding that the re-review no longer reports when no 
 
   expect(githubCollections.checkRuns.all().at(-1)).toMatchObject({
     conclusion: 'failure',
-    summary: expect.toInclude('no re-review has read the commit ccccccc yet'),
+    summary: expect.toInclude('no fix check has confirmed the commit ccccccc yet'),
   });
 });
 
@@ -331,7 +331,7 @@ test('it keeps a confirmed fix through a later review that neither judges nor re
       head: 'b'.repeat(40),
       findings: [buildMockFinding({ id: '1111111111111111' })],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   const [thread] = githubCollections.reviewComments.all();
@@ -356,7 +356,7 @@ test('it keeps a confirmed fix through a later review that neither judges nor re
         { findingID: '1111111111111111', fixed: true, reason: 'The total counts every item.' },
       ],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   await ctx.reporter.report(
@@ -368,7 +368,7 @@ test('it keeps a confirmed fix through a later review that neither judges nor re
       findings: [],
       fixChecks: [],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   const connection = await createGitHubConnection({
@@ -387,7 +387,7 @@ test('it keeps a confirmed fix through a later review that neither judges nor re
   expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('success');
 });
 
-test('it writes no kept ranges to the summary marker and reads a marker that holds them', async () => {
+test('it writes no kept ranges or review count to the summary marker and reads a marker that holds them', async () => {
   const ctx = setupTest();
 
   await githubCollections.pullRequests.create({
@@ -403,7 +403,7 @@ test('it writes no kept ranges to the summary marker and reads a marker that hol
     number: 5,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${'b'.repeat(40)}","base":"${'a'.repeat(40)}","earlier":[{"base":"${'a'.repeat(40)}","head":"${'b'.repeat(40)}","reported":[],"notReviewed":[]}],"notReviewed":[],"reviews":1,"reported":[],"failedCalls":0,"reviewIDs":["review-1"]} -->`,
+    body: `<!-- noslop:summary {"head":"${'b'.repeat(40)}","base":"${'a'.repeat(40)}","earlier":[{"base":"${'a'.repeat(40)}","head":"${'b'.repeat(40)}","reported":[],"notReviewed":[]}],"notReviewed":[],"reviews":1,"followUps":[],"checkedMerges":[],"rejectedMerges":[],"reported":[],"failedCalls":0,"reviewIDs":["review-1"]} -->`,
   });
 
   await ctx.reporter.report(
@@ -415,7 +415,7 @@ test('it writes no kept ranges to the summary marker and reads a marker that hol
       findings: [],
       notReviewed: [{ path: 'bun.lock', reason: 'too-large' }],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   const connection = await createGitHubConnection({
@@ -434,7 +434,6 @@ test('it writes no kept ranges to the summary marker and reads a marker that hol
     throw new Error('the post wrote no summary');
   }
 
-  expect(state.summary.marker.reviews).toBe(2);
   expect(state.summary.marker.lensHead).toBe('c'.repeat(40));
 
   expect(state.summary.marker).not.toContainAnyKeys([
@@ -442,7 +441,66 @@ test('it writes no kept ranges to the summary marker and reads a marker that hol
     'earlier',
     'notReviewed',
     'notReviewedByLens',
+    'reviews',
+    'followUps',
+    'checkedMerges',
+    'rejectedMerges',
   ]);
+});
+
+test('it posts no comment for a finding that an older marker lists as filed to an issue, and keeps the list', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'c'.repeat(40),
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/a.ts',
+    lines: [1],
+  });
+
+  await githubCollections.issueComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    authorLogin: STUB_APP_LOGIN,
+    authorType: 'Bot',
+    body: `<!-- noslop:summary {"head":"${'b'.repeat(40)}","reviews":4,"followUps":["4e1d9a7c2b5f8036"],"reported":["4e1d9a7c2b5f8036"],"failedCalls":0,"reviewIDs":["review-4"]} -->`,
+  });
+
+  await ctx.reporter.report(
+    buildMockReviewResult({
+      reviewID: 'review-5',
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'c'.repeat(40),
+      findings: [buildMockFinding({ id: '4e1d9a7c2b5f8036' })],
+    }),
+    { logger: ctx.logger, options: {} },
+  );
+
+  const connection = await createGitHubConnection({
+    appID: 1,
+    privateKey: buildStubAppKey(),
+    installationID: 7,
+  });
+
+  const state = await readPullRequestState(connection, {
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+  });
+
+  expect({
+    comments: githubCollections.reviewComments.all().length,
+    followUps: state.summary?.marker.followUps,
+  }).toStrictEqual({ comments: 0, followUps: ['4e1d9a7c2b5f8036'] });
 });
 
 test("it strikes the comment of a fix call's confirmed fix and keeps its marker for the check", async () => {
@@ -484,7 +542,7 @@ test("it strikes the comment of a fix call's confirmed fix and keeps its marker 
       head: 'b'.repeat(40),
       findings: [buildMockFinding({ id: '1111111111111111' })],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   const [thread] = githubCollections.reviewComments.all();
@@ -509,7 +567,7 @@ test("it strikes the comment of a fix call's confirmed fix and keeps its marker 
         { findingID: '1111111111111111', fixed: true, reason: 'The total counts every item.' },
       ],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   const struck = githubCollections.reviewComments.findFirst((query) =>
@@ -590,7 +648,7 @@ test('it restores the comment of a confirmed fix once a later review reports the
       head: 'b'.repeat(40),
       findings: [buildMockFinding({ id: '1111111111111111' })],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   const [thread] = githubCollections.reviewComments.all();
@@ -615,7 +673,7 @@ test('it restores the comment of a confirmed fix once a later review reports the
         { findingID: '1111111111111111', fixed: true, reason: 'The total counts every item.' },
       ],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   const struck = githubCollections.reviewComments.findFirst((query) =>
@@ -629,7 +687,7 @@ test('it restores the comment of a confirmed fix once a later review reports the
       head: 'd'.repeat(40),
       findings: [buildMockFinding({ id: '1111111111111111' })],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   const restored = githubCollections.reviewComments.findFirst((query) =>
@@ -671,7 +729,7 @@ test('it links each finding in the summary table to its comment', async () => {
         }),
       ],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   const [inline] = githubCollections.reviewComments.all();
@@ -731,7 +789,7 @@ test('it hands the link to each finding comment to the comment link recorder', a
         }),
       ],
     }),
-    { logger: getLogger(['test']), options: {}, failedReporters: [] },
+    { logger: getLogger(['test']), options: {} },
   );
 
   const [inline] = githubCollections.reviewComments.all();
@@ -745,6 +803,53 @@ test('it hands the link to each finding comment to the comment link recorder', a
     new Map([
       ['1111111111111111', `https://github.com/example/app/pull/5#discussion_r${inline?.id}`],
       ['2222222222222222', `https://github.com/example/app/pull/5#issuecomment-${unanchored?.id}`],
+    ]),
+  );
+});
+
+test('it hands the comment links to the recorder before a moved base branch stops the check', async () => {
+  const privateKey = buildStubAppKey();
+  const recordCommentURLs = mock(() => Promise.resolve());
+
+  const reporter = createGitHubReporter({
+    readDeferralPolicy: () => Promise.resolve({ baseRef: 'main', issueKeys: [] }),
+    loadConnection: () => createGitHubConnection({ appID: 1, privateKey, installationID: 7 }),
+    recordCommentURLs,
+  });
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    baseRef: 'release',
+    headSha: 'b'.repeat(40),
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/a.ts',
+    lines: [1],
+  });
+
+  const post = reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'b'.repeat(40),
+      findings: [buildMockFinding({ id: '1111111111111111' })],
+    }),
+    { logger: getLogger(['test']), options: {} },
+  );
+
+  expect(post).rejects.toThrow('the base branch of the pull request moved');
+
+  const [inline] = githubCollections.reviewComments.all();
+
+  expect(recordCommentURLs).toHaveBeenCalledExactlyOnceWith(
+    { owner: 'example', repo: 'app', number: 5 },
+    new Map([
+      ['1111111111111111', `https://github.com/example/app/pull/5#discussion_r${inline?.id}`],
     ]),
   );
 });
@@ -780,7 +885,7 @@ test('it hands the answers a re-review reads to the disposition recorder', async
       head: 'b'.repeat(40),
       findings: [buildMockFinding({ id: '1111111111111111' })],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   const [thread] = githubCollections.reviewComments.all();
@@ -804,7 +909,7 @@ test('it hands the answers a re-review reads to the disposition recorder', async
       head: 'c'.repeat(40),
       findings: [],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   expect(ctx.recordDispositions).toHaveBeenCalledExactlyOnceWith(
@@ -855,7 +960,7 @@ test('it hands the answers a fixes-only run reads to the disposition recorder', 
       head: 'b'.repeat(40),
       findings: [buildMockFinding({ id: '1111111111111111' })],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   const [thread] = githubCollections.reviewComments.all();
@@ -884,7 +989,7 @@ test('it hands the answers a fixes-only run reads to the disposition recorder', 
         { findingID: '1111111111111111', fixed: true, reason: 'The total counts every item.' },
       ],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   expect(ctx.recordDispositions).toHaveBeenCalledExactlyOnceWith(
@@ -935,7 +1040,7 @@ test('it fails the check when the re-review still finds a fixed finding, and pos
       head: 'b'.repeat(40),
       findings: [buildMockFinding({ id: '1111111111111111' })],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   await githubCollections.reviewComments.create({
@@ -953,7 +1058,7 @@ test('it fails the check when the re-review still finds a fixed finding, and pos
       head: 'c'.repeat(40),
       findings: [buildMockFinding({ id: '1111111111111111' })],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   const roots = githubCollections.reviewComments.findMany((query) =>
@@ -965,11 +1070,11 @@ test('it fails the check when the re-review still finds a fixed finding, and pos
   expect(githubCollections.checkRuns.all().at(-1)).toMatchObject({
     conclusion: 'failure',
     summary:
-      '1 findings hold no valid disposition.\n- `1111111111111111` Return the total of every item: the re-review still finds it',
+      '1 findings are open.\n- `1111111111111111` Return the total of every item: the re-review still finds it',
   });
 });
 
-test('it files a new finding in code the change did not write as one issue after the re-check', async () => {
+test('it posts each new finding as a comment and files no issue, however many reviews came before', async () => {
   const ctx = setupTest();
 
   await githubCollections.pullRequests.create({
@@ -995,7 +1100,7 @@ test('it files a new finding in code the change did not write as one issue after
         head: head.repeat(40),
         findings: [],
       }),
-      { logger: ctx.logger, options: {}, failedReporters: [] },
+      { logger: ctx.logger, options: {} },
     );
   }
 
@@ -1014,17 +1119,18 @@ test('it files a new finding in code the change did not write as one issue after
           buildMockFinding({ id: '2222222222222222', title: 'Await the new write' }),
         ],
       }),
-      { logger: ctx.logger, options: {}, failedReporters: [] },
+      { logger: ctx.logger, options: {} },
     );
   }
 
-  expect(githubCollections.issues.all().map((issue) => issue.title)).toStrictEqual([
-    'Close the old file',
-  ]);
+  expect(githubCollections.issues.all()).toStrictEqual([]);
 
-  expect(githubCollections.reviewComments.all().map((comment) => comment.body)).toSatisfyAll(
-    (body: string) => body.includes('Await the new write'),
-  );
+  expect(
+    githubCollections.reviewComments.all().map((comment) => comment.body.split('\n')[0]),
+  ).toStrictEqual([
+    '**P2 · Correctness** · Close the old file',
+    '**P2 · Correctness** · Await the new write',
+  ]);
 });
 
 test('it passes its check on a finding the change did not write that is deferred to a tracker key the policy matches', async () => {
@@ -1054,7 +1160,7 @@ test('it passes its check on a finding the change did not write that is deferred
     findings: [buildMockFinding({ id: '1111111111111111', writtenByChange: false })],
   });
 
-  await reporter.report(result, { logger: ctx.logger, options: {}, failedReporters: [] });
+  await reporter.report(result, { logger: ctx.logger, options: {} });
 
   const [thread] = githubCollections.reviewComments.all();
 
@@ -1067,7 +1173,7 @@ test('it passes its check on a finding the change did not write that is deferred
     inReplyToID: thread?.id ?? null,
   });
 
-  await reporter.report(result, { logger: ctx.logger, options: {}, failedReporters: [] });
+  await reporter.report(result, { logger: ctx.logger, options: {} });
 
   expect(githubCollections.checkRuns.all().map((run) => run.conclusion)).toStrictEqual([
     'failure',
@@ -1075,7 +1181,7 @@ test('it passes its check on a finding the change did not write that is deferred
   ]);
 });
 
-test('it fails its check when the pull request names another base branch than the policy it read', async () => {
+test('it refuses to set its check when the pull request names another base branch than the policy it read', async () => {
   const ctx = setupTest();
   const reporter = ctx.createReporter({ baseRef: 'main', issueKeys: [String.raw`^ABC-\d+$`] });
 
@@ -1094,19 +1200,13 @@ test('it fails its check when the pull request names another base branch than th
     findings: [],
   });
 
-  await reporter.report(result, { logger: ctx.logger, options: {}, failedReporters: [] });
-
-  expect(githubCollections.checkRuns.all().map((run) => [run.conclusion, run.title])).toStrictEqual(
-    [
-      [
-        'failure',
-        'The base branch moved from main to release while noslop read its config; run the check again.',
-      ],
-    ],
+  expect(reporter.report(result, { logger: ctx.logger, options: {} })).rejects.toThrowWithMessage(
+    Error,
+    'the base branch of the pull request moved from main to release while noslop read its config; run the check again',
   );
 });
 
-test('it counts a second post of one review result as one review', async () => {
+test('it writes one summary for a second post of one review result', async () => {
   const ctx = setupTest();
 
   await githubCollections.pullRequests.create({
@@ -1122,13 +1222,13 @@ test('it counts a second post of one review result as one review', async () => {
     head: 'b'.repeat(40),
   });
 
-  await ctx.reporter.report(result, { logger: ctx.logger, options: {}, failedReporters: [] });
-  await ctx.reporter.report(result, { logger: ctx.logger, options: {}, failedReporters: [] });
+  await ctx.reporter.report(result, { logger: ctx.logger, options: {} });
+  await ctx.reporter.report(result, { logger: ctx.logger, options: {} });
 
   const summaries = githubCollections.issueComments.all().map((comment) => comment.body);
 
   expect(summaries).toHaveLength(1);
-  expect(summaries[0]).toInclude('"reviews":1,"reviewIDs":["review-7"]');
+  expect(summaries[0]).toInclude('"reviewIDs":["review-7"]');
 });
 
 test('it sets the check from the current answers when an earlier review is retried after a later one', async () => {
@@ -1163,8 +1263,8 @@ test('it sets the check from the current answers when an earlier review is retri
     findings: [],
   });
 
-  await ctx.reporter.report(first, { logger: ctx.logger, options: {}, failedReporters: [] });
-  await ctx.reporter.report(second, { logger: ctx.logger, options: {}, failedReporters: [] });
+  await ctx.reporter.report(first, { logger: ctx.logger, options: {} });
+  await ctx.reporter.report(second, { logger: ctx.logger, options: {} });
 
   const [thread] = githubCollections.reviewComments.all();
 
@@ -1179,7 +1279,7 @@ test('it sets the check from the current answers when an earlier review is retri
 
   const before = githubCollections.checkRuns.all().at(-1)?.conclusion;
 
-  await ctx.reporter.report(first, { logger: ctx.logger, options: {}, failedReporters: [] });
+  await ctx.reporter.report(first, { logger: ctx.logger, options: {} });
 
   const summaries = githubCollections.issueComments.all().map((comment) => comment.body);
 
@@ -1213,9 +1313,9 @@ test('it keeps the later summary when an earlier review is retried after it', as
     findings: [],
   });
 
-  await ctx.reporter.report(first, { logger: ctx.logger, options: {}, failedReporters: [] });
-  await ctx.reporter.report(second, { logger: ctx.logger, options: {}, failedReporters: [] });
-  await ctx.reporter.report(first, { logger: ctx.logger, options: {}, failedReporters: [] });
+  await ctx.reporter.report(first, { logger: ctx.logger, options: {} });
+  await ctx.reporter.report(second, { logger: ctx.logger, options: {} });
+  await ctx.reporter.report(first, { logger: ctx.logger, options: {} });
 
   const summaries = githubCollections.issueComments
     .all()
@@ -1226,7 +1326,7 @@ test('it keeps the later summary when an earlier review is retried after it', as
   expect(summaries[0]).toInclude('"reviewIDs":["review-a","review-b"],"reported":[]');
 });
 
-test('it counts a retry of an earlier review as no new review after another review posted', async () => {
+test('it lists a retry of an earlier review once after another review posted', async () => {
   const ctx = setupTest();
 
   await githubCollections.pullRequests.create({
@@ -1248,14 +1348,14 @@ test('it counts a retry of an earlier review as no new review after another revi
     head: 'b'.repeat(40),
   });
 
-  await ctx.reporter.report(first, { logger: ctx.logger, options: {}, failedReporters: [] });
-  await ctx.reporter.report(second, { logger: ctx.logger, options: {}, failedReporters: [] });
-  await ctx.reporter.report(first, { logger: ctx.logger, options: {}, failedReporters: [] });
+  await ctx.reporter.report(first, { logger: ctx.logger, options: {} });
+  await ctx.reporter.report(second, { logger: ctx.logger, options: {} });
+  await ctx.reporter.report(first, { logger: ctx.logger, options: {} });
 
   const summaries = githubCollections.issueComments.all().map((comment) => comment.body);
 
   expect(summaries).toHaveLength(1);
-  expect(summaries[0]).toInclude('"reviews":2,"reviewIDs":["review-a","review-b"]');
+  expect(summaries[0]).toInclude('"reviewIDs":["review-a","review-b"]');
 });
 
 test('it runs a queued post of a pull request after the post before it fails at the summary', async () => {
@@ -1293,8 +1393,8 @@ test('it runs a queued post of a pull request after the post before it fails at 
   });
 
   const [failed, queued] = await Promise.allSettled([
-    ctx.reporter.report(first, { logger: ctx.logger, options: {}, failedReporters: [] }),
-    ctx.reporter.report(second, { logger: ctx.logger, options: {}, failedReporters: [] }),
+    ctx.reporter.report(first, { logger: ctx.logger, options: {} }),
+    ctx.reporter.report(second, { logger: ctx.logger, options: {} }),
   ]);
 
   const summaries = githubCollections.issueComments.all().map((comment) => comment.body);
@@ -1306,10 +1406,10 @@ test('it runs a queued post of a pull request after the post before it fails at 
 
   expect(queued).toStrictEqual({ status: 'fulfilled', value: undefined });
   expect(summaries).toHaveLength(1);
-  expect(summaries[0]).toInclude('"reviews":1,"reviewIDs":["review-b"]');
+  expect(summaries[0]).toInclude('"reviewIDs":["review-b"]');
 });
 
-test('it keeps a later summary and its check when an earlier review that failed at the summary is retried', async () => {
+test('it keeps a later summary when an earlier review that failed at the summary is retried', async () => {
   const ctx = setupTest();
 
   await githubCollections.pullRequests.create({
@@ -1346,15 +1446,13 @@ test('it keeps a later summary and its check when an earlier review that failed 
     failedCalls: [{ id: 'light', lenses: ['correctness'], reason: 'the call timed out' }],
   });
 
-  const failed = await ctx.reporter
-    .report(first, { logger: ctx.logger, options: {}, failedReporters: [] })
-    .then(
-      () => null,
-      (error: unknown) => error,
-    );
+  const failed = await ctx.reporter.report(first, { logger: ctx.logger, options: {} }).then(
+    () => null,
+    (error: unknown) => error,
+  );
 
-  await ctx.reporter.report(second, { logger: ctx.logger, options: {}, failedReporters: [] });
-  await ctx.reporter.report(first, { logger: ctx.logger, options: {}, failedReporters: [] });
+  await ctx.reporter.report(second, { logger: ctx.logger, options: {} });
+  await ctx.reporter.report(first, { logger: ctx.logger, options: {} });
 
   const summaries = githubCollections.issueComments.all().map((comment) => comment.body);
 
@@ -1363,184 +1461,8 @@ test('it keeps a later summary and its check when an earlier review that failed 
   });
 
   expect(summaries).toHaveLength(1);
-  expect(summaries[0]).toInclude('"reviews":1,"reviewIDs":["review-b"]');
+  expect(summaries[0]).toInclude('"reviewIDs":["review-b"]');
   expect(summaries[0]).toInclude('"failedCalls":1');
-  expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('failure');
-});
-
-test('it files one follow-up issue when 2 posts of one review run at once', async () => {
-  const ctx = setupTest();
-
-  await githubCollections.pullRequests.create({
-    owner: 'example',
-    repo: 'app',
-    number: 5,
-    headSha: 'd'.repeat(40),
-  });
-
-  for (const head of ['b', 'c']) {
-    await ctx.reporter.report(
-      buildMockReviewResult({
-        reviewID: `review-${head}`,
-        pullRequest: { owner: 'example', repo: 'app', number: 5 },
-        head: head.repeat(40),
-        findings: [],
-      }),
-      { logger: ctx.logger, options: {}, failedReporters: [] },
-    );
-  }
-
-  const result = buildMockReviewResult({
-    reviewID: 'review-d',
-    pullRequest: { owner: 'example', repo: 'app', number: 5 },
-    head: 'd'.repeat(40),
-    findings: [
-      buildMockFinding({
-        id: '1111111111111111',
-        title: 'Close the old file',
-        writtenByChange: false,
-      }),
-    ],
-  });
-
-  await Promise.all([
-    ctx.reporter.report(result, { logger: ctx.logger, options: {}, failedReporters: [] }),
-    ctx.reporter.report(result, { logger: ctx.logger, options: {}, failedReporters: [] }),
-  ]);
-
-  expect(githubCollections.issues.all().map((issue) => issue.title)).toStrictEqual([
-    'Close the old file',
-  ]);
-});
-
-test('it files a follow-up issue that a marker of another author or another pull request names', async () => {
-  const ctx = setupTest();
-
-  await githubCollections.pullRequests.create({
-    owner: 'example',
-    repo: 'app',
-    number: 5,
-    headSha: 'd'.repeat(40),
-  });
-
-  await githubCollections.issues.create({
-    owner: 'example',
-    repo: 'app',
-    number: 1,
-    title: 'Copied by hand',
-    body: '<!-- noslop:follow-up {"id":"1111111111111111","pullRequest":5} -->',
-    authorLogin: 'dev',
-  });
-
-  await githubCollections.issues.create({
-    owner: 'example',
-    repo: 'app',
-    number: 2,
-    title: 'Filed from another pull request',
-    body: '<!-- noslop:follow-up {"id":"1111111111111111","pullRequest":6} -->',
-    authorLogin: STUB_APP_LOGIN,
-  });
-
-  for (const head of ['b', 'c']) {
-    await ctx.reporter.report(
-      buildMockReviewResult({
-        reviewID: `review-${head}`,
-        pullRequest: { owner: 'example', repo: 'app', number: 5 },
-        head: head.repeat(40),
-        findings: [],
-      }),
-      { logger: ctx.logger, options: {}, failedReporters: [] },
-    );
-  }
-
-  await ctx.reporter.report(
-    buildMockReviewResult({
-      reviewID: 'review-d',
-      pullRequest: { owner: 'example', repo: 'app', number: 5 },
-      head: 'd'.repeat(40),
-      findings: [
-        buildMockFinding({
-          id: '1111111111111111',
-          title: 'Close the old file',
-          writtenByChange: false,
-        }),
-      ],
-    }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
-  );
-
-  expect(githubCollections.issues.all().map((issue) => issue.title)).toStrictEqual([
-    'Copied by hand',
-    'Filed from another pull request',
-    'Close the old file',
-  ]);
-});
-
-test('it files a follow-up issue once when a post that opened it fails at the summary and is retried', async () => {
-  const ctx = setupTest();
-
-  await githubCollections.pullRequests.create({
-    owner: 'example',
-    repo: 'app',
-    number: 5,
-    headSha: 'd'.repeat(40),
-  });
-
-  for (const head of ['b', 'c']) {
-    await ctx.reporter.report(
-      buildMockReviewResult({
-        reviewID: `review-${head}`,
-        pullRequest: { owner: 'example', repo: 'app', number: 5 },
-        head: head.repeat(40),
-        findings: [],
-      }),
-      { logger: ctx.logger, options: {}, failedReporters: [] },
-    );
-  }
-
-  githubServer.use(
-    ...Array.from({ length: 4 }, () =>
-      http.patch(
-        `${GITHUB_API_URL}/repos/:owner/:repo/issues/comments/:commentID`,
-        () => new HttpResponse(null, { status: 500 }),
-        { once: true },
-      ),
-    ),
-  );
-
-  const result = buildMockReviewResult({
-    reviewID: 'review-d',
-    pullRequest: { owner: 'example', repo: 'app', number: 5 },
-    head: 'd'.repeat(40),
-    findings: [
-      buildMockFinding({
-        id: '1111111111111111',
-        title: 'Close the old file',
-        writtenByChange: false,
-      }),
-    ],
-  });
-
-  const failed = await ctx.reporter
-    .report(result, { logger: ctx.logger, options: {}, failedReporters: [] })
-    .then(
-      () => null,
-      (error: unknown) => error,
-    );
-
-  const filedBeforeRetry = githubCollections.issues.all().map((issue) => issue.title);
-
-  await ctx.reporter.report(result, { logger: ctx.logger, options: {}, failedReporters: [] });
-
-  expect(failed).toMatchObject({
-    message: 'GitHub answered the summary comment with 500 on all 4 attempts',
-  });
-
-  expect(filedBeforeRetry).toStrictEqual(['Close the old file']);
-
-  expect(githubCollections.issues.all().map((issue) => issue.title)).toStrictEqual([
-    'Close the old file',
-  ]);
 });
 
 test('it answers a free-text reply once with the accepted forms', async () => {
@@ -1567,7 +1489,7 @@ test('it answers a free-text reply once with the accepted forms', async () => {
       head: 'b'.repeat(40),
       findings: [buildMockFinding({ id: '1111111111111111' })],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   await githubCollections.reviewComments.create({
@@ -1587,7 +1509,7 @@ test('it answers a free-text reply once with the accepted forms', async () => {
         head: 'b'.repeat(40),
         findings: [buildMockFinding({ id: '1111111111111111' })],
       }),
-      { logger: ctx.logger, options: {}, failedReporters: [] },
+      { logger: ctx.logger, options: {} },
     );
   }
 
@@ -1599,29 +1521,6 @@ test('it answers a free-text reply once with the accepted forms', async () => {
   );
 
   expect(answers).toHaveLength(1);
-});
-
-test('it fails the check when a reporter before it failed', async () => {
-  const ctx = setupTest();
-
-  await githubCollections.pullRequests.create({
-    owner: 'example',
-    repo: 'app',
-    number: 5,
-    headSha: 'b'.repeat(40),
-  });
-
-  await ctx.reporter.report(
-    buildMockReviewResult({
-      pullRequest: { owner: 'example', repo: 'app', number: 5 },
-      head: 'b'.repeat(40),
-    }),
-    { logger: ctx.logger, options: {}, failedReporters: ['sqlite'] },
-  );
-
-  expect(githubCollections.checkRuns.all()).toMatchObject([
-    { conclusion: 'failure', summary: 'These reporters failed: sqlite.' },
-  ]);
 });
 
 test('it fails the check on a finding comment of the App whose marker it cannot read', async () => {
@@ -1648,7 +1547,7 @@ test('it fails the check on a finding comment of the App whose marker it cannot 
       pullRequest: { owner: 'example', repo: 'app', number: 5 },
       head: 'b'.repeat(40),
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   expect(githubCollections.checkRuns.all()).toMatchObject([
@@ -1672,15 +1571,16 @@ test('it trusts no state that another bot posted', async () => {
     number: 5,
     authorLogin: 'other-app[bot]',
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${'b'.repeat(40)}","reviews":9,"reported":[],"failedCalls":0} -->`,
+    body: `<!-- noslop:summary {"head":"${'b'.repeat(40)}","reported":[],"failedCalls":0,"reviewIDs":["review-9"]} -->`,
   });
 
   await ctx.reporter.report(
     buildMockReviewResult({
+      reviewID: 'review-1',
       pullRequest: { owner: 'example', repo: 'app', number: 5 },
       head: 'b'.repeat(40),
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   const own = githubCollections.issueComments.findMany((query) =>
@@ -1688,7 +1588,7 @@ test('it trusts no state that another bot posted', async () => {
   );
 
   expect(own.map((comment) => comment.body)).toSatisfyAll((body: string) =>
-    body.includes('"reviews":1,'),
+    body.includes('"reviewIDs":["review-1"],'),
   );
 });
 
@@ -1730,7 +1630,7 @@ test('it leaves a fix in another file open while the re-review still reports the
       head: 'b'.repeat(40),
       findings: [buildMockFinding({ id: '1111111111111111' })],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   const [thread] = githubCollections.reviewComments.all();
@@ -1751,7 +1651,7 @@ test('it leaves a fix in another file open while the re-review still reports the
       head: 'c'.repeat(40),
       findings: [buildMockFinding({ id: '1111111111111111' })],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   const summary = githubCollections.issueComments.all().map((comment) => comment.body);
@@ -1796,7 +1696,7 @@ test('it shows a fix that a fixes-only run left unjudged as not judged, never as
       head: 'b'.repeat(40),
       findings: [buildMockFinding({ id: '1111111111111111' })],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   const [thread] = githubCollections.reviewComments.all();
@@ -1827,7 +1727,7 @@ test('it shows a fix that a fixes-only run left unjudged as not judged, never as
       ],
       notReviewed: [{ path: 'src/a.ts', reason: 'too-large' }],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   const summary = githubCollections.issueComments
@@ -1866,7 +1766,7 @@ test('it gives a fix whose call failed no file-limit reason when another call le
       head: 'b'.repeat(40),
       findings: [buildMockFinding({ id: '1111111111111111' })],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   const [thread] = githubCollections.reviewComments.all();
@@ -1895,7 +1795,7 @@ test('it gives a fix whose call failed no file-limit reason when another call le
       unjudgedFixes: [{ findingID: '1111111111111111', reason: 'its fix call failed' }],
       notReviewed: [{ path: 'src/a.ts', reason: 'too-large' }],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   const summary = githubCollections.issueComments
@@ -1907,7 +1807,7 @@ test('it gives a fix whose call failed no file-limit reason when another call le
   expect(summary?.body).not.toInclude('❌');
 });
 
-test('it keeps the head and key of the summary before a fixes-only run that judged no fix, so the check names the change no call read', async () => {
+test('it keeps the head and key of the summary before a fixes-only run that judged no fix, and passes the check with no open finding', async () => {
   const ctx = setupTest();
 
   await githubCollections.pullRequests.create({
@@ -1948,7 +1848,7 @@ test('it keeps the head and key of the summary before a fixes-only run that judg
     number: 5,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${'b'.repeat(40)}","key":${JSON.stringify(key)},"reviews":2,"reported":[],"failedCalls":0,"reviewIDs":["review-a","review-b"]} -->`,
+    body: `<!-- noslop:summary {"head":"${'b'.repeat(40)}","key":${JSON.stringify(key)},"reported":[],"failedCalls":0,"reviewIDs":["review-a","review-b"]} -->`,
   });
 
   await ctx.reporter.report(
@@ -1962,7 +1862,7 @@ test('it keeps the head and key of the summary before a fixes-only run that judg
       fixesOnly: true,
       fixChecks: [],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   const summary = githubCollections.issueComments
@@ -1973,12 +1873,12 @@ test('it keeps the head and key of the summary before a fixes-only run that judg
   expect(summary?.body).toInclude(`"key":${JSON.stringify(key)}} -->`);
 
   expect(githubCollections.checkRuns.all().at(-1)).toMatchObject({
-    conclusion: 'failure',
-    title: `No noslop review of this change to src/b.ts: the patch changed since the review of ${'b'.repeat(12)}.`,
+    conclusion: 'success',
+    title: 'No open finding (0)',
   });
 });
 
-test('it keeps the failed calls of a lens review through a fixes-only run that judged a fix with no clean lens review before it', async () => {
+test('it keeps the failed calls of a lens review through a fixes-only run that judged a fix, and passes the check with no open finding', async () => {
   const ctx = setupTest();
 
   await githubCollections.pullRequests.create({
@@ -2003,7 +1903,7 @@ test('it keeps the failed calls of a lens review through a fixes-only run that j
       findings: [buildMockFinding({ id: '1111111111111111' })],
       failedCalls: [{ id: 'security', lenses: ['security'], reason: 'codex timed out' }],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   const [thread] = githubCollections.reviewComments.all();
@@ -2029,7 +1929,7 @@ test('it keeps the failed calls of a lens review through a fixes-only run that j
         { findingID: '1111111111111111', fixed: true, reason: 'The total adds every item now.' },
       ],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   const summary = githubCollections.issueComments
@@ -2038,7 +1938,7 @@ test('it keeps the failed calls of a lens review through a fixes-only run that j
 
   expect(summary?.body).toInclude(`<!-- noslop:summary {"head":"${'b'.repeat(40)}",`);
   expect(summary?.body).toInclude('"failedCalls":1,');
-  expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('failure');
+  expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('success');
 });
 
 test('it drops the failed fix call of an earlier fixes-only run when a later one judges no fix after a clean lens review', async () => {
@@ -2058,7 +1958,7 @@ test('it drops the failed fix call of an earlier fixes-only run when a later one
       head: 'b'.repeat(40),
       findings: [],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   await ctx.reporter.report(
@@ -2074,7 +1974,7 @@ test('it drops the failed fix call of an earlier fixes-only run when a later one
         { id: 'fix-1111111111111111', lenses: ['correctness'], reason: 'the model timed out' },
       ],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   await ctx.reporter.report(
@@ -2087,7 +1987,7 @@ test('it drops the failed fix call of an earlier fixes-only run when a later one
       fixesOnly: true,
       fixChecks: [],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   const summary = githubCollections.issueComments
@@ -2120,7 +2020,7 @@ test('it updates the one summary of a fixes-only run before any lens review on a
         fixesOnly: true,
         fixChecks: [],
       }),
-      { logger: ctx.logger, options: {}, failedReporters: [] },
+      { logger: ctx.logger, options: {} },
     );
   }
 
@@ -2129,7 +2029,7 @@ test('it updates the one summary of a fixes-only run before any lens review on a
     .filter((comment) => comment.body.includes('<!-- noslop:summary'));
 
   expect(summaries).toHaveLength(1);
-  expect(summaries[0]?.body).toInclude('"reviews":0,"reviewIDs":["review-a","review-b"]');
+  expect(summaries[0]?.body).toInclude('"reviewIDs":["review-a","review-b"]');
 });
 
 test('it vouches for the merge base alone after a fixes-only run that judged no fix on a pull request no review covered', async () => {
@@ -2152,7 +2052,7 @@ test('it vouches for the merge base alone after a fixes-only run that judged no 
       fixesOnly: true,
       fixChecks: [],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   const summary = githubCollections.issueComments
@@ -2160,11 +2060,6 @@ test('it vouches for the merge base alone after a fixes-only run that judged no 
     .findLast((comment) => comment.body.includes('<!-- noslop:summary'));
 
   expect(summary?.body).toInclude(`<!-- noslop:summary {"head":"${'a'.repeat(40)}","checked":[]`);
-
-  expect(githubCollections.checkRuns.all().at(-1)).toMatchObject({
-    conclusion: 'failure',
-    title: `No noslop review for this commit, ${'c'.repeat(12)}.`,
-  });
 });
 
 test('it answers a free-text comment on a finding outside the diff once', async () => {
@@ -2183,7 +2078,7 @@ test('it answers a free-text comment on a finding outside the diff once', async 
       head: 'b'.repeat(40),
       findings: [buildMockFinding({ id: '1111111111111111', writtenByChange: false })],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   await githubCollections.issueComments.create({
@@ -2202,7 +2097,7 @@ test('it answers a free-text comment on a finding outside the diff once', async 
         head: 'b'.repeat(40),
         findings: [buildMockFinding({ id: '1111111111111111', writtenByChange: false })],
       }),
-      { logger: ctx.logger, options: {}, failedReporters: [] },
+      { logger: ctx.logger, options: {} },
     );
   }
 
@@ -2237,7 +2132,7 @@ test('it answers once a comment of one line per finding that names findings of t
         }),
       ],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   await githubCollections.issueComments.create({
@@ -2257,7 +2152,7 @@ test('it answers once a comment of one line per finding that names findings of t
   await runGitHubCheck(
     connection,
     { owner: 'example', repo: 'app', number: 5 },
-    { failedReporters: [], policy: { baseRef: 'main', issueKeys: [] } },
+    { policy: { baseRef: 'main', issueKeys: [] } },
   );
 
   const answers = githubCollections.issueComments.findMany((query) =>
@@ -2274,7 +2169,6 @@ test('it refuses a result that names no pull request', () => {
     ctx.reporter.report(buildMockReviewResult(), {
       logger: ctx.logger,
       options: {},
-      failedReporters: [],
     }),
   ).rejects.toThrowWithMessage(
     Error,
@@ -2282,7 +2176,7 @@ test('it refuses a result that names no pull request', () => {
   );
 });
 
-test('it marks each merge whose resolution a fixes-only run judged sound as checked in the summary marker', async () => {
+test('it passes the check with no open finding on a marker that holds a rejected merge, and writes no merge lists', async () => {
   const ctx = setupTest();
 
   await githubCollections.pullRequests.create({
@@ -2298,323 +2192,7 @@ test('it marks each merge whose resolution a fixes-only run judged sound as chec
     number: 5,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${'b'.repeat(40)}","base":"${'a'.repeat(40)}","reviews":2,"reported":[],"failedCalls":0,"checkedMerges":["${'d'.repeat(40)}"],"reviewIDs":["review-a","review-b"]} -->`,
-  });
-
-  const result = buildMockReviewResult({
-    reviewID: 'review-c',
-    pullRequest: { owner: 'example', repo: 'app', number: 5 },
-    base: 'b'.repeat(40),
-    head: 'c'.repeat(40),
-    lenses: [],
-    fixesOnly: true,
-    fixChecks: [],
-    resolutionChecks: [
-      {
-        merge: 'e'.repeat(40),
-        sound: true,
-        reason: 'The merge keeps both timeouts.',
-        findingIDs: [],
-      },
-      {
-        merge: 'f'.repeat(40),
-        sound: false,
-        reason: 'The merge drops the retry limit.',
-        findingIDs: [],
-      },
-    ],
-  });
-
-  await ctx.reporter.report(result, { logger: ctx.logger, options: {}, failedReporters: [] });
-
-  const summary = githubCollections.issueComments
-    .all()
-    .findLast((comment) => comment.body.includes('<!-- noslop:summary'));
-
-  expect(summary?.body).toInclude(`"checkedMerges":["${'d'.repeat(40)}","${'e'.repeat(40)}"]`);
-
-  expect(summary?.body).toInclude(
-    '✅ The resolution of merge `eeeeeee` holds: The merge keeps both timeouts.\n❌ The resolution of merge `fffffff` does not hold: The merge drops the retry limit.',
-  );
-
-  expect(summary?.body).toInclude('"reviews":2,');
-});
-
-test('it drops a merge from the checked merges when a later run judges its resolution not sound', async () => {
-  const ctx = setupTest();
-
-  await githubCollections.pullRequests.create({
-    owner: 'example',
-    repo: 'app',
-    number: 5,
-    headSha: 'c'.repeat(40),
-  });
-
-  await githubCollections.issueComments.create({
-    owner: 'example',
-    repo: 'app',
-    number: 5,
-    authorLogin: STUB_APP_LOGIN,
-    authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${'b'.repeat(40)}","base":"${'a'.repeat(40)}","reviews":2,"reported":[],"failedCalls":0,"checkedMerges":["${'e'.repeat(40)}"],"reviewIDs":["review-a","review-b"]} -->`,
-  });
-
-  const result = buildMockReviewResult({
-    reviewID: 'review-c',
-    pullRequest: { owner: 'example', repo: 'app', number: 5 },
-    base: 'a'.repeat(40),
-    head: 'c'.repeat(40),
-    lenses: [],
-    fixesOnly: true,
-    fixChecks: [],
-    resolutionChecks: [
-      {
-        merge: 'e'.repeat(40),
-        sound: false,
-        reason: 'The merge drops the retry limit.',
-        findingIDs: ['1111111111111111'],
-      },
-    ],
-  });
-
-  await ctx.reporter.report(result, { logger: ctx.logger, options: {}, failedReporters: [] });
-
-  const summary = githubCollections.issueComments
-    .all()
-    .findLast((comment) => comment.body.includes('<!-- noslop:summary'));
-
-  expect(summary?.body).toInclude('<!-- noslop:summary');
-  expect(summary?.body).not.toInclude('checkedMerges');
-});
-
-test('it keeps a merge judged not sound with no finding as rejected and fails the check', async () => {
-  const ctx = setupTest();
-
-  await githubCollections.pullRequests.create({
-    owner: 'example',
-    repo: 'app',
-    number: 5,
-    headSha: 'c'.repeat(40),
-  });
-
-  await githubCollections.issueComments.create({
-    owner: 'example',
-    repo: 'app',
-    number: 5,
-    authorLogin: STUB_APP_LOGIN,
-    authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${'c'.repeat(40)}","base":"${'a'.repeat(40)}","reviews":2,"reported":[],"failedCalls":0,"reviewIDs":["review-a","review-b"]} -->`,
-  });
-
-  const result = buildMockReviewResult({
-    reviewID: 'review-c',
-    pullRequest: { owner: 'example', repo: 'app', number: 5 },
-    base: 'b'.repeat(40),
-    head: 'c'.repeat(40),
-    lenses: [],
-    fixesOnly: true,
-    fixChecks: [],
-    resolutionChecks: [
-      {
-        merge: 'e'.repeat(40),
-        sound: false,
-        reason: 'noslop rebuilds a merge of 2 parents only, and this merge has 3',
-        findingIDs: [],
-      },
-    ],
-  });
-
-  await ctx.reporter.report(result, { logger: ctx.logger, options: {}, failedReporters: [] });
-
-  const summary = githubCollections.issueComments
-    .all()
-    .findLast((comment) => comment.body.includes('<!-- noslop:summary'));
-
-  expect(summary?.body).toInclude(`"rejectedMerges":["${'e'.repeat(40)}"]`);
-
-  expect(githubCollections.checkRuns.all().at(-1)).toMatchObject({
-    conclusion: 'failure',
-    title: 'The resolution of merge eeeeeeeeeeee does not hold.',
-  });
-});
-
-test('it passes the check once the finding of a not-sound resolution holds a valid disposition', async () => {
-  const ctx = setupTest();
-
-  await githubCollections.pullRequests.create({
-    owner: 'example',
-    repo: 'app',
-    number: 5,
-    headSha: 'c'.repeat(40),
-  });
-
-  await githubCollections.pullFiles.create({
-    owner: 'example',
-    repo: 'app',
-    number: 5,
-    path: 'src/a.ts',
-    lines: [1],
-  });
-
-  await githubCollections.issueComments.create({
-    owner: 'example',
-    repo: 'app',
-    number: 5,
-    authorLogin: STUB_APP_LOGIN,
-    authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${'c'.repeat(40)}","base":"${'a'.repeat(40)}","reviews":2,"reported":[],"failedCalls":0,"reviewIDs":["review-a","review-b"]} -->`,
-  });
-
-  const result = buildMockReviewResult({
-    reviewID: 'review-c',
-    pullRequest: { owner: 'example', repo: 'app', number: 5 },
-    base: 'b'.repeat(40),
-    head: 'c'.repeat(40),
-    lenses: [],
-    fixesOnly: true,
-    fixChecks: [],
-    findings: [buildMockFinding({ id: '1111111111111111', title: 'Keep the 5000 ms timeout' })],
-    resolutionChecks: [
-      {
-        merge: 'e'.repeat(40),
-        sound: false,
-        reason: 'The merge drops the timeout the base branch set.',
-        findingIDs: ['1111111111111111'],
-      },
-    ],
-  });
-
-  await ctx.reporter.report(result, { logger: ctx.logger, options: {}, failedReporters: [] });
-
-  const [thread] = githubCollections.reviewComments.all();
-
-  await githubCollections.reviewComments.create({
-    owner: 'example',
-    repo: 'app',
-    number: 5,
-    body: 'not-a-defect the base branch timeout is reverted on purpose',
-    authorLogin: 'dev',
-    inReplyToID: thread?.id ?? null,
-  });
-
-  const connection = await createGitHubConnection({
-    appID: 1,
-    privateKey: buildStubAppKey(),
-    installationID: 7,
-  });
-
-  const outcome = await runGitHubCheck(
-    connection,
-    { owner: 'example', repo: 'app', number: 5 },
-    { failedReporters: [], policy: { baseRef: 'main', issueKeys: [] } },
-  );
-
-  expect(outcome.conclusion).toBe('success');
-});
-
-test('it removes a rejected merge and passes the check when a later run judges its resolution sound', async () => {
-  const ctx = setupTest();
-
-  await githubCollections.pullRequests.create({
-    owner: 'example',
-    repo: 'app',
-    number: 5,
-    headSha: 'c'.repeat(40),
-  });
-
-  await githubCollections.issueComments.create({
-    owner: 'example',
-    repo: 'app',
-    number: 5,
-    authorLogin: STUB_APP_LOGIN,
-    authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${'c'.repeat(40)}","base":"${'a'.repeat(40)}","reviews":2,"reported":[],"failedCalls":0,"rejectedMerges":["${'e'.repeat(40)}"],"reviewIDs":["review-a","review-b"]} -->`,
-  });
-
-  const result = buildMockReviewResult({
-    reviewID: 'review-c',
-    pullRequest: { owner: 'example', repo: 'app', number: 5 },
-    base: 'a'.repeat(40),
-    head: 'c'.repeat(40),
-    lenses: [],
-    fixesOnly: true,
-    fixChecks: [],
-    resolutionChecks: [
-      {
-        merge: 'e'.repeat(40),
-        sound: true,
-        reason: 'The merge keeps both timeouts.',
-        findingIDs: [],
-      },
-    ],
-  });
-
-  await ctx.reporter.report(result, { logger: ctx.logger, options: {}, failedReporters: [] });
-
-  const summary = githubCollections.issueComments
-    .all()
-    .findLast((comment) => comment.body.includes('<!-- noslop:summary'));
-
-  expect(summary?.body).not.toInclude('rejectedMerges');
-  expect(summary?.body).toInclude(`"checkedMerges":["${'e'.repeat(40)}"]`);
-  expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('success');
-});
-
-test('it keeps a rejected merge through a later fixes-only run that does not judge it', async () => {
-  const ctx = setupTest();
-
-  await githubCollections.pullRequests.create({
-    owner: 'example',
-    repo: 'app',
-    number: 5,
-    headSha: 'c'.repeat(40),
-  });
-
-  await githubCollections.issueComments.create({
-    owner: 'example',
-    repo: 'app',
-    number: 5,
-    authorLogin: STUB_APP_LOGIN,
-    authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${'b'.repeat(40)}","base":"${'a'.repeat(40)}","reviews":2,"reported":[],"failedCalls":0,"rejectedMerges":["${'e'.repeat(40)}"],"reviewIDs":["review-a","review-b"]} -->`,
-  });
-
-  const result = buildMockReviewResult({
-    reviewID: 'review-c',
-    pullRequest: { owner: 'example', repo: 'app', number: 5 },
-    base: 'b'.repeat(40),
-    head: 'c'.repeat(40),
-    lenses: [],
-    fixesOnly: true,
-    fixChecks: [],
-  });
-
-  await ctx.reporter.report(result, { logger: ctx.logger, options: {}, failedReporters: [] });
-
-  const summary = githubCollections.issueComments
-    .all()
-    .findLast((comment) => comment.body.includes('<!-- noslop:summary'));
-
-  expect(summary?.body).toInclude(`"rejectedMerges":["${'e'.repeat(40)}"]`);
-});
-
-test('it clears the rejected merges on a lens review', async () => {
-  const ctx = setupTest();
-
-  await githubCollections.pullRequests.create({
-    owner: 'example',
-    repo: 'app',
-    number: 5,
-    headSha: 'c'.repeat(40),
-  });
-
-  await githubCollections.issueComments.create({
-    owner: 'example',
-    repo: 'app',
-    number: 5,
-    authorLogin: STUB_APP_LOGIN,
-    authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${'b'.repeat(40)}","base":"${'a'.repeat(40)}","reviews":1,"reported":[],"failedCalls":0,"rejectedMerges":["${'e'.repeat(40)}"],"reviewIDs":["review-a"]} -->`,
+    body: `<!-- noslop:summary {"head":"${'b'.repeat(40)}","reported":[],"failedCalls":0,"checkedMerges":["${'d'.repeat(40)}"],"rejectedMerges":["${'e'.repeat(40)}"],"reviewIDs":["review-a"]} -->`,
   });
 
   const result = buildMockReviewResult({
@@ -2622,16 +2200,18 @@ test('it clears the rejected merges on a lens review', async () => {
     pullRequest: { owner: 'example', repo: 'app', number: 5 },
     base: 'b'.repeat(40),
     head: 'c'.repeat(40),
+    lenses: [],
+    fixesOnly: true,
+    fixChecks: [],
   });
 
-  await ctx.reporter.report(result, { logger: ctx.logger, options: {}, failedReporters: [] });
+  await ctx.reporter.report(result, { logger: ctx.logger, options: {} });
 
   const summary = githubCollections.issueComments
     .all()
     .findLast((comment) => comment.body.includes('<!-- noslop:summary'));
 
-  expect(summary?.body).toInclude('<!-- noslop:summary');
-  expect(summary?.body).not.toInclude('rejectedMerges');
+  expect(summary?.body).not.toMatch(/checkedMerges|rejectedMerges/u);
   expect(githubCollections.checkRuns.all().at(-1)?.conclusion).toBe('success');
 });
 
@@ -2669,7 +2249,7 @@ test('it posts the second of two rewritten finding comments only once a second-l
     ],
   });
 
-  const report = reporter.report(result, { logger: ctx.logger, options: {}, failedReporters: [] });
+  const report = reporter.report(result, { logger: ctx.logger, options: {} });
 
   const delayMs = await stub.nextSleep();
 
@@ -2721,7 +2301,7 @@ test('it waits a second between the review and a rewritten finding comment after
     ],
   });
 
-  await ctx.reporter.report(result, { logger: ctx.logger, options: {}, failedReporters: [] });
+  await ctx.reporter.report(result, { logger: ctx.logger, options: {} });
 
   expect(githubCollections.reviewComments.all()).toHaveLength(1);
   expect(ctx.sleep.mock.calls).toStrictEqual([[1000]]);
@@ -2751,7 +2331,7 @@ test('it posts a finding whose lines a later commit rewrote as an issue comment 
     findings: [buildMockFinding({ id: '1111111111111111', anchorCommit: 'e'.repeat(40) })],
   });
 
-  await ctx.reporter.report(result, { logger: ctx.logger, options: {}, failedReporters: [] });
+  await ctx.reporter.report(result, { logger: ctx.logger, options: {} });
 
   const comments = githubCollections.issueComments
     .all()
@@ -2788,7 +2368,7 @@ test('it posts a recorded finding that no comment holds as an issue comment that
     findings: [],
   });
 
-  await reporter.report(result, { logger: ctx.logger, options: {}, failedReporters: [] });
+  await reporter.report(result, { logger: ctx.logger, options: {} });
 
   const comments = githubCollections.issueComments
     .all()
@@ -2802,6 +2382,40 @@ test('it posts a recorded finding that no comment holds as an issue comment that
   );
 
   expect(comments[0]).toInclude(`"head":"${'e'.repeat(40)}"`);
+});
+
+test('it posts a recorded finding that no comment holds for a fixes-only result, which raises no finding of its own', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    headSha: 'c'.repeat(40),
+  });
+
+  const reporter = ctx.createRecordedReporter([
+    buildMockFinding({ id: '6b2e0f9a4c7d1358', anchorCommit: 'e'.repeat(40) }),
+  ]);
+
+  await reporter.report(
+    buildMockReviewResult({
+      pullRequest: { owner: 'example', repo: 'app', number: 5 },
+      head: 'c'.repeat(40),
+      findings: [],
+      lenses: [],
+      fixesOnly: true,
+      fixChecks: [],
+    }),
+    { logger: ctx.logger, options: {} },
+  );
+
+  const posted = githubCollections.issueComments
+    .all()
+    .filter((comment) => comment.body.includes('<!-- noslop:finding'))
+    .map((comment) => comment.body.includes('"id":"6b2e0f9a4c7d1358"'));
+
+  expect(posted).toStrictEqual([true]);
 });
 
 test('it lists no issue when every recorded finding is a finding of the review', async () => {
@@ -2838,46 +2452,9 @@ test('it lists no issue when every recorded finding is a finding of the review',
     findings: [finding],
   });
 
-  await reporter.report(result, { logger: ctx.logger, options: {}, failedReporters: [] });
+  await reporter.report(result, { logger: ctx.logger, options: {} });
 
   expect(githubCollections.reviewComments.all()).toHaveLength(1);
-});
-
-test('it posts no recorded finding that a follow-up issue holds, and keeps its id among the filed follow-ups', async () => {
-  const ctx = setupTest();
-
-  await githubCollections.pullRequests.create({
-    owner: 'example',
-    repo: 'app',
-    number: 5,
-    headSha: 'c'.repeat(40),
-  });
-
-  await githubCollections.issues.create({
-    owner: 'example',
-    repo: 'app',
-    number: 1,
-    title: 'Close the old file',
-    body: '<!-- noslop:follow-up {"id":"1111111111111111","pullRequest":5} -->',
-    authorLogin: STUB_APP_LOGIN,
-  });
-
-  const reporter = ctx.createRecordedReporter([
-    buildMockFinding({ id: '1111111111111111', anchorCommit: 'e'.repeat(40) }),
-  ]);
-
-  const result = buildMockReviewResult({
-    pullRequest: { owner: 'example', repo: 'app', number: 5 },
-    head: 'c'.repeat(40),
-    findings: [],
-  });
-
-  await reporter.report(result, { logger: ctx.logger, options: {}, failedReporters: [] });
-
-  const bodies = githubCollections.issueComments.all().map((comment) => comment.body);
-
-  expect(bodies).toHaveLength(1);
-  expect(bodies[0]).toInclude('"followUps":["1111111111111111"]');
 });
 
 test('it posts no recorded finding while a finding comment holds a marker it cannot read', async () => {
@@ -2909,7 +2486,7 @@ test('it posts no recorded finding while a finding comment holds a marker it can
     findings: [],
   });
 
-  await reporter.report(result, { logger: ctx.logger, options: {}, failedReporters: [] });
+  await reporter.report(result, { logger: ctx.logger, options: {} });
 
   const carried = githubCollections.issueComments
     .all()
@@ -2954,7 +2531,7 @@ test('it passes the check at a rebased head whose files hold the reviewed patche
       head: 'b'.repeat(40),
       findings: [],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   await githubCollections.pullRequests.update((query) => query.where({ number: 5 }), {
@@ -2982,13 +2559,13 @@ test('it passes the check at a rebased head whose files hold the reviewed patche
   const outcome = await runGitHubCheck(
     connection,
     { owner: 'example', repo: 'app', number: 5 },
-    { failedReporters: [], policy: { baseRef: 'main', issueKeys: [] } },
+    { policy: { baseRef: 'main', issueKeys: [] } },
   );
 
   expect(outcome.conclusion).toBe('success');
 });
 
-test('it fails the check at a new head whose file holds a changed patch, and names the file', async () => {
+test('it passes the check with no open finding after a rebase and a late commit that no review read', async () => {
   const ctx = setupTest();
 
   await githubCollections.pullRequests.create({
@@ -3007,35 +2584,48 @@ test('it fails the check at a new head whose file holds a changed patch, and nam
     patch: '@@ -1,3 +1,3 @@\n const zero = 0;\n-const one = 2;\n+const one = 1;\n const two = 2;',
   });
 
-  await githubCollections.pullFiles.create({
-    owner: 'example',
-    repo: 'app',
-    number: 5,
-    path: 'src/b.ts',
-    patch: '@@ -1 +1 @@\n-const name = "a";\n+const name = "b";',
-  });
-
   await ctx.reporter.report(
     buildMockReviewResult({
       pullRequest: { owner: 'example', repo: 'app', number: 5 },
       base: 'a'.repeat(40),
       head: 'b'.repeat(40),
-      findings: [],
+      findings: [buildMockFinding({ id: '1111111111111111' })],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
+
+  const [thread] = githubCollections.reviewComments.all();
+
+  await githubCollections.reviewComments.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    body: 'not-a-defect the zero line stays as the base wrote it',
+    authorLogin: 'dev',
+    inReplyToID: thread?.id ?? null,
+  });
 
   await githubCollections.pullRequests.update((query) => query.where({ number: 5 }), {
     data(record) {
-      record.headSha = 'c'.repeat(40);
+      record.baseSha = 'd'.repeat(40);
+      record.headSha = 'e'.repeat(40);
     },
   });
 
   await githubCollections.pullFiles.update((query) => query.where({ path: 'src/a.ts' }), {
     data(record) {
       record.patch =
-        '@@ -1,3 +1,3 @@\n const zero = 0;\n-const one = 2;\n+const one = 3;\n const two = 2;';
+        '@@ -8,3 +8,3 @@\n const zero = 0;\n-const one = 2;\n+const one = 3;\n const two = 2;';
     },
+  });
+
+  await githubCollections.pullFiles.create({
+    owner: 'example',
+    repo: 'app',
+    number: 5,
+    path: 'src/b.ts',
+    status: 'added',
+    patch: '@@ -0,0 +1 @@\n+const name = "b";',
   });
 
   const connection = await createGitHubConnection({
@@ -3047,12 +2637,15 @@ test('it fails the check at a new head whose file holds a changed patch, and nam
   const outcome = await runGitHubCheck(
     connection,
     { owner: 'example', repo: 'app', number: 5 },
-    { failedReporters: [], policy: { baseRef: 'main', issueKeys: [] } },
+    { policy: { baseRef: 'main', issueKeys: [] } },
   );
 
-  expect(outcome.title).toBe(
-    'No noslop review of this change to src/a.ts: the patch changed since the review of bbbbbbbbbbbb.',
-  );
+  expect(outcome).toStrictEqual({
+    conclusion: 'success',
+    title: 'No open finding (1)',
+    summary: '',
+    open: [],
+  });
 });
 
 test('it keys a review on its head when the pull request moved on before the summary', async () => {
@@ -3081,7 +2674,7 @@ test('it keys a review on its head when the pull request moved on before the sum
       head: 'b'.repeat(40),
       findings: [],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   const connection = await createGitHubConnection({
@@ -3128,7 +2721,7 @@ test('it keys a review on its head when the pull request changes more files than
       head: 'b'.repeat(40),
       findings: [],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   const connection = await createGitHubConnection({
@@ -3166,7 +2759,7 @@ test('it refuses to post under a token, whose comments no later review trusts', 
   });
 
   expect(
-    reporter.report(result, { logger: getLogger(['test']), options: {}, failedReporters: [] }),
+    reporter.report(result, { logger: getLogger(['test']), options: {} }),
   ).rejects.toThrowWithMessage(
     Error,
     'the github reporter posts as the App: set NOSLOP_GITHUB_APP_ID, NOSLOP_GITHUB_APP_PRIVATE_KEY and NOSLOP_GITHUB_APP_INSTALLATION_ID',
@@ -3198,7 +2791,7 @@ test('it writes the net-change key of a lens review with no failed call as the l
       head: 'c'.repeat(40),
       findings: [],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   const connection = await createGitHubConnection({
@@ -3245,7 +2838,7 @@ test('it keeps the key of the last lens review and drops its head when a later l
     number: 5,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${'b'.repeat(40)}","key":{"files":{"src/a.ts":"1111111111111111"}},"lensHead":"${'b'.repeat(40)}","lensKey":{"files":{"src/a.ts":"1111111111111111"}},"reviews":1,"reported":[],"failedCalls":0,"reviewIDs":["review-1"]} -->`,
+    body: `<!-- noslop:summary {"head":"${'b'.repeat(40)}","key":{"files":{"src/a.ts":"1111111111111111"}},"lensHead":"${'b'.repeat(40)}","lensKey":{"files":{"src/a.ts":"1111111111111111"}},"reported":[],"failedCalls":0,"reviewIDs":["review-1"]} -->`,
   });
 
   await ctx.reporter.report(
@@ -3257,7 +2850,7 @@ test('it keeps the key of the last lens review and drops its head when a later l
       findings: [],
       failedCalls: [{ id: 'light', lenses: ['correctness'], reason: 'the model CLI timed out' }],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   const connection = await createGitHubConnection({
@@ -3304,7 +2897,7 @@ test('it keeps the key of the last lens review when a fixes-only run moves the k
     number: 5,
     authorLogin: STUB_APP_LOGIN,
     authorType: 'Bot',
-    body: `<!-- noslop:summary {"head":"${'b'.repeat(40)}","key":{"files":{"src/a.ts":"1111111111111111"}},"lensHead":"${'b'.repeat(40)}","lensKey":{"files":{"src/a.ts":"1111111111111111"}},"reviews":1,"reported":[],"failedCalls":0,"reviewIDs":["review-1"]} -->`,
+    body: `<!-- noslop:summary {"head":"${'b'.repeat(40)}","key":{"files":{"src/a.ts":"1111111111111111"}},"lensHead":"${'b'.repeat(40)}","lensKey":{"files":{"src/a.ts":"1111111111111111"}},"reported":[],"failedCalls":0,"reviewIDs":["review-1"]} -->`,
   });
 
   await ctx.reporter.report(
@@ -3318,7 +2911,7 @@ test('it keeps the key of the last lens review when a fixes-only run moves the k
       fixesOnly: true,
       fixChecks: [{ findingID: '2222222222222222', fixed: true, reason: 'The guard is in place.' }],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   const connection = await createGitHubConnection({
@@ -3368,7 +2961,7 @@ test('it posts the summary and the check run when GitHub answers the first summa
       head: 'b'.repeat(40),
       findings: [],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   const summaries = githubCollections.issueComments.all().map((comment) => comment.body);
@@ -3406,7 +2999,7 @@ test('it fails the post and names the summary comment when GitHub answers 500 on
         head: 'b'.repeat(40),
         findings: [],
       }),
-      { logger: ctx.logger, options: {}, failedReporters: [] },
+      { logger: ctx.logger, options: {} },
     )
     .then(
       () => null,
@@ -3452,7 +3045,7 @@ test('it sends the summary again after the retry-after wait when GitHub answers 
       head: 'b'.repeat(40),
       findings: [],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   const summaries = githubCollections.issueComments.all().map((comment) => comment.body);
@@ -3488,7 +3081,7 @@ test('it sends a summary post that GitHub refuses with a permission 403 once, wi
         head: 'b'.repeat(40),
         findings: [],
       }),
-      { logger: ctx.logger, options: {}, failedReporters: [] },
+      { logger: ctx.logger, options: {} },
     )
     .then(
       () => null,
@@ -3517,7 +3110,7 @@ test('it edits the summary when GitHub answers the first edit of a later review 
       head: 'b'.repeat(40),
       findings: [],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   githubServer.use(
@@ -3535,7 +3128,7 @@ test('it edits the summary when GitHub answers the first edit of a later review 
       head: 'c'.repeat(40),
       findings: [],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   const summaries = githubCollections.issueComments.all().map((comment) => comment.body);
@@ -3569,7 +3162,7 @@ test('it sets the check run when GitHub answers the first check run post with 50
       head: 'b'.repeat(40),
       findings: [],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   expect(githubCollections.checkRuns.all()).toMatchObject([
@@ -3603,7 +3196,7 @@ test('it fails the post and names the check run when GitHub answers 500 on every
   });
 
   expect(
-    ctx.reporter.report(result, { logger: ctx.logger, options: {}, failedReporters: [] }),
+    ctx.reporter.report(result, { logger: ctx.logger, options: {} }),
   ).rejects.toThrowWithMessage(
     Error,
     'GitHub answered the noslop check run with 500 on all 4 attempts',
@@ -3649,7 +3242,7 @@ test("it strikes a fixed finding's comment when GitHub answers the first edit wi
       head: 'b'.repeat(40),
       findings: [buildMockFinding({ id: '1111111111111111' })],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   const [thread] = githubCollections.reviewComments.all();
@@ -3681,7 +3274,7 @@ test("it strikes a fixed finding's comment when GitHub answers the first edit wi
         { findingID: '1111111111111111', fixed: true, reason: 'The total counts every item.' },
       ],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   const struck = githubCollections.reviewComments.findFirst((query) =>
@@ -3759,7 +3352,7 @@ test('it posts 150 findings of one class as one comment and posts the check thro
       head: 'b'.repeat(40),
       findings,
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   const comments = githubCollections.reviewComments.all();
@@ -3773,7 +3366,7 @@ test('it posts 150 findings of one class as one comment and posts the check thro
   expect(ctx.sleep.mock.calls).toStrictEqual([[60_000], [30_000]]);
 
   expect(githubCollections.checkRuns.all()).toMatchObject([
-    { name: 'noslop', conclusion: 'failure', title: '150 findings hold no valid disposition.' },
+    { name: 'noslop', conclusion: 'failure', title: '150 findings are open.' },
   ]);
 });
 
@@ -3823,7 +3416,7 @@ test('it reads the folded findings it posted when a folded file name holds a for
         }),
       ],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   const connection = await createGitHubConnection({
@@ -3882,7 +3475,7 @@ test('it reads back the description and fix of each finding a comment folds', as
       head: 'b'.repeat(40),
       findings,
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   const connection = await createGitHubConnection({
@@ -3932,7 +3525,7 @@ test('it takes one reply to a folded comment as the answer to each finding it ho
         }),
       ),
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   const [thread] = githubCollections.reviewComments.all();
@@ -3955,11 +3548,11 @@ test('it takes one reply to a folded comment as the answer to each finding it ho
   const outcome = await runGitHubCheck(
     connection,
     { owner: 'example', repo: 'app', number: 5 },
-    { failedReporters: [], policy: { baseRef: 'main', issueKeys: [] } },
+    { policy: { baseRef: 'main', issueKeys: [] } },
   );
 
   expect(githubCollections.reviewComments.all()).toHaveLength(2);
-  expect(outcome.title).toBe('Every finding holds a valid disposition (5)');
+  expect(outcome.title).toBe('No open finding (5)');
 });
 
 test('it leaves open only the folded findings that a reply of one line per finding leaves out', async () => {
@@ -3991,7 +3584,7 @@ test('it leaves open only the folded findings that a reply of one line per findi
         }),
       ),
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   const [thread] = githubCollections.reviewComments.all();
@@ -4019,7 +3612,7 @@ test('it leaves open only the folded findings that a reply of one line per findi
   const outcome = await runGitHubCheck(
     connection,
     { owner: 'example', repo: 'app', number: 5 },
-    { failedReporters: [], policy: { baseRef: 'main', issueKeys: [] } },
+    { policy: { baseRef: 'main', issueKeys: [] } },
   );
 
   expect(githubCollections.reviewComments.all()).toHaveLength(2);
@@ -4055,7 +3648,7 @@ test('it answers once with the accepted forms a reply of one line per finding wh
         }),
       ),
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   const [thread] = githubCollections.reviewComments.all();
@@ -4078,7 +3671,7 @@ test('it answers once with the accepted forms a reply of one line per finding wh
   const outcome = await runGitHubCheck(
     connection,
     { owner: 'example', repo: 'app', number: 5 },
-    { failedReporters: [], policy: { baseRef: 'main', issueKeys: [] } },
+    { policy: { baseRef: 'main', issueKeys: [] } },
   );
 
   const answers = githubCollections.reviewComments.findMany((query) =>
@@ -4133,7 +3726,7 @@ test('it leaves a folded comment unstruck while the fix of one finding it holds 
         }),
       ),
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   const [thread] = githubCollections.reviewComments.all();
@@ -4159,7 +3752,7 @@ test('it leaves a folded comment unstruck while the fix of one finding it holds 
         reason: 'The total counts every item.',
       })),
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   const partly = githubCollections.reviewComments.findFirst((query) =>
@@ -4213,7 +3806,7 @@ test('it strikes a folded comment once the fix of each finding it holds is confi
         }),
       ),
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   const [thread] = githubCollections.reviewComments.all();
@@ -4239,7 +3832,7 @@ test('it strikes a folded comment once the fix of each finding it holds is confi
         reason: 'The total counts every item.',
       })),
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   const struck = githubCollections.reviewComments.findFirst((query) =>

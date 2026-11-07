@@ -18,10 +18,16 @@ export const summaryMarkerSchema = z.strictObject({
   earlier: z.unknown().optional(),
   notReviewed: z.unknown().optional(),
   notReviewedByLens: z.unknown().optional(),
-  reviews: z.int().nonnegative(),
+  reviews: z.unknown().optional(),
+  checkedMerges: z.unknown().optional(),
+  rejectedMerges: z.unknown().optional(),
+
+  // Markers already posted on GitHub may list findings that went to an issue in place of a comment.
+  // A later review counts them as posted, so it never posts them on the pull request a second time.
+  followUps: z.array(z.string()).optional(),
+
   reported: z.array(z.string()),
   failedCalls: z.int().nonnegative(),
-  followUps: z.array(z.string()).default([]),
   confirmed: z.array(z.string()).default([]),
 
   unjudged: z.array(unjudgedFixSchema).optional(),
@@ -31,9 +37,6 @@ export const summaryMarkerSchema = z.strictObject({
   lensHead: buildShaSchema().optional(),
   lensKey: netChangeKeySchema.optional(),
 
-  checkedMerges: z.array(buildShaSchema()).optional(),
-
-  rejectedMerges: z.array(buildShaSchema()).optional(),
   reviewIDs: z.array(z.string()).optional(),
 
   startedAt: z.iso.datetime().optional(),

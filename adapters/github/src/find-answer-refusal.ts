@@ -43,7 +43,7 @@ export function findAnswerRefusal(
   }
 
   if (disposition.kind === 'accepted-risk' && !disposition.authorIsOwner) {
-    return buildRefusal('only a repo owner gives accepted-risk');
+    return buildRefusal('only a repo admin gives accepted-risk');
   }
 
   return null;
@@ -77,7 +77,7 @@ function findFixedRefusal(
     return buildRefusal('the re-review still finds it');
   }
 
-  return isConfirmed ? null : buildRefusal(`no re-review has read ${fix} yet`);
+  return isConfirmed ? null : buildRefusal(`no fix check has confirmed ${fix} yet`);
 }
 
 function findDeferredRefusal(

@@ -24,10 +24,8 @@ test('it vouches for the head of a fixes-only run that judged a fix after a clea
       }),
       {
         head: 'b'.repeat(40),
-        reviews: 2,
         reported: [],
         failedCalls: 0,
-        followUps: [],
         confirmed: [],
       },
     ),
@@ -39,10 +37,8 @@ test('it keeps the head and key of the summary before a fixes-only run that judg
     buildReviewedChange(buildMockReviewResult({ fixesOnly: true, fixChecks: [] }), {
       head: 'b'.repeat(40),
       key: { files: { 'src/scan.ts': '0123456789abcdef' } },
-      reviews: 2,
       reported: [],
       failedCalls: 0,
-      followUps: [],
       confirmed: [],
     }),
   ).toStrictEqual({
@@ -64,10 +60,8 @@ test('it keeps the failed calls of a lens review that failed through a fixes-onl
       }),
       {
         head: 'b'.repeat(40),
-        reviews: 1,
         reported: [],
         failedCalls: 2,
-        followUps: [],
         confirmed: [],
       },
     ),
@@ -78,10 +72,8 @@ test('it drops the failed fix call of an earlier fixes-only run after a clean le
   expect(
     buildReviewedChange(buildMockReviewResult({ fixesOnly: true, fixChecks: [] }), {
       head: 'b'.repeat(40),
-      reviews: 2,
       reported: [],
       failedCalls: 1,
-      followUps: [],
       confirmed: [],
       checked: [],
       lensHead: 'b'.repeat(40),

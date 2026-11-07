@@ -84,8 +84,8 @@ test('it writes the answers a github review reads to the store of a run that lis
     ],
   });
 
-  await ctx.sqlite.report(first, { logger: ctx.logger, options: {}, failedReporters: [] });
-  await ctx.github.report(first, { logger: ctx.logger, options: {}, failedReporters: [] });
+  await ctx.sqlite.report(first, { logger: ctx.logger, options: {} });
+  await ctx.github.report(first, { logger: ctx.logger, options: {} });
 
   const [thread] = githubCollections.reviewComments.all();
 
@@ -107,7 +107,7 @@ test('it writes the answers a github review reads to the store of a run that lis
       head: 'c'.repeat(40),
       findings: [],
     }),
-    { logger: ctx.logger, options: {}, failedReporters: [] },
+    { logger: ctx.logger, options: {} },
   );
 
   const store = await loadStore(ctx.storePath);

@@ -28,7 +28,7 @@ export function formatSummaryComment(
   links: ReadonlyMap<string, string>,
 ): string {
   const confirmations = fixes.confirmations;
-  const lines = [`### noslop: ${formatHeadline(result.findings, fixes, marker.reviews)}`];
+  const lines = [`### noslop: ${formatHeadline(result.findings, fixes)}`];
 
   if (result.findings.length > 0) {
     lines.push('', `**Risk: ${pickRisk(result.findings)}.**`);
@@ -64,22 +64,6 @@ export function formatSummaryComment(
     }
   }
 
-  const resolutions = result.resolutionChecks ?? [];
-
-  if (resolutions.length > 0) {
-    lines.push('');
-
-    for (const check of resolutions) {
-      const sha = `\`${check.merge.slice(0, 7)}\``;
-
-      const line = check.sound
-        ? `✅ The resolution of merge ${sha} holds: ${check.reason}`
-        : `❌ The resolution of merge ${sha} does not hold: ${check.reason}`;
-
-      lines.push(line);
-    }
-  }
-
   if (result.findings.length > 0) {
     lines.push('', '| | Finding | File |', '|---|---|---|');
 
@@ -94,7 +78,7 @@ export function formatSummaryComment(
     }
   }
 
-  lines.push('', '<details><summary>Review details</summary>', '', formatDetails(result, marker));
+  lines.push('', '<details><summary>Review details</summary>', '', formatDetails(result));
 
   for (const call of result.failedCalls) {
     lines.push('', `Failed call \`${call.id}\` (${call.lenses.join(', ')}): ${call.reason}`);
@@ -107,7 +91,7 @@ export function formatSummaryComment(
 
 const SEVERITIES: readonly Severity[] = ['P1', 'P2', 'P3'];
 
-function formatHeadline(findings: readonly Finding[], fixes: FixStatus, reviews: number): string {
+function formatHeadline(findings: readonly Finding[], fixes: FixStatus): string {
   const fixed = fixes.confirmations.filter((item) => item.status === 'fixed').length;
 
   if (findings.length === 0 && fixed > 0 && fixed === fixes.posted) {
@@ -115,7 +99,7 @@ function formatHeadline(findings: readonly Finding[], fixes: FixStatus, reviews:
   }
 
   if (findings.length === 0) {
-    return reviews > 1 ? 'no new findings' : 'no findings';
+    return fixes.posted > 0 ? 'no new findings' : 'no findings';
   }
 
   const counts = SEVERITIES.map(
@@ -182,9 +166,8 @@ function sortFindings(findings: readonly Finding[]): Finding[] {
   );
 }
 
-function formatDetails(result: ReviewResult, marker: SummaryMarker): string {
+function formatDetails(result: ReviewResult): string {
   const parts = [
-    `Review ${marker.reviews}`,
     `\`${result.head.slice(0, 12)}\` against \`${result.base.slice(0, 12)}\``,
     `${result.depth} depth`,
     `lenses ${result.lenses.length === 0 ? 'none' : result.lenses.join(', ')}`,

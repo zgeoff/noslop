@@ -84,14 +84,21 @@ never takes `deferred`, because a pull request does not defer its own defect to 
 `deferred` reply on it leaves the finding open, and the check run gives the reason
 `the change wrote this code, so it takes fixed, not-a-defect or accepted-risk`.
 
-A finding on code the pull request did not write can take `deferred` too, unless it is a P1, a
-security finding or a risk-class finding. A file that the base branch's config lists in `synced`
-counts as code the pull request did not write, even when the pull request adds it, because its fix
-belongs in the repo the copy comes from. Those block the merge whatever code they sit in, and the
-check run gives that as the reason.
+A finding on code the pull request did not write can take `deferred` too. A file that the base
+branch's config lists in `synced` counts as code the pull request did not write, even when the pull
+request adds it, because its fix belongs in the repo that the file is synced from.
+
+These findings never take `deferred`, whatever code they sit in:
+
+- a P1 finding;
+- a security finding;
+- a finding in a path the config marks as a risk class.
+
+A `deferred` reply on one of them leaves the finding open, and noslop lists the reason in the check
+run.
 
 `accepted-risk` from someone without admin permission on the repo leaves the finding open, with the
-reason `only a repo owner gives accepted-risk`.
+reason `only a repo admin gives accepted-risk`.
 
 ## Answer with a fix
 
@@ -112,16 +119,26 @@ never need to touch the finding's file only to name it. The fix check reads the 
 and body as they stand, so for a finding about the description, edit the description and reply
 `fixed`.
 
-When the check run gives the reason `no re-review has read the fix yet`, or names your commit, no
-fix check has judged your reply, because the last review ran before it. Ask whoever runs the App to
-run the fix checks with the App's credentials in the environment:
-`noslop review --pr <number> --fixes-only --report github`. When the reason is
+noslop lists one of these reasons in the check run when no fix check has judged your reply yet,
+because the last review ran before you posted the reply or pushed the fix:
+
+- `no fix check has confirmed the fix yet`, for a bare `fixed`;
+- `no fix check has confirmed the commit <sha> yet`, for a `fixed <sha>` reply;
+- `no fix check has read the commit <sha> yet`, for a fix commit pushed after the last review.
+
+For each of these, ask whoever runs the App to run the fix checks with the App's credentials in the
+environment: `noslop review --pr <number> --fixes-only --report github`. When the reason is
 `the re-review still finds it`, the review reported the finding again or the fix check judged it not
 fixed: fix it again, or answer with another kind.
 
 ## Read the check
 
-The check's title states the first problem, and its text lists each open finding with its id, its
-title and the reason. The check also fails while no review has finished on the current head, or when
-a review had a failed call, so a push leaves it failing until the re-review ends.
-[The check run](../architecture/output/github-app.md#the-check-run) lists every condition.
+The check passes when no finding is open. noslop writes the first problem as the check's title, and
+in the check's text it lists each open finding with its id, its title and the reason. noslop sets
+the check from the findings and their dispositions alone.
+
+Each check run belongs to one commit. After a push or a rebase, the new head has no `noslop` check
+run until the next review or `noslop check` sets one. That check reads only the findings and their
+dispositions, so it can pass at a commit that no review has read yet. A new finding in that commit
+shows when the next review ends. [The check run](../architecture/output/github-app.md#the-check-run)
+lists every condition.

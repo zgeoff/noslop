@@ -2,41 +2,35 @@ import { expect, test } from 'bun:test';
 import { buildMockFinding, buildMockReviewResult } from '@noslop/testing';
 import { planReviewPost } from './plan-review-post';
 
-test('it writes the first review of a pull request in full and counts it', () => {
+test('it writes the first review of a pull request in full', () => {
   const finding = buildMockFinding({ id: '1111111111111111' });
 
   const plan = planReviewPost(
-    { summary: null, posted: new Set(), recorded: [], followUpIDs: new Set(), unreadable: 0 },
+    { summary: null, posted: new Set(), recorded: [], unreadable: 0 },
     buildMockReviewResult({ reviewID: 'review-a', findings: [finding] }),
   );
 
   expect(plan).toStrictEqual({
     writesSummary: true,
-    reviews: 1,
     reviewIDs: ['review-a'],
     inline: [finding],
     carried: [],
-    carriedFiled: [],
-    followUps: [],
   });
 });
 
-test('it counts a repost of the latest review as no new review', () => {
+test('it writes a repost of the latest review without listing it again', () => {
   const plan = planReviewPost(
     {
       summary: {
         head: 'b'.repeat(40),
-        reviews: 2,
         reported: [],
         failedCalls: 0,
-        followUps: [],
         confirmed: [],
         reviewIDs: ['review-a', 'review-b'],
         startedAt: '2026-10-17T10:05:00.000Z',
       },
       posted: new Set(),
       recorded: [],
-      followUpIDs: new Set(),
       unreadable: 0,
     },
     buildMockReviewResult({ reviewID: 'review-b', startedAt: '2026-10-17T10:05:00.000Z' }),
@@ -44,31 +38,25 @@ test('it counts a repost of the latest review as no new review', () => {
 
   expect(plan).toStrictEqual({
     writesSummary: true,
-    reviews: 2,
     reviewIDs: ['review-a', 'review-b'],
     inline: [],
     carried: [],
-    carriedFiled: [],
-    followUps: [],
   });
 });
 
-test('it counts no new review for a fixes-only run', () => {
+test('it lists a fixes-only run among the reviews it wrote', () => {
   const plan = planReviewPost(
     {
       summary: {
         head: 'b'.repeat(40),
-        reviews: 2,
         reported: [],
         failedCalls: 0,
-        followUps: [],
         confirmed: [],
         reviewIDs: ['review-a', 'review-b'],
         startedAt: '2026-10-17T10:05:00.000Z',
       },
       posted: new Set(),
       recorded: [],
-      followUpIDs: new Set(),
       unreadable: 0,
     },
     buildMockReviewResult({
@@ -81,96 +69,24 @@ test('it counts no new review for a fixes-only run', () => {
 
   expect(plan).toStrictEqual({
     writesSummary: true,
-    reviews: 2,
     reviewIDs: ['review-a', 'review-b', 'review-c'],
     inline: [],
     carried: [],
-    carriedFiled: [],
-    followUps: [],
   });
 });
 
-test('it counts no new review for a review that ran no lens and raised no finding', () => {
+test('it leaves the summary to a later review when a listed earlier review is retried', () => {
   const plan = planReviewPost(
     {
       summary: {
         head: 'b'.repeat(40),
-        reviews: 2,
         reported: [],
         failedCalls: 0,
-        followUps: [],
-        confirmed: [],
-        reviewIDs: ['review-a', 'review-b'],
-        startedAt: '2026-10-17T10:05:00.000Z',
-      },
-      posted: new Set(),
-      recorded: [],
-      followUpIDs: new Set(),
-      unreadable: 0,
-    },
-    buildMockReviewResult({
-      reviewID: 'review-c',
-      startedAt: '2026-10-17T10:10:00.000Z',
-      lenses: [],
-      calls: [],
-      findings: [],
-    }),
-  );
-
-  expect(plan).toStrictEqual({
-    writesSummary: true,
-    reviews: 2,
-    reviewIDs: ['review-a', 'review-b', 'review-c'],
-    inline: [],
-    carried: [],
-    carriedFiled: [],
-    followUps: [],
-  });
-});
-
-test('it counts a new review for a lens review that made fix calls', () => {
-  const plan = planReviewPost(
-    {
-      summary: {
-        head: 'b'.repeat(40),
-        reviews: 1,
-        reported: [],
-        failedCalls: 0,
-        followUps: [],
-        confirmed: [],
-        reviewIDs: ['review-a'],
-        startedAt: '2026-10-17T10:05:00.000Z',
-      },
-      posted: new Set(),
-      recorded: [],
-      followUpIDs: new Set(),
-      unreadable: 0,
-    },
-    buildMockReviewResult({
-      reviewID: 'review-b',
-      startedAt: '2026-10-17T10:10:00.000Z',
-      fixChecks: [{ findingID: '1111111111111111', fixed: true, reason: 'The guard is in place.' }],
-    }),
-  );
-
-  expect(plan.reviews).toBe(2);
-});
-
-test('it leaves the summary to a later review when a counted earlier review is retried', () => {
-  const plan = planReviewPost(
-    {
-      summary: {
-        head: 'b'.repeat(40),
-        reviews: 2,
-        reported: [],
-        failedCalls: 0,
-        followUps: [],
         confirmed: [],
         reviewIDs: ['review-a', 'review-b'],
       },
       posted: new Set(),
       recorded: [],
-      followUpIDs: new Set(),
       unreadable: 0,
     },
     buildMockReviewResult({
@@ -181,31 +97,25 @@ test('it leaves the summary to a later review when a counted earlier review is r
 
   expect(plan).toStrictEqual({
     writesSummary: false,
-    reviews: 2,
     reviewIDs: ['review-a', 'review-b'],
     inline: [],
     carried: [],
-    carriedFiled: [],
-    followUps: [],
   });
 });
 
-test('it leaves the summary to a later review when an uncounted review that started before it is retried', () => {
+test('it leaves the summary to a later review when an unlisted review that started before it is retried', () => {
   const plan = planReviewPost(
     {
       summary: {
         head: 'b'.repeat(40),
-        reviews: 1,
         reported: [],
         failedCalls: 1,
-        followUps: [],
         confirmed: [],
         reviewIDs: ['review-b'],
         startedAt: '2026-10-17T10:05:00.000Z',
       },
       posted: new Set(),
       recorded: [],
-      followUpIDs: new Set(),
       unreadable: 0,
     },
     buildMockReviewResult({
@@ -217,34 +127,28 @@ test('it leaves the summary to a later review when an uncounted review that star
 
   expect(plan).toStrictEqual({
     writesSummary: false,
-    reviews: 1,
     reviewIDs: ['review-b'],
     inline: [],
     carried: [],
-    carriedFiled: [],
-    followUps: [],
   });
 });
 
 test.each([
   ['the same start time', '2026-10-17T10:05:00.000Z'],
   ['a later start time', '2026-10-17T10:10:00.000Z'],
-])('it writes an uncounted review with %s as the summary shows', (_label, startedAt) => {
+])('it writes an unlisted review with %s as the summary shows', (_label, startedAt) => {
   const plan = planReviewPost(
     {
       summary: {
         head: 'b'.repeat(40),
-        reviews: 1,
         reported: [],
         failedCalls: 0,
-        followUps: [],
         confirmed: [],
         reviewIDs: ['review-a'],
         startedAt: '2026-10-17T10:05:00.000Z',
       },
       posted: new Set(),
       recorded: [],
-      followUpIDs: new Set(),
       unreadable: 0,
     },
     buildMockReviewResult({ reviewID: 'review-b', startedAt }),
@@ -252,30 +156,24 @@ test.each([
 
   expect(plan).toStrictEqual({
     writesSummary: true,
-    reviews: 2,
     reviewIDs: ['review-a', 'review-b'],
     inline: [],
     carried: [],
-    carriedFiled: [],
-    followUps: [],
   });
 });
 
-test('it writes an uncounted review in full when the summary marker holds no start time', () => {
+test('it writes an unlisted review in full when the summary marker holds no start time', () => {
   const plan = planReviewPost(
     {
       summary: {
         head: 'b'.repeat(40),
-        reviews: 1,
         reported: [],
         failedCalls: 0,
-        followUps: [],
         confirmed: [],
         reviewIDs: ['review-b'],
       },
       posted: new Set(),
       recorded: [],
-      followUpIDs: new Set(),
       unreadable: 0,
     },
     buildMockReviewResult({ reviewID: 'review-a', startedAt: '2026-10-17T09:00:00.000Z' }),
@@ -283,16 +181,13 @@ test('it writes an uncounted review in full when the summary marker holds no sta
 
   expect(plan).toStrictEqual({
     writesSummary: true,
-    reviews: 2,
     reviewIDs: ['review-b', 'review-a'],
     inline: [],
     carried: [],
-    carriedFiled: [],
-    followUps: [],
   });
 });
 
-test('it posts no finding that a comment or a follow-up issue already carries', () => {
+test('it posts no finding that a comment already carries', () => {
   const fresh = buildMockFinding({ id: '3333333333333333' });
 
   const plan = planReviewPost(
@@ -300,7 +195,6 @@ test('it posts no finding that a comment or a follow-up issue already carries', 
       summary: null,
       posted: new Set(['1111111111111111', '2222222222222222']),
       recorded: [],
-      followUpIDs: new Set(),
       unreadable: 0,
     },
     buildMockReviewResult({
@@ -316,7 +210,30 @@ test('it posts no finding that a comment or a follow-up issue already carries', 
   expect(plan.inline).toStrictEqual([fresh]);
 });
 
-test('it carries each recorded finding that no comment, follow-up or finding of the review holds', () => {
+test('it posts each new finding on the pull request however many reviews came before', () => {
+  const unwritten = buildMockFinding({ id: '1111111111111111', writtenByChange: false });
+  const written = buildMockFinding({ id: '2222222222222222', writtenByChange: true });
+
+  const plan = planReviewPost(
+    {
+      summary: {
+        head: 'b'.repeat(40),
+        reported: [],
+        failedCalls: 0,
+        confirmed: [],
+        reviewIDs: ['review-a', 'review-b', 'review-c'],
+      },
+      posted: new Set(),
+      recorded: [],
+      unreadable: 0,
+    },
+    buildMockReviewResult({ reviewID: 'review-d', findings: [unwritten, written] }),
+  );
+
+  expect(plan.inline).toStrictEqual([unwritten, written]);
+});
+
+test('it carries each recorded finding that no comment or finding of the review holds', () => {
   const unposted = buildMockFinding({ id: '3333333333333333', anchorCommit: 'a'.repeat(40) });
 
   const plan = planReviewPost(
@@ -328,7 +245,6 @@ test('it carries each recorded finding that no comment, follow-up or finding of 
         buildMockFinding({ id: '2222222222222222', anchorCommit: 'a'.repeat(40) }),
         unposted,
       ],
-      followUpIDs: new Set(),
       unreadable: 0,
     },
     buildMockReviewResult({
@@ -340,141 +256,16 @@ test('it carries each recorded finding that no comment, follow-up or finding of 
   expect(plan.carried).toStrictEqual([unposted]);
 });
 
-test.each<{
-  label: string;
-  followUpIDs: Set<string>;
-  unreadable: number;
-  carriedFiled: string[];
-}>([
-  {
-    label: 'a follow-up issue holds it',
-    followUpIDs: new Set(['1111111111111111']),
-    unreadable: 0,
-    carriedFiled: ['1111111111111111'],
-  },
-  {
-    label: 'a finding comment holds a marker noslop cannot read',
-    followUpIDs: new Set<string>(),
-    unreadable: 1,
-    carriedFiled: [],
-  },
-])('it carries no recorded finding onto the pull request when $label', (row) => {
+test('it carries no recorded finding onto the pull request when a finding comment holds a marker noslop cannot read', () => {
   const plan = planReviewPost(
     {
       summary: null,
       posted: new Set(),
       recorded: [buildMockFinding({ id: '1111111111111111', anchorCommit: 'a'.repeat(40) })],
-      followUpIDs: row.followUpIDs,
-      unreadable: row.unreadable,
+      unreadable: 1,
     },
     buildMockReviewResult({ reviewID: 'review-b', findings: [] }),
   );
 
-  expect({ carried: plan.carried, carriedFiled: plan.carriedFiled }).toStrictEqual({
-    carried: [],
-    carriedFiled: row.carriedFiled,
-  });
-});
-
-test('it carries a recorded finding onto the pull request after the re-check, not into a follow-up', () => {
-  const unposted = buildMockFinding({
-    id: '1111111111111111',
-    writtenByChange: false,
-    anchorCommit: 'a'.repeat(40),
-  });
-
-  const plan = planReviewPost(
-    {
-      summary: {
-        head: 'b'.repeat(40),
-        reviews: 2,
-        reported: [],
-        failedCalls: 0,
-        followUps: [],
-        confirmed: [],
-        reviewIDs: ['review-a', 'review-b'],
-      },
-      posted: new Set(),
-      recorded: [unposted],
-      followUpIDs: new Set(),
-      unreadable: 0,
-    },
-    buildMockReviewResult({ reviewID: 'review-c', findings: [] }),
-  );
-
-  expect(plan).toStrictEqual({
-    writesSummary: true,
-    reviews: 3,
-    reviewIDs: ['review-a', 'review-b', 'review-c'],
-    inline: [],
-    carried: [unposted],
-    carriedFiled: [],
-    followUps: [],
-  });
-});
-
-test('it files each new finding outside security in code the change did not write as a follow-up after the re-check', () => {
-  const unwritten = buildMockFinding({ id: '1111111111111111', writtenByChange: false });
-
-  const security = buildMockFinding({
-    id: '2222222222222222',
-    lens: 'security',
-    writtenByChange: false,
-  });
-
-  const written = buildMockFinding({ id: '3333333333333333', writtenByChange: true });
-
-  const plan = planReviewPost(
-    {
-      summary: {
-        head: 'b'.repeat(40),
-        reviews: 2,
-        reported: [],
-        failedCalls: 0,
-        followUps: [],
-        confirmed: [],
-        reviewIDs: ['review-a', 'review-b'],
-      },
-      posted: new Set(),
-      recorded: [],
-      followUpIDs: new Set(),
-      unreadable: 0,
-    },
-    buildMockReviewResult({ reviewID: 'review-c', findings: [unwritten, security, written] }),
-  );
-
-  expect(plan).toStrictEqual({
-    writesSummary: true,
-    reviews: 3,
-    reviewIDs: ['review-a', 'review-b', 'review-c'],
-    inline: [security, written],
-    carried: [],
-    carriedFiled: [],
-    followUps: [unwritten],
-  });
-});
-
-test('it files no follow-up on the one re-check', () => {
-  const unwritten = buildMockFinding({ id: '1111111111111111', writtenByChange: false });
-
-  const plan = planReviewPost(
-    {
-      summary: {
-        head: 'b'.repeat(40),
-        reviews: 1,
-        reported: [],
-        failedCalls: 0,
-        followUps: [],
-        confirmed: [],
-        reviewIDs: ['review-a'],
-      },
-      posted: new Set(),
-      recorded: [],
-      followUpIDs: new Set(),
-      unreadable: 0,
-    },
-    buildMockReviewResult({ reviewID: 'review-b', findings: [unwritten] }),
-  );
-
-  expect(plan.followUps).toStrictEqual([]);
+  expect(plan.carried).toStrictEqual([]);
 });

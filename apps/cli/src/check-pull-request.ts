@@ -20,7 +20,6 @@ export async function checkPullRequest(
     const trusted = await readTrustedState(pr, loader);
 
     return readGitHubCheck(trusted.connection, pr, {
-      failedReporters: [],
       state: trusted.state,
       policy: { baseRef: trusted.state.baseRef, issueKeys: trusted.config.issueKeys },
     });
@@ -37,5 +36,5 @@ export async function checkPullRequest(
   const policy = await readDeferralPolicy(loader.load, pr);
   const state = await readPullRequestState(connection, pr);
 
-  return runGitHubCheck(connection, pr, { failedReporters: [], policy, state });
+  return runGitHubCheck(connection, pr, { policy, state });
 }

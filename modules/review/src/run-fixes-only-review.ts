@@ -5,8 +5,6 @@ import { REVIEW_OUTPUT_VERSION } from '@noslop/contract';
 import type { Runner } from '@noslop/runner';
 import type { AnsweredFix } from './run-fix-checks';
 import { runFixChecks } from './run-fix-checks';
-import type { ResolutionCheckOptions } from './run-resolution-checks';
-import { runResolutionChecks } from './run-resolution-checks';
 import type { StaticRecheckOptions } from './run-static-recheck';
 
 export interface FixesOnlyReviewInput {
@@ -14,8 +12,6 @@ export interface FixesOnlyReviewInput {
   repoDir: string;
   repo: string;
   pullRequest: PullRequestRef;
-
-  base: string;
   head: string;
 
   mergeBase: string;
@@ -29,8 +25,6 @@ export interface FixesOnlyReviewInput {
   tempDir: string;
   logger: Logger;
   now?: () => Date;
-
-  resolution?: ResolutionCheckOptions;
 
   staticCheck: StaticRecheckOptions;
 }
@@ -55,20 +49,6 @@ export async function runFixesOnlyReview(input: FixesOnlyReviewInput): Promise<R
     staticCheck: input.staticCheck,
   });
 
-  const merges =
-    input.resolution === undefined
-      ? null
-      : await runResolutionChecks({
-          ...input.resolution,
-          runner: input.runner,
-          repoDir: input.repoDir,
-          base: input.base,
-          head: input.head,
-          adapter: input.adapter,
-          tempDir: input.tempDir,
-          logger: input.logger,
-        });
-
   return {
     version: REVIEW_OUTPUT_VERSION,
     reviewID: randomUUID(),
@@ -82,17 +62,16 @@ export async function runFixesOnlyReview(input: FixesOnlyReviewInput): Promise<R
     special: null,
     riskClasses: [],
     lenses: [],
-    calls: [...fixChecks.records, ...(merges?.records ?? [])],
-    findings: merges?.findings ?? [],
-    dropped: merges?.dropped ?? [],
-    failedCalls: [...fixChecks.failedCalls, ...(merges?.failedCalls ?? [])],
+    calls: fixChecks.records,
+    findings: [],
+    dropped: [],
+    failedCalls: fixChecks.failedCalls,
     notReviewed: fixChecks.notReviewed,
     notReviewedByLens: [],
     configHash: input.configHash,
     fixesOnly: true,
     fixChecks: fixChecks.checks,
     ...(fixChecks.unjudged.length === 0 ? {} : { unjudgedFixes: fixChecks.unjudged }),
-    ...(merges === null || merges.checks.length === 0 ? {} : { resolutionChecks: merges.checks }),
     startedAt,
     endedAt: now().toISOString(),
   };

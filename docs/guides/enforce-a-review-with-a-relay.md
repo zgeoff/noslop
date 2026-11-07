@@ -3,9 +3,11 @@
 Each developer runs the noslop review on their own machine, under their own model seat, and a relay
 that your org writes posts the result on the pull request as your GitHub App. CI then runs
 `noslop check --read-only` with the job's own token. The check reads what the App posted, makes no
-model call and writes nothing to GitHub, so a pull request cannot merge until a review of its head
-is posted and every finding holds an answer. noslop decides whether a result is valid; your relay
-owns the transport, the identity, the hosting and any policy on top.
+model call and writes nothing to GitHub, and it fails while any finding is open. noslop reviews,
+decides whether a result is valid, and reports which findings are open. Your relay owns the
+transport, the identity and the hosting. Any merge rule beyond open findings, such as a review of
+each head or a cap on reviews, lives in your relay too, under
+[add your own merge rules](#add-your-own-merge-rules).
 
 ```mermaid
 flowchart LR
@@ -101,7 +103,7 @@ the check. A relay without that code can run the same steps with `noslop verify 
 
 Post every result from one relay process, one result at a time. noslop runs the posts for one pull
 request in turn inside a process, and nothing orders posts across processes, so two processes that
-post one review at once can each file the same follow-up issue.
+post one review at once can each post the same finding comment.
 
 ## Gate the merge in CI
 
@@ -131,15 +133,27 @@ it could post a review as the App.
 3. Make the job required in the branch rules.
 
 The check trusts only the comments of the App that `github.app` names in the config on the base
-branch, so it refuses to run while that config names no App. Until a review covers the pull
-request's net change at the head, the job prints `noslop: no noslop review for this commit` and
-exits 1. A review of an earlier head covers it when a clean rebase or a merge of the base left each
-file's patch as the review read it. Once a review covers it, the job prints the outcome and each
-open finding, and exits 0 only when the check passes. The check passes once that review ran with no
-failed call and every finding holds a valid answer, as [answer a finding](./answer-a-finding.md)
-describes.
+branch, so it refuses to run while that config names no App. The job prints the outcome and each
+open finding, and exits 0 only when the check passes. The check passes when every finding holds a
+valid answer, as [answer a finding](./answer-a-finding.md) describes. The check reads only the
+findings and their answers, so it passes at a head that no review read, after a rebase, and after a
+review call failed. To require a review of each new head commit, add the rule in
+[add your own merge rules](#add-your-own-merge-rules).
 
 Leave the `noslop` check run out of the branch rules. The relay sets it only when it posts, and an
 answer to a finding sets nothing, so the check run shows the state at post time. Require it only
 when your relay also runs `noslop check` with the App's keys on each comment webhook, as
 [the GitHub App](../architecture/output/github-app.md) does.
+
+## Add your own merge rules
+
+To add a merge rule, have the relay set a commit status of its own, and require that status in the
+branch rules next to the CI job:
+
+- To require a review of each head, have the relay fail its status while the head of its last post
+  differs from the pull request's head.
+- To cap the reviews of a pull request, have the relay count the results it posts, and past the cap
+  refuse each result that holds a finding. Past the cap, a developer runs
+  `noslop review --pr <number> --fixes-only` in place of a review. That run checks each `fixed`
+  answer and raises no new finding, under
+  [the fixes-only run](../architecture/output/fixes-only-run.md).

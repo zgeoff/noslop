@@ -32,10 +32,9 @@ test('it sets the check as the App whose keys the environment holds and returns 
 
   expect(outcome).toStrictEqual({
     conclusion: 'success',
-    title: 'Every finding holds a valid disposition (0)',
+    title: 'No open finding (0)',
     summary: '',
     open: [],
-    reviewed: true,
   });
 });
 
@@ -78,11 +77,10 @@ test('it returns the outcome under a token with readOnly and sets no check run',
   );
 
   expect(outcome).toStrictEqual({
-    conclusion: 'failure',
-    title: '1 calls of the review failed.',
-    summary: '1 calls of the review failed.',
+    conclusion: 'success',
+    title: 'No open finding (0)',
+    summary: '',
     open: [],
-    reviewed: true,
   });
 
   expect(githubCollections.checkRuns.all()).toStrictEqual([]);
