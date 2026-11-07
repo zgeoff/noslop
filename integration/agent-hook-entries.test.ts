@@ -17,7 +17,9 @@ import { z } from 'zod';
 function setupTest() {
   const directory = mkdtempSync(join(tmpdir(), 'agent-hook-entries-'));
 
-  onTestFinished(() => rmSync(directory, { recursive: true, force: true }));
+  onTestFinished(() => {
+    rmSync(directory, { recursive: true, force: true });
+  });
 
   const repoDir = join(import.meta.dir, '..');
   const project = join(directory, 'project');
@@ -51,7 +53,8 @@ function setupTest() {
 
     const commands = bashEntries.flatMap((entry) => entry.hooks).map((hook) => hook.command);
 
-    bashCommands.set(event, commands.join(' && '));
+    // `true` ends the chain, so an event with no entry exits 0, and a hook that exits 2 still ends it.
+    bashCommands.set(event, [...commands, 'true'].join(' && '));
   }
 
   return {
@@ -84,7 +87,7 @@ test('it blocks with the code-style skill after a Bash command that changes a ga
 
   writeFileSync(changedPath, 'export const sample = 1;\n');
 
-  const run = Bun.spawnSync(['sh', '-c', ctx.bashCommands.get('PostToolUse') || 'true'], {
+  const run = Bun.spawnSync(['sh', '-c', ctx.bashCommands.get('PostToolUse') ?? 'true'], {
     env: ctx.env,
     stdin: Buffer.from(afterPayload),
   });
@@ -130,13 +133,13 @@ test('it asks for the code-style skill after a failed Bash command that changes 
 
   writeFileSync(changedPath, 'export const sample = 1;\n');
 
-  const run = Bun.spawnSync(['sh', '-c', ctx.bashCommands.get('PostToolUseFailure') || 'true'], {
+  const run = Bun.spawnSync(['sh', '-c', ctx.bashCommands.get('PostToolUseFailure') ?? 'true'], {
     env: ctx.env,
     stdin: Buffer.from(afterPayload),
   });
 
   const stdout = run.stdout.toString();
-  const output: unknown = JSON.parse(stdout || '{}');
+  const output: unknown = JSON.parse(stdout);
 
   expect({ exitCode: run.exitCode, output }).toStrictEqual({
     exitCode: 0,
