@@ -42,6 +42,15 @@ test('it labels the naming lens items with the rules file section names', () => 
   ]);
 });
 
+test('it tells the naming lens to quote a comment rule from the code-style Comments section', () => {
+  const prompt = getLensPrompt('naming-shape-and-comments');
+
+  expect(prompt).toIncludeMultiple([
+    'When the rules file holds the `code-style` skill, quote the rule from the',
+    '`Comments` section of that skill.',
+  ]);
+});
+
 test('it tells the naming lens to quote a verb table row and skip a choice between two verbs', () => {
   const prompt = getLensPrompt('naming-shape-and-comments');
 

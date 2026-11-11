@@ -17,7 +17,8 @@ Look for a break of the rules file's rule on:
    table in the rules file that gives the verb for each recurring job and the guarantee that verb
    keeps, such as no I/O.
 2. Comments. When the `comments` slice shows the change over the comment-density target, check each
-   new block of comments.
+   new block of comments. When the rules file holds the `code-style` skill, quote the rule from the
+   `Comments` section of that skill.
 3. Types. The `typeClaims` slice lists each lint disable comment the change adds for a rule that
    bans type assertions as `cast-disable`, each `any` type it writes as `any-type`, and each
    `JSON.parse` call it adds as `any-value`. An `any` that another call returns counts too.
