@@ -2,10 +2,11 @@
 
 ## [0.4.30](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.29...@noslop/cli@0.4.30) (2026-11-13)
 
-
 ### Features
 
-* **lenses:** name the code-style comments section in the naming lens ([#310](https://github.com/zgeoff/noslop/issues/310)) ([484c852](https://github.com/zgeoff/noslop/commit/484c8525b2c77146b0b2fbb23cd0fcdb6c248dba))
+- **lenses:** name the code-style comments section in the naming lens
+  ([#310](https://github.com/zgeoff/noslop/issues/310))
+  ([484c852](https://github.com/zgeoff/noslop/commit/484c8525b2c77146b0b2fbb23cd0fcdb6c248dba))
 
 ## [0.4.29](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.28...@noslop/cli@0.4.29) (2026-11-07)
 
