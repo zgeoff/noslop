@@ -11,7 +11,8 @@ const CLI_DIR = join(REPO_DIR, 'apps', 'cli');
 // build for the user's platform.
 const EXTERNAL = ['oxc-parser'] as const;
 
-// The library entries leave zod to npm, so a caller's schemas and the declarations share one zod.
+// The library bundle leaves zod out. The package depends on zod, so npm installs it, and a caller's
+// schemas and the package's declarations share one zod.
 const LIBRARY_EXTERNAL = ['zod'] as const;
 
 const LIBRARY_ENTRIES = {
