@@ -6,6 +6,7 @@ import { BUILT_IN_DEFAULTS } from './built-in-defaults';
 import { formatConfigLocation } from './format-config-location';
 import type { ConfigLayer } from './merge-config-layers';
 import { mergeConfigLayers } from './merge-config-layers';
+import { MissingConfigFileError } from './missing-config-file-error';
 import type { ConfigLocation } from './parse-config-location';
 import { parseConfigLocation } from './parse-config-location';
 
@@ -142,7 +143,7 @@ async function readChain(options: LoadConfigOptions): Promise<ChainFile[]> {
 
     if (text === null) {
       if (required) {
-        throw new Error(`the config ${label} does not exist`);
+        throw new MissingConfigFileError(`the config ${label} does not exist`, location);
       }
 
       break;
@@ -381,7 +382,10 @@ async function readRulesSources(
       const text = await readLocation(source.location, options);
 
       if (text === null && source.required) {
-        throw new Error(`the rules file ${source.label} does not exist`);
+        throw new MissingConfigFileError(
+          `the rules file ${source.label} does not exist`,
+          source.location,
+        );
       }
 
       return text;

@@ -5,6 +5,7 @@ import { join, relative } from 'node:path';
 import { readTempPrefix } from '@noslop/testing';
 import { BUILT_IN_DEFAULTS } from './built-in-defaults';
 import { loadConfig } from './load-config';
+import { MissingConfigFileError } from './missing-config-file-error';
 
 async function setupTest() {
   const directory = await mkdtemp(join(tmpdir(), `${readTempPrefix()}noslop-config-`));
@@ -416,9 +417,19 @@ test('it fails the load when a file of the rules list does not exist', async () 
   await Bun.write(join(ctx.directory, 'review.json'), JSON.stringify({ rules: ['missing.md'] }));
 
   expect(loadConfig({ repoDir: ctx.directory })).rejects.toThrowWithMessage(
-    Error,
+    MissingConfigFileError,
     /the rules file .*missing\.md does not exist/u,
   );
+});
+
+test('it gives the location of a missing file of the rules list on its error', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(join(ctx.directory, 'review.json'), JSON.stringify({ rules: ['missing.md'] }));
+
+  expect(loadConfig({ repoDir: ctx.directory })).rejects.toMatchObject({
+    location: { kind: 'local', path: join(ctx.directory, 'missing.md') },
+  });
 });
 
 test('it gives 2 rules lists that differ only in a file text 2 hashes', async () => {
@@ -526,9 +537,22 @@ test('it fails the load when a parent does not exist', async () => {
   );
 
   expect(loadConfig({ repoDir: ctx.directory })).rejects.toThrowWithMessage(
-    Error,
+    MissingConfigFileError,
     /does not exist/u,
   );
+});
+
+test('it gives the location of a missing parent on its error', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(
+    join(ctx.directory, 'review.json'),
+    JSON.stringify({ extends: './missing.json' }),
+  );
+
+  expect(loadConfig({ repoDir: ctx.directory })).rejects.toMatchObject({
+    location: { kind: 'local', path: join(ctx.directory, 'missing.json') },
+  });
 });
 
 test('it fails the load when the merged config breaks the schema', async () => {
