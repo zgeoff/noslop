@@ -82,7 +82,9 @@ names the App whose comments hold state on a review without the App's keys, so a
 only when its review trusted the App that the base branch names. The
 [state in markers](../output/github-app.md#state-in-markers) covers how a review uses that key. The
 module also keeps the source of every leaf key, as a path or a `github:` location, and
-`noslop config` prints the merged config with the source of each key and the chain it came from.
+`noslop config` prints the merged config with the chain it came from. Its text output prints each
+top-level key with every source of its leaf keys, in chain order, and `--json` prints the source of
+each leaf key.
 
 ## The built-in defaults
 
