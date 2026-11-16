@@ -75,34 +75,64 @@ test('it reads a file under a symlinked folder from the folder the link names', 
   expect(text).toBe('Name each total for what it sums.\n');
 });
 
-test('it reads a symlinked file from the file the link names', async () => {
+test('it reads a file through a symlinked folder whose target runs through another', async () => {
   const ctx = setupTest();
 
   await githubCollections.files.create({
     owner: 'example',
     repo: 'app',
     ref: 'main',
-    path: 'config/review.json',
-    content: '{ "adapter": "codex" }\n',
+    path: 'vendor/skills/style/SKILL.md',
+    content: 'Name each total for what it sums.\n',
   });
 
   await githubCollections.files.create({
     owner: 'example',
     repo: 'app',
     ref: 'main',
-    path: 'review.json',
-    target: 'config/review.json',
+    path: 'shared',
+    target: 'vendor',
+  });
+
+  await githubCollections.files.create({
+    owner: 'example',
+    repo: 'app',
+    ref: 'main',
+    path: 'skills',
+    target: 'shared/skills',
   });
 
   const text = await ctx.read({
     kind: 'github',
     owner: 'example',
     repo: 'app',
-    path: 'review.json',
+    path: 'skills/style/SKILL.md',
     ref: 'main',
   });
 
-  expect(text).toBe('{ "adapter": "codex" }\n');
+  expect(text).toBe('Name each total for what it sums.\n');
+});
+
+test('it reads a folder as null', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.files.create({
+    owner: 'example',
+    repo: 'app',
+    ref: 'main',
+    path: 'skills/style/SKILL.md',
+    content: 'Name each total for what it sums.\n',
+  });
+
+  const text = await ctx.read({
+    kind: 'github',
+    owner: 'example',
+    repo: 'app',
+    path: 'skills/style',
+    ref: 'main',
+  });
+
+  expect(text).toBeNull();
 });
 
 test('it reads a file that a folder of the repo does not hold as null', async () => {

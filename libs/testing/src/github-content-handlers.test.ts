@@ -41,6 +41,34 @@ test('it serves a symlink as its target', async () => {
   });
 });
 
+test('it serves a symlink to a file of the repo as that file', async () => {
+  await githubCollections.files.create({
+    owner: 'example',
+    repo: 'app',
+    ref: 'main',
+    path: 'config/review.json',
+    content: '{}\n',
+  });
+
+  await githubCollections.files.create({
+    owner: 'example',
+    repo: 'app',
+    ref: 'main',
+    path: 'review.json',
+    target: 'config/review.json',
+  });
+
+  const response = await fetch(`${GITHUB_API_URL}/repos/example/app/contents/review.json`);
+  const entry: unknown = await response.json();
+
+  expect(entry).toStrictEqual({
+    type: 'file',
+    encoding: 'base64',
+    path: 'review.json',
+    content: 'e30K',
+  });
+});
+
 test('it lists the entries of a folder', async () => {
   await githubCollections.files.create({
     owner: 'example',

@@ -1,3 +1,4 @@
+import { posix } from 'node:path';
 import { HttpResponse, http } from 'msw';
 import { githubCollections } from './github-collections';
 import { GITHUB_API_URL } from './github-handlers';
@@ -22,16 +23,22 @@ export const githubContentHandlers = [
       return buildFolderListing(info.params.path, files);
     }
 
-    if (file.target !== null) {
-      return HttpResponse.json({ type: 'symlink', path: file.path, target: file.target });
+    if (file.target === null) {
+      return buildFileData(file.path, file.content);
     }
 
-    return HttpResponse.json({
-      type: 'file',
-      encoding: 'base64',
-      path: file.path,
-      content: Buffer.from(file.content).toString('base64'),
-    });
+    // GitHub serves a link to a file of the repo as that file, and any other link as its target
+    const linkedPath = posix.join(posix.dirname(file.path), file.target);
+
+    const linked = files.find(
+      (candidate) => candidate.target === null && candidate.path === linkedPath,
+    );
+
+    if (linked !== undefined) {
+      return buildFileData(file.path, linked.content);
+    }
+
+    return HttpResponse.json({ type: 'symlink', path: file.path, target: file.target });
   }),
 ];
 
@@ -71,4 +78,13 @@ function pickEntryType(isFolder: boolean, target: string | null): string {
   }
 
   return target === null ? 'file' : 'symlink';
+}
+
+function buildFileData(path: string, content: string) {
+  return HttpResponse.json({
+    type: 'file',
+    encoding: 'base64',
+    path,
+    content: Buffer.from(content).toString('base64'),
+  });
 }

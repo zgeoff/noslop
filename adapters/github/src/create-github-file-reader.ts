@@ -21,9 +21,7 @@ export function createGitHubFileReader(options: GitHubFileReaderOptions): ReadRe
         followLink(location, hops, buildLinkedPath(location.path, link.target, [])),
       )
       .with({ kind: 'missing' }, () => readThroughLinkedFolder(connection, location, hops))
-      .with({ kind: 'directory' }, { kind: 'other' }, () => {
-        throw new Error(`${location.owner}/${location.repo}/${location.path} is not a file`);
-      })
+      .with({ kind: 'directory' }, { kind: 'other' }, () => Promise.resolve(null))
       .exhaustive();
   };
 
