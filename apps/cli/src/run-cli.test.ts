@@ -10106,6 +10106,149 @@ test('it refuses a result whose config reaches a rules file through a symlink ou
   });
 });
 
+test('it names the first link of a chain that leaves the repo at its second link', async () => {
+  const ctx = await setupTest();
+
+  const config = '{ "rules": ["rules/a.md"] }\n';
+
+  await Bun.write(join(ctx.directory, 'shared', 'x.md'), 'Name each total for what it sums.\n');
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: { 'review.json': config, 'src/a.ts': 'export const a = 1;\n' },
+      links: { 'rules/a.md': 'b.md', 'rules/b.md': '../../shared/x.md' },
+    },
+    { message: 'Change a', files: { 'src/a.ts': 'export const a = 2;\n' } },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[1] ?? '',
+  });
+
+  await githubCollections.branches.create({
+    owner: 'example',
+    repo: 'app',
+    name: 'main',
+    sha: repo.commits[0] ?? '',
+  });
+
+  await githubCollections.files.create({
+    owner: 'example',
+    repo: 'app',
+    ref: repo.commits[0] ?? '',
+    path: 'review.json',
+    content: config,
+  });
+
+  await githubCollections.files.create({
+    owner: 'example',
+    repo: 'app',
+    ref: repo.commits[0] ?? '',
+    path: 'rules/a.md',
+    linkTarget: 'b.md',
+  });
+
+  await githubCollections.files.create({
+    owner: 'example',
+    repo: 'app',
+    ref: repo.commits[0] ?? '',
+    path: 'rules/b.md',
+    linkTarget: '../../shared/x.md',
+  });
+
+  const stub = buildStubAdapter({ light: [{ findings: { correctness: [] } }] });
+
+  await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'json', '--json'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  await Bun.write(join(ctx.directory, 'result.json'), ctx.stdout.splice(0).join(''));
+
+  const code = await runCLI(
+    ['verify', join(ctx.directory, 'result.json')],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  expect({ code, stderr: ctx.stderr.join('') }).toStrictEqual({
+    code: 1,
+    stderr: `noslop: the config at ${repo.commits[0]?.slice(0, 12)} reads files outside the repo, which GitHub cannot serve: rules/a.md (a link to ../shared/x.md)\n`,
+  });
+});
+
+test('it names a link to an absolute path by its absolute target', async () => {
+  const ctx = await setupTest();
+
+  const config = '{ "rules": ["rules/taste.md"] }\n';
+  const target = join(ctx.directory, 'shared', 'taste.md');
+
+  await Bun.write(target, 'Name each total for what it sums.\n');
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: { 'review.json': config, 'src/a.ts': 'export const a = 1;\n' },
+      links: { 'rules/taste.md': target },
+    },
+    { message: 'Change a', files: { 'src/a.ts': 'export const a = 2;\n' } },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[1] ?? '',
+  });
+
+  await githubCollections.branches.create({
+    owner: 'example',
+    repo: 'app',
+    name: 'main',
+    sha: repo.commits[0] ?? '',
+  });
+
+  await githubCollections.files.create({
+    owner: 'example',
+    repo: 'app',
+    ref: repo.commits[0] ?? '',
+    path: 'review.json',
+    content: config,
+  });
+
+  await githubCollections.files.create({
+    owner: 'example',
+    repo: 'app',
+    ref: repo.commits[0] ?? '',
+    path: 'rules/taste.md',
+    linkTarget: target,
+  });
+
+  const stub = buildStubAdapter({ light: [{ findings: { correctness: [] } }] });
+
+  await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'json', '--json'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  await Bun.write(join(ctx.directory, 'result.json'), ctx.stdout.splice(0).join(''));
+
+  const code = await runCLI(
+    ['verify', join(ctx.directory, 'result.json')],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  expect({ code, stderr: ctx.stderr.join('') }).toStrictEqual({
+    code: 1,
+    stderr: `noslop: the config at ${repo.commits[0]?.slice(0, 12)} reads files outside the repo, which GitHub cannot serve: rules/taste.md (a link to ${target})\n`,
+  });
+});
+
 test('it reviews with the rules of a file the base commit links to outside the repo', async () => {
   const ctx = await setupTest();
 
