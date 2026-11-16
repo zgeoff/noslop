@@ -68,7 +68,7 @@ noslop config
 ```
 
 The output starts with `config <hash>`, then `chain: built-in > <repo_path>/review.json`, then one
-line per key with the file it came from, such as `adapter (<repo_path>/review.json): "claude"`.
+line per key with the files it came from, such as `adapter (<repo_path>/review.json): "claude"`.
 Commit the file, and merge it to the default branch before you rely on it. A review reads the config
 from the commit its change starts from, never from the change, because a pull request must not
 weaken its own review. A pull request that adds or edits `review.json` is reviewed under the old

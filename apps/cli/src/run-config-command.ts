@@ -1,4 +1,5 @@
 import type { CLIContext } from './cli-context';
+import { collectKeySources } from './collect-key-sources';
 import { loadRepoConfig } from './load-repo-config';
 import { resolveRepoDir } from './resolve-repo-dir';
 
@@ -36,18 +37,4 @@ export async function runConfigCommand(json: boolean, ctx: CLIContext): Promise<
   ctx.writeStdout(`${lines.join('\n')}\n`);
 
   return 0;
-}
-
-function collectKeySources(
-  sources: Record<string, string>,
-  key: string,
-  chain: readonly string[],
-): string[] {
-  const keySources = new Set(
-    Object.entries(sources).flatMap(([path, source]) =>
-      path === key || path.startsWith(`${key}.`) ? [source] : [],
-    ),
-  );
-
-  return keySources.size === 0 ? ['built-in'] : chain.filter((source) => keySources.has(source));
 }

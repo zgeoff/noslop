@@ -81,10 +81,11 @@ review that ran under the config the repo enforces. The hash covers the `github.
 names the App whose comments hold state on a review without the App's keys, so a result verifies
 only when its review trusted the App that the base branch names. The
 [state in markers](../output/github-app.md#state-in-markers) covers how a review uses that key. The
-module also keeps the source of every leaf key, as a path or a `github:` location, and
-`noslop config` prints the merged config with the chain it came from. Its text output prints each
-top-level key with every source of its leaf keys, in chain order, and `--json` prints the source of
-each leaf key.
+module also keeps a source for each key: a path, a `github:` location or `built-in`. A key inside an
+object, such as `github.app`, has its own source. `rules` and `synced` each have one source, the
+last file that set them, though their lists gather entries from every file. `noslop config --json`
+prints these sources. The text output prints each top-level key with each source of the keys inside
+it, in the order of the `chain:` line, which starts at `built-in`.
 
 ## The built-in defaults
 

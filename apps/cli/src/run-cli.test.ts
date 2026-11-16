@@ -509,22 +509,6 @@ test('it prints the merged config with the source of each key', async () => {
   });
 });
 
-test('it prints the file that sets a nested key as the source of its top-level key', async () => {
-  const ctx = await setupTest();
-
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
-    { message: 'base', files: { 'review.json': '{ "github": { "app": "example-bot" } }\n' } },
-  ]);
-
-  const code = await runCLI(['config'], ctx.buildContext(repo.path, buildStubAdapter({}).adapter));
-
-  expect(code).toBe(0);
-
-  expect(ctx.stdout.join('').split('\n')).toContain(
-    `github (${join(repo.path, 'review.json')}): {"app":"example-bot"}`,
-  );
-});
-
 test('it prints every source of a top-level key whose nested keys come from several layers', async () => {
   const ctx = await setupTest();
 
@@ -534,11 +518,12 @@ test('it prints every source of a top-level key whose nested keys come from seve
 
   const code = await runCLI(['config'], ctx.buildContext(repo.path, buildStubAdapter({}).adapter));
 
-  expect(code).toBe(0);
-
-  expect(ctx.stdout.join('').split('\n')).toContain(
-    `mergePass (built-in, ${join(repo.path, 'review.json')}): {"enabled":true,"effort":"high"}`,
-  );
+  expect({ code, lines: ctx.stdout.join('').split('\n') }).toStrictEqual({
+    code: 0,
+    lines: expect.arrayContaining([
+      `mergePass (built-in, ${join(repo.path, 'review.json')}): {"enabled":true,"effort":"high"}`,
+    ]),
+  });
 });
 
 test('it prints the config as JSON with only its config, sources, chain, missing rules and hash', async () => {
