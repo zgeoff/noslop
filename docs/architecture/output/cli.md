@@ -7,13 +7,13 @@ version, so other tools pin a CLI version and read one shape. [The GitHub App](.
 its reviews and its check updates through this CLI. [0011](../../decisions/0011-model-adapters.md)
 records why noslop is a versioned CLI with JSON output.
 
-The npm package `@noslop/cli` holds one Bun bundle of the CLI and every workspace package it
-imports, the [lens](../review/lenses.md) prompts included, so the workspace packages stay private.
-The bundle leaves out oxc-parser, whose native build npm installs for the user's platform. The
-workspace runs the CLI from its source.
+The npm package `@noslop/cli` holds a Bun bundle of the CLI and every workspace package it imports,
+the [lens](../review/lenses.md) prompts included, so the workspace packages stay private. The bundle
+leaves out oxc-parser, whose native build npm installs for the user's platform. The workspace runs
+the CLI from its source.
 
-The package's subpath exports let code import the result schema and the CLI's checks, with no CLI
-process:
+The package's exports let code use the result schema, the checks and the posting of the CLI without
+running the CLI as a process:
 
 - The root export and `@noslop/cli/contract` hold the review result schema and its types.
 - `@noslop/cli/verify` runs the check of [verifying a result](#verifying-a-result).
@@ -22,11 +22,12 @@ process:
   returns the outcome and writes nothing, as [checking read-only](#checking-read-only) describes.
 
 The `verify`, `post` and `check` exports take the App's keys or a token from the caller, never from
-the process environment. The exports are a second bundle, which leaves zod out: the package depends
-on zod and npm installs it, so a caller's schemas and the package's declarations share one zod.
-tsdown, the tool that builds the package, writes each export's declarations with TypeScript's own
-emit and inlines the types of the workspace packages they reach, so the published types import
-nothing but zod.
+the process environment.
+
+A second Bun bundle builds the exports, and that bundle leaves zod out. The package depends on zod,
+so npm installs it, and a caller's schemas and the package's declarations share one zod. tsdown
+writes each export's declarations with TypeScript's own emit and inlines the types of the workspace
+packages they reach, so the published types import nothing but zod.
 
 ## Commands
 
@@ -38,7 +39,7 @@ nothing but zod.
 | `noslop findings --pr <number> [--repo <owner/name>]`                                  | Lists each finding of a pull request with its state, and writes nothing                  |
 | `noslop verify <file>`                                                                 | Checks a review result against its pull request's head and the config on its base branch |
 | `noslop post <file> [--no-verify]`                                                     | Posts a verified review result to its pull request as the App                            |
-| `noslop check --pr <number> --repo <owner/name>`                                       | Sets a pull request's check run from the answers to its findings                         |
+| `noslop check --pr <number> --repo <owner/name>`                                       | Sets a pull request's check run from the answers to its findings, with no review         |
 | `noslop check --read-only --pr <number> --repo <owner/name>`                           | Prints a pull request's check outcome and writes nothing to GitHub                       |
 | `noslop config`                                                                        | Prints the merged config and the file each key comes from                                |
 | `noslop store query <name>`                                                            | Runs a named query on the [findings store](../measurement/store.md)                      |
@@ -59,15 +60,15 @@ nothing but zod.
 `--json`, and `--verbose` lowers the log level to debug. `noslop <command> --help` lists each
 command's flags.
 
-Logs go to stderr, so stdout holds only a command's output. A command exits 0 when it completed, and
-1 when it could not run, such as on a bad flag, a git failure or an adapter the CLI does not have.
-These commands also exit 1 after they run to the end:
+Logs go to stderr, so stdout holds only a command's output. A command exits 0 when it completed. It
+exits 1 in these cases:
 
-- `review`, when any reporter fails;
-- `verify`, when it refuses the result;
-- `findings`, when a finding comment of the App holds a [marker](./github-app.md#state-in-markers)
-  noslop cannot read;
-- `check --read-only`, unless the check passes.
+- It could not run, such as on a bad flag, a git failure or an adapter the CLI does not have.
+- `review` ran, and a reporter failed.
+- `verify` or `post` refused the result.
+- `findings` met a finding comment of the App whose [marker](./github-app.md#state-in-markers)
+  noslop cannot read.
+- `check --read-only` ran, and the check did not pass.
 
 `check` without `--read-only` exits 0 whatever the check concludes, because its job is to set the
 check run, and the check run carries the conclusion, as
@@ -88,28 +89,27 @@ remote's URL. The config comes from the tip of the pull request's base branch, u
 [resolution](../config/review-config.md#resolution). The base is the merge-base of the pull
 request's base and head.
 
-A re-review, a review of a pull request that noslop reviewed before, reads only the files whose
-patch changed since the last review, under
-[what a re-review reads](./re-review.md#what-a-re-review-reads). When no patch changed, the
-re-review reads no file and exits 0. `--full` reads every file of the pull request again.
-`--fixes-only` checks each `fixed` answer and raises no finding, under
-[the fixes-only run](./fixes-only-run.md).
+A re-review, a review of a pull request that noslop reviewed before, reads the files that
+[what a re-review reads](./re-review.md#what-a-re-review-reads) picks. In the common case, those are
+the files whose patch changed since the last review. When the rule picks no file, the re-review
+reads no file and exits 0. `--full` reads every file of the pull request again. `--fixes-only`
+checks each `fixed` answer and raises no finding, under [the fixes-only run](./fixes-only-run.md).
 
 ## Output and reporters
 
 With `--json`, `review` prints the review result as JSON to stdout and nothing else. Without it,
 `review` prints a summary for a person: the depth, the lenses, each finding with its anchor, each
-failed [call](../review/calls.md), which is one model request for one or more lenses, and each file
-that no call read.
+failed call and each file that no call read. A [call](../review/calls.md) is one model request for
+one or more lenses.
 
-Either way the CLI then runs every reporter in the report list, under [reporters](./reporters.md),
-except a `json` reporter with no path set, because the command prints the result itself. The
-built-in defaults list only that reporter, so a bare `noslop review` with no config prints the
-result and stores nothing.
+Either way the CLI then runs every reporter in the report list, under [reporters](./reporters.md).
+It skips a `json` reporter with no path set, because the command prints the result itself. The
+built-in defaults list only the `json` reporter, with no path, so a bare `noslop review` with no
+config prints the result and stores nothing.
 
-The review result follows the result schema in `@noslop/contract`, and the CLI parses the result
-against it before printing it. The schema's version changes only with a breaking change to the
-output. [Findings](../review/findings.md) covers the finding schema inside it.
+The review result follows the result schema that `@noslop/cli/contract` exports, and the CLI parses
+the result against it before printing it. The schema's version changes only with a breaking change
+to the output. [Findings](../review/findings.md) covers the finding schema inside it.
 
 ## Verifying a result
 
@@ -145,25 +145,25 @@ keys in the environment, and refuses to run with a token or an anonymous GitHub 
 ## Listing the findings
 
 `findings` prints each finding the App posted on a pull request, with its id, its file, its
-severity, its state and the login that wrote its latest answer. An answer, which
-[dispositions](./github-app.md#dispositions) calls a disposition, is a person's reply to a finding
-that starts with one of the kinds `fixed`, `not-a-defect`, `deferred` or `accepted-risk`. A merge
-gate outside noslop, such as a required CI job, reads the list and decides from the `open` findings
-alone whether the pull request may merge.
+severity, its state and the login that wrote its latest answer. An answer is a person's reply to a
+finding, in a form that [dispositions](./github-app.md#dispositions) describes. Each answer has one
+of the kinds `fixed`, `not-a-defect`, `deferred` or `accepted-risk`. A merge gate outside noslop,
+such as a required CI job, reads the list and decides from the `open` findings alone whether the
+pull request may merge.
 
 A finding with no answer is `open`. A finding whose latest answer `noslop check` accepts takes the
 kind of that answer as its state, and is `open` otherwise. The list and `noslop check` share one set
 of rules for an answer:
 
-- A `deferred` answer names an issue that exists.
+- A `deferred` answer must name an issue that exists.
 - noslop refuses a `deferred` answer for code the change wrote.
 - noslop refuses a `deferred` answer for a P1 finding, a security finding or a risk-class finding. A
   finding carries a [risk class](../review/findings.md#the-risk-class-on-a-finding) when the lines
   it cites sit in the paths of a risk class that the [static stage](../review/static-stage.md)
   marked.
-- A `fixed` answer holds once a fix check confirmed it, and stays `open` while the latest review
-  still reports the finding. A fix check is the check of one `fixed` answer that a re-review or the
-  fixes-only run makes, under [fix confirmation](./re-review.md#fix-confirmation).
+- A re-review or the fixes-only run makes a fix check of each `fixed` answer, under
+  [fix confirmation](./re-review.md#fix-confirmation). A `fixed` answer holds once a fix check
+  confirmed it, and its finding stays `open` while the latest review still reports the finding.
 - A `fixed <commit>` answer can name a commit that the pull request's head holds and the latest
   review's head does not. That answer stays `open` until a fix check confirms it, because no fix
   check has read the fix.
@@ -171,12 +171,12 @@ of rules for an answer:
   as when the fix's code goes over the config's file limit, `thresholds.maxFileChars`.
 - An `accepted-risk` answer holds only when its author has admin permission on the repo.
 
-With `--json`, the list follows the finding list schema in `@noslop/contract`. Each finding holds
-the reason `noslop check` refuses its answer, or null when it accepts the answer, and `unjudged`,
-which is true only for an open `fixed` answer that the fix check could not judge. For an unjudged
-answer, the reason is why the fix check could not judge it, so a caller can quote it when it asks
-the gate's owner to let the pull request merge. The text list prints the reason after each unjudged
-finding.
+With `--json`, the list follows the finding list schema that `@noslop/cli/contract` exports. Each
+finding holds the reason `noslop check` refuses its answer, or null when it accepts the answer, and
+`unjudged`, which is true only for an open `fixed` answer that the fix check could not judge. For an
+unjudged answer, the reason is why the fix check could not judge it, so a caller can quote it when
+it asks the gate's owner to let the pull request merge. The text list prints the reason after each
+unjudged finding.
 
 `findings` trusts the App's comments as [checking read-only](#checking-read-only) trusts them, and
 it writes nothing to GitHub. The App keeps its state in a hidden marker at the end of each of its
@@ -187,8 +187,8 @@ that finding would show the gate one open finding too few.
 ## Checking read-only
 
 `check --read-only` computes the outcome the check run would hold and writes nothing: no check run,
-no App comment in response to a reply that holds no disposition, and no dispositions in the store. A
-CI job runs it with its own token, so the App's keys stay with the relay.
+no App comment in response to a reply that holds no answer, and no answers in the store. A CI job
+runs it with its own token, so the App's keys stay with the relay.
 
 The CLI cannot tell from a token alone which App's comments to trust. So `check --read-only` trusts
 the comments of the App that `github.app` names in the config on the base branch's tip. It loads
