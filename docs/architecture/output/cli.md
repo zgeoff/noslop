@@ -105,9 +105,11 @@ GitHub and refuses the result unless both of these hold:
 
 The CLI reads the commit the base branch points at, then loads that commit's config through GitHub's
 contents API, with no checkout, so a push during the load cannot mix 2 commits. It loads the config
-by the same rules a review loads a config by, so the 2 hashes match when the 2 configs match. A
-rules file outside the repo, which only the reviewer's machine holds, reads as missing, so a config
-that lists one never verifies. `verify` exits 1 and prints each mismatch to stderr.
+by the same rules a review loads a config by, so the 2 hashes match when the 2 configs match. Like a
+review, it follows each symlink on a file's path, a link to a folder included. A rules file outside
+the repo, which only the reviewer's machine holds, reads as missing, so a config that lists one
+never verifies. A rules file that a symlink points at outside the repo reads as missing the same
+way. `verify` exits 1 and prints each mismatch to stderr.
 
 ## Posting a result
 
