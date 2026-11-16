@@ -11,8 +11,9 @@ const CLI_DIR = join(REPO_DIR, 'apps', 'cli');
 // build for the user's platform.
 const EXTERNAL = ['oxc-parser'] as const;
 
-// The library bundle leaves zod out. The package depends on zod, so npm installs it, and a caller's
-// schemas and the package's declarations share one zod.
+// TypeScript rejects a schema built on one copy of zod where code expects a type from another copy.
+// So the build leaves zod out of the library bundle and its .d.ts files, and npm installs zod as a
+// dependency of the published package. A project on the package's zod version shares that one zod.
 const LIBRARY_EXTERNAL = ['zod'] as const;
 
 const LIBRARY_ENTRIES = {
