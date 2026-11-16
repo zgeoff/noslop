@@ -10033,10 +10033,237 @@ test('it refuses a result whose config names a rules file outside the repo and n
 
   expect({ code, stderr: ctx.stderr.join('') }).toStrictEqual({
     code: 1,
-    stderr: 'noslop: the rules file ../shared/taste.md does not exist\n',
+    stderr: `noslop: the config at ${repo.commits[0]?.slice(0, 12)} reads files outside the repo, which GitHub cannot serve: ../shared/taste.md\n`,
   });
 
   expect(requested).not.toHaveBeenCalledWith(expect.stringContaining('shared/taste.md'));
+});
+
+test('it refuses a result whose config reaches a rules file through a symlink out of the repo', async () => {
+  const ctx = await setupTest();
+
+  const config = '{ "rules": ["rules/taste.md"] }\n';
+
+  await Bun.write(join(ctx.directory, 'shared', 'taste.md'), 'Name each total for what it sums.\n');
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: { 'review.json': config, 'src/a.ts': 'export const a = 1;\n' },
+      links: { 'rules/taste.md': '../../shared/taste.md' },
+    },
+    { message: 'Change a', files: { 'src/a.ts': 'export const a = 2;\n' } },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[1] ?? '',
+  });
+
+  await githubCollections.branches.create({
+    owner: 'example',
+    repo: 'app',
+    name: 'main',
+    sha: repo.commits[0] ?? '',
+  });
+
+  await githubCollections.files.create({
+    owner: 'example',
+    repo: 'app',
+    ref: repo.commits[0] ?? '',
+    path: 'review.json',
+    content: config,
+  });
+
+  await githubCollections.files.create({
+    owner: 'example',
+    repo: 'app',
+    ref: repo.commits[0] ?? '',
+    path: 'rules/taste.md',
+    linkTarget: '../../shared/taste.md',
+  });
+
+  const stub = buildStubAdapter({ light: [{ findings: { correctness: [] } }] });
+
+  await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'json', '--json'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  await Bun.write(join(ctx.directory, 'result.json'), ctx.stdout.splice(0).join(''));
+
+  const code = await runCLI(
+    ['verify', join(ctx.directory, 'result.json')],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  expect({ code, stderr: ctx.stderr.join('') }).toStrictEqual({
+    code: 1,
+    stderr: `noslop: the config at ${repo.commits[0]?.slice(0, 12)} reads files outside the repo, which GitHub cannot serve: rules/taste.md (a link to ../shared/taste.md)\n`,
+  });
+});
+
+test('it reviews with the rules of a file the base commit links to outside the repo', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(
+    join(ctx.directory, 'shared', 'taste.md'),
+    '## Naming\n\nName each total for what it sums.\n',
+  );
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'review.json': '{ "rules": ["rules/taste.md"] }\n',
+        'src/a.ts': 'export const a = 1;\n',
+      },
+      links: { 'rules/taste.md': '../../shared/taste.md' },
+    },
+    {
+      message: 'Add a total',
+      files: {
+        'src/total.ts':
+          'export function total(prices: number[]): number {\n  return prices.reduce((sum, price) => sum + price, 0);\n}\n',
+      },
+    },
+  ]);
+
+  const stub = buildStubAdapter({
+    light: [{ findings: { correctness: [], 'naming-shape-and-comments': [], tests: [] } }],
+  });
+
+  await runCLI(
+    ['review', '--base', repo.commits[0] ?? '', '--head', repo.commits[1] ?? '', '--json'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  expect(stub.requests[0]?.prompt).toInclude(
+    '<rules-file>\nRules file name: rules/taste.md\n\n```markdown\n## Naming\n\nName each total for what it sums.',
+  );
+});
+
+test('it names an optional rules file linked out of the repo beside the hash mismatch it causes', async () => {
+  const ctx = await setupTest();
+
+  const config = '{ "rules": ["repo:rules/taste.md"] }\n';
+
+  await Bun.write(join(ctx.directory, 'shared', 'taste.md'), 'Name each total for what it sums.\n');
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: { 'review.json': config, 'src/a.ts': 'export const a = 1;\n' },
+      links: { 'rules/taste.md': '../../shared/taste.md' },
+    },
+    { message: 'Change a', files: { 'src/a.ts': 'export const a = 2;\n' } },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[1] ?? '',
+  });
+
+  await githubCollections.branches.create({
+    owner: 'example',
+    repo: 'app',
+    name: 'main',
+    sha: repo.commits[0] ?? '',
+  });
+
+  await githubCollections.files.create({
+    owner: 'example',
+    repo: 'app',
+    ref: repo.commits[0] ?? '',
+    path: 'review.json',
+    content: config,
+  });
+
+  await githubCollections.files.create({
+    owner: 'example',
+    repo: 'app',
+    ref: repo.commits[0] ?? '',
+    path: 'rules/taste.md',
+    linkTarget: '../../shared/taste.md',
+  });
+
+  const stub = buildStubAdapter({ light: [{ findings: { correctness: [] } }] });
+
+  await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'json', '--json'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  await Bun.write(join(ctx.directory, 'result.json'), ctx.stdout.splice(0).join(''));
+
+  const code = await runCLI(
+    ['verify', join(ctx.directory, 'result.json')],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  expect(code).toBe(1);
+
+  expect(ctx.stderr.join('')).toMatch(
+    /^noslop: the result does not verify: its config hash [0-9a-f]{16} differs from [0-9a-f]{16}, the hash of the config on main; the config on main reads files outside the repo, which GitHub cannot serve: rules\/taste\.md \(a link to \.\.\/shared\/taste\.md\)\n$/u,
+  );
+});
+
+test('it verifies a result whose config is a symlink to a file the base commit does not hold', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: { 'src/a.ts': 'export const a = 1;\n' },
+      links: { 'review.json': 'config/review.json' },
+    },
+    { message: 'Change a', files: { 'src/a.ts': 'export const a = 2;\n' } },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[1] ?? '',
+  });
+
+  await githubCollections.branches.create({
+    owner: 'example',
+    repo: 'app',
+    name: 'main',
+    sha: repo.commits[0] ?? '',
+  });
+
+  await githubCollections.files.create({
+    owner: 'example',
+    repo: 'app',
+    ref: repo.commits[0] ?? '',
+    path: 'review.json',
+    linkTarget: 'config/review.json',
+  });
+
+  const stub = buildStubAdapter({ light: [{ findings: { correctness: [] } }] });
+
+  await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'json', '--json'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  await Bun.write(join(ctx.directory, 'result.json'), ctx.stdout.splice(0).join(''));
+
+  const code = await runCLI(
+    ['verify', join(ctx.directory, 'result.json')],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  expect({ code, stderr: ctx.stderr.join('') }).toStrictEqual({ code: 0, stderr: '' });
 });
 
 test('it refuses a result that breaks the result contract before it asks GitHub anything', async () => {

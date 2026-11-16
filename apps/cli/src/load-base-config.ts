@@ -16,6 +16,7 @@ export async function loadBaseConfig(
   const connection = await loadConnection();
   const baseRef = await readPullRequestBaseRef(connection, pr);
   const commit = await readBranchHead(connection, pr, baseRef);
+  const commitConfig = await loadCommitConfig(loadConnection, pr, commit);
 
-  return { baseRef, loaded: await loadCommitConfig(loadConnection, pr, commit) };
+  return { baseRef, loaded: commitConfig.loaded };
 }

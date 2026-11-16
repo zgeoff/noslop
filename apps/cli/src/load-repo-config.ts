@@ -4,6 +4,7 @@ import { loadConfig } from '@noslop/config';
 import { createGitHubFileReader } from '@noslop/github';
 import type { Runner } from '@noslop/runner';
 import type { CLIContext } from './cli-context';
+import { MAX_LINK_HOPS } from './max-link-hops';
 
 export interface RepoConfigOptions {
   rulesRepoDir?: string;
@@ -25,9 +26,6 @@ export function loadRepoConfig(
       : { readLocalFile: makeCommitFileReader(ctx.runner, repoDir, options.commit) }),
   });
 }
-
-// Linux bounds a path lookup at 40 symlinks, so a link cycle fails at the same bound.
-const MAX_LINK_HOPS = 40;
 
 function makeCommitFileReader(runner: Runner, repoDir: string, commit: string): ReadLocalFile {
   const readCommitFile = async (path: string, hops: number): Promise<string | null> => {

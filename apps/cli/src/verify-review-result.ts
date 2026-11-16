@@ -2,6 +2,7 @@ import type { ReviewResult } from '@noslop/contract';
 import { reviewResultSchema } from '@noslop/contract';
 import type { GitHubConnection } from '@noslop/github';
 import { readBranchHead, readPullRequestState } from '@noslop/github';
+import { formatOutsideFiles } from './format-outside-files';
 import { loadCommitConfig } from './load-commit-config';
 
 export async function verifyReviewResult(
@@ -18,8 +19,9 @@ export async function verifyReviewResult(
   const connection = await loadConnection();
   const state = await readPullRequestState(connection, pr);
   const baseCommit = await readBranchHead(connection, pr, state.baseRef);
-  const loaded = await loadCommitConfig(loadConnection, pr, baseCommit);
+  const commitConfig = await loadCommitConfig(loadConnection, pr, baseCommit);
 
+  const loaded = commitConfig.loaded;
   const problems: string[] = [];
 
   if (result.head !== state.headSha) {
@@ -31,6 +33,12 @@ export async function verifyReviewResult(
   if (result.configHash !== loaded.hash) {
     problems.push(
       `its config hash ${result.configHash} differs from ${loaded.hash}, the hash of the config on ${state.baseRef}`,
+    );
+  }
+
+  if (result.configHash !== loaded.hash && commitConfig.outsideFiles.length > 0) {
+    problems.push(
+      `the config on ${state.baseRef} reads files outside the repo, which GitHub cannot serve: ${formatOutsideFiles(commitConfig.outsideFiles)}`,
     );
   }
 
