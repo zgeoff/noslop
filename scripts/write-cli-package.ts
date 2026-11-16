@@ -113,9 +113,12 @@ async function writeDeclarations(outDir: string, entryNames: readonly string[]):
     // so the declarations' tsconfig sits at the repo root.
     tsconfig: join(REPO_DIR, 'tsconfig.cli-types.json'),
     dts: {
-      emitDtsOnly: true,
-      generator: 'tsgo',
-      tsgo: { path: join(REPO_DIR, 'node_modules/.bin/tsrs') },
+      dtsOnly: true,
+      generator: 'tsrs',
+
+      // The isolated linker keeps tsrs out of the dts plugin's own folder, so the plugin can't
+      // resolve it there.
+      tsrs: { moduleUrl: import.meta.resolve('tsrs') },
     },
     deps: {
       alwaysBundle: [/^@noslop\//u],
