@@ -5,5 +5,5 @@ export function formatOutsideFiles(files: readonly OutsideFile[]): string {
     file.linkTarget === null ? file.path : `${file.path} (a link to ${file.linkTarget})`,
   );
 
-  return [...new Set(names)].join(', ');
+  return [...new Set(names)].toSorted().join(', ');
 }

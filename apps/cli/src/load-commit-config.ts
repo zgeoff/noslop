@@ -1,6 +1,6 @@
 import { posix, relative, sep } from 'node:path';
 import type { LoadedConfig, ReadLocalFile } from '@noslop/config';
-import { loadConfig } from '@noslop/config';
+import { MissingConfigFileError, loadConfig } from '@noslop/config';
 import type { PullRequestRef } from '@noslop/contract';
 import type { GitHubConnection } from '@noslop/github';
 import { createGitHubFileReader, readGitHubEntry } from '@noslop/github';
@@ -20,26 +20,30 @@ export interface CommitConfig {
 
 const BASE_BRANCH_DIR = '/base-branch';
 
+type CommitRead =
+  | { kind: 'text'; text: string }
+  | { kind: 'missing' }
+  | { kind: 'outside'; file: OutsideFile };
+
 export async function loadCommitConfig(
   loadConnection: () => Promise<GitHubConnection>,
   pr: PullRequestRef,
   commit: string,
 ): Promise<CommitConfig> {
-  const outsideFiles: OutsideFile[] = [];
+  const outsideReads = new Map<string, OutsideFile>();
+
   const reads: Promise<string | null>[] = [];
 
   const readCommitPath = async (
     path: string,
     link: string | null,
     hops: number,
-  ): Promise<string | null> => {
+  ): Promise<CommitRead> => {
     if (isOutsideRepo(path)) {
-      const outsideFile: OutsideFile =
+      const file: OutsideFile =
         link === null ? { path, linkTarget: null } : { path: link, linkTarget: path };
 
-      outsideFiles.push(outsideFile);
-
-      return null;
+      return { kind: 'outside', file };
     }
 
     const connection = await loadConnection();
@@ -53,8 +57,8 @@ export async function loadCommitConfig(
     });
 
     return match(entry)
-      .with({ kind: 'file' }, (file) => file.text)
-      .with({ kind: 'missing' }, () => null)
+      .with({ kind: 'file' }, (file): CommitRead => ({ kind: 'text', text: file.text }))
+      .with({ kind: 'missing' }, { kind: 'folder' }, (): CommitRead => ({ kind: 'missing' }))
       .with({ kind: 'link' }, (found) => {
         if (hops >= MAX_LINK_HOPS) {
           throw new Error(`the config file ${link ?? path} follows too many symlinks in ${commit}`);
@@ -72,7 +76,21 @@ export async function loadCommitConfig(
       return Promise.resolve(null);
     }
 
-    const read = readCommitPath(inner.split(sep).join('/'), null, 0);
+    const readText = async (): Promise<string | null> => {
+      const result = await readCommitPath(inner.split(sep).join('/'), null, 0);
+
+      return match(result)
+        .with({ kind: 'text' }, (found) => found.text)
+        .with({ kind: 'missing' }, () => null)
+        .with({ kind: 'outside' }, (found) => {
+          outsideReads.set(path, found.file);
+
+          return null;
+        })
+        .exhaustive();
+    };
+
+    const read = readText();
 
     reads.push(read);
 
@@ -86,18 +104,18 @@ export async function loadCommitConfig(
       readLocalFile,
     });
 
-    return { loaded, outsideFiles };
+    return { loaded, outsideFiles: [...outsideReads.values()] };
   } catch (error) {
-    // The config loader stops at the first file it can't read while the other reads still run,
-    // so the refusal waits for them to name every file outside the repo.
-    await Promise.allSettled(reads);
-
-    if (outsideFiles.length === 0) {
+    if (!isMissingOutsideFile(error, outsideReads)) {
       throw error;
     }
 
+    // The config loader stops at the first missing file while its other reads still run, so the
+    // refusal waits for them to name every file outside the repo.
+    await Promise.allSettled(reads);
+
     throw new Error(
-      `the config at ${commit.slice(0, 12)} reads files outside the repo, which GitHub cannot serve: ${formatOutsideFiles(outsideFiles)}`,
+      `the config at ${commit.slice(0, 12)} reads files outside the repo, which GitHub cannot serve: ${formatOutsideFiles([...outsideReads.values()])}`,
       { cause: error },
     );
   }
@@ -109,4 +127,15 @@ function isOutsideRepo(path: string): boolean {
 
 function resolveLinkTarget(link: string, target: string): string {
   return posix.isAbsolute(target) ? target : posix.join(posix.dirname(link), target);
+}
+
+function isMissingOutsideFile(
+  error: unknown,
+  outsideReads: ReadonlyMap<string, OutsideFile>,
+): boolean {
+  return (
+    error instanceof MissingConfigFileError &&
+    error.location.kind === 'local' &&
+    outsideReads.has(error.location.path)
+  );
 }
