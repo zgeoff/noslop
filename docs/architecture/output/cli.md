@@ -24,10 +24,10 @@ running the CLI as a process:
 The `verify`, `post` and `check` exports take the App's keys or a token from the caller, never from
 the process environment.
 
-A second Bun bundle builds the exports, and that bundle leaves zod out. The package depends on zod,
-so npm installs it, and a caller's schemas and the package's declarations share one zod. tsdown
-writes each export's declarations with TypeScript's own emit and inlines the types of the workspace
-packages they reach, so the published types import nothing but zod.
+Bun builds the exports into a second bundle, which leaves zod out. The package depends on zod, so
+npm installs it, and a caller's schemas and the package's declarations share one zod. The build then
+runs tsdown, which writes each export's declarations with TypeScript's own emit and inlines the
+types of the workspace packages they reach, so the published types import nothing but zod.
 
 ## Commands
 
@@ -99,7 +99,7 @@ checks each `fixed` answer and raises no finding, under [the fixes-only run](./f
 
 With `--json`, `review` prints the review result as JSON to stdout and nothing else. Without it,
 `review` prints a summary for a person: the depth, the lenses, each finding with its anchor, each
-failed call and each file that no call read. A [call](../review/calls.md) is one model request for
+failed [call](../review/calls.md) and each file that no call read. A call is one model request for
 one or more lenses.
 
 Either way the CLI then runs every reporter in the report list, under [reporters](./reporters.md).
