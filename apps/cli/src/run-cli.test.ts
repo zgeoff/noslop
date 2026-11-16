@@ -9451,6 +9451,90 @@ test('it verifies a pull request review against its head and the config of its b
   });
 });
 
+test('it verifies a pull request review whose repo: rules file sits under a symlinked folder', async () => {
+  const ctx = await setupTest();
+
+  const config = '{ "rules": ["repo:.claude/skills/style/SKILL.md"] }\n';
+  const style = 'Name each total for what it sums.\n';
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'review.json': config,
+        '.agents/skills/style/SKILL.md': style,
+        'src/a.ts': 'export const a = 1;\n',
+      },
+      links: { '.claude/skills': '../.agents/skills' },
+    },
+    { message: 'Change a', files: { 'src/a.ts': 'export const a = 2;\n' } },
+  ]);
+
+  await githubCollections.pullRequests.create({
+    owner: 'example',
+    repo: 'app',
+    number: 9,
+    baseRef: 'main',
+    baseSha: repo.commits[0] ?? '',
+    headSha: repo.commits[1] ?? '',
+  });
+
+  await githubCollections.branches.create({
+    owner: 'example',
+    repo: 'app',
+    name: 'main',
+    sha: repo.commits[0] ?? '',
+  });
+
+  await githubCollections.files.create({
+    owner: 'example',
+    repo: 'app',
+    ref: repo.commits[0] ?? '',
+    path: 'review.json',
+    content: config,
+  });
+
+  await githubCollections.files.create({
+    owner: 'example',
+    repo: 'app',
+    ref: repo.commits[0] ?? '',
+    path: '.agents/skills/style/SKILL.md',
+    content: style,
+  });
+
+  await githubCollections.files.create({
+    owner: 'example',
+    repo: 'app',
+    ref: repo.commits[0] ?? '',
+    path: '.claude/skills',
+    target: '../.agents/skills',
+  });
+
+  const stub = buildStubAdapter({ light: [{ findings: { correctness: [] } }] });
+
+  await runCLI(
+    ['review', '--pr', '9', '--repo', 'example/app', '--report', 'json', '--json'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  const reviewed = reviewResultSchema.parse(JSON.parse(ctx.stdout.splice(0).join('')));
+
+  await Bun.write(join(ctx.directory, 'result.json'), JSON.stringify(reviewed));
+
+  const code = await runCLI(
+    ['verify', join(ctx.directory, 'result.json'), '--json'],
+    ctx.buildContext(repo.path, stub.adapter),
+  );
+
+  expect({ code, stderr: ctx.stderr.join('') }).toStrictEqual({ code: 0, stderr: '' });
+
+  expect(JSON.parse(ctx.stdout.join(''))).toStrictEqual({
+    pullRequest: { owner: 'example', repo: 'app', number: 9 },
+    head: repo.commits[1] ?? '',
+    configHash: reviewed.configHash,
+  });
+});
+
 test('it refuses a result whose head is no longer the head of the pull request', async () => {
   const ctx = await setupTest();
 

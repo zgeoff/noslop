@@ -454,33 +454,6 @@ export const githubHandlers = [
       return HttpResponse.json({ name, commit: { sha: pull.baseSha } });
     },
   ),
-
-  http.get<RepoParams & { path: string }>(
-    `${GITHUB_API_URL}/repos/:owner/:repo/contents/:path+`,
-    (info) => {
-      const ref = new URL(info.request.url).searchParams.get('ref') ?? 'main';
-
-      const file = githubCollections.files.findFirst((query) =>
-        query.where({
-          owner: info.params.owner,
-          repo: info.params.repo,
-          ref,
-          path: info.params.path,
-        }),
-      );
-
-      if (file === undefined) {
-        return buildNotFound();
-      }
-
-      return HttpResponse.json({
-        type: 'file',
-        encoding: 'base64',
-        path: file.path,
-        content: Buffer.from(file.content).toString('base64'),
-      });
-    },
-  ),
 ];
 
 function buildNotFound() {

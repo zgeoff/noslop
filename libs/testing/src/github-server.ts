@@ -1,6 +1,7 @@
 import { FetchInterceptor } from '@mswjs/interceptors/fetch/web';
 import type { HttpNetworkFrame, NetworkSource } from 'msw/experimental';
 import { InterceptorSource, defineNetwork } from 'msw/experimental';
+import { githubContentHandlers } from './github-content-handlers';
 import { githubHandlers } from './github-handlers';
 import { githubPullFileHandlers } from './github-pull-file-handlers';
 
@@ -13,7 +14,7 @@ const sources: NetworkSource<HttpNetworkFrame>[] = [
 // its handlers would miss every request; the web interceptor patches the global fetch
 export const githubServer = defineNetwork({
   sources,
-  handlers: [...githubHandlers, ...githubPullFileHandlers],
+  handlers: [...githubHandlers, ...githubPullFileHandlers, ...githubContentHandlers],
   context: { quiet: true },
   onUnhandledFrame: 'error',
 });
