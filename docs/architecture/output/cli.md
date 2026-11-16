@@ -98,16 +98,34 @@ output, so a consumer that pins a CLI version reads the same shape.
 posts it. It parses the result against the result schema, then reads the result's pull request from
 GitHub and refuses the result unless both of these hold:
 
-- The result reviews the pull request's current head, so a push after the review voids it.
+- The result reviews the pull request's current head, so `verify` refuses a result from before the
+  latest push.
 - The result's config hash equals the hash of the config on the pull request's base branch, so
   `verify` refuses a review that ran under any other config, such as one that a later change to the
   base branch or to the parent config it extends has replaced.
 
 The CLI reads the commit the base branch points at, then loads that commit's config through GitHub's
 contents API, with no checkout, so a push during the load cannot mix 2 commits. It loads the config
-by the same rules a review loads a config by, so the 2 hashes match when the 2 configs match. A
-rules file outside the repo, which only the reviewer's machine holds, reads as missing, so a config
-that lists one never verifies. `verify` exits 1 and prints each mismatch to stderr.
+by the same rules a review loads a config by, so the 2 hashes match when the 2 configs match.
+
+A review and `verify` load a config differently when the config names a file outside the repo. The
+config names one by a path such as `../shared/taste.md`, or by a path in the repo that is a symlink
+whose target leaves the repo. A review reads such a file from the disk of the machine it runs on.
+GitHub holds no such file. For a symlink whose target is not a file in the repo, the contents API
+answers with the link's target. `verify` reads a target in the repo through the contents API, and
+reads a target outside the repo as missing.
+
+`verify` names each file it read outside the repo when it refuses the result for one of these
+reasons:
+
+- A rules file that the config lists is missing, so the load fails.
+- A file that the config allows to be missing, such as a `repo:` rules file, is missing, and the 2
+  hashes differ.
+
+`verify` writes a link with the path of its target from the repo root, such as
+`rules/taste.md (a link to ../shared/taste.md)`.
+
+`verify` exits 1 and prints each reason it refuses the result to stderr.
 
 ## Posting a result
 
