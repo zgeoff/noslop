@@ -115,10 +115,6 @@ async function writeDeclarations(outDir: string, entryNames: readonly string[]):
     dts: {
       dtsOnly: true,
       generator: 'tsrs',
-
-      // The isolated linker keeps tsrs out of the dts plugin's own folder, so the plugin can't
-      // resolve it there.
-      tsrs: { moduleUrl: import.meta.resolve('tsrs') },
     },
     deps: {
       alwaysBundle: [/^@noslop\//u],
