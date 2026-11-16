@@ -1,12 +1,24 @@
 export type TypesProject = Record<'package.json' | 'tsconfig.json' | 'index.ts', string>;
 
-export function buildTypesProject(tarballPath: string): TypesProject {
+export function buildTypesProject(tarballPath: string, zodTarballPath?: string): TypesProject {
+  const zodDependency = zodTarballPath === undefined ? {} : { zod: `file:${zodTarballPath}` };
+
+  const zodLines =
+    zodTarballPath === undefined
+      ? []
+      : [
+          "import type { z } from 'zod';",
+          '',
+          'export const projectSchema: z.ZodType = reviewResultSchema;',
+          '',
+        ];
+
   return {
     'package.json': JSON.stringify({
       name: 'project',
       private: true,
       type: 'module',
-      dependencies: { '@noslop/cli': `file:${tarballPath}` },
+      dependencies: { '@noslop/cli': `file:${tarballPath}`, ...zodDependency },
     }),
     'tsconfig.json': JSON.stringify({
       compilerOptions: {
@@ -49,6 +61,7 @@ export function buildTypesProject(tarballPath: string): TypesProject {
       '// @ts-expect-error a finding count is no string',
       'export const wrong: string = countFindings({});',
       '',
+      ...zodLines,
     ].join('\n'),
   };
 }

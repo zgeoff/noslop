@@ -1,10 +1,17 @@
 import { expect, test } from 'bun:test';
 import { formatPackageTypesReport } from './format-package-types-report';
 
-test('it reports a pass when tsc exits 0', () => {
-  const report = formatPackageTypesReport({ step: 'tsc', exitCode: 0, stdout: '', stderr: '' });
+test('it reports a pass when the last tsc exits 0', () => {
+  const report = formatPackageTypesReport({
+    step: 'tsc-newer-zod',
+    exitCode: 0,
+    stdout: '',
+    stderr: '',
+  });
 
-  expect(report).toBe("package types: a project that imports the tarball's subpaths type-checks\n");
+  expect(report).toBe(
+    "package types: a project that imports the tarball's subpaths type-checks, with no zod of its own and with a newer zod\n",
+  );
 });
 
 test("it reports tsc's exit code and output when tsc fails", () => {
