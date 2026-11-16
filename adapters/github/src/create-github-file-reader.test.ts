@@ -44,3 +44,25 @@ test('it reads a file that does not exist as null', async () => {
 
   expect(text).toBeNull();
 });
+
+test('it refuses a path the contents API answers with a symlink as not a file', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.files.create({
+    owner: 'example',
+    repo: 'noslop-config',
+    ref: 'v2',
+    path: 'review.json',
+    linkTarget: '../review.json',
+  });
+
+  const text = ctx.read({
+    kind: 'github',
+    owner: 'example',
+    repo: 'noslop-config',
+    path: 'review.json',
+    ref: 'v2',
+  });
+
+  expect(text).rejects.toThrowWithMessage(Error, 'example/noslop-config/review.json is not a file');
+});

@@ -473,6 +473,10 @@ export const githubHandlers = [
         return buildNotFound();
       }
 
+      if (file.linkTarget !== null) {
+        return HttpResponse.json({ type: 'symlink', path: file.path, target: file.linkTarget });
+      }
+
       return HttpResponse.json({
         type: 'file',
         encoding: 'base64',

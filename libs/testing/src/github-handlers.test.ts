@@ -139,6 +139,28 @@ test('it numbers a new issue after the highest issue of the repo', async () => {
   expect(issue).toStrictEqual({ number: 42, title: 'Follow up' });
 });
 
+test('it answers a symlink path with the link itself, as the contents API does for a target outside the repo', async () => {
+  await githubCollections.files.create({
+    owner: 'example',
+    repo: 'app',
+    ref: 'main',
+    path: 'rules/taste.md',
+    linkTarget: '../../shared/taste.md',
+  });
+
+  const response = await fetch(
+    `${GITHUB_API_URL}/repos/example/app/contents/rules/taste.md?ref=main`,
+  );
+
+  const entry: unknown = await response.json();
+
+  expect(entry).toStrictEqual({
+    type: 'symlink',
+    path: 'rules/taste.md',
+    target: '../../shared/taste.md',
+  });
+});
+
 test('it gives a user with no collaborator record no permission', async () => {
   const response = await fetch(
     `${GITHUB_API_URL}/repos/example/app/collaborators/stranger/permission`,

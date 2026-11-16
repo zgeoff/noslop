@@ -158,6 +158,7 @@ export const githubCollections = {
       ref: z.string().default('main'),
       path: z.string().default('review.json'),
       content: z.string().default('{}'),
+      linkTarget: z.string().nullable().default(null),
     }),
   }),
 };
