@@ -68,6 +68,27 @@ test('it merges the repo file over its local parent over the defaults', async ()
   });
 });
 
+test('it gives the file that sets a key to null as the source of that key', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(
+    join(ctx.directory, 'shared', 'base.json'),
+    JSON.stringify({ adapter: 'claude' }),
+  );
+
+  await Bun.write(
+    join(ctx.directory, 'repo', 'review.json'),
+    JSON.stringify({ extends: '../shared/base.json', adapter: null }),
+  );
+
+  const loaded = await loadConfig({ repoDir: join(ctx.directory, 'repo') });
+
+  expect([loaded.config.adapter, loaded.sources['adapter']]).toStrictEqual([
+    null,
+    join(ctx.directory, 'repo', 'review.json'),
+  ]);
+});
+
 test('it reads a parent from a github config repo through the remote reader', async () => {
   const ctx = await setupTest();
 

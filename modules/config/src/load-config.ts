@@ -70,6 +70,12 @@ export async function loadConfig(options: LoadConfigOptions): Promise<LoadedConf
   for (const [key, fallback] of Object.entries(BUILT_IN_DEFAULTS)) {
     if (fallback === null && !(key in value)) {
       value[key] = null;
+
+      const nullSource = findNullSource(files, key);
+
+      if (nullSource !== null) {
+        sources[key] = nullSource;
+      }
     }
   }
 
@@ -329,6 +335,12 @@ function mergeSyncedLayers(
   }
 
   return merged;
+}
+
+function findNullSource(files: readonly ChainFile[], key: string): string | null {
+  const file = files.findLast((candidate) => candidate.value[key] === null);
+
+  return file === undefined ? null : formatConfigLocation(file.location);
 }
 
 interface RulesSource {
