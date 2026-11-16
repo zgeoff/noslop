@@ -470,7 +470,18 @@ export const githubHandlers = [
       );
 
       if (file === undefined) {
-        return buildNotFound();
+        const children = githubCollections.files.findMany((query) =>
+          query.where({
+            owner: info.params.owner,
+            repo: info.params.repo,
+            ref,
+            path: (path) => path.startsWith(`${info.params.path}/`),
+          }),
+        );
+
+        return children.length === 0
+          ? buildNotFound()
+          : HttpResponse.json(children.map((child) => ({ type: 'file', path: child.path })));
       }
 
       if (file.linkTarget !== null) {

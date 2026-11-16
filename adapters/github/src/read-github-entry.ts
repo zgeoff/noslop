@@ -4,6 +4,7 @@ import type { GitHubConnection } from './create-github-connection';
 export type GitHubEntry =
   | { kind: 'file'; text: string }
   | { kind: 'link'; target: string }
+  | { kind: 'folder' }
   | { kind: 'missing' };
 
 // The contents API follows a symlink whose target is a file in the repo and answers with that file.
@@ -22,11 +23,15 @@ export async function readGitHubEntry(
 
     const data = response.data;
 
-    if (!Array.isArray(data) && data.type === 'file' && 'content' in data) {
+    if (Array.isArray(data)) {
+      return { kind: 'folder' };
+    }
+
+    if (data.type === 'file' && 'content' in data) {
       return { kind: 'file', text: Buffer.from(data.content, 'base64').toString('utf8') };
     }
 
-    if (!Array.isArray(data) && data.type === 'symlink' && 'target' in data) {
+    if (data.type === 'symlink' && 'target' in data) {
       return { kind: 'link', target: data.target };
     }
 

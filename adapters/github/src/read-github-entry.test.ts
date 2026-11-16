@@ -51,6 +51,21 @@ test('it reads a symlink the contents API answers with the link itself as the li
   expect(entry).toStrictEqual({ kind: 'link', target: '../../shared/taste.md' });
 });
 
+test('it reads a folder as a folder', async () => {
+  const ctx = setupTest();
+
+  await githubCollections.files.create({
+    owner: 'example',
+    repo: 'app',
+    ref: 'v2',
+    path: 'settings/base.json',
+  });
+
+  const entry = await ctx.read('settings');
+
+  expect(entry).toStrictEqual({ kind: 'folder' });
+});
+
 test('it reads a path that does not exist as missing', async () => {
   const ctx = setupTest();
 

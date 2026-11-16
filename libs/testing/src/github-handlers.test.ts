@@ -161,6 +161,20 @@ test('it answers a symlink path with the link itself, as the contents API does f
   });
 });
 
+test('it answers a folder path with the list of its files', async () => {
+  await githubCollections.files.create({
+    owner: 'example',
+    repo: 'app',
+    ref: 'main',
+    path: 'settings/base.json',
+  });
+
+  const response = await fetch(`${GITHUB_API_URL}/repos/example/app/contents/settings?ref=main`);
+  const entries: unknown = await response.json();
+
+  expect(entries).toStrictEqual([{ type: 'file', path: 'settings/base.json' }]);
+});
+
 test('it gives a user with no collaborator record no permission', async () => {
   const response = await fetch(
     `${GITHUB_API_URL}/repos/example/app/collaborators/stranger/permission`,

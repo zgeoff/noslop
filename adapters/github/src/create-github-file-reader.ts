@@ -15,7 +15,7 @@ export function createGitHubFileReader(options: GitHubFileReaderOptions): ReadRe
     return match(entry)
       .with({ kind: 'file' }, (file) => file.text)
       .with({ kind: 'missing' }, () => null)
-      .with({ kind: 'link' }, () => {
+      .with({ kind: 'link' }, { kind: 'folder' }, () => {
         throw new Error(`${location.owner}/${location.repo}/${location.path} is not a file`);
       })
       .exhaustive();
