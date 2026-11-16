@@ -12,9 +12,13 @@ const CLI_DIR = join(REPO_DIR, 'apps', 'cli');
 const EXTERNAL = ['oxc-parser'] as const;
 
 // TypeScript rejects a schema built on one copy of zod where code expects a type from another copy.
-// So the build leaves zod out of the library bundle and its .d.ts files, and npm installs zod as a
-// dependency of the published package. A project on the package's zod version shares that one zod.
+// So the build leaves zod out of the library bundle and its .d.ts files, and the published package
+// takes zod as a peer dependency, so the project's own zod is the one copy.
 const LIBRARY_EXTERNAL = ['zod'] as const;
+
+// Raise this floor only when noslop needs a newer zod API or a security floor moves. A catalog bump
+// leaves it, so a project on any zod since this version keeps one copy.
+const ZOD_PEER_RANGE = '^4.6.7';
 
 const LIBRARY_ENTRIES = {
   '.': 'index',
@@ -36,6 +40,7 @@ export interface CLIPackageManifest {
   files: string[];
   engines: { bun: string };
   dependencies: Record<string, string>;
+  peerDependencies: Record<string, string>;
 }
 
 export async function writeCLIPackage(outDir: string): Promise<CLIPackageManifest> {
@@ -82,11 +87,9 @@ export async function writeCLIPackage(outDir: string): Promise<CLIPackageManifes
     files: ['*.js', '*.d.ts'],
     engines: { bun: bunVersion.trim() },
     dependencies: Object.fromEntries(
-      [...EXTERNAL, ...LIBRARY_EXTERNAL].map((name) => [
-        name,
-        rootPackage.workspaces.catalog[name],
-      ]),
+      EXTERNAL.map((name) => [name, rootPackage.workspaces.catalog[name]]),
     ),
+    peerDependencies: { zod: ZOD_PEER_RANGE },
   };
 
   await Bun.write(join(outDir, 'package.json'), `${JSON.stringify(manifest, null, 2)}\n`);

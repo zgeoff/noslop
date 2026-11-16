@@ -24,10 +24,11 @@ running the CLI as a process:
 The `verify`, `post` and `check` exports take the App's keys or a token from the caller, never from
 the process environment.
 
-Bun builds the exports into a second bundle, which leaves zod out. The package depends on zod, so
-npm installs it, and a caller's schemas and the package's declarations share one zod. The build then
-runs tsdown, which writes each export's declarations with TypeScript's own emit and inlines the
-types of the workspace packages they reach, so the published types import nothing but zod.
+Bun builds the exports into a second bundle, which leaves zod out. The package takes zod as a peer
+dependency, from `^4.6.7`, so the caller's own zod is the one copy that the caller's schemas and the
+package's declarations share. The build then runs tsdown, which writes each export's declarations
+with TypeScript's own emit and inlines the types of the workspace packages they reach, so the
+published types import nothing but zod.
 
 ## Commands
 
