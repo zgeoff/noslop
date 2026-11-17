@@ -1,7 +1,7 @@
 import { chmod } from 'node:fs/promises';
 import { join } from 'node:path';
 import { z } from 'zod';
-import type { StubCLIScript } from './run-stub-cli';
+import type { StubCLIScript } from './stub-cli-script-schema';
 
 export interface StubCLI {
   path: string;

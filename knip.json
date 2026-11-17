@@ -9,6 +9,8 @@
   "ignoreDependencies": ["@stylistic/eslint-plugin", "@zgeoff/agent-hooks", "@zgeoff/diet"],
   "workspaces": {
     // rig loads its config by name
-    ".": { "entry": ["rig.config.ts"] }
+    ".": { "entry": ["rig.config.ts"] },
+    // a stub CLI runs this script by its path
+    "libs/testing": { "entry": ["src/stubs/run-stub-cli.ts"] }
   }
 }

@@ -22,4 +22,4 @@ minimumReleaseAgeExcludes = [
 
 [test]
 # registers the jest-extended matchers, and starts the stand-in GitHub API with its resets
-preload = ["@zgeoff/bun-test-extended", "./libs/testing/src/start-github-stand-in.ts"]
+preload = ["@zgeoff/bun-test-extended", "./libs/testing/src/github/start-github-stand-in.ts"]
