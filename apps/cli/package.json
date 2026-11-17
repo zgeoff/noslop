@@ -8,7 +8,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./contract": "./src/contract.ts",
+    "./contract": "./src/index.ts",
     "./verify": "./src/verify.ts",
     "./post": "./src/send-result.ts",
     "./check": "./src/check.ts"
