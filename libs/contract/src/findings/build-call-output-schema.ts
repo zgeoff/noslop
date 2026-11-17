@@ -1,6 +1,6 @@
 import { z } from 'zod';
+import type { CallLens } from '../config/lens-id';
 import { criterionSchema } from './criterion';
-import type { CallLens } from './lens-id';
 import { severitySchema } from './severity';
 import { verdictSchema } from './verdict';
 

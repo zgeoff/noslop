@@ -1,9 +1,9 @@
 import { z } from 'zod';
+import { effortSchema } from '../config/effort';
+import { callLensSchema, lensIDSchema } from '../config/lens-id';
+import { droppedFindingSchema } from '../findings/dropped-finding';
+import { findingSchema } from '../findings/finding';
 import { depthSchema } from './depth';
-import { droppedFindingSchema } from './dropped-finding';
-import { effortSchema } from './effort';
-import { findingSchema } from './finding';
-import { callLensSchema, lensIDSchema } from './lens-id';
 import { tokensSchema } from './tokens';
 
 export const REVIEW_OUTPUT_VERSION = 7;

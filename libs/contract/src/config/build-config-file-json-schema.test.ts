@@ -4,7 +4,7 @@ import { buildConfigFileJSONSchema } from './build-config-file-json-schema';
 
 test('it matches the JSON Schema committed under docs/reference', async () => {
   const committed: unknown = await Bun.file(
-    join(import.meta.dir, '..', '..', '..', 'docs', 'reference', 'review.schema.json'),
+    join(import.meta.dir, '..', '..', '..', '..', 'docs', 'reference', 'review.schema.json'),
   ).json();
 
   expect(committed).toStrictEqual(buildConfigFileJSONSchema());
