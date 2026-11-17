@@ -4,8 +4,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { configureSync, getLogger, resetSync } from '@logtape/logtape';
 import { loadStore, writeReview } from '@noslop/sqlite';
-import { seedUnreadableFinding } from '@noslop/sqlite/test-utils/seed-unreadable-finding';
 import { buildMockFinding, buildMockReviewResult, readTempPrefix } from '@noslop/testing';
+import { buildSeeder } from '../test-utils/build-seeder';
 import { makeRecordedFindingReader } from './make-recorded-finding-reader';
 
 async function setupTest() {
@@ -31,9 +31,19 @@ async function setupTest() {
     resetSync();
   });
 
+  const path = join(directory, 'store.sqlite');
+
+  const store = await loadStore(path);
+
+  onTestFinished(() => store.destroy());
+
+  const deps = { store };
+
   return {
+    ...deps,
+    seed: buildSeeder(deps),
     directory,
-    path: join(directory, 'store.sqlite'),
+    path,
     logger: getLogger(['test']),
     warnings,
   };
@@ -51,12 +61,9 @@ test('it reads no recorded finding when the store cannot open', async () => {
 
 test('it reads the recorded findings of the pull request from the store at its path', async () => {
   const ctx = await setupTest();
-  const store = await loadStore(ctx.path);
-
-  onTestFinished(() => store.destroy());
 
   await writeReview(
-    store,
+    ctx.store,
     buildMockReviewResult({
       reviewID: 'review-1',
       head: '7c3e9a1f0b2d4c6e8a0f1b3d5e7c9a2b4d6f8e0a',
@@ -84,11 +91,8 @@ test('it reads the recorded findings of the pull request from the store at its p
 
 test('it warns with the count of recorded findings that break the finding contract and reads the rest', async () => {
   const ctx = await setupTest();
-  const store = await loadStore(ctx.path);
 
-  onTestFinished(() => store.destroy());
-
-  await seedUnreadableFinding(store, {
+  await ctx.seed.unreadableFinding({
     reviewID: 'review-1',
     head: '7c3e9a1f0b2d4c6e8a0f1b3d5e7c9a2b4d6f8e0a',
     pullRequest: { owner: 'example', repo: 'app', number: 7 },
@@ -96,7 +100,7 @@ test('it warns with the count of recorded findings that break the finding contra
   });
 
   await writeReview(
-    store,
+    ctx.store,
     buildMockReviewResult({
       reviewID: 'review-2',
       head: '7c3e9a1f0b2d4c6e8a0f1b3d5e7c9a2b4d6f8e0a',

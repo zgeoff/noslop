@@ -106,7 +106,10 @@ test('it names the review whose store record it lost when the store schema is ne
 
   const path = join(ctx.directory, 'store.sqlite');
 
-  await seedNewerStore(path);
+  await seedNewerStore(path, {
+    name: '9999-a-later-schema',
+    timestamp: '2026-10-18T09:00:00.000Z',
+  });
 
   const reporter = createSQLiteReporter(path, { version: '0.4.6' });
   const result = buildMockReviewResult({ head: 'd'.repeat(40) });

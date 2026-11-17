@@ -19,7 +19,10 @@ async function setupTest() {
 test('it refuses a store migrated past the newest migration it knows and leaves the store as it was', async () => {
   const ctx = await setupTest();
 
-  await seedNewerStore(ctx.path);
+  await seedNewerStore(ctx.path, {
+    name: '9999-a-later-schema',
+    timestamp: '2026-10-18T09:00:00.000Z',
+  });
 
   expect(loadStore(ctx.path, { version: '0.4.6' })).rejects.toThrowWithMessage(
     Error,

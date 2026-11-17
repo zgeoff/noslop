@@ -18,7 +18,10 @@ async function setupTest() {
 test('it records a migration later than every migration the store knows', async () => {
   const ctx = await setupTest();
 
-  await seedNewerStore(ctx.path);
+  await seedNewerStore(ctx.path, {
+    name: '9999-a-later-schema',
+    timestamp: '2026-10-18T09:00:00.000Z',
+  });
 
   const database = new Database(ctx.path, { strict: true, readonly: true });
 

@@ -12,7 +12,7 @@ import { writeDispositions } from '../dispositions/write-dispositions';
 import { writeEscape } from '../escapes/write-escape';
 import { updateCommentURLs } from '../reviews/update-comment-urls';
 import { writeReview } from '../reviews/write-review';
-import { seedDispositionWithoutPullRequest } from '../test-utils/seed-disposition-without-pull-request';
+import { buildSeeder } from '../test-utils/build-seeder';
 import { loadStore } from './load-store';
 import { runStoreQuery } from './run-store-query';
 
@@ -25,7 +25,9 @@ async function setupTest() {
 
   onTestFinished(() => store.destroy());
 
-  return { store };
+  const deps = { store };
+
+  return { ...deps, seed: buildSeeder(deps) };
 }
 
 test('it gives each lens its fixed and not-a-defect shares, in the yield-by-lens query', async () => {
@@ -889,14 +891,10 @@ test('it gives a disposition with no pull request to the finding in every pull r
     }),
   );
 
-  await seedDispositionWithoutPullRequest(ctx.store, 'example/app', {
-    findingID: '1111111111111111',
+  await ctx.seed.dispositionWithoutPullRequest({
+    repo: 'example/app',
+    finding_id: '1111111111111111',
     kind: 'not-a-defect',
-    value: 'the caller holds the lock',
-    author: 'dev',
-    authorIsOwner: false,
-    source: 'github',
-    at: '2026-10-17T11:00:00.000Z',
   });
 
   const rows = await runStoreQuery(ctx.store, 'findings-by-pr');

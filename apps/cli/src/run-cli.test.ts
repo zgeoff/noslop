@@ -562,7 +562,10 @@ test('it fails a review before any lens call when the store schema is newer than
 
   const storePath = join(ctx.directory, 'data', 'store.sqlite');
 
-  await seedNewerStore(storePath);
+  await seedNewerStore(storePath, {
+    name: '9999-a-later-schema',
+    timestamp: '2026-10-18T09:00:00.000Z',
+  });
 
   const stub = buildStubAdapter({ light: [{ findings: {} }] });
 

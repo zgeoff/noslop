@@ -84,6 +84,7 @@
         "zod": "catalog:",
       },
       "devDependencies": {
+        "@faker-js/faker": "catalog:",
         "@logtape/logtape": "catalog:",
         "@noslop/testing": "workspace:*",
       },

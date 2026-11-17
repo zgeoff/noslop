@@ -21,29 +21,19 @@ async function setupTest() {
 test('it writes a disposition row with no pull request', async () => {
   const ctx = await setupTest();
 
-  await seedDispositionWithoutPullRequest(ctx.store, 'example/app', {
-    findingID: '1111111111111111',
-    kind: 'deferred',
-    value: '#123',
-    author: 'dev',
-    authorIsOwner: true,
-    source: 'github',
-    at: '2026-10-17T11:00:00.000Z',
-  });
+  await seedDispositionWithoutPullRequest(ctx.store, { finding_id: '1111111111111111' });
 
   const rows = await ctx.store.selectFrom('dispositions').selectAll().execute();
 
-  expect(rows).toMatchObject([
-    {
-      repo: 'example/app',
-      pull_request: null,
-      finding_id: '1111111111111111',
-      kind: 'deferred',
-      value: '#123',
-      author: 'dev',
-      author_is_owner: 1,
-      source: 'github',
-      at: '2026-10-17T11:00:00.000Z',
-    },
-  ]);
+  expect(rows).toMatchObject([{ finding_id: '1111111111111111', pull_request: null }]);
+});
+
+test('it writes no pull request even when the input names one', async () => {
+  const ctx = await setupTest();
+
+  await seedDispositionWithoutPullRequest(ctx.store, { pull_request: 7 });
+
+  const rows = await ctx.store.selectFrom('dispositions').select(['pull_request']).execute();
+
+  expect(rows).toStrictEqual([{ pull_request: null }]);
 });

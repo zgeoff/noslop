@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { readTempPrefix } from '@noslop/testing';
 import { loadStore } from '../store/load-store';
+import { buildSeeder } from '../test-utils/build-seeder';
 import { readDispositions } from './read-dispositions';
 import { writeDispositions } from './write-dispositions';
 
@@ -16,7 +17,9 @@ async function setupTest() {
 
   onTestFinished(() => store.destroy());
 
-  return { store };
+  const deps = { store };
+
+  return { ...deps, seed: buildSeeder(deps) };
 }
 
 test('it reads the dispositions of one pull request of a repo in the order they were given', async () => {
@@ -160,20 +163,7 @@ test('it orders dispositions given at one time by finding, then by source', asyn
 test('it leaves out a disposition recorded with no pull request', async () => {
   const ctx = await setupTest();
 
-  await ctx.store
-    .insertInto('dispositions')
-    .values({
-      repo: 'example/app',
-      pull_request: null,
-      finding_id: '1111111111111111',
-      kind: 'fixed',
-      value: '1a2b3c4',
-      author: 'dev',
-      author_is_owner: 0,
-      source: 'github',
-      at: '2026-10-17T11:00:00.000Z',
-    })
-    .execute();
+  await ctx.seed.dispositionWithoutPullRequest({ repo: 'example/app' });
 
   const dispositions = await readDispositions(ctx.store, 'example/app', 7);
 
