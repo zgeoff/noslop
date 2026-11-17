@@ -120,3 +120,33 @@ test('it breaks a distance tie by the lens', () => {
     ),
   ).toStrictEqual([{ target: 1, reported: 0, distance: 0 }]);
 });
+
+test('it gives a finding two unmatched targets contest to the target anchored first, moving its holder to a spare finding', () => {
+  expect(
+    collectMatches(
+      [
+        { lens: null, anchor: { path: 'src/a.ts', startLine: 20, endLine: 40 } },
+        { lens: null, anchor: { path: 'src/a.ts', startLine: 18, endLine: 18 } },
+        { lens: null, anchor: { path: 'src/a.ts', startLine: 19, endLine: 19 } },
+      ],
+      [
+        {
+          lens: null,
+          anchor: { path: 'src/a.ts', startLine: 20, endLine: 20 },
+          title: 'Contested',
+          severity: 'P2',
+        },
+        {
+          lens: null,
+          anchor: { path: 'src/a.ts', startLine: 40, endLine: 40 },
+          title: 'Spare',
+          severity: 'P2',
+        },
+      ],
+      3,
+    ),
+  ).toStrictEqual([
+    { target: 0, reported: 1, distance: 0 },
+    { target: 1, reported: 0, distance: 2 },
+  ]);
+});

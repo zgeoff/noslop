@@ -245,3 +245,95 @@ test('it records a failed review when the head is not in the repo', async () => 
     },
   ]);
 });
+
+test('it records a failed review and removes the worktree when the reviewer throws', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'a.ts': 'export const a = 1;\n' } },
+    { message: 'head', files: { 'a.ts': 'export const a = 2;\n' } },
+  ]);
+
+  const runs = await runEval({
+    cases: [
+      {
+        id: 'case-1',
+        repo: repo.path,
+        base: repo.commits[0] ?? '',
+        head: repo.commits[1] ?? '',
+        title: 'feat: head',
+        body: '',
+        findings: [],
+        escapes: [],
+      },
+    ],
+    reviewer: { id: 'stub', reviewCase: () => Promise.reject(new Error('the model call failed')) },
+    runner: ctx.runner,
+    workDir: ctx.workDir,
+    parallel: 1,
+  });
+
+  const left = await Bun.file(join(ctx.workDir, 'case-1-stub', '.git')).exists();
+
+  expect(runs).toStrictEqual([
+    {
+      caseID: 'case-1',
+      review: {
+        findings: [],
+        failed: true,
+        tokens: { input: 0, cachedInput: 0, cacheWrite: 0, output: 0 },
+        durationMs: 0,
+        calls: 0,
+        depth: null,
+      },
+    },
+  ]);
+
+  expect(left).toBe(false);
+});
+
+test('it records a failed review when a reviewer that checks out the head itself throws', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'a.ts': 'export const a = 1;\n' } },
+    { message: 'head', files: { 'a.ts': 'export const a = 2;\n' } },
+  ]);
+
+  const runs = await runEval({
+    cases: [
+      {
+        id: 'case-1',
+        repo: repo.path,
+        base: repo.commits[0] ?? '',
+        head: repo.commits[1] ?? '',
+        title: 'feat: head',
+        body: '',
+        findings: [],
+        escapes: [],
+      },
+    ],
+    reviewer: {
+      id: 'self',
+      needsWorktree: false,
+      reviewCase: () => Promise.reject(new Error('the model call failed')),
+    },
+    runner: ctx.runner,
+    workDir: ctx.workDir,
+    parallel: 1,
+  });
+
+  expect(runs).toStrictEqual([
+    {
+      caseID: 'case-1',
+      review: {
+        findings: [],
+        failed: true,
+        tokens: { input: 0, cachedInput: 0, cacheWrite: 0, output: 0 },
+        durationMs: 0,
+        calls: 0,
+        depth: null,
+      },
+    },
+  ]);
+});
