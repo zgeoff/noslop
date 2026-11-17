@@ -1,4 +1,5 @@
 import type { CLIContext } from './cli-context';
+import { collectKeySources } from './collect-key-sources';
 import { loadRepoConfig } from './load-repo-config';
 import { resolveRepoDir } from './resolve-repo-dir';
 
@@ -20,14 +21,13 @@ export async function runConfigCommand(json: boolean, ctx: CLIContext): Promise<
     return 0;
   }
 
-  const lines = [
-    `config ${loaded.hash}`,
-    `chain: ${['built-in', ...loaded.chain].join(' > ')}`,
-    '',
-  ];
+  const chain = ['built-in', ...loaded.chain];
+  const lines = [`config ${loaded.hash}`, `chain: ${chain.join(' > ')}`, ''];
 
   for (const [key, value] of Object.entries(loaded.config)) {
-    lines.push(`${key} (${loaded.sources[key] ?? 'built-in'}): ${JSON.stringify(value)}`);
+    const keySources = collectKeySources(loaded.sources, key, chain);
+
+    lines.push(`${key} (${keySources.join(', ')}): ${JSON.stringify(value)}`);
   }
 
   for (const label of loaded.missingRules) {

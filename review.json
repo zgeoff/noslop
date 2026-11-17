@@ -9,5 +9,8 @@
     ".claude/skills/docs-writing/**",
     ".claude/skills/skill-writing/**",
     ".claude/hooks/start.ts"
-  ]
+  ],
+  "github": {
+    "app": "noslop-review"
+  }
 }

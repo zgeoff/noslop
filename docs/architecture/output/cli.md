@@ -41,7 +41,7 @@ types of the workspace packages they reach, so the published types import nothin
 | `noslop post <file> [--no-verify]`                                                     | Posts a verified review result to its pull request as the App                            |
 | `noslop check --pr <number> --repo <owner/name>`                                       | Sets a pull request's check run from the answers to its findings, with no review         |
 | `noslop check --read-only --pr <number> --repo <owner/name>`                           | Prints a pull request's check outcome and writes nothing to GitHub                       |
-| `noslop config`                                                                        | Prints the merged config and the file each key comes from                                |
+| `noslop config`                                                                        | Prints the merged config and the files each key comes from                               |
 | `noslop store query <name>`                                                            | Runs a named query on the [findings store](../measurement/store.md)                      |
 | `noslop store escape --repo <owner/name> --issue <issue> --head <sha> --defect <text>` | Records a defect that a review missed                                                    |
 | `noslop eval --corpus <path>`                                                          | Replays a corpus through the current config and scores it per lens                       |
