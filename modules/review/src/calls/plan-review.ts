@@ -3,7 +3,7 @@ import type { Route, RouteInput } from '@noslop/routing';
 import { buildRoute } from '@noslop/routing';
 import type { StaticStageResult } from '@noslop/static-stage';
 import { readChange, runStaticStage } from '@noslop/static-stage';
-import type { RunReviewOptions } from './run-review';
+import type { RunReviewOptions } from '../run-review';
 
 export type PlanReviewOptions = Pick<
   RunReviewOptions,

@@ -23,18 +23,18 @@ import type { PlannedCall, Route } from '@noslop/routing';
 import type { Runner } from '@noslop/runner';
 import type { StaticStageResult } from '@noslop/static-stage';
 import { buildDroppedFindings } from './build-dropped-findings';
-import { createReviewWorktree } from './create-review-worktree';
-import { planReview } from './plan-review';
+import { planReview } from './calls/plan-review';
+import type { CallBatch } from './calls/run-planned-calls';
+import { runPlannedCalls } from './calls/run-planned-calls';
+import type { AnsweredFix, FixChecksRun } from './fix-checks/run-fix-checks';
+import { runFixChecks } from './fix-checks/run-fix-checks';
+import type { MergePass } from './merge/run-merge-pass';
+import { runMergePass } from './merge/run-merge-pass';
 import { readDismissedFindings } from './read-dismissed-findings';
-import { removeReviewWorktree } from './remove-review-worktree';
 import type { DesignPass } from './run-design-pass';
 import { runDesignPass } from './run-design-pass';
-import type { AnsweredFix, FixChecksRun } from './run-fix-checks';
-import { runFixChecks } from './run-fix-checks';
-import type { MergePass } from './run-merge-pass';
-import { runMergePass } from './run-merge-pass';
-import type { CallBatch } from './run-planned-calls';
-import { runPlannedCalls } from './run-planned-calls';
+import { createReviewWorktree } from './worktree/create-review-worktree';
+import { removeReviewWorktree } from './worktree/remove-review-worktree';
 
 export interface FixCallOptions {
   answers: readonly AnsweredFix[];
