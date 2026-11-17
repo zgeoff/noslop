@@ -1,5 +1,5 @@
 import type { Criterion, FindingLens, Severity } from '@noslop/contract';
-import { normalizePath } from './normalize-path';
+import { normalizePath } from '../normalize-path';
 
 export interface LineRange {
   path: string;

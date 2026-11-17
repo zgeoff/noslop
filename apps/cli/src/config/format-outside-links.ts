@@ -1,4 +1,4 @@
-import type { OutsideLink } from '../config/load-commit-config';
+import type { OutsideLink } from './load-commit-config';
 
 export function formatOutsideLinks(links: readonly OutsideLink[]): string {
   const names = links.map((found) =>

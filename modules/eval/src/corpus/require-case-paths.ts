@@ -1,4 +1,4 @@
-import { normalizePath } from '../runs/normalize-path';
+import { normalizePath } from '../normalize-path';
 import type { Case } from './case';
 
 export function requireCasePaths(corpusCase: Case, files: readonly string[]): void {

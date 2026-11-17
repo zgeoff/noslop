@@ -2,9 +2,9 @@ import { basename } from 'node:path';
 import type { DiffLine, Hunk, ModelFinding, ReviewConfig } from '@noslop/contract';
 import type { AnalyzedFile, PackageManifest } from '../analyzed-file';
 import { isGlobMatch } from '../is-glob-match';
+import { isWorkflowFile } from '../is-workflow-file';
 import type { SourceLocation } from '../types';
 import { buildStaticFinding } from './build-static-finding';
-import { isWorkflowFile } from './is-workflow-file';
 
 export interface ConsumerManifest {
   repo: string;

@@ -5,7 +5,7 @@ import type { PullRequestRef } from '@noslop/contract';
 import type { GitHubConnection } from '@noslop/github';
 import { createGitHubFileReader, toFileText } from '@noslop/github';
 import { match } from 'ts-pattern';
-import { formatOutsideLinks } from '../result/format-outside-links';
+import { formatOutsideLinks } from './format-outside-links';
 
 export interface OutsideLink {
   path: string;

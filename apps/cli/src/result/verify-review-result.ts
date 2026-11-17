@@ -2,8 +2,8 @@ import type { ReviewResult } from '@noslop/contract';
 import { reviewResultSchema } from '@noslop/contract';
 import type { GitHubConnection } from '@noslop/github';
 import { readBranchHead, readPullRequestState } from '@noslop/github';
+import { formatOutsideLinks } from '../config/format-outside-links';
 import { loadCommitConfig } from '../config/load-commit-config';
-import { formatOutsideLinks } from './format-outside-links';
 
 export async function verifyReviewResult(
   input: unknown,
