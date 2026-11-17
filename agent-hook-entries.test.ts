@@ -1,3 +1,4 @@
+// oxlint-disable zgeoff/test-beside-module -- a repo-root test of the hook config; drop this with the oxlint-config bump, which accepts root tests
 import { expect, onTestFinished, test } from 'bun:test';
 import {
   cpSync,
@@ -22,7 +23,7 @@ function setupTest() {
     rmSync(directory, { recursive: true, force: true });
   });
 
-  const repoDir = join(import.meta.dir, '..');
+  const repoDir = import.meta.dir;
   const project = join(directory, 'project');
   const transcriptPath = join(directory, 'session.jsonl');
 
