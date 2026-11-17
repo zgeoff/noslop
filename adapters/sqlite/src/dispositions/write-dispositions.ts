@@ -1,5 +1,5 @@
 import type { Disposition } from '@noslop/contract';
-import type { Store } from './load-store';
+import type { Store } from '../store/load-store';
 
 export async function writeDispositions(
   store: Store,

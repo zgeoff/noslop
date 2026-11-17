@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { configureSync, getLogger, resetSync } from '@logtape/logtape';
 import { loadStore, writeReview } from '@noslop/sqlite';
+import { seedUnreadableFinding } from '@noslop/sqlite/test-utils/seed-unreadable-finding';
 import { buildMockFinding, buildMockReviewResult, readTempPrefix } from '@noslop/testing';
 import { makeRecordedFindingReader } from './make-recorded-finding-reader';
 
@@ -87,24 +88,22 @@ test('it warns with the count of recorded findings that break the finding contra
 
   onTestFinished(() => store.destroy());
 
+  await seedUnreadableFinding(store, {
+    reviewID: 'review-1',
+    head: '7c3e9a1f0b2d4c6e8a0f1b3d5e7c9a2b4d6f8e0a',
+    pullRequest: { owner: 'example', repo: 'app', number: 7 },
+    findings: [buildMockFinding({ id: '1111111111111111' })],
+  });
+
   await writeReview(
     store,
     buildMockReviewResult({
-      reviewID: 'review-1',
+      reviewID: 'review-2',
       head: '7c3e9a1f0b2d4c6e8a0f1b3d5e7c9a2b4d6f8e0a',
       pullRequest: { owner: 'example', repo: 'app', number: 7 },
-      findings: [
-        buildMockFinding({ id: '1111111111111111' }),
-        buildMockFinding({ id: '2222222222222222' }),
-      ],
+      findings: [buildMockFinding({ id: '2222222222222222' })],
     }),
   );
-
-  await store
-    .updateTable('findings')
-    .set({ severity: 'P1' })
-    .where('finding_id', '=', '1111111111111111')
-    .execute();
 
   const findings = await makeRecordedFindingReader(
     ctx.path,

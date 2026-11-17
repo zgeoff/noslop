@@ -1,4 +1,4 @@
-import type { Store } from './load-store';
+import type { Store } from '../store/load-store';
 
 export async function readEscapePaths(store: Store, repo: string): Promise<string[]> {
   const rows = await store

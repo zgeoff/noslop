@@ -8,11 +8,13 @@ import {
   buildMockReviewResult,
   readTempPrefix,
 } from '@noslop/testing';
+import { writeDispositions } from '../dispositions/write-dispositions';
+import { writeEscape } from '../escapes/write-escape';
+import { updateCommentURLs } from '../reviews/update-comment-urls';
+import { writeReview } from '../reviews/write-review';
+import { seedDispositionWithoutPullRequest } from '../test-utils/seed-disposition-without-pull-request';
 import { loadStore } from './load-store';
 import { runStoreQuery } from './run-store-query';
-import { updateCommentURLs } from './update-comment-urls';
-import { writeDispositions } from './write-dispositions';
-import { writeReview } from './write-review';
 
 async function setupTest() {
   const directory = await mkdtemp(join(tmpdir(), `${readTempPrefix()}noslop-store-`));
@@ -328,35 +330,29 @@ test('it counts the escapes whose lens ran on the change and reported there, in 
     buildMockReviewResult({ findings: [buildMockFinding({ id: '1111111111111111' })] }),
   );
 
-  await ctx.store
-    .insertInto('escapes')
-    .values([
-      {
-        escape_id: 'escape-1',
-        repo: 'example/app',
-        issue: '#12',
-        head: 'b'.repeat(40),
-        lens: 'correctness',
-        defect: 'The total skips the first item',
-        path: 'src/a.ts',
-        start_line: 1,
-        end_line: 1,
-        recorded_at: '2026-10-18T00:00:00.000Z',
-      },
-      {
-        escape_id: 'escape-2',
-        repo: 'example/app',
-        issue: '#13',
-        head: 'b'.repeat(40),
-        lens: 'security',
-        defect: 'The token leaks to the log',
-        path: null,
-        start_line: null,
-        end_line: null,
-        recorded_at: '2026-10-18T00:00:00.000Z',
-      },
-    ])
-    .execute();
+  await writeEscape(ctx.store, {
+    repo: 'example/app',
+    issue: '#12',
+    head: 'b'.repeat(40),
+    lens: 'correctness',
+    defect: 'The total skips the first item',
+    path: 'src/a.ts',
+    startLine: 1,
+    endLine: 1,
+    recordedAt: '2026-10-18T00:00:00.000Z',
+  });
+
+  await writeEscape(ctx.store, {
+    repo: 'example/app',
+    issue: '#13',
+    head: 'b'.repeat(40),
+    lens: 'security',
+    defect: 'The token leaks to the log',
+    path: null,
+    startLine: null,
+    endLine: null,
+    recordedAt: '2026-10-18T00:00:00.000Z',
+  });
 
   const rows = await runStoreQuery(ctx.store, 'recall-by-lens');
 
@@ -396,35 +392,29 @@ test('it counts a lens that ran in a call of the review as well as a lens the re
     }),
   );
 
-  await ctx.store
-    .insertInto('escapes')
-    .values([
-      {
-        escape_id: 'escape-1',
-        repo: 'example/app',
-        issue: '#12',
-        head: 'b'.repeat(40),
-        lens: 'correctness',
-        defect: 'The total skips the first item',
-        path: null,
-        start_line: null,
-        end_line: null,
-        recorded_at: '2026-10-18T00:00:00.000Z',
-      },
-      {
-        escape_id: 'escape-2',
-        repo: 'example/app',
-        issue: '#13',
-        head: 'c'.repeat(40),
-        lens: 'design',
-        defect: 'The parser rebuilds a library by hand',
-        path: null,
-        start_line: null,
-        end_line: null,
-        recorded_at: '2026-10-18T00:00:00.000Z',
-      },
-    ])
-    .execute();
+  await writeEscape(ctx.store, {
+    repo: 'example/app',
+    issue: '#12',
+    head: 'b'.repeat(40),
+    lens: 'correctness',
+    defect: 'The total skips the first item',
+    path: null,
+    startLine: null,
+    endLine: null,
+    recordedAt: '2026-10-18T00:00:00.000Z',
+  });
+
+  await writeEscape(ctx.store, {
+    repo: 'example/app',
+    issue: '#13',
+    head: 'c'.repeat(40),
+    lens: 'design',
+    defect: 'The parser rebuilds a library by hand',
+    path: null,
+    startLine: null,
+    endLine: null,
+    recordedAt: '2026-10-18T00:00:00.000Z',
+  });
 
   const rows = await runStoreQuery(ctx.store, 'recall-by-lens');
 
@@ -470,35 +460,29 @@ test('it counts a lens that ran in a call of the review as well as a lens the re
     }),
   );
 
-  await ctx.store
-    .insertInto('escapes')
-    .values([
-      {
-        escape_id: 'escape-1',
-        repo: 'example/app',
-        issue: '#12',
-        head: 'b'.repeat(40),
-        lens: 'correctness',
-        defect: 'The total skips the first item',
-        path: null,
-        start_line: null,
-        end_line: null,
-        recorded_at: '2026-10-18T00:00:00.000Z',
-      },
-      {
-        escape_id: 'escape-2',
-        repo: 'example/app',
-        issue: '#13',
-        head: 'c'.repeat(40),
-        lens: 'design',
-        defect: 'The parser rebuilds a library by hand',
-        path: null,
-        start_line: null,
-        end_line: null,
-        recorded_at: '2026-10-18T00:00:00.000Z',
-      },
-    ])
-    .execute();
+  await writeEscape(ctx.store, {
+    repo: 'example/app',
+    issue: '#12',
+    head: 'b'.repeat(40),
+    lens: 'correctness',
+    defect: 'The total skips the first item',
+    path: null,
+    startLine: null,
+    endLine: null,
+    recordedAt: '2026-10-18T00:00:00.000Z',
+  });
+
+  await writeEscape(ctx.store, {
+    repo: 'example/app',
+    issue: '#13',
+    head: 'c'.repeat(40),
+    lens: 'design',
+    defect: 'The parser rebuilds a library by hand',
+    path: null,
+    startLine: null,
+    endLine: null,
+    recordedAt: '2026-10-18T00:00:00.000Z',
+  });
 
   const rows = await runStoreQuery(ctx.store, 'recall-by-depth');
 
@@ -530,35 +514,29 @@ test('it counts each escape at the depth of the latest review of its change, in 
     }),
   );
 
-  await ctx.store
-    .insertInto('escapes')
-    .values([
-      {
-        escape_id: 'escape-1',
-        repo: 'example/app',
-        issue: '#12',
-        head: 'b'.repeat(40),
-        lens: 'correctness',
-        defect: 'The total skips the first item',
-        path: 'src/a.ts',
-        start_line: 1,
-        end_line: 1,
-        recorded_at: '2026-10-18T00:00:00.000Z',
-      },
-      {
-        escape_id: 'escape-2',
-        repo: 'example/app',
-        issue: '#13',
-        head: 'c'.repeat(40),
-        lens: 'correctness',
-        defect: 'The count is off by one',
-        path: null,
-        start_line: null,
-        end_line: null,
-        recorded_at: '2026-10-18T00:00:00.000Z',
-      },
-    ])
-    .execute();
+  await writeEscape(ctx.store, {
+    repo: 'example/app',
+    issue: '#12',
+    head: 'b'.repeat(40),
+    lens: 'correctness',
+    defect: 'The total skips the first item',
+    path: 'src/a.ts',
+    startLine: 1,
+    endLine: 1,
+    recordedAt: '2026-10-18T00:00:00.000Z',
+  });
+
+  await writeEscape(ctx.store, {
+    repo: 'example/app',
+    issue: '#13',
+    head: 'c'.repeat(40),
+    lens: 'correctness',
+    defect: 'The count is off by one',
+    path: null,
+    startLine: null,
+    endLine: null,
+    recordedAt: '2026-10-18T00:00:00.000Z',
+  });
 
   const rows = await runStoreQuery(ctx.store, 'recall-by-depth');
 
@@ -911,20 +889,15 @@ test('it gives a disposition with no pull request to the finding in every pull r
     }),
   );
 
-  await ctx.store
-    .insertInto('dispositions')
-    .values({
-      repo: 'example/app',
-      pull_request: null,
-      finding_id: '1111111111111111',
-      kind: 'not-a-defect',
-      value: 'the caller holds the lock',
-      author: 'dev',
-      author_is_owner: 0,
-      source: 'github',
-      at: '2026-10-17T11:00:00.000Z',
-    })
-    .execute();
+  await seedDispositionWithoutPullRequest(ctx.store, 'example/app', {
+    findingID: '1111111111111111',
+    kind: 'not-a-defect',
+    value: 'the caller holds the lock',
+    author: 'dev',
+    authorIsOwner: false,
+    source: 'github',
+    at: '2026-10-17T11:00:00.000Z',
+  });
 
   const rows = await runStoreQuery(ctx.store, 'findings-by-pr');
 

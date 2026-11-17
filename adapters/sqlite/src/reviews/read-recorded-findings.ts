@@ -1,6 +1,6 @@
 import type { Finding } from '@noslop/contract';
 import { findingSchema } from '@noslop/contract';
-import type { Store } from './load-store';
+import type { Store } from '../store/load-store';
 
 export interface RecordedFindings {
   findings: Finding[];

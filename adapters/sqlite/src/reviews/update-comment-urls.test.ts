@@ -3,7 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { buildMockFinding, buildMockReviewResult, readTempPrefix } from '@noslop/testing';
-import { loadStore } from './load-store';
+import { loadStore } from '../store/load-store';
 import { updateCommentURLs } from './update-comment-urls';
 import { writeReview } from './write-review';
 

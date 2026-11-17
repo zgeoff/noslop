@@ -1,4 +1,3 @@
-import { Database } from 'bun:sqlite';
 import { expect, mock, onTestFinished, test } from 'bun:test';
 import { mkdtemp, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -15,6 +14,7 @@ import {
   runStoreQuery,
   writeReview,
 } from '@noslop/sqlite';
+import { seedNewerStore } from '@noslop/sqlite/test-utils/seed-newer-store';
 import {
   GITHUB_API_URL,
   STUB_APP_LOGIN,
@@ -562,17 +562,7 @@ test('it fails a review before any lens call when the store schema is newer than
 
   const storePath = join(ctx.directory, 'data', 'store.sqlite');
 
-  const first = await loadStore(storePath);
-
-  await first.destroy();
-
-  const database = new Database(storePath, { strict: true });
-
-  database.run(
-    `INSERT INTO kysely_migration (name, timestamp) VALUES ('9999-a-later-schema', '2026-10-18T09:00:00.000Z')`,
-  );
-
-  database.close();
+  await seedNewerStore(storePath);
 
   const stub = buildStubAdapter({ light: [{ findings: {} }] });
 

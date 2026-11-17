@@ -1,6 +1,6 @@
 import type { Disposition } from '@noslop/contract';
 import { dispositionSchema } from '@noslop/contract';
-import type { Store } from './load-store';
+import type { Store } from '../store/load-store';
 
 export async function readDispositions(
   store: Store,

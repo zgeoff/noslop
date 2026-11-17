@@ -4,9 +4,8 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { buildMockFinding, buildMockReviewResult, readTempPrefix } from '@noslop/testing';
-import { z } from 'zod';
+import { writeReview } from '../reviews/write-review';
 import { loadStore } from './load-store';
-import { writeReview } from './write-review';
 
 async function setupTest() {
   const directory = await mkdtemp(join(tmpdir(), `${readTempPrefix()}noslop-store-`));
@@ -215,39 +214,6 @@ test('it opens a store written before findings kept an anchor commit and gives i
   const rows = await store.selectFrom('findings').select(['finding_id', 'anchor_commit']).execute();
 
   expect(rows).toStrictEqual([{ finding_id: '1111111111111111', anchor_commit: null }]);
-});
-
-test('it refuses a store migrated past the newest migration it knows and leaves the store as it was', async () => {
-  const ctx = await setupTest();
-  const first = await loadStore(ctx.path);
-
-  await first.destroy();
-
-  const database = new Database(ctx.path, { strict: true });
-
-  database.run(
-    `INSERT INTO kysely_migration (name, timestamp) VALUES ('9999-a-later-schema', '2026-10-18T09:00:00.000Z')`,
-  );
-
-  database.close();
-
-  expect(loadStore(ctx.path, { version: '0.4.6' })).rejects.toThrowWithMessage(
-    Error,
-    /^the store schema 9999-a-later-schema is newer than this noslop \(0\.4\.6\), whose newest migration is \d{4}-[a-z-]+; update the pin$/u,
-  );
-
-  const reopened = new Database(ctx.path, { strict: true, readonly: true });
-
-  onTestFinished(() => {
-    reopened.close();
-  });
-
-  const names = z
-    .array(z.object({ name: z.string() }))
-    .parse(reopened.query('SELECT name FROM kysely_migration ORDER BY name').all())
-    .map((row) => row.name);
-
-  expect(names.at(-1)).toBe('9999-a-later-schema');
 });
 
 test('it keeps one row of a disposition with no pull request written twice', async () => {

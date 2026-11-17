@@ -1,12 +1,12 @@
-import { Database } from 'bun:sqlite';
 import { expect, onTestFinished, test } from 'bun:test';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { getLogger } from '@logtape/logtape';
 import { buildMockFinding, buildMockReviewResult, readTempPrefix } from '@noslop/testing';
+import { loadStore } from '../store/load-store';
+import { seedNewerStore } from '../test-utils/seed-newer-store';
 import { createSQLiteReporter } from './create-sqlite-reporter';
-import { loadStore } from './load-store';
 
 async function setupTest() {
   const directory = await mkdtemp(join(tmpdir(), `${readTempPrefix()}noslop-store-`));
@@ -106,17 +106,7 @@ test('it names the review whose store record it lost when the store schema is ne
 
   const path = join(ctx.directory, 'store.sqlite');
 
-  const first = await loadStore(path);
-
-  await first.destroy();
-
-  const database = new Database(path, { strict: true });
-
-  database.run(
-    `INSERT INTO kysely_migration (name, timestamp) VALUES ('9999-a-later-schema', '2026-10-18T09:00:00.000Z')`,
-  );
-
-  database.close();
+  await seedNewerStore(path);
 
   const reporter = createSQLiteReporter(path, { version: '0.4.6' });
   const result = buildMockReviewResult({ head: 'd'.repeat(40) });

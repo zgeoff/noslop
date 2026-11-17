@@ -1,4 +1,4 @@
-import type { Store } from './load-store';
+import type { Store } from '../store/load-store';
 
 export async function updateCommentURLs(
   store: Store,

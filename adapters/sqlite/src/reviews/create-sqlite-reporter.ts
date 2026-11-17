@@ -1,6 +1,6 @@
 import type { Reporter } from '@noslop/contract';
-import type { LoadStoreOptions } from './load-store';
-import { loadStore } from './load-store';
+import type { LoadStoreOptions } from '../store/load-store';
+import { loadStore } from '../store/load-store';
 import { writeReview } from './write-review';
 
 export function createSQLiteReporter(

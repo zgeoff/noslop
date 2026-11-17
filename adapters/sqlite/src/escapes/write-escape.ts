@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { Store } from './load-store';
+import type { Store } from '../store/load-store';
 
 export interface Escape {
   repo: string;

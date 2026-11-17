@@ -1,5 +1,5 @@
 import type { ReviewResult } from '@noslop/contract';
-import type { Store } from './load-store';
+import type { Store } from '../store/load-store';
 
 export async function writeReview(store: Store, result: ReviewResult): Promise<void> {
   const calls = new Map(result.calls.map((call) => [call.id, call]));
