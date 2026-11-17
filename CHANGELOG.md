@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.4.30](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.29...@noslop/cli@0.4.30) (2026-11-17)
+
+### Features
+
+- **lenses:** name the code-style comments section in the naming lens
+  ([#310](https://github.com/zgeoff/noslop/issues/310))
+  ([484c852](https://github.com/zgeoff/noslop/commit/484c8525b2c77146b0b2fbb23cd0fcdb6c248dba))
+
+### Bug Fixes
+
+- **cli:** name the config files verify reads through outside links
+  ([#335](https://github.com/zgeoff/noslop/issues/335))
+  ([9517d50](https://github.com/zgeoff/noslop/commit/9517d50d96b910d413cd31255c6b8f56cb9a8c1c))
+- **github:** follow symlinks in files read through the contents api
+  ([#329](https://github.com/zgeoff/noslop/issues/329))
+  ([9c1220e](https://github.com/zgeoff/noslop/commit/9c1220eb006428c717fcc7b3f122be5803c8af80))
+- **scripts:** publish zod as a peer dependency from a fixed floor
+  ([#337](https://github.com/zgeoff/noslop/issues/337))
+  ([38bc74d](https://github.com/zgeoff/noslop/commit/38bc74d64649adb2228730f6c6d90f86e7cf4cfe))
+
 ## [0.4.29](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.28...@noslop/cli@0.4.29) (2026-11-07)
 
 ### Features
