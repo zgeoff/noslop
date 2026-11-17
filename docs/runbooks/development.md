@@ -93,9 +93,10 @@ Add `--verbose` to see the debug log on stderr. Every other flag is in `noslop <
 
 ## Run the model-api lane
 
-`integration/` holds the flows that cross several packages in one process, and every test run runs
-them. The relay flow sends a review from a developer's context through a local relay, which verifies
-and posts it, against the stand-in GitHub API and a stub model.
+A flow that crosses several packages in one process is a unit test beside the module that wires
+them, and every test run runs it. The relay flow in the CLI's `run-cli.test.ts` sends a review from
+a developer's context through a local relay, which verifies and posts it, against the stand-in
+GitHub API and a stub model.
 
 A journey that calls a live model is a `.model-api.test.ts` file beside the code it drives: it
 belongs to the model-api lane, which the default run leaves out. The review journeys sit beside the
