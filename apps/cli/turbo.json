@@ -1,4 +1,4 @@
 {
   "extends": ["//"],
-  "tags": ["app", "cli"]
+  "tags": ["app"]
 }

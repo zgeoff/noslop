@@ -2,13 +2,13 @@
 
 - Date: 2026-10-17
 - Status: decided
-- Updated: 2026-10-17
+- Updated: 2026-11-17
 
 noslop is one Bun workspace in 4 folders, and every package takes the `@noslop/` scope:
 
 | Folder      | Holds                                                                                   |
 | ----------- | --------------------------------------------------------------------------------------- |
-| `apps/`     | Deployables: `cli`, published as `@noslop/cli` with the bin `noslop`, and `github-app`  |
+| `apps/`     | Deployables: `cli`, published as `@noslop/cli` with the bin `noslop`                    |
 | `modules/`  | `config`, `static-stage`, `routing`, `lenses`, `review`, `findings`, `eval`             |
 | `adapters/` | One package per outside system: `codex`, `claude`, `github`, `sqlite`, `webhook`        |
 | `libs/`     | Shared code: `contract` for the zod schemas, `runner` for spawning a process, `testing` |
@@ -40,3 +40,4 @@ adapter and passes it to the module that uses it.
   [0015](0015-reporters.md).
 - 2026-10-17: added the `runner` lib, the one place that spawns a process under
   [0016](0016-the-stack.md).
+- 2026-11-17: removed the `github-app` server from `apps/`, since every review runs through the CLI.

@@ -4,9 +4,10 @@ A review turns the change between two commits into a list of findings. It reads 
 git, runs the static stage over it, routes the change to the lenses that fire, sends those lenses to
 a model in calls, and assembles what comes back into findings. Every fact a model needs and code can
 compute comes from the static stage first, under [0002](../../decisions/0002-the-pipeline.md), so
-the model calls spend their tokens on judgement. The review module runs these stages; the CLI and
-the [GitHub App](../output/github-app.md) only supply the change and hand the result to
-[reporters](../output/reporters.md).
+the model calls spend their tokens on judgement. The review module runs these stages; the
+[CLI](../output/cli.md) only supplies the change and hands the result to
+[reporters](../output/reporters.md), such as the one that posts as
+[the GitHub App](../output/github-app.md).
 
 ```mermaid
 flowchart LR

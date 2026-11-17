@@ -55,7 +55,7 @@ every part.
   - [Reporters](architecture/output/reporters.md): where a result goes, and how dispositions come
     back
   - [The GitHub App](architecture/output/github-app.md): inline comments, the check run,
-    dispositions and the App server
+    dispositions and the App's keys
   - [Re-review and fix confirmation](architecture/output/re-review.md): what a later review reads,
     how a fix gets confirmed, and the net-change key
   - [The fixes-only run](architecture/output/fixes-only-run.md): the run that checks each `fixed`

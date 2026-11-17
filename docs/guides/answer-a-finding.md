@@ -28,8 +28,8 @@ and [0009](../decisions/0009-the-merge-loop.md) records why the merge works this
    4f0c2a9e1b7d3c58 not-a-defect the caller already holds the lock
    ```
 
-4. Wait for the check to update. Each reply, edit or deletion sets the check again, with no new
-   review.
+4. Wait for the check to update. The check changes when `noslop check` or the next review runs, and
+   your repo's automation decides when that is, such as after each reply.
 
 The finding's latest disposition counts, so to change your answer, reply again. A reply in any other
 form is no disposition. noslop answers it once with the accepted forms, and the finding stays open.
@@ -110,7 +110,8 @@ the reply before the push that carries the fix:
 
 1. Commit the fix on the branch.
 2. Reply `fixed`, or `fixed <sha>` with that commit's sha as a hint.
-3. Push the branch. The App reviews the files whose patch the push changed and runs the fix check.
+3. Push the branch. The next review reads the files whose patch the push changed and runs the fix
+   check.
 4. Expect the finding's comment to show its heading struck through, and the check to stop listing
    the finding.
 

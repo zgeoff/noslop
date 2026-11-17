@@ -45,7 +45,6 @@ source through an `exports` map that points at `src/index.ts`.
 ```text
 apps/              deployables
   cli/             @noslop/cli, the bin `noslop`; composition root for a review
-  github-app/      the server the GitHub App runs; it runs the CLI for each webhook delivery
 modules/           config, static-stage, routing, lenses, review, findings, eval
 adapters/          one outside system each: codex, claude, github, sqlite, webhook
 libs/              shared code that belongs to no domain: contract, runner, testing

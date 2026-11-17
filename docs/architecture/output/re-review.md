@@ -53,11 +53,11 @@ open, and the summary shows the reason. The summary marker keeps each fix that t
 could not judge, as the finding id, the commit its answer names and the reason, so the check run and
 the [findings list](./cli.md#listing-the-findings) give that reason.
 
-A `fixed` reply posted after the last review gets no fix check from the check job that the reply
-queues, because that job reads only what GitHub holds. The fix waits for the next run that runs fix
-checks: the review of a later push, or a fixes-only run. Until that run, the finding stays open
-under [dispositions](./github-app.md#dispositions), so the check passes only on fixes that a fix
-check read.
+A `fixed` reply posted after the last review gets no fix check from a `noslop check` run, because
+that command reads only what GitHub holds. The fix waits for the next run that runs fix checks: the
+review of a later push, or a fixes-only run. Until that run, the finding stays open under
+[dispositions](./github-app.md#dispositions), so the check passes only on fixes that a fix check
+read.
 
 ## The net-change key
 

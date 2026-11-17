@@ -1,8 +1,8 @@
 # Set up a repo
 
 You install the `noslop` CLI, review a branch on your own machine, and then, if you want, add a
-`review.json` and have noslop review every pull request through a GitHub App you run. A repo needs
-no config for the first review: the built-in defaults review any change, and
+`review.json` and have noslop post its review of every pull request as a GitHub App you register. A
+repo needs no config for the first review: the built-in defaults review any change, and
 [the reviewer config](../architecture/config/review-config.md) covers what they hold.
 
 ## Install the CLI
@@ -79,52 +79,47 @@ to try a change before you commit it. The keys and their meanings live in
 
 ## Review pull requests
 
-noslop reviews pull requests through a GitHub App that you register and a server that you run. The
-server receives each webhook, runs `noslop review --pr` in a clone of the repo, and posts the
-findings, a summary comment and a `noslop` check run.
-[The GitHub App](../architecture/output/github-app.md) covers what it posts and when the check
+noslop posts its findings, a summary comment and a `noslop` check run on a pull request as a GitHub
+App that you register. noslop runs no server: your own automation, such as a CI job or a service
+your org runs, runs the CLI with the App's keys on each push and after each reply.
+[The GitHub App](../architecture/output/github-app.md) covers what the App posts and when the check
 passes.
 
 1. Register a GitHub App on your account or organization:
-   - Set the webhook URL to `https://<server_host>/webhook`, and set a webhook secret.
-   - Subscribe it to the pull request, pull request review comment and issue comment events.
+   - Leave its webhook off, because noslop acts only when a command runs.
    - Give it repository permissions for what it does: read contents, write pull requests, write
      issues, write checks, and read metadata.
 2. Generate a private key for the App, and note the App's ID.
-3. On the machine that runs the server, clone noslop and install its dependencies:
-
-   ```bash
-   git clone https://github.com/zgeoff/noslop.git
-   cd noslop
-   bun install
-   ```
-
-   That machine needs Bun, `git` and a signed-in model CLI, as a local review does.
-
-4. Set the server's environment, then start it:
+3. Install the App on the repo, and note the installation ID from the installation's settings URL.
+4. On the machine or runner that reviews, [install the CLI](#install-the-cli), and give it `git` and
+   a signed-in model CLI, as a local review needs.
+5. Set the App's keys in that environment:
 
    ```bash
    export NOSLOP_GITHUB_APP_ID=<app_id>
    export NOSLOP_GITHUB_APP_PRIVATE_KEY="$(cat <private_key_file>)"
-   export NOSLOP_GITHUB_WEBHOOK_SECRET=<webhook_secret>
-   export NOSLOP_GITHUB_APP_REPOS_DIR=<folder_for_clones>
-   bun run --cwd apps/github-app start
+   export NOSLOP_GITHUB_APP_INSTALLATION_ID=<installation_id>
    ```
 
-   Expect the log line `the noslop App listens on port 3000`. `PORT` sets another port. When a key
-   is missing, the server refuses to start with `the noslop App needs these settings:` and the
-   missing keys.
+6. Run a review of a pull request in a clone of the repo. Point Bun at a config outside the repo,
+   such as an empty file, so a preload in the repo's `bunfig.toml` cannot read the App's keys:
 
-5. Check that the server answers: `curl https://<server_host>/health` prints `ok`.
-6. Install the App on the repo.
-7. Open a pull request, or mark a draft ready for review. Expect a pull request review from the App
-   with a comment per finding or per large class of like findings, a summary comment, and a `noslop`
-   check run on the head.
-8. Make the `noslop` check required in the branch protection of the default branch, so a pull
+   ```bash
+   bun --config=<bunfig_path> "$(command -v noslop)" review --pr <number> --repo <owner/name> --report github
+   ```
+
+   Expect a pull request review from the App with a comment per finding or per large class of like
+   findings, a summary comment, and a `noslop` check run on the head.
+
+7. Have your automation run that command on each push to the pull request. Each review covers only
+   the commits since the last one.
+8. Have it run `noslop check --pr <number> --repo <owner/name>`, started the same way, after each
+   reply to a finding, so the check run shows the new answers with no new review.
+9. Make the `noslop` check required in the branch protection of the default branch, so a pull
    request merges only once every finding holds a valid answer.
 
-The App reviews each new push to the pull request again, and covers only the commits since the last
-review. To answer its findings, see [Answer a finding](./answer-a-finding.md).
+To answer the App's findings, see [Answer a finding](./answer-a-finding.md). To gate the merge with
+rules of your own, see [enforce a review with a relay](./enforce-a-review-with-a-relay.md).
 
 ## Review a pull request from your machine
 
