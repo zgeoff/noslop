@@ -95,7 +95,8 @@ Every call has a timeout: the longest its lenses set, else the adapter's timeout
 else the adapter's default. A call that times out, exits with an error, or returns output that fails
 the schema rejects. The review module retries a rejected call once on the same adapter, and a second
 failure lists the call as failed in the review result while the other calls run on.
-[The GitHub App](../output/github-app.md) covers how a failed call holds back the check run.
+[What a review posts](../output/github-app.md#what-a-review-posts) covers how the summary marks a
+review with a failed call as partial.
 
 Each adapter puts the CLI's own error text in the failed call's reason, so a reader of the result
 sees a cause such as a spent usage limit. The Claude adapter takes that text from Claude's JSON

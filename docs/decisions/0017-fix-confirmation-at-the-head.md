@@ -2,7 +2,7 @@
 
 - Date: 2026-10-21
 - Status: decided
-- Updated: 2026-11-07
+- Updated: 2026-11-17
 
 This record sets how noslop confirms a fix, what a later review reads, and what noslop's `noslop`
 check run means. Its aim is one invariant: a rebase, a squash, a merge of the base or a moved fix
@@ -131,7 +131,7 @@ ask the owner for an override and say why.
   no longer uses, such as a review count and lists of merges. It keeps the list of findings that an
   older release filed to an issue, and posts none of them on the pull request. When a marker holds
   no key, the next review of another head reads the whole change and writes the key.
-- **The GitHub App.** The App server runs the CLI release it ships with, so the App gets each rule
+- **The GitHub App.** Every post as the App comes from a run of the CLI, so the App gets each rule
   in this record with no code of its own.
 
 ## Changes
@@ -140,3 +140,4 @@ ask the owner for an override and say why.
   only that no finding is open; `--fixes-only` runs the fix checks alone; the answer rules stay in
   noslop; cut input is never judged. Dropped the cap on reviews, the check's pass on an unchanged
   key, and the migration rule for open pull requests. Recorded the file-mode gap of the key.
+- 2026-11-17: the App's posts come from runs of the CLI, since noslop has no App server.

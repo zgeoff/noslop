@@ -3,9 +3,10 @@
 The CLI, the bin `noslop` in `@noslop/cli`, is the composition root for a review: it reads the
 config, builds the adapter and the reporters, runs the pipeline on one change, and hands the result
 to each reporter. It reviews a local branch or a pull request, and its JSON output carries a schema
-version, so other tools pin a CLI version and read one shape. [The GitHub App](./github-app.md) runs
-its reviews and its check updates through this CLI. [0011](../../decisions/0011-model-adapters.md)
-records why noslop is a versioned CLI with JSON output.
+version, so other tools pin a CLI version and read one shape. Every review and check that
+[the GitHub App](./github-app.md) posts comes from a run of this CLI.
+[0011](../../decisions/0011-model-adapters.md) records why noslop is a versioned CLI with JSON
+output.
 
 The npm package `@noslop/cli` holds a Bun bundle of the CLI and every workspace package it imports,
 the [lens](../review/lenses.md) prompts included, so the workspace packages stay private. The bundle

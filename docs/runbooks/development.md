@@ -85,9 +85,9 @@ Expect the same summary an installed `noslop review` prints.
 
 Keep the `--config` flag. Bun reads `bunfig.toml` from the working directory, so without the flag it
 loads the other repo's Bun config, and any preload in it runs inside the CLI's process. The flag
-makes Bun read noslop's own config instead. The App server runs each job the same way, with the path
-to noslop's `bunfig.toml`, so a reviewed repo's code never runs beside the App's credentials.
-[The GitHub App](../architecture/output/github-app.md) covers that boundary.
+makes Bun read noslop's own config instead.
+[The App's keys](../architecture/output/github-app.md#the-apps-keys) covers how the CLI keeps the
+App's keys from the reviewed repo's code.
 
 Add `--verbose` to see the debug log on stderr. Every other flag is in `noslop <command> --help`.
 

@@ -9,68 +9,27 @@ ways: a branch rule that requires the check, or a relay. A relay is a service th
 which reads the findings and applies its own rules, as
 [enforce a review with a relay](../../guides/enforce-a-review-with-a-relay.md) describes. Every
 piece of state the App keeps lives in hidden markers inside its own comments, so each run reads the
-pull request's state back from GitHub and the server keeps no database.
+pull request's state back from GitHub and noslop keeps no database for it.
 [0009](../../decisions/0009-the-merge-loop.md) records the merge loop.
 
-The App server runs those reviews: a webhook endpoint, a queue of jobs per pull request, and jobs
-that run the noslop CLI.
-
-```mermaid
-flowchart LR
-  github[GitHub] -->|signed delivery| endpoint[webhook endpoint]
-  endpoint --> queue[job queue per pull request]
-  queue --> job[job]
-  job -->|review| review[noslop review --pr]
-  job -->|check| check[noslop check --pr]
-  review -->|review, summary, check run| github
-  check -->|check run| github
-```
+A review reaches the pull request when a caller runs
+`noslop review --pr <number> --repo <owner/name> --report github` with the App's keys in the
+environment. The check run changes again only when `noslop review` or `noslop check` runs. noslop
+runs no server, so a push or a reply changes nothing on the pull request until the caller runs one
+of those commands. The caller decides when each runs, such as a review on each push and a check
+after each reply.
 
 [Reporters](./reporters.md) covers the order the reporters run in, and [the CLI](./cli.md) covers
-the commands the jobs run. [Re-review and fix confirmation](./re-review.md) covers what a later
-review reads, how a fix gets confirmed, and the net-change key.
+the commands. [Re-review and fix confirmation](./re-review.md) covers what a later review reads, how
+a fix gets confirmed, and the net-change key.
 
-## The App server
+## The App's keys
 
-The server is an Elysia app in the `apps/github-app` package. It builds only on what `@noslop/cli`
-publishes, the `noslop` bin and the library entries, as an org's own relay does, and a lint rule
-refuses an import of any other noslop package in its code. Its webhook endpoint checks each
-delivery's signature against the App's webhook secret and refuses an unsigned or wrongly signed one.
-A delivery the App acts on goes to the queue, and the endpoint answers at once, because GitHub
-counts a delivery as failed when the answer takes longer than its short timeout.
-
-The App acts on two kinds of event, and leaves every other delivery be:
-
-- A pull request opened, synchronized, reopened or marked ready for review queues a review job. A
-  draft queues nothing.
-- A new review comment or a new comment on a pull request queues a check job, so a person's reply
-  changes the check without a new review.
-
-A comment that a bot wrote is dropped, the App's own included, so the comments a job posts never
-start another job. A pull request that a bot opened or pushed is reviewed, because agents open most
-of the pull requests noslop reviews. An edited or deleted comment queues a check like a new one,
-since an edit can change a disposition.
-
-The queue runs the jobs of one repo one at a time, in the order they came, because the jobs share
-the repo's clone and two reviews of one pull request must never read the same state and post at
-once. Jobs of different repos run side by side. A failed job is logged, and the next job still runs.
-The queue lives in the server's memory, so a restart drops the jobs it held; the next push or
-comment queues a new one.
-
-A review job mints an installation token for the App, clones the repo into the server's repos folder
-or fetches it when the clone exists, fetches the pull request's head, checks out the default branch,
-and runs `noslop review --pr <number> --repo <owner/name> --report sqlite,github` in the clone. The
-CLI reads the review config from the tip of the pull request's base branch. The token reaches git
-through git's environment config, so it never appears in a command line that other processes can
-list or in the clone's config file. A check job runs
-`noslop check --pr <number> --repo <owner/name>`. Each job passes the App's credentials and the
-event's installation to the CLI through its environment.
-
-The reviewed repo's code never sees those credentials. A job runs the `noslop` bin that the package
-installs under noslop's own Bun config, so Bun loads no preload from the repo, and the CLI removes
-the App's keys from its process environment before it spawns a model CLI or git. The server reads
-the App's id, private key, webhook secret and repos folder from its environment, and refuses to
-start when one is missing.
+The CLI reads the App's id, private key and installation id from `NOSLOP_GITHUB_APP_ID`,
+`NOSLOP_GITHUB_APP_PRIVATE_KEY` and `NOSLOP_GITHUB_APP_INSTALLATION_ID`, and refuses to start a
+command when only some of them are set. The reviewed repo's code never sees those keys: the CLI
+removes every `NOSLOP_GITHUB_` variable from its process environment before it spawns a model CLI or
+git.
 
 ## What a review posts
 

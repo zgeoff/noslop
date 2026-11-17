@@ -2,7 +2,7 @@
 
 - Date: 2026-10-17
 - Status: decided
-- Updated: 2026-10-18
+- Updated: 2026-11-17
 
 Each model CLI sits behind an adapter. An adapter takes a prompt and an output schema, runs the CLI,
 and returns JSON. It maps the 3 depths onto the CLI's own effort names. Every adapter in noslop is
@@ -20,8 +20,8 @@ appends to the user's own instructions and never replaces them. The Claude adapt
 files, so it keeps no user instructions: the user's settings would also load their hooks and plugins
 into every call.
 
-A review that runs unattended, such as on the GitHub App's server or a scheduled runner, runs its
-model CLI on an API key, not on a subscription login.
+A review that runs unattended, such as in CI or on a scheduled runner, runs its model CLI on an API
+key, not on a subscription login.
 
 ## Why
 
@@ -54,3 +54,5 @@ model CLI on an API key, not on a subscription login.
   workspace packages it imports, with oxc-parser as its one dependency.
 - 2026-10-18: release-please releases `@noslop/cli` with trusted publishing, and an unattended
   review runs its model CLI on an API key.
+- 2026-11-17: an unattended review runs in CI or on a scheduled runner, now that noslop has no App
+  server.

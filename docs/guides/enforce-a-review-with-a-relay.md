@@ -142,8 +142,9 @@ review call failed. To require a review of each new head commit, add the rule in
 
 Leave the `noslop` check run out of the branch rules. The relay sets it only when it posts, and an
 answer to a finding sets nothing, so the check run shows the state at post time. Require it only
-when your relay also runs `noslop check` with the App's keys on each comment webhook, as
-[the GitHub App](../architecture/output/github-app.md) does.
+when your relay also runs `noslop check` with the App's keys on each comment webhook, so the check
+run updates after each answer, as
+[the check run](../architecture/output/github-app.md#the-check-run) describes.
 
 ## Add your own merge rules
 

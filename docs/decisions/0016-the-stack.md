@@ -2,7 +2,7 @@
 
 - Date: 2026-10-17
 - Status: decided
-- Updated: 2026-11-07
+- Updated: 2026-11-17
 
 noslop builds on this stack:
 
@@ -15,8 +15,7 @@ noslop builds on this stack:
 | Logging                    | LogTape                                              |
 | Parsing                    | oxc-parser                                           |
 | The findings store         | Kysely on `bun:sqlite`                               |
-| The GitHub App's server    | Elysia                                               |
-| GitHub's API and webhooks  | `@octokit/app`, `@octokit/webhooks`, `@octokit/core` |
+| GitHub's API               | `@octokit/app`, `@octokit/core`                      |
 | GitHub's API types         | `@octokit/types`                                     |
 | The GitHub test stand-in   | msw with `@msw/data` and `@mswjs/interceptors`       |
 | Spawning a CLI             | One injected runner on `Bun.spawn`                   |
@@ -63,3 +62,5 @@ noslop builds on this stack:
 - 2026-10-18: the declarations build on TypeScript 7, with no TypeScript 6 holdback.
 - 2026-11-07: moved the stand-in to msw 3 and the web `fetch` interceptor of `@mswjs/interceptors`,
   in place of the msw 2.15.0 pin.
+- 2026-11-17: dropped Elysia and `@octokit/webhooks` with the App server, since no package imports
+  them.

@@ -9,8 +9,6 @@
   "ignoreDependencies": ["@stylistic/eslint-plugin", "@zgeoff/agent-hooks", "@zgeoff/diet"],
   "workspaces": {
     // rig loads its config by name
-    ".": { "entry": ["rig.config.ts"] },
-    // the App server runs the noslop bin of @noslop/cli by its path, which knip cannot see
-    "apps/github-app": { "ignoreDependencies": ["@noslop/cli"] }
+    ".": { "entry": ["rig.config.ts"] }
   }
 }
