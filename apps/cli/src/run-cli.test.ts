@@ -9552,6 +9552,91 @@ test('it verifies a pull request review whose repo: rules file sits under a syml
   });
 });
 
+test.each([
+  {
+    rule: '.claude/skills/style/SKILL.md',
+    stderr:
+      /^noslop: the config at [0-9a-f]{12} reads files through symlinks that leave the repo, which GitHub cannot serve: \.claude\/skills\/style\/SKILL\.md \(under \.claude\/skills, a link to \.\.\/\.\.\/outside\/skills\)\n$/u,
+  },
+  {
+    rule: 'repo:.claude/skills/style/SKILL.md',
+    stderr:
+      /; the config on main reads files through symlinks that leave the repo, which GitHub cannot serve: \.claude\/skills\/style\/SKILL\.md \(under \.claude\/skills, a link to \.\.\/\.\.\/outside\/skills\)\n$/u,
+  },
+])(
+  'it refuses a review whose $rule rules file sits under a symlink that leaves the repo, and names the file',
+  async (row) => {
+    const ctx = await setupTest();
+
+    const config = `{ "rules": ["${row.rule}"] }\n`;
+
+    await Bun.write(
+      join(ctx.directory, 'outside/skills/style/SKILL.md'),
+      'Name each total for what it sums.\n',
+    );
+
+    const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+      {
+        message: 'base',
+        files: { 'review.json': config, 'src/a.ts': 'export const a = 1;\n' },
+        links: { '.claude/skills': '../../outside/skills' },
+      },
+      { message: 'Change a', files: { 'src/a.ts': 'export const a = 2;\n' } },
+    ]);
+
+    await githubCollections.pullRequests.create({
+      owner: 'example',
+      repo: 'app',
+      number: 9,
+      baseRef: 'main',
+      baseSha: repo.commits[0] ?? '',
+      headSha: repo.commits[1] ?? '',
+    });
+
+    await githubCollections.branches.create({
+      owner: 'example',
+      repo: 'app',
+      name: 'main',
+      sha: repo.commits[0] ?? '',
+    });
+
+    await githubCollections.files.create({
+      owner: 'example',
+      repo: 'app',
+      ref: repo.commits[0] ?? '',
+      path: 'review.json',
+      content: config,
+    });
+
+    await githubCollections.files.create({
+      owner: 'example',
+      repo: 'app',
+      ref: repo.commits[0] ?? '',
+      path: '.claude/skills',
+      target: '../../outside/skills',
+    });
+
+    const stub = buildStubAdapter({ light: [{ findings: { correctness: [] } }] });
+
+    await runCLI(
+      ['review', '--pr', '9', '--repo', 'example/app', '--report', 'json', '--json'],
+      ctx.buildContext(repo.path, stub.adapter),
+    );
+
+    await Bun.write(join(ctx.directory, 'result.json'), ctx.stdout.splice(0).join(''));
+
+    const code = await runCLI(
+      ['verify', join(ctx.directory, 'result.json')],
+      ctx.buildContext(repo.path, stub.adapter),
+    );
+
+    expect({ code, stderr: ctx.stderr.join('') }).toStrictEqual({
+      code: 1,
+      stderr: expect.stringMatching(row.stderr),
+    });
+  },
+);
+
 test('it refuses a result whose head is no longer the head of the pull request', async () => {
   const ctx = await setupTest();
 

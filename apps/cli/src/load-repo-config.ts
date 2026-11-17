@@ -1,7 +1,7 @@
 import { isAbsolute, join, posix, relative, sep } from 'node:path';
 import type { LoadedConfig, ReadLocalFile } from '@noslop/config';
 import { loadConfig } from '@noslop/config';
-import { createGitHubFileReader } from '@noslop/github';
+import { createGitHubFileReader, toFileText } from '@noslop/github';
 import type { Runner } from '@noslop/runner';
 import type { CLIContext } from './cli-context';
 
@@ -16,9 +16,15 @@ export function loadRepoConfig(
   repoDir: string,
   options: RepoConfigOptions = {},
 ): Promise<LoadedConfig> {
+  const readGitHubFile = createGitHubFileReader({ loadConnection: ctx.loadGitHubConnection });
+
   return loadConfig({
     repoDir,
-    readRemoteFile: createGitHubFileReader({ loadConnection: ctx.loadGitHubConnection }),
+    readRemoteFile: async (location) => {
+      const read = await readGitHubFile(location);
+
+      return toFileText(read);
+    },
     ...(options.rulesRepoDir === undefined ? {} : { rulesRepoDir: options.rulesRepoDir }),
     ...(options.commit === undefined
       ? {}

@@ -113,22 +113,23 @@ to the output. [Findings](../review/findings.md) covers the finding schema insid
 
 ## Verifying a result
 
-`verify` lets a service that receives a review result from someone else's machine trust it before it
-posts it. It parses the result against the result schema, then reads the result's pull request from
-GitHub and refuses the result unless both of these hold:
+A service that receives a review result from another developer's machine runs `verify` to check the
+result before the service posts it. `verify` parses the result against the result schema, then reads
+the result's pull request from GitHub and refuses the result unless both of these hold:
 
 - The result reviews the pull request's current head, so a push after the review voids it.
-- The result's config hash equals the hash of the config on the pull request's base branch, so
-  `verify` refuses a review that ran under any other config, such as one that a later change to the
-  base branch or to the parent config it extends has replaced.
+- The result's config hash equals the hash of the config on the pull request's base branch. A push
+  to the base branch, or to a parent config that the base branch's config extends, changes that
+  hash, so `verify` refuses a review that ran under the config from before the push.
 
 The CLI reads the commit the base branch points at, then loads that commit's config through GitHub's
 contents API, with no checkout, so a push during the load cannot mix 2 commits. It loads the config
 by the same rules a review loads a config by, so the 2 hashes match when the 2 configs match. Like a
 review, it follows each symlink on a file's path, a link to a folder included. A rules file outside
 the repo, which only the reviewer's machine holds, reads as missing, so a config that lists one
-never verifies. A rules file that a symlink points at outside the repo reads as missing the same
-way. `verify` exits 1 and prints each mismatch to stderr.
+never verifies. When a symlink on a config file's path points outside the file's repo, `verify`
+names that file, with the link and the link's target. `verify` exits 1 and prints each mismatch to
+stderr.
 
 ## Posting a result
 

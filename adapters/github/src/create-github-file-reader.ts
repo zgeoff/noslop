@@ -1,5 +1,5 @@
 import { posix } from 'node:path';
-import type { GithubLocation, ReadRemoteFile } from '@noslop/config';
+import type { GithubLocation } from '@noslop/config';
 import { match } from 'ts-pattern';
 import type { GitHubConnection } from './create-github-connection';
 
@@ -7,21 +7,34 @@ export interface GitHubFileReaderOptions {
   loadConnection: () => Promise<GitHubConnection>;
 }
 
+export type GitHubFileRead =
+  | { kind: 'file'; text: string }
+  | { kind: 'missing' }
+  | { kind: 'outside'; link: string; target: string };
+
 // Linux bounds a path lookup at 40 symlinks, so a link cycle fails at the bound a git read uses.
 const MAX_LINK_HOPS = 40;
+const MISSING: GitHubFileRead = { kind: 'missing' };
 
-export function createGitHubFileReader(options: GitHubFileReaderOptions): ReadRemoteFile {
-  const readFile = async (location: GithubLocation, hops: number): Promise<string | null> => {
+interface FoundLink {
+  path: string;
+  target: string;
+}
+
+export function createGitHubFileReader(
+  options: GitHubFileReaderOptions,
+): (location: GithubLocation) => Promise<GitHubFileRead> {
+  const readFile = async (location: GithubLocation, hops: number): Promise<GitHubFileRead> => {
     const connection = await options.loadConnection();
     const entry = await readContentEntry(connection, location, location.path);
 
     return match(entry)
-      .with({ kind: 'file' }, (file) => Promise.resolve<string | null>(file.text))
+      .with({ kind: 'file' }, (file) => Promise.resolve<GitHubFileRead>(file))
       .with({ kind: 'link' }, (link) =>
-        followLink(location, hops, buildLinkedPath(location.path, link.target, [])),
+        followLink(location, hops, { path: location.path, target: link.target }, []),
       )
       .with({ kind: 'missing' }, () => readThroughLinkedFolder(connection, location, hops))
-      .with({ kind: 'directory' }, { kind: 'other' }, () => Promise.resolve(null))
+      .with({ kind: 'directory' }, { kind: 'other' }, () => Promise.resolve(MISSING))
       .exhaustive();
   };
 
@@ -31,7 +44,7 @@ export function createGitHubFileReader(options: GitHubFileReaderOptions): ReadRe
     connection: GitHubConnection,
     location: GithubLocation,
     hops: number,
-  ): Promise<string | null> => {
+  ): Promise<GitHubFileRead> => {
     const segments = location.path.split('/');
 
     for (let index = 0; index < segments.length - 1; index += 1) {
@@ -40,31 +53,41 @@ export function createGitHubFileReader(options: GitHubFileReaderOptions): ReadRe
       const folder = await readContentEntry(connection, location, prefix);
 
       if (folder.kind === 'link') {
-        const rest = segments.slice(index + 1);
-
-        return followLink(location, hops, buildLinkedPath(prefix, folder.target, rest));
+        return followLink(
+          location,
+          hops,
+          { path: prefix, target: folder.target },
+          segments.slice(index + 1),
+        );
       }
 
       if (folder.kind !== 'directory') {
-        return null;
+        return MISSING;
       }
     }
 
-    return null;
+    return MISSING;
   };
 
   const followLink = (
     location: GithubLocation,
     hops: number,
-    path: string | null,
-  ): Promise<string | null> => {
+    link: FoundLink,
+    rest: readonly string[],
+  ): Promise<GitHubFileRead> => {
     if (hops >= MAX_LINK_HOPS) {
       throw new Error(
         `${location.owner}/${location.repo}/${location.path} follows too many symlinks`,
       );
     }
 
-    return path === null ? Promise.resolve(null) : readFile({ ...location, path }, hops + 1);
+    const path = buildLinkedPath(link.path, link.target, rest);
+
+    if (path === null) {
+      return Promise.resolve({ kind: 'outside', link: link.path, target: link.target });
+    }
+
+    return path === '.' ? Promise.resolve(MISSING) : readFile({ ...location, path }, hops + 1);
   };
 
   return (location) => readFile(location, 0);
@@ -114,14 +137,14 @@ async function readContentEntry(
   }
 }
 
-// The contents API serves only the repo's own files, so a target outside the repo reads as
-// missing.
-function buildLinkedPath(link: string, target: string, rest: string[]): string | null {
+// The contents API serves only the repo's own files, so a target outside the repo has no path to
+// read.
+function buildLinkedPath(link: string, target: string, rest: readonly string[]): string | null {
   if (posix.isAbsolute(target)) {
     return null;
   }
 
   const path = posix.join(posix.dirname(link), target, ...rest);
 
-  return path === '.' || path === '..' || path.startsWith('../') ? null : path;
+  return path === '..' || path.startsWith('../') ? null : path;
 }

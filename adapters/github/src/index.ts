@@ -20,6 +20,7 @@ export * from './read-pull-request-state';
 export * from './read-thread-dispositions';
 export * from './read-github-check';
 export * from './run-github-check';
+export * from './to-file-text';
 export type { CheckOutcome } from './build-check-outcome';
 export type { NetChangeKey } from './net-change-key';
 export type { SummaryMarker } from './summary-marker';

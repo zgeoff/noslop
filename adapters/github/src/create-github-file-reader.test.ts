@@ -20,7 +20,7 @@ test('it reads a config file from a repo at its ref', async () => {
     content: '{ "adapter": "claude" }\n',
   });
 
-  const text = await ctx.read({
+  const read = await ctx.read({
     kind: 'github',
     owner: 'example',
     repo: 'noslop-config',
@@ -28,13 +28,13 @@ test('it reads a config file from a repo at its ref', async () => {
     ref: 'v2',
   });
 
-  expect(text).toBe('{ "adapter": "claude" }\n');
+  expect(read).toStrictEqual({ kind: 'file', text: '{ "adapter": "claude" }\n' });
 });
 
-test('it reads a file that does not exist as null', async () => {
+test('it reads a file that does not exist as missing', async () => {
   const ctx = setupTest();
 
-  const text = await ctx.read({
+  const read = await ctx.read({
     kind: 'github',
     owner: 'example',
     repo: 'noslop-config',
@@ -42,7 +42,7 @@ test('it reads a file that does not exist as null', async () => {
     ref: null,
   });
 
-  expect(text).toBeNull();
+  expect(read).toStrictEqual({ kind: 'missing' });
 });
 
 test('it reads a file under a symlinked folder from the folder the link names', async () => {
@@ -64,7 +64,7 @@ test('it reads a file under a symlinked folder from the folder the link names', 
     target: '../.agents/skills',
   });
 
-  const text = await ctx.read({
+  const read = await ctx.read({
     kind: 'github',
     owner: 'example',
     repo: 'app',
@@ -72,7 +72,7 @@ test('it reads a file under a symlinked folder from the folder the link names', 
     ref: 'main',
   });
 
-  expect(text).toBe('Name each total for what it sums.\n');
+  expect(read).toStrictEqual({ kind: 'file', text: 'Name each total for what it sums.\n' });
 });
 
 test('it reads a file through a symlinked folder whose target runs through another', async () => {
@@ -102,7 +102,7 @@ test('it reads a file through a symlinked folder whose target runs through anoth
     target: 'shared/skills',
   });
 
-  const text = await ctx.read({
+  const read = await ctx.read({
     kind: 'github',
     owner: 'example',
     repo: 'app',
@@ -110,10 +110,10 @@ test('it reads a file through a symlinked folder whose target runs through anoth
     ref: 'main',
   });
 
-  expect(text).toBe('Name each total for what it sums.\n');
+  expect(read).toStrictEqual({ kind: 'file', text: 'Name each total for what it sums.\n' });
 });
 
-test('it reads a folder as null', async () => {
+test('it reads a folder as missing', async () => {
   const ctx = setupTest();
 
   await githubCollections.files.create({
@@ -124,7 +124,7 @@ test('it reads a folder as null', async () => {
     content: 'Name each total for what it sums.\n',
   });
 
-  const text = await ctx.read({
+  const read = await ctx.read({
     kind: 'github',
     owner: 'example',
     repo: 'app',
@@ -132,10 +132,10 @@ test('it reads a folder as null', async () => {
     ref: 'main',
   });
 
-  expect(text).toBeNull();
+  expect(read).toStrictEqual({ kind: 'missing' });
 });
 
-test('it reads a file that a folder of the repo does not hold as null', async () => {
+test('it reads a file that a folder of the repo does not hold as missing', async () => {
   const ctx = setupTest();
 
   await githubCollections.files.create({
@@ -146,7 +146,7 @@ test('it reads a file that a folder of the repo does not hold as null', async ()
     content: 'Name each total for what it sums.\n',
   });
 
-  const text = await ctx.read({
+  const read = await ctx.read({
     kind: 'github',
     owner: 'example',
     repo: 'app',
@@ -154,32 +154,60 @@ test('it reads a file that a folder of the repo does not hold as null', async ()
     ref: 'main',
   });
 
-  expect(text).toBeNull();
+  expect(read).toStrictEqual({ kind: 'missing' });
 });
 
 test.each([
-  { case: 'leaves the repo', target: '../../outside' },
-  { case: 'is an absolute path', target: '/etc' },
-])('it reads a file under a symlinked folder whose target $case as null', async (row) => {
+  {
+    case: 'a symlinked folder whose target leaves the repo',
+    links: { skills: '../../outside' },
+    path: 'skills/style/SKILL.md',
+    link: 'skills',
+    target: '../../outside',
+  },
+  {
+    case: 'a symlinked folder whose target is an absolute path',
+    links: { skills: '/etc' },
+    path: 'skills/style/SKILL.md',
+    link: 'skills',
+    target: '/etc',
+  },
+  {
+    case: 'a symlink whose target leaves the repo',
+    links: { 'review.json': '../shared/review.json' },
+    path: 'review.json',
+    link: 'review.json',
+    target: '../shared/review.json',
+  },
+  {
+    case: 'a symlinked folder whose target runs through a link that leaves the repo',
+    links: { skills: 'shared/skills', shared: '../vendor' },
+    path: 'skills/style/SKILL.md',
+    link: 'shared',
+    target: '../vendor',
+  },
+])('it reads a file through $case as the link that leaves', async (row) => {
   const ctx = setupTest();
 
-  await githubCollections.files.create({
-    owner: 'example',
-    repo: 'app',
-    ref: 'main',
-    path: 'skills',
-    target: row.target,
-  });
+  for (const [path, target] of Object.entries(row.links)) {
+    await githubCollections.files.create({
+      owner: 'example',
+      repo: 'app',
+      ref: 'main',
+      path,
+      target,
+    });
+  }
 
-  const text = await ctx.read({
+  const read = await ctx.read({
     kind: 'github',
     owner: 'example',
     repo: 'app',
-    path: 'skills/style/SKILL.md',
+    path: row.path,
     ref: 'main',
   });
 
-  expect(text).toBeNull();
+  expect(read).toStrictEqual({ kind: 'outside', link: row.link, target: row.target });
 });
 
 test('it throws on a symlink cycle', async () => {

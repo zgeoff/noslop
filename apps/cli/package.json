@@ -28,7 +28,8 @@
     "@noslop/runner": "workspace:*",
     "@noslop/sqlite": "workspace:*",
     "@noslop/webhook": "workspace:*",
-    "gunshi": "catalog:"
+    "gunshi": "catalog:",
+    "ts-pattern": "catalog:"
   },
   "devDependencies": {
     "@noslop/testing": "workspace:*",
