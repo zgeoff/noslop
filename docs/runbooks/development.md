@@ -122,8 +122,10 @@ with a manifest that holds no workspace dependency, and prints
 publishes. [The CLI](../architecture/output/cli.md) covers what the bundle holds, and
 [Releasing](./releasing.md) covers the publish.
 
-`bun run check:package-types` builds and packs the package, installs the tarball in a scratch
-project, and runs tsc on a file that imports each library subpath. It prints
-`package types: a project that imports the tarball's subpaths type-checks`, or tsc's exit code and
-errors. The install fetches the package's dependencies from npm, so the check runs before a push,
-and the unit tests leave it out.
+`bun run check:package-types` builds and packs the package, installs the tarball in 2 scratch
+projects, and runs tsc on a file that imports each library subpath. One project has no zod of its
+own. The other depends on a zod one patch newer than the catalog's, copied from the installed zod,
+and assigns the package's schema to its own `z.ZodType`. It prints
+`package types: a project that imports the tarball's subpaths type-checks, with no zod of its own and with a newer zod`,
+or the failed step's exit code and output. The install fetches the package's dependencies from npm,
+so the check runs before a push, and the unit tests leave it out.

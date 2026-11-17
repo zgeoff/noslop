@@ -3,6 +3,7 @@ import { mkdtemp, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { readTempPrefix } from '@noslop/testing';
+import rootPackage from '../package.json' with { type: 'json' };
 import { writeCLIPackage } from './write-cli-package';
 
 async function setupTest() {
@@ -34,8 +35,20 @@ test('it builds a manifest that names the bundle, the subpath exports and no wor
     files: ['*.js', '*.d.ts'],
   });
 
-  expect(Object.keys(manifest.dependencies)).toStrictEqual(['oxc-parser', 'zod']);
   expect(manifest.engines.bun).toMatch(/^\d+\.\d+\.\d+$/u);
+});
+
+test('it pins the native parser at its catalog version and takes zod as a peer from a fixed floor', async () => {
+  const ctx = await setupTest();
+  const manifest = await writeCLIPackage(ctx.directory);
+
+  expect({
+    dependencies: manifest.dependencies,
+    peerDependencies: manifest.peerDependencies,
+  }).toStrictEqual({
+    dependencies: { 'oxc-parser': rootPackage.workspaces.catalog['oxc-parser'] },
+    peerDependencies: { zod: '^4.6.7' },
+  });
 });
 
 test('it writes the bundles, their declarations, the manifest, the README and the LICENSE', async () => {
