@@ -11235,37 +11235,40 @@ test('it resumes an eval, keeping the cases the out folder holds and replaying t
     { message: 'head', files: { 'src/a.ts': 'export const a = 2;\n' } },
   ]);
 
-  for (const id of ['case-a', 'case-b']) {
-    await Bun.write(
-      join(ctx.directory, 'corpus', id, 'case.json'),
-      JSON.stringify({
-        id,
-        repo: repo.path,
-        base: repo.commits[0],
-        head: repo.commits[1],
-        title: 'Change a',
-        body: '',
-        findings: [],
-        escapes: [],
-      }),
-    );
-  }
+  await Bun.write(
+    join(ctx.directory, 'corpus', 'case-a', 'case.json'),
+    JSON.stringify({
+      id: 'case-a',
+      repo: repo.path,
+      base: repo.commits[0],
+      head: repo.commits[1],
+      title: 'Change a',
+      body: '',
+      findings: [],
+      escapes: [],
+    }),
+  );
+
+  await runCLI(
+    ['eval', '--corpus', join(ctx.directory, 'corpus'), '--out', join(ctx.directory, 'out')],
+    ctx.buildContext(
+      ctx.directory,
+      buildStubAdapter({ light: [{ findings: { correctness: [] } }] }).adapter,
+    ),
+  );
 
   await Bun.write(
-    join(ctx.directory, 'out', 'runs.json'),
-    JSON.stringify([
-      {
-        caseID: 'case-a',
-        review: {
-          findings: [],
-          failed: false,
-          tokens: { input: 1, cachedInput: 0, cacheWrite: 0, output: 1 },
-          durationMs: 1,
-          calls: 1,
-          depth: 'light',
-        },
-      },
-    ]),
+    join(ctx.directory, 'corpus', 'case-b', 'case.json'),
+    JSON.stringify({
+      id: 'case-b',
+      repo: repo.path,
+      base: repo.commits[0],
+      head: repo.commits[1],
+      title: 'Change a',
+      body: '',
+      findings: [],
+      escapes: [],
+    }),
   );
 
   const stub = buildStubAdapter({ light: [{ findings: { correctness: [] } }] });
