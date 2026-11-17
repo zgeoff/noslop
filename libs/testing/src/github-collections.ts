@@ -12,7 +12,7 @@ export const githubCollections = {
     schema: z.object({
       owner: z.string().default('example'),
       repo: z.string().default('app'),
-      number: z.int().default(() => faker.number.int({ min: 1, max: 9999 })),
+      number: z.int(),
       title: z.string().default(() => faker.git.commitMessage()),
       body: z.string().nullable().default(null),
       baseRef: z.string().default('main'),
@@ -49,7 +49,7 @@ export const githubCollections = {
       owner: z.string().default('example'),
       repo: z.string().default('app'),
       number: z.int().default(1),
-      path: z.string().default(buildFilePath),
+      path: z.string(),
       lines: lineNumbersSchema.default(buildFirstLine),
       status: z
         .enum(['added', 'removed', 'modified', 'renamed', 'copied', 'changed', 'unchanged'])
@@ -100,7 +100,7 @@ export const githubCollections = {
       owner: z.string().default('example'),
       repo: z.string().default('app'),
       number: z.int().default(1),
-      body: z.string().default(() => faker.lorem.sentence()),
+      body: z.string(),
       authorLogin: z.string().default(() => faker.internet.username()),
       authorType: z.enum(['User', 'Bot']).default('User'),
       createdAt: z.iso.datetime().default(() => faker.date.recent().toISOString()),
@@ -111,7 +111,7 @@ export const githubCollections = {
     schema: z.object({
       owner: z.string().default('example'),
       repo: z.string().default('app'),
-      number: z.int().default(() => faker.number.int({ min: 1, max: 9999 })),
+      number: z.int(),
       title: z.string().default(() => faker.lorem.sentence()),
       body: z.string().default(''),
       authorLogin: z.string().default(() => faker.internet.username()),
@@ -122,7 +122,7 @@ export const githubCollections = {
     schema: z.object({
       owner: z.string().default('example'),
       repo: z.string().default('app'),
-      login: z.string().default(() => faker.internet.username()),
+      login: z.string(),
       permission: z.enum(['admin', 'write', 'read']).default('write'),
     }),
   }),
@@ -177,10 +177,6 @@ function buildNoRenames(): Record<string, string> {
 
 function buildNoPatches(): Record<string, string> {
   return {};
-}
-
-function buildFilePath(): string {
-  return faker.system.filePath().slice(1);
 }
 
 function buildFirstLine(): number[] {
