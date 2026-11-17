@@ -2,6 +2,7 @@ import type { ReviewResult } from '@noslop/contract';
 import { reviewResultSchema } from '@noslop/contract';
 import type { GitHubConnection } from '@noslop/github';
 import { readBranchHead, readPullRequestState } from '@noslop/github';
+import { formatOutsideLinks } from './format-outside-links';
 import { loadCommitConfig } from './load-commit-config';
 
 export async function verifyReviewResult(
@@ -18,8 +19,9 @@ export async function verifyReviewResult(
   const connection = await loadConnection();
   const state = await readPullRequestState(connection, pr);
   const baseCommit = await readBranchHead(connection, pr, state.baseRef);
-  const loaded = await loadCommitConfig(loadConnection, pr, baseCommit);
+  const commitConfig = await loadCommitConfig(loadConnection, pr, baseCommit);
 
+  const loaded = commitConfig.loaded;
   const problems: string[] = [];
 
   if (result.head !== state.headSha) {
@@ -32,6 +34,12 @@ export async function verifyReviewResult(
     problems.push(
       `its config hash ${result.configHash} differs from ${loaded.hash}, the hash of the config on ${state.baseRef}`,
     );
+
+    if (commitConfig.outsideLinks.length > 0) {
+      problems.push(
+        `the config on ${state.baseRef} ${formatOutsideLinks(commitConfig.outsideLinks)}`,
+      );
+    }
   }
 
   const appSlug = loaded.config.github.app;
