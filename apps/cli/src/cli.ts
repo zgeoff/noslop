@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 import { configure, defaultTextFormatter } from '@logtape/logtape';
-import { createCLIContext } from './create-cli-context';
-import { removeGitHubKeys } from './remove-github-keys';
+import { createCLIContext } from './context/create-cli-context';
+import { removeGitHubKeys } from './context/remove-github-keys';
 import { runCLI } from './run-cli';
 
 const argv = Bun.argv.slice(2);

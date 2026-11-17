@@ -1,0 +1,48 @@
+import type { LoadedConfig } from '@noslop/config';
+import type { PullRequestRef } from '@noslop/contract';
+import type { GitHubConnection, PullRequestState } from '@noslop/github';
+import { readBranchHead, readPullRequestBaseRef, readPullRequestState } from '@noslop/github';
+import { loadRepoConfig } from '../config/load-repo-config';
+import type { CLIContext } from '../context/cli-context';
+
+export interface TrustedPullRequest {
+  config: LoadedConfig;
+  connection: GitHubConnection;
+  state: PullRequestState;
+}
+
+const MAX_BASE_READS = 3;
+
+// GitHub's base commit for a pull request lags the base branch's tip, so the config loads from the
+// tip.
+export async function readTrustedPullRequest(
+  ctx: CLIContext,
+  repoDir: string,
+  pullRequest: PullRequestRef,
+  attempt = 1,
+): Promise<TrustedPullRequest> {
+  const untrusted = await ctx.loadGitHubConnection();
+  const baseRef = await readPullRequestBaseRef(untrusted, pullRequest);
+  const configCommit = await readBranchHead(untrusted, pullRequest, baseRef);
+
+  await ctx.runner.run(['git', 'fetch', '--quiet', 'origin', configCommit], { cwd: repoDir });
+
+  const config = await loadRepoConfig(ctx, repoDir, { commit: configCommit });
+
+  ctx.setGitHubAppSlug(config.config.github.app);
+
+  const connection = await ctx.loadGitHubConnection();
+  const state = await readPullRequestState(connection, pullRequest);
+
+  if (state.baseRef === baseRef) {
+    return { config, connection, state };
+  }
+
+  if (attempt >= MAX_BASE_READS) {
+    throw new Error(
+      `the base branch of the pull request changed during each of ${MAX_BASE_READS} reads; review it again once its base branch holds still`,
+    );
+  }
+
+  return readTrustedPullRequest(ctx, repoDir, pullRequest, attempt + 1);
+}

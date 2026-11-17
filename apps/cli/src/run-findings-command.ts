@@ -1,9 +1,9 @@
 import type { FindingList } from '@noslop/contract';
 import { readFindingList } from '@noslop/github';
-import type { CLIContext } from './cli-context';
-import { readRepoName } from './read-repo-name';
-import { readTrustedState } from './read-trusted-state';
-import { resolveRepoDir } from './resolve-repo-dir';
+import { readTrustedState } from './check-run/read-trusted-state';
+import type { CLIContext } from './context/cli-context';
+import { readRepoName } from './context/read-repo-name';
+import { resolveRepoDir } from './context/resolve-repo-dir';
 
 export interface FindingsValues {
   pr: string;

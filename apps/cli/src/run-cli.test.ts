@@ -31,12 +31,12 @@ import {
 } from '@noslop/testing';
 import { HttpResponse, http, passthrough } from 'msw';
 import cliPackage from '../package.json' with { type: 'json' };
-import type { CLIContext } from './cli-context';
-import { createCLIContext } from './create-cli-context';
-import type { GitHubConnectionLoader } from './create-github-connection-loader';
-import { createGitHubConnectionLoader } from './create-github-connection-loader';
-import { createJSONReporter } from './create-json-reporter';
-import { readDeferralPolicy } from './read-deferral-policy';
+import { readDeferralPolicy } from './config/read-deferral-policy';
+import type { CLIContext } from './context/cli-context';
+import { createCLIContext } from './context/create-cli-context';
+import type { GitHubConnectionLoader } from './context/create-github-connection-loader';
+import { createGitHubConnectionLoader } from './context/create-github-connection-loader';
+import { createJSONReporter } from './review/create-json-reporter';
 import { runCLI } from './run-cli';
 import { sendResult } from './send-result';
 import { verify } from './verify';
