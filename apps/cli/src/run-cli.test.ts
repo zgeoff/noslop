@@ -12079,113 +12079,79 @@ test('it compares the 2 recorded runs that --noise-floor names, over the cases o
   );
 
   await Bun.write(
-    join(ctx.directory, 'out', 'runs.json'),
-    JSON.stringify([
-      {
-        caseID: 'case-a',
-        review: {
-          findings: [],
-          failed: false,
-          tokens: { input: 1, cachedInput: 0, cacheWrite: 0, output: 1 },
-          durationMs: 1,
-          calls: 1,
-          depth: 'light',
-        },
-      },
-    ]),
+    join(ctx.directory, 'recorded', 'case-a', 'case.json'),
+    JSON.stringify({
+      id: 'case-a',
+      repo: repo.path,
+      base: repo.commits[0],
+      head: repo.commits[1],
+      title: 'Change a',
+      body: '',
+      findings: [],
+      escapes: [],
+    }),
   );
 
   await Bun.write(
-    join(ctx.directory, 'first.json'),
-    JSON.stringify([
-      {
-        caseID: 'case-a',
-        review: {
-          findings: [
-            {
-              lens: 'correctness',
-              title: 'Keep a at 1',
-              severity: 'P2',
-              anchor: { path: 'src/a.ts', startLine: 1, endLine: 1 },
-            },
-          ],
-          failed: false,
-          tokens: { input: 1, cachedInput: 0, cacheWrite: 0, output: 1 },
-          durationMs: 1,
-          calls: 1,
-          depth: 'light',
-        },
-      },
-      {
-        caseID: 'case-z',
-        review: {
-          findings: [
-            {
-              lens: 'correctness',
-              title: 'Drop z',
-              severity: 'P2',
-              anchor: { path: 'src/z.ts', startLine: 1, endLine: 1 },
-            },
-          ],
-          failed: false,
-          tokens: { input: 1, cachedInput: 0, cacheWrite: 0, output: 1 },
-          durationMs: 1,
-          calls: 1,
-          depth: 'light',
-        },
-      },
-    ]),
+    join(ctx.directory, 'recorded', 'case-z', 'case.json'),
+    JSON.stringify({
+      id: 'case-z',
+      repo: repo.path,
+      base: repo.commits[0],
+      head: repo.commits[1],
+      title: 'Change z',
+      body: '',
+      findings: [],
+      escapes: [],
+    }),
   );
 
-  await Bun.write(
-    join(ctx.directory, 'second.json'),
-    JSON.stringify([
-      {
-        caseID: 'case-a',
-        review: {
-          findings: [
-            {
-              lens: 'correctness',
-              title: 'Keep a at 1',
-              severity: 'P2',
-              anchor: { path: 'src/a.ts', startLine: 1, endLine: 1 },
-            },
-            {
-              lens: 'tests',
-              title: 'Test a',
-              severity: 'P3',
-              anchor: { path: 'src/b.ts', startLine: 1, endLine: 1 },
-            },
-          ],
-          failed: false,
-          tokens: { input: 1, cachedInput: 0, cacheWrite: 0, output: 1 },
-          durationMs: 1,
-          calls: 1,
-          depth: 'light',
-        },
-      },
-      {
-        caseID: 'case-z',
-        review: {
-          findings: [
-            {
-              lens: 'correctness',
-              title: 'Drop z',
-              severity: 'P2',
-              anchor: { path: 'src/z.ts', startLine: 1, endLine: 1 },
-            },
-          ],
-          failed: false,
-          tokens: { input: 1, cachedInput: 0, cacheWrite: 0, output: 1 },
-          durationMs: 1,
-          calls: 1,
-          depth: 'light',
-        },
-      },
-    ]),
+  const keepA = {
+    title: 'Keep a at 1',
+    body: 'Every caller reads a as 1.',
+    anchor: { path: 'src/a.ts', startLine: 1, endLine: 1 },
+    secondLocation: null,
+    severity: 'P2',
+    criterion: 'wrong-behaviour-edge-path',
+    rule: null,
+    ruleQuote: null,
+    verdict: 'CONFIRMED',
+    unverifiedFact: null,
+    missingChange: false,
+    fix: null,
+  } as const;
+
+  const testA = {
+    ...keepA,
+    title: 'Check the new value in a test',
+    body: 'No test reads the new value.',
+    criterion: 'untested-change',
+  } as const;
+
+  await runCLI(
+    ['eval', '--corpus', join(ctx.directory, 'recorded'), '--out', join(ctx.directory, 'first')],
+    ctx.buildContext(
+      ctx.directory,
+      buildStubAdapter({
+        light: [{ findings: { correctness: [keepA] } }, { findings: { correctness: [keepA] } }],
+      }).adapter,
+    ),
   );
 
-  const stub = buildStubAdapter({});
+  await runCLI(
+    ['eval', '--corpus', join(ctx.directory, 'recorded'), '--out', join(ctx.directory, 'second')],
+    ctx.buildContext(
+      ctx.directory,
+      buildStubAdapter({
+        light: [
+          { findings: { correctness: [keepA, testA] } },
+          { findings: { correctness: [keepA, testA] } },
+        ],
+      }).adapter,
+    ),
+  );
+
+  ctx.stdout.length = 0;
 
   const code = await runCLI(
     [
@@ -12193,13 +12159,13 @@ test('it compares the 2 recorded runs that --noise-floor names, over the cases o
       '--corpus',
       join(ctx.directory, 'corpus'),
       '--out',
-      join(ctx.directory, 'out'),
+      join(ctx.directory, 'first'),
       '--resume',
       '--noise-floor',
-      `${join(ctx.directory, 'first.json')},${join(ctx.directory, 'second.json')}`,
+      `${join(ctx.directory, 'first', 'runs.json')},${join(ctx.directory, 'second', 'runs.json')}`,
       '--json',
     ],
-    ctx.buildContext(ctx.directory, stub.adapter),
+    ctx.buildContext(ctx.directory, buildStubAdapter({}).adapter),
   );
 
   const summary: unknown = JSON.parse(ctx.stdout.join(''));
