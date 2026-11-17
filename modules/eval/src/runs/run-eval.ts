@@ -1,8 +1,8 @@
 import { join, resolve } from 'node:path';
 import type { Runner } from '@noslop/runner';
 import { runConcurrently } from '@noslop/runner';
-import type { Case } from './case';
-import type { CaseReview, CaseReviewer, CaseRun } from './types';
+import type { Case } from '../corpus/case';
+import type { CaseReview, CaseReviewer, CaseRun } from '../types';
 
 export interface RunEvalOptions {
   cases: readonly Case[];

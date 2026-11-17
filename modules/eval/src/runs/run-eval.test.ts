@@ -4,9 +4,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createRunner } from '@noslop/runner';
 import { createTestRepo, readTempPrefix } from '@noslop/testing';
-import type { Case } from './case';
+import type { Case } from '../corpus/case';
+import type { CaseReview } from '../types';
 import { runEval } from './run-eval';
-import type { CaseReview } from './types';
 
 async function setupTest() {
   const directory = await mkdtemp(join(tmpdir(), `${readTempPrefix()}noslop-run-eval-`));

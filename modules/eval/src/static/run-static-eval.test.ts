@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import type { Case } from './case';
+import type { Case } from '../corpus/case';
 import type { CasePlan } from './run-static-eval';
 import { runStaticEval } from './run-static-eval';
 

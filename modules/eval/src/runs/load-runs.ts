@@ -1,6 +1,6 @@
 import { criterionSchema, depthSchema, findingLensSchema, severitySchema } from '@noslop/contract';
 import { z } from 'zod';
-import type { CaseRun } from './types';
+import type { CaseRun } from '../types';
 
 const anchorSchema = z.strictObject({
   path: z.string().min(1),

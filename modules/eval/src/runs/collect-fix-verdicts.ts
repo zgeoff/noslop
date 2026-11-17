@@ -1,6 +1,6 @@
 import { match } from 'ts-pattern';
-import type { Case, CaseFix } from './case';
-import type { CaseRun } from './types';
+import type { Case, CaseFix } from '../corpus/case';
+import type { CaseRun } from '../types';
 
 export interface FixVerdict {
   caseID: string;

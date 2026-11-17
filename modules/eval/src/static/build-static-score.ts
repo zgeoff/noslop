@@ -1,5 +1,5 @@
 import type { Depth } from '@noslop/contract';
-import type { Case } from './case';
+import type { Case } from '../corpus/case';
 import type { StaticRun } from './run-static-eval';
 
 export interface DepthTotals {

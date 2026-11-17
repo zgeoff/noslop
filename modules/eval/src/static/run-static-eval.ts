@@ -1,6 +1,6 @@
 import type { Depth, SpecialChange } from '@noslop/contract';
 import { runConcurrently } from '@noslop/runner';
-import type { Case } from './case';
+import type { Case } from '../corpus/case';
 
 export interface CasePlan {
   depth: Depth;

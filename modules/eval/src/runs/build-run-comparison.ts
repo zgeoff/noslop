@@ -1,5 +1,5 @@
+import type { CaseRun } from '../types';
 import { collectMatches } from './collect-matches';
-import type { CaseRun } from './types';
 
 export interface RunComparison {
   cases: number;

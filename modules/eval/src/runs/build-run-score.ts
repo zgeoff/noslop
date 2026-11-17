@@ -1,9 +1,9 @@
 import type { FindingLens, Tokens } from '@noslop/contract';
 import { mergeTokens } from '@noslop/contract';
-import type { Case, Silence } from './case';
+import type { Case, Silence } from '../corpus/case';
+import type { CaseRun } from '../types';
 import type { ReportedFinding } from './collect-matches';
 import { collectMatches } from './collect-matches';
-import type { CaseRun } from './types';
 
 export interface LensScore {
   lens: FindingLens | 'unknown';
