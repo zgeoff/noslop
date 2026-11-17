@@ -113,9 +113,8 @@ async function writeDeclarations(outDir: string, entryNames: readonly string[]):
     // so the declarations' tsconfig sits at the repo root.
     tsconfig: join(REPO_DIR, 'tsconfig.cli-types.json'),
     dts: {
-      emitDtsOnly: true,
-      generator: 'tsgo',
-      tsgo: { path: join(REPO_DIR, 'node_modules/.bin/tsrs') },
+      dtsOnly: true,
+      generator: 'tsrs',
     },
     deps: {
       alwaysBundle: [/^@noslop\//u],
