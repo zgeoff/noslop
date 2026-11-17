@@ -1,6 +1,6 @@
 import { expect, mock, test } from 'bun:test';
 import type { ProgramResult, RunProgram } from '../run-program.ts';
-import { runCLIPublish } from './publish-cli';
+import { runCLIPublish } from './run-cli-publish';
 
 test('it packs and publishes a version npm lacks, with provenance', async () => {
   const answers: Readonly<Record<string, ProgramResult>> = {
