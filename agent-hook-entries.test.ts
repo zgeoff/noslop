@@ -1,4 +1,3 @@
-// oxlint-disable zgeoff/test-beside-module -- a repo-root test of the hook config; drop this with the oxlint-config bump, which accepts root tests
 import { expect, onTestFinished, test } from 'bun:test';
 import {
   cpSync,
