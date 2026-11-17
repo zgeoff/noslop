@@ -5,23 +5,24 @@ the decision records, and `docs/architecture/` describes the code as it is built
 
 ## Required reading
 
-The rules a task needs are not repeated here. Load the skill for the work before starting it.
+The rules a task needs are not repeated here. Load the skill for the work before starting it. The
+skills are in `.agents/skills/`, and `.claude/skills` links to that folder.
 
 | Skill           | Load before                                                                        |
 | --------------- | ---------------------------------------------------------------------------------- |
 | `docs-writing`  | writing or editing any committed prose: `docs/`, READMEs, this file                |
 | `code-style`    | writing, reviewing, or renaming any TypeScript — the shared function-verb taxonomy |
 | `testing`       | designing, writing, or reviewing tests                                             |
-| `skill-writing` | writing or editing a skill under `.claude/skills/`                                 |
+| `skill-writing` | writing or editing a skill under `.agents/skills/`                                 |
 | `cold-read`     | checking a skill you wrote or changed, before its PR                               |
 | `deslop`        | editing the prose of a skill you wrote or changed, before its PR                   |
 
 When you write or edit a skill:
 
-1. Load the `skill-writing`, `cold-read` and `deslop` skills from `.claude/skills/`. repo-sync
+1. Load the `skill-writing`, `cold-read` and `deslop` skills from `.agents/skills/`. repo-sync
    delivers them there at the `zgeoff/skills` commit that `zgeoff/tools` pins, so install none of
    them yourself.
-2. Do every step in the "Check it" section of `.claude/skills/skill-writing/SKILL.md`.
+2. Do every step in the "Check it" section of `.agents/skills/skill-writing/SKILL.md`.
 3. In the PR description, after the sections of the repo's PR template, add three `##` headings:
    - "Skill checks": the check output.
    - "Cold read": each cold-read finding, and how you answered it.

@@ -3,6 +3,8 @@
   "ignorePatterns": [
     "bun.lock",
     // verbatim copies that repo-sync delivers from zgeoff/tools; edit them there
+    ".agents/skills/docs-writing/**",
+    ".agents/skills/testing/**",
     ".claude/skills/docs-writing/**",
     ".claude/skills/testing/**",
     ".claude/hooks/start.ts"
