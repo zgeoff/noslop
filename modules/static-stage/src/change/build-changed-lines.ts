@@ -1,4 +1,4 @@
-import type { ChangedFile } from './types';
+import type { ChangedFile } from '../types';
 
 export interface ChangedLines {
   added: Set<number>;

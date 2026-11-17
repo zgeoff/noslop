@@ -1,7 +1,7 @@
 import type { ReviewConfig } from '@noslop/contract';
-import type { AnalyzedFile, PackageManifest } from './analyzed-file';
-import { hasTouchedLine } from './has-touched-line';
-import type { EdgeEntry } from './types';
+import type { AnalyzedFile, PackageManifest } from '../analyzed-file';
+import { hasTouchedLine } from '../change/has-touched-line';
+import type { EdgeEntry } from '../types';
 
 export interface EdgeInputs {
   files: readonly AnalyzedFile[];

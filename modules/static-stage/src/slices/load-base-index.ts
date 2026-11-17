@@ -3,11 +3,11 @@ import { join } from 'node:path';
 import type { ReviewConfig } from '@noslop/contract';
 import type { Runner } from '@noslop/runner';
 import { z } from 'zod';
-import { collectSourceFacts } from './collect-source-facts';
-import { isGlobMatch } from './is-glob-match';
-import { parseSource } from './parse-source';
-import { pickFileKind } from './pick-file-kind';
-import { readFilesAtCommit } from './read-files-at-commit';
+import { pickFileKind } from '../change/pick-file-kind';
+import { readFilesAtCommit } from '../change/read-files-at-commit';
+import { isGlobMatch } from '../is-glob-match';
+import { collectSourceFacts } from '../source/collect-source-facts';
+import { parseSource } from '../source/parse-source';
 
 const locationSchema = z.strictObject({ path: z.string(), startLine: z.int(), endLine: z.int() });
 

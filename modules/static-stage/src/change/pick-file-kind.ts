@@ -1,6 +1,6 @@
 import type { ReviewConfig } from '@noslop/contract';
-import { isGlobMatch } from './is-glob-match';
-import type { FileKind } from './types';
+import { isGlobMatch } from '../is-glob-match';
+import type { FileKind } from '../types';
 
 const CODE_EXTENSION =
   /\.(?:[cm]?[jt]sx?|py|go|rs|rb|java|kt|swift|c|cc|cpp|h|hpp|cs|php|scala|sh|bash|zsh|sql|lua|ex|exs|zig)$/u;

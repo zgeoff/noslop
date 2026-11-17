@@ -1,8 +1,8 @@
 import { dirname, join, normalize } from 'node:path';
 import type { ReviewConfig } from '@noslop/contract';
-import type { AnalyzedFile } from './analyzed-file';
-import { hasTouchedLine } from './has-touched-line';
-import { isGlobMatch } from './is-glob-match';
+import type { AnalyzedFile } from '../analyzed-file';
+import { hasTouchedLine } from '../change/has-touched-line';
+import { isGlobMatch } from '../is-glob-match';
 import type {
   CommentDensity,
   ConfigEntry,
@@ -12,7 +12,7 @@ import type {
   SourceLocation,
   TestsEntry,
   TypeClaimEntry,
-} from './types';
+} from '../types';
 
 export interface FileSlices {
   security: SecurityEntry[];

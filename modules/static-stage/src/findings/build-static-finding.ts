@@ -1,6 +1,6 @@
 import type { Criterion, ModelFinding } from '@noslop/contract';
 import { CRITERION_SEVERITY } from '@noslop/contract';
-import type { SourceLocation } from './types';
+import type { SourceLocation } from '../types';
 
 export interface StaticFindingFields {
   title: string;

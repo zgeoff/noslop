@@ -1,6 +1,6 @@
-import type { AnalyzedFile } from './analyzed-file';
-import type { ChangedLines } from './build-changed-lines';
-import type { FunctionEntry, GuardEntry, ThrowEntry, ValueOrigin, WriteEntry } from './types';
+import type { AnalyzedFile } from '../analyzed-file';
+import type { ChangedLines } from '../change/build-changed-lines';
+import type { FunctionEntry, GuardEntry, ThrowEntry, ValueOrigin, WriteEntry } from '../types';
 
 export interface FunctionSlices {
   functions: FunctionEntry[];

@@ -1,10 +1,10 @@
+import type { ValueOrigin } from '../types';
 import type { AnalyzeContext } from './analyze-context';
 import type { ASTNode } from './ast-node';
 import { findEnclosingFunction } from './find-enclosing-function';
 import { findField } from './find-field';
 import { getFields } from './get-fields';
 import { isFunctionNode } from './is-function-node';
-import type { ValueOrigin } from './types';
 
 export function collectFunctionFacts(
   node: ASTNode,

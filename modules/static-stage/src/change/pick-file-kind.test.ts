@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test';
 import { BUILT_IN_DEFAULTS } from '@noslop/config';
+import type { FileKind } from '../types';
 import { pickFileKind } from './pick-file-kind';
-import type { FileKind } from './types';
 
 test.each<[string, FileKind]>([
   ['src/queue.ts', 'code'],

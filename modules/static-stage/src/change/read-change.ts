@@ -1,9 +1,9 @@
 import type { ReviewConfig } from '@noslop/contract';
 import type { Runner } from '@noslop/runner';
-import { isGlobMatch } from './is-glob-match';
+import { isGlobMatch } from '../is-glob-match';
+import type { Change, ChangedFile } from '../types';
 import { parseDiff } from './parse-diff';
 import { pickFileKind } from './pick-file-kind';
-import type { Change, ChangedFile } from './types';
 
 export interface ReadChangeOptions {
   runner: Runner;

@@ -1,4 +1,4 @@
-import type { DiffLine, FileStatus, Hunk } from './types';
+import type { DiffLine, FileStatus, Hunk } from '../types';
 
 export interface ParsedFile {
   path: string;

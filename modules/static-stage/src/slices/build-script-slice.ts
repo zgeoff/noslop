@@ -1,7 +1,7 @@
 import type { ReviewConfig } from '@noslop/contract';
-import type { AnalyzedFile, PackageManifest } from './analyzed-file';
-import { isGlobMatch } from './is-glob-match';
-import { isInPackage } from './is-in-package';
+import type { AnalyzedFile, PackageManifest } from '../analyzed-file';
+import { isGlobMatch } from '../is-glob-match';
+import { isInPackage } from '../is-in-package';
 
 export interface ScriptSliceInputs {
   files: readonly AnalyzedFile[];

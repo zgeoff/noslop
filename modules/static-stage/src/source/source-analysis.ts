@@ -1,5 +1,5 @@
 import type { StackPatternKind } from '@noslop/contract';
-import type { SecurityPart, ValueOrigin } from './types';
+import type { SecurityPart, ValueOrigin } from '../types';
 
 interface FunctionFacts {
   name: string;

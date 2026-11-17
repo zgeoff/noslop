@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { BUILT_IN_DEFAULTS } from '@noslop/config';
 import { createRunner } from '@noslop/runner';
 import { createTestRepo, readTempPrefix } from '@noslop/testing';
-import { readChange } from './read-change';
+import { readChange } from './change/read-change';
 import { runStaticStage } from './run-static-stage';
 
 async function setupTest() {

@@ -1,7 +1,7 @@
 import type { Thresholds } from '@noslop/contract';
-import type { AnalyzedFile } from './analyzed-file';
+import type { AnalyzedFile } from '../analyzed-file';
+import type { FunctionEntry, ReuseEntry } from '../types';
 import type { BaseFunction } from './load-base-index';
-import type { FunctionEntry, ReuseEntry } from './types';
 
 export function buildReuseSlice(
   functions: readonly FunctionEntry[],

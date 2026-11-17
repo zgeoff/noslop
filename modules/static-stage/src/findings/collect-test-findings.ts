@@ -1,8 +1,8 @@
 import { basename } from 'node:path';
 import type { ModelFinding } from '@noslop/contract';
-import type { AnalyzedFile } from './analyzed-file';
+import type { AnalyzedFile } from '../analyzed-file';
+import type { SecurityEntry } from '../types';
 import { buildStaticFinding } from './build-static-finding';
-import type { SecurityEntry } from './types';
 
 export interface NamedTestClaims {
   body: string;

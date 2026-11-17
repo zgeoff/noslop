@@ -1,7 +1,7 @@
 import type { ModelFinding } from '@noslop/contract';
-import type { AnalyzedFile } from './analyzed-file';
+import type { AnalyzedFile } from '../analyzed-file';
+import type { InstructionsEntry } from '../types';
 import { buildStaticFinding } from './build-static-finding';
-import type { InstructionsEntry } from './types';
 
 const VAGUE_WORDING = /\b(?<word>prefer|usually|where sensible|consider)\b/iu;
 

@@ -1,6 +1,6 @@
-import type { ChangedLines } from './build-changed-lines';
-import type { ParsedSource } from './parse-source';
-import type { SourceAnalysis } from './source-analysis';
+import type { ChangedLines } from './change/build-changed-lines';
+import type { ParsedSource } from './source/parse-source';
+import type { SourceAnalysis } from './source/source-analysis';
 import type { ChangedFile } from './types';
 
 export interface AnalyzedFile {
