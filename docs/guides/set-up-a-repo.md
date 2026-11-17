@@ -101,10 +101,11 @@ passes.
    export NOSLOP_GITHUB_APP_INSTALLATION_ID=<installation_id>
    ```
 
-6. Run a review of a pull request in a clone of the repo:
+6. Run a review of a pull request in a clone of the repo. Point Bun at a config outside the repo,
+   such as an empty file, so a preload in the repo's `bunfig.toml` cannot read the App's keys:
 
    ```bash
-   noslop review --pr <number> --repo <owner/name> --report github
+   bun --config=<bunfig_path> "$(command -v noslop)" review --pr <number> --repo <owner/name> --report github
    ```
 
    Expect a pull request review from the App with a comment per finding or per large class of like
@@ -112,8 +113,8 @@ passes.
 
 7. Have your automation run that command on each push to the pull request. Each review covers only
    the commits since the last one.
-8. Have it run `noslop check --pr <number> --repo <owner/name>` after each reply to a finding, so
-   the check run shows the new answers with no new review.
+8. Have it run `noslop check --pr <number> --repo <owner/name>`, started the same way, after each
+   reply to a finding, so the check run shows the new answers with no new review.
 9. Make the `noslop` check required in the branch protection of the default branch, so a pull
    request merges only once every finding holds a valid answer.
 

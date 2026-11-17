@@ -14,10 +14,10 @@ pull request's state back from GitHub and noslop keeps no database for it.
 
 A review reaches the pull request when a caller runs
 `noslop review --pr <number> --repo <owner/name> --report github` with the App's keys in the
-environment. The check run changes again only when `noslop review` or `noslop check` runs. noslop
-runs no server, so a push or a reply changes nothing on the pull request until the caller runs one
-of those commands. The caller decides when each runs, such as a review on each push and a check
-after each reply.
+environment. The check run changes again only when `noslop review`, `noslop check` or `noslop post`
+runs, or a relay calls the `post` entry of `@noslop/cli`. noslop runs no server, so a push or a
+reply changes nothing on the pull request until the caller runs one of those commands. The caller
+decides when each runs, such as a review on each push and a check after each reply.
 
 [Reporters](./reporters.md) covers the order the reporters run in, and [the CLI](./cli.md) covers
 the commands. [Re-review and fix confirmation](./re-review.md) covers what a later review reads, how
@@ -27,9 +27,15 @@ a fix gets confirmed, and the net-change key.
 
 The CLI reads the App's id, private key and installation id from `NOSLOP_GITHUB_APP_ID`,
 `NOSLOP_GITHUB_APP_PRIVATE_KEY` and `NOSLOP_GITHUB_APP_INSTALLATION_ID`, and refuses to start a
-command when only some of them are set. The reviewed repo's code never sees those keys: the CLI
-removes every `NOSLOP_GITHUB_` variable from its process environment before it spawns a model CLI or
-git.
+command when only some of them are set. The CLI removes every `NOSLOP_GITHUB_` variable from its
+process environment before it spawns a model CLI or git, so the reviewed repo's code never sees the
+keys through those processes.
+
+Bun runs a preload that the working directory's `bunfig.toml` names before the CLI's own code
+starts, so a reviewed repo's preload can read the keys when the CLI runs inside its clone. A caller
+that holds the App's keys therefore starts the CLI with `bun --config=<bunfig_path>`, where
+`<bunfig_path>` is a Bun config outside the reviewed repo, such as an empty file. Bun then reads
+that config in place of the repo's, and no preload of the repo runs.
 
 ## What a review posts
 
