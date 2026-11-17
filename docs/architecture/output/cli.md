@@ -127,9 +127,9 @@ contents API, with no checkout, so a push during the load cannot mix 2 commits. 
 by the same rules a review loads a config by, so the 2 hashes match when the 2 configs match. Like a
 review, it follows each symlink on a file's path, a link to a folder included. A rules file outside
 the repo, which only the reviewer's machine holds, reads as missing, so a config that lists one
-never verifies. When a symlink on a config file's path points outside the repo, `verify` names that
-file by its path in the repo, with the link and the link's target. `verify` exits 1 and prints each
-mismatch to stderr.
+never verifies. When a symlink on a config file's path points outside the file's repo, `verify`
+names that file, with the link and the link's target. `verify` exits 1 and prints each mismatch to
+stderr.
 
 ## Posting a result
 

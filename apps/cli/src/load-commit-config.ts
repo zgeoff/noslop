@@ -1,9 +1,10 @@
 import { isAbsolute, relative, sep } from 'node:path';
-import type { LoadedConfig, ReadLocalFile } from '@noslop/config';
+import type { ConfigLocation, GithubLocation, LoadedConfig, ReadLocalFile } from '@noslop/config';
 import { MissingConfigFileError, loadConfig } from '@noslop/config';
 import type { PullRequestRef } from '@noslop/contract';
 import type { GitHubConnection } from '@noslop/github';
 import { createGitHubFileReader, toFileText } from '@noslop/github';
+import { match } from 'ts-pattern';
 import { formatOutsideLinks } from './format-outside-links';
 
 export interface OutsideLink {
@@ -30,17 +31,15 @@ export async function loadCommitConfig(
 
   const reads: Promise<string | null>[] = [];
 
-  const readCommitFile = async (path: string, inner: string): Promise<string | null> => {
-    const read = await readGitHubFile({
-      kind: 'github',
-      owner: pr.owner,
-      repo: pr.repo,
-      path: inner,
-      ref: commit,
-    });
+  const readFile = async (
+    location: GithubLocation,
+    key: string,
+    path: string,
+  ): Promise<string | null> => {
+    const read = await readGitHubFile(location);
 
     if (read.kind === 'outside') {
-      outsideLinks.set(path, { path: inner, link: read.link, target: read.target });
+      outsideLinks.set(key, { path, link: read.link, target: read.target });
     }
 
     return toFileText(read);
@@ -53,7 +52,13 @@ export async function loadCommitConfig(
       return Promise.resolve(null);
     }
 
-    const read = readCommitFile(path, inner.split(sep).join('/'));
+    const innerPath = inner.split(sep).join('/');
+
+    const read = readFile(
+      { kind: 'github', owner: pr.owner, repo: pr.repo, path: innerPath, ref: commit },
+      path,
+      innerPath,
+    );
 
     reads.push(read);
 
@@ -63,21 +68,23 @@ export async function loadCommitConfig(
   try {
     const loaded = await loadConfig({
       repoDir: BASE_BRANCH_DIR,
-      readRemoteFile: async (location) => {
-        const read = await readGitHubFile(location);
+      readRemoteFile: (location) => {
+        const read = readFile(
+          location,
+          buildReadKey(location),
+          `github:${location.owner}/${location.repo}/${location.path}`,
+        );
 
-        return toFileText(read);
+        reads.push(read);
+
+        return read;
       },
       readLocalFile,
     });
 
     return { loaded, outsideLinks: [...outsideLinks.values()] };
   } catch (error) {
-    if (
-      !(error instanceof MissingConfigFileError) ||
-      error.location.kind !== 'local' ||
-      !outsideLinks.has(error.location.path)
-    ) {
+    if (!(error instanceof MissingConfigFileError)) {
       throw error;
     }
 
@@ -85,9 +92,26 @@ export async function loadCommitConfig(
     // for them to name every link that leaves the repo.
     await Promise.allSettled(reads);
 
-    throw new Error(
-      `the config at ${commit.slice(0, 12)} ${formatOutsideLinks([...outsideLinks.values()])}`,
-      { cause: error },
-    );
+    if (outsideLinks.size === 0) {
+      throw error;
+    }
+
+    const named = `the config at ${commit.slice(0, 12)} ${formatOutsideLinks([...outsideLinks.values()])}`;
+
+    const message = outsideLinks.has(buildReadKey(error.location))
+      ? named
+      : `${error.message}; ${named}`;
+
+    throw new Error(message, { cause: error });
   }
+}
+
+function buildReadKey(location: ConfigLocation): string {
+  return match(location)
+    .with({ kind: 'local' }, (local) => local.path)
+    .with(
+      { kind: 'github' },
+      (remote) => `github:${remote.owner}/${remote.repo}/${remote.path}@${remote.ref ?? ''}`,
+    )
+    .exhaustive();
 }
