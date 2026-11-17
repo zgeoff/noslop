@@ -13,7 +13,11 @@ async function setupTest() {
 
   onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  await configure({ sinks: {}, loggers: [], reset: true });
+  await configure({
+    sinks: {},
+    loggers: [{ category: ['logtape', 'meta'], lowestLevel: 'error', sinks: [] }],
+    reset: true,
+  });
 
   onTestFinished(() => reset());
 
