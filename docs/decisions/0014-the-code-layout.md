@@ -6,16 +6,16 @@
 
 noslop is one Bun workspace in 4 folders, and every package takes the `@noslop/` scope:
 
-| Folder      | Holds                                                                                   |
-| ----------- | --------------------------------------------------------------------------------------- |
-| `apps/`     | Deployables: `cli`, published as `@noslop/cli` with the bin `noslop`                    |
-| `modules/`  | `config`, `static-stage`, `routing`, `lenses`, `review`, `findings`, `eval`             |
-| `adapters/` | One package per outside system: `codex`, `claude`, `github`, `sqlite`, `webhook`        |
-| `libs/`     | Shared code: `contract` for the zod schemas, `runner` for spawning a process, `testing` |
+| Folder      | Holds                                                                            |
+| ----------- | -------------------------------------------------------------------------------- |
+| `apps/`     | Deployables: `cli`, published as `@noslop/cli` with the bin `noslop`             |
+| `modules/`  | `config`, `static-stage`, `routing`, `lenses`, `review`, `findings`, `eval`      |
+| `adapters/` | One package per outside system: `codex`, `claude`, `github`, `sqlite`, `webhook` |
+| `libs/`     | Shared code: `contract` for the zod schemas, `runner` for spawning a process     |
 
-A package exposes only its entry point through its `exports` map. A check by tag enforces the
-boundaries: a module never imports an adapter, and libs depend only on libs. The app constructs each
-adapter and passes it to the module that uses it.
+A package exposes its entry point and its `test-utils` helpers through its `exports` map. A check by
+tag enforces the boundaries: a module never imports an adapter, and libs depend only on libs. The
+app constructs each adapter and passes it to the module that uses it.
 
 ## Why
 
