@@ -1,18 +1,19 @@
 # review-on-codex
 
-Review a pull request on the codex adapter against a live codex CLI. The noslop GitHub App posts
-findings on 2 seeded defects, and its `noslop` check run on GitHub fails until someone answers them.
-Answering findings and the fixes-only re-review run the same code on either adapter, so
-[review-and-fix](feature-review-and-fix.md) covers them.
+Review a pull request on the codex adapter, against a live codex CLI. The noslop GitHub App posts
+findings, and its `noslop` check run on GitHub fails while they stay open. The journey checks only
+the codex adapter: a change elsewhere marks [review-and-fix](feature-review-and-fix.md) as changed,
+and that journey covers the answers and the fixes-only re-review.
 
-Start a run first, with steps 2 and 3 of [Check a change](../SKILL.md#check-a-change). When a
-journey line exits non-zero, read the pull request before you close it: `open-pull-request` printed
-its link in `data.url`. Then run `bun verify action close-pull-request`, skip `done`, and report the
-line and its `error.code`.
+The mistake that costs the most time:
 
-`open-pull-request --adapter codex` pushes a change with a stock move that drops its rollback, and
-an order query that builds SQL from a request value. Its `review.json` picks codex, so `review` runs
-codex. The branches belong to the run alone, so no other journey reads that `review.json`.
+- **Reporting a failure after one run with 0 findings.** codex's output varies between runs. When
+  `review` reports 0 findings, close the pull request and run the journey once more from its first
+  line. Report the feature as failed only when the second run also misses.
+
+`open-pull-request --adapter codex` pushes a change with 2 seeded defects, and a `review.json` that
+picks codex for each review on this pull request. The seed lives in
+[`sandbox-seed.ts`](../../../../scripts/verify/sandbox-seed.ts).
 
 ## Journey
 
@@ -27,13 +28,10 @@ bun verify action close-pull-request
 
 ## End state
 
-Each command prints a JSON envelope, and the fields below sit in its `data`:
+Each row's fields sit in the command's `data`. Judge the review by these counts and states alone.
 
-| Command                          | Shows the feature works when                              |
+| Command                          | The feature works when                                    |
 | -------------------------------- | --------------------------------------------------------- |
 | `action review`                  | `findings` is above 0                                     |
 | `check-run --conclusion failure` | it exits 0: the check run on the head commit is `failure` |
 | `findings --open some`           | it exits 0, and `states` counts some `open` findings      |
-
-When `review` reports 0 findings, codex missed both seeded defects. Run the journey once more before
-you report the feature as failed: the model's output varies between runs.
