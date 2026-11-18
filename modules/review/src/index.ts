@@ -1,4 +1,4 @@
-export * from './plan-review';
-export * from './run-fix-checks';
-export * from './run-fixes-only-review';
+export * from './calls/plan-review';
+export * from './fix-checks/run-fix-checks';
+export * from './fix-checks/run-fixes-only-review';
 export * from './run-review';

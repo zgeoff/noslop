@@ -1,6 +1,6 @@
 import type { Depth, FindingLens, Tokens } from '@noslop/contract';
-import type { Case } from './case';
-import type { ReportedFinding } from './collect-matches';
+import type { Case } from './corpus/case';
+import type { ReportedFinding } from './runs/collect-matches';
 
 export interface CaseReview {
   findings: ReportedFinding[];

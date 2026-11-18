@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { BUILT_IN_DEFAULTS } from '@noslop/config';
 import { createRunner } from '@noslop/runner';
 import { createTestRepo, readTempPrefix } from '@noslop/testing';
-import { readChange } from './read-change';
+import { readChange } from './change/read-change';
 import { runStaticStage } from './run-static-stage';
 
 async function setupTest() {
@@ -3913,4 +3913,562 @@ test('it lists a new script that a package script names only inside a longer pat
   });
 
   expect(result.slices.scripts).toStrictEqual(['scripts/seed.ts']);
+});
+
+test('it lists the injection sinks, request-path calls and sensitive header reads the change adds', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/handle.ts': 'export const a = 1;\n' } },
+    {
+      message: 'head',
+      files: {
+        'src/handle.ts': [
+          "import { exec, spawn } from 'node:child_process';",
+          '',
+          'export function handle(app, db, req, dir: string, id: string, code: string, url: string) {',
+          `  exec(\`ls \${dir}\`);`,
+          "  spawn('ls', [dir], { shell: true });",
+          "  db.query('select * from items where id = ' + id);",
+          '  eval(code);',
+          '  redirect(url);',
+          '  app.use(dir);',
+          "  return req.headers.get('authorization');",
+          '}',
+          '',
+        ].join('\n'),
+      },
+    },
+  ]);
+
+  const config = BUILT_IN_DEFAULTS;
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config,
+    title: 'feat: handle requests',
+    body: '',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(result.slices.security).toStrictEqual([
+    {
+      location: { path: 'src/handle.ts', startLine: 4, endLine: 4 },
+      part: 'injection-sink',
+      detail: 'shell command built from input in exec',
+    },
+    {
+      location: { path: 'src/handle.ts', startLine: 5, endLine: 5 },
+      part: 'injection-sink',
+      detail: 'spawn with shell: true',
+    },
+    {
+      location: { path: 'src/handle.ts', startLine: 6, endLine: 6 },
+      part: 'injection-sink',
+      detail: 'SQL text built from input in db.query',
+    },
+    {
+      location: { path: 'src/handle.ts', startLine: 7, endLine: 7 },
+      part: 'injection-sink',
+      detail: 'code built at run time in eval',
+    },
+    {
+      location: { path: 'src/handle.ts', startLine: 8, endLine: 8 },
+      part: 'injection-sink',
+      detail: 'redirect to a URL built from input in redirect',
+    },
+    {
+      location: { path: 'src/handle.ts', startLine: 9, endLine: 9 },
+      part: 'request-path',
+      detail: 'app.use on the request path',
+    },
+    {
+      location: { path: 'src/handle.ts', startLine: 10, endLine: 10 },
+      part: 'request-path',
+      detail: 'reads the authorization header',
+    },
+  ]);
+});
+
+test('it lists no injection sink for a call built from literals alone', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/handle.ts': 'export const a = 1;\n' } },
+    {
+      message: 'head',
+      files: {
+        'src/handle.ts': [
+          "import { exec } from 'node:child_process';",
+          '',
+          'export function handle(db, query: string) {',
+          "  exec('ls');",
+          '  exec(`ls -la`);',
+          "  db.query('select * from ' + 'items');",
+          '  db.query(query);',
+          '  redirect();',
+          '}',
+          '',
+        ].join('\n'),
+      },
+    },
+  ]);
+
+  const config = BUILT_IN_DEFAULTS;
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config,
+    title: 'feat: handle requests',
+    body: '',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(result.slices.security).toStrictEqual([]);
+});
+
+test('it records a schema edge for a changed bound, with consumers in the repo and outside it', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'package.json': '{\n  "name": "root",\n  "private": true\n}\n',
+        'packages/core/package.json': '{\n  "name": "core",\n  "version": "1.0.0"\n}\n',
+        'packages/core/src/input.ts': [
+          "import { z } from 'zod';",
+          '',
+          'const inputSchema = z.object({',
+          '  title: z.string().max(100),',
+          '});',
+          '',
+        ].join('\n'),
+        'apps/web/package.json':
+          '{\n  "name": "web",\n  "private": true,\n  "dependencies": { "core": "workspace:*" }\n}\n',
+      },
+    },
+    {
+      message: 'head',
+      files: {
+        'packages/core/src/input.ts': [
+          "import { z } from 'zod';",
+          '',
+          'const inputSchema = z.object({',
+          '  title: z.string().max(200),',
+          '});',
+          '',
+        ].join('\n'),
+      },
+    },
+  ]);
+
+  const config = {
+    ...BUILT_IN_DEFAULTS,
+    consumers: [
+      { repo: 'acme/site', path: 'package.json', pins: ['core'] },
+      { repo: 'acme/docs', path: 'package.json', pins: ['other'] },
+    ],
+  };
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config,
+    title: 'feat: longer titles',
+    body: '',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(result.slices.edges).toStrictEqual([
+    {
+      location: { path: 'packages/core/src/input.ts', startLine: 4, endLine: 4 },
+      kind: 'schema',
+      name: 'title',
+      consumers: [
+        { repo: null, path: 'apps/web/package.json' },
+        { repo: 'acme/site', path: 'package.json' },
+      ],
+    },
+  ]);
+});
+
+test('it reports a version bump outside the range of a consumer in another repo', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'packages/core/package.json': '{\n  "name": "core",\n  "version": "1.2.0"\n}\n',
+      },
+    },
+    {
+      message: 'head',
+      files: {
+        'packages/core/package.json': '{\n  "name": "core",\n  "version": "2.0.0"\n}\n',
+      },
+    },
+  ]);
+
+  const config = {
+    ...BUILT_IN_DEFAULTS,
+    consumers: [{ repo: 'acme/site', path: 'package.json', pins: ['core'] }],
+  };
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config,
+    title: 'feat!: core 2',
+    body: '',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+    readConsumerFile: () =>
+      Promise.resolve(
+        '{\n  "name": "site",\n  "private": true,\n  "dependencies": { "core": "^1.2.0" }\n}\n',
+      ),
+  });
+
+  expect(result.findings).toStrictEqual([
+    {
+      title: "Version 2.0.0 of core falls outside a consumer's range",
+      body: 'acme/site package.json pins core at ^1.2.0, which 2.0.0 does not satisfy, so that consumer cannot take the release.',
+      anchor: { path: 'packages/core/package.json', startLine: 3, endLine: 3 },
+      criterion: 'outage',
+      severity: 'P1',
+      verdict: 'CONFIRMED',
+      fix: null,
+      missingChange: false,
+      rule: null,
+      ruleQuote: null,
+      secondLocation: null,
+      unverifiedFact: null,
+    },
+  ]);
+});
+
+test('it counts a file in a nested package under that package, apart from the root package', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'package.json': '{\n  "name": "root",\n  "private": true\n}\n',
+        'src/b.ts': 'export const b = 1;\n',
+        'packages/core/package.json': '{\n  "name": "core",\n  "version": "1.0.0"\n}\n',
+        'packages/core/src/a.ts': 'export const a = 1;\n',
+      },
+    },
+    {
+      message: 'head',
+      files: {
+        'src/b.ts': 'export const b = 2;\n',
+        'packages/core/src/a.ts': 'export const a = 2;\n',
+      },
+    },
+  ]);
+
+  const config = BUILT_IN_DEFAULTS;
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config,
+    title: 'fix: core values',
+    body: '',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(result.signals.packagesTouched).toBe(2);
+});
+
+test('it lists the events a changed function emits beside its writes', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/save.ts': 'export const a = 1;\n' } },
+    {
+      message: 'head',
+      files: {
+        'src/save.ts': [
+          "import { writeFile } from 'node:fs/promises';",
+          '',
+          'export async function save(bus, text: string) {',
+          "  await writeFile('a.txt', text);",
+          "  bus.emit('saved');",
+          '}',
+          '',
+        ].join('\n'),
+      },
+    },
+  ]);
+
+  const config = BUILT_IN_DEFAULTS;
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config,
+    title: 'feat: save',
+    body: '',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(result.slices.writes).toStrictEqual([
+    {
+      location: { path: 'src/save.ts', startLine: 4, endLine: 4 },
+      call: 'writeFile',
+      inTransaction: false,
+      eventsBeside: ['bus.emit'],
+    },
+  ]);
+
+  expect(result.slices.events).toStrictEqual([{ path: 'src/save.ts', startLine: 5, endLine: 5 }]);
+});
+
+test('it orders the reuse shortlist by score, then by path and name', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'src/b.ts': [
+          'export function formatUserName(first: string, last: string) {',
+          "  return [first, last].join(' ').trim();",
+          '}',
+          '',
+          'export function formatName(first: string, last: string) {',
+          "  return [first, last].join(' ').trim();",
+          '}',
+          '',
+        ].join('\n'),
+        'src/a.ts': [
+          'export function formatName(first: string, last: string) {',
+          "  return [first, last].join(' ').trim();",
+          '}',
+          '',
+        ].join('\n'),
+      },
+    },
+    {
+      message: 'head',
+      files: {
+        'src/profile.ts': [
+          'export function formatName(first: string, last: string) {',
+          "  return [first, last].join(' ').trim();",
+          '}',
+          '',
+        ].join('\n'),
+      },
+    },
+  ]);
+
+  const config = BUILT_IN_DEFAULTS;
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config,
+    title: 'feat: profile',
+    body: '',
+    linkedIssue: null,
+    cacheDir: join(ctx.directory, 'cache'),
+    pastEscapes: [],
+  });
+
+  expect(result.slices.reuse.map((entry) => entry.candidates)).toStrictEqual([
+    [
+      {
+        name: 'formatName',
+        location: { path: 'src/a.ts', startLine: 1, endLine: 3 },
+        score: 1,
+      },
+      {
+        name: 'formatName',
+        location: { path: 'src/b.ts', startLine: 5, endLine: 7 },
+        score: 1,
+      },
+      {
+        name: 'formatUserName',
+        location: { path: 'src/b.ts', startLine: 1, endLine: 3 },
+        score: 0.83,
+      },
+    ],
+  ]);
+});
+
+test('it reports no missing table for an access check that a test file of another name imports and tables', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/access.ts': 'export const a = 1;\n' } },
+    {
+      message: 'head',
+      files: {
+        'src/access.ts': 'export function canEdit(role: string) {\n  return role === "admin";\n}\n',
+        'src/roles.test.ts': [
+          "import { expect, test } from 'bun:test';",
+          "import { canEdit } from './access';",
+          '',
+          "test.each([['guest'], ['']])('it refuses %s', (role) => {",
+          '  expect(canEdit(role)).toBe(false);',
+          '});',
+          '',
+        ].join('\n'),
+      },
+    },
+  ]);
+
+  const config = BUILT_IN_DEFAULTS;
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config,
+    title: 'feat: access',
+    body: '',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(result.findings).toStrictEqual([]);
+});
+
+test('it reports a missing version bump for the nearest package that owns a changed file', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'package.json': '{\n  "name": "root",\n  "private": true\n}\n',
+        'packages/lib/package.json': '{\n  "name": "lib",\n  "version": "0.1.0"\n}\n',
+        'packages/lib/src/b.ts': 'export const b = 1;\n',
+      },
+    },
+    {
+      message: 'head',
+      files: {
+        'packages/lib/src/b.ts': 'export const b = 2;\n',
+      },
+    },
+  ]);
+
+  const config = { ...BUILT_IN_DEFAULTS, versionBump: ['packages/*/src/**'] };
+
+  const change = await readChange({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    base: 'HEAD~1',
+    head: 'HEAD',
+    config,
+  });
+
+  const result = await runStaticStage({
+    runner: ctx.runner,
+    repoDir: repo.path,
+    change,
+    config,
+    title: 'fix: lib value',
+    body: '',
+    linkedIssue: null,
+    cacheDir: null,
+    pastEscapes: [],
+  });
+
+  expect(result.findings.map((finding) => [finding.anchor, finding.title])).toStrictEqual([
+    [
+      { path: 'packages/lib/package.json', startLine: 3, endLine: 3 },
+      'lib changes with no version bump',
+    ],
+  ]);
 });

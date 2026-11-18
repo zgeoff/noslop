@@ -1,7 +1,7 @@
 import { parseArgs } from 'node:util';
 import type { RunProgram } from '../run-program.ts';
 import { runProgram } from '../run-program.ts';
-import { runCLIPublish } from './publish-cli.ts';
+import { runCLIPublish } from './run-cli-publish.ts';
 
 export interface PublishCLIStepOptions {
   readonly env: Readonly<Record<string, string | undefined>>;

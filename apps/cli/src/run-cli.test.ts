@@ -1,4 +1,3 @@
-import { Database } from 'bun:sqlite';
 import { expect, mock, onTestFinished, test } from 'bun:test';
 import { mkdtemp, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -15,6 +14,7 @@ import {
   runStoreQuery,
   writeReview,
 } from '@noslop/sqlite';
+import { seedNewerStore } from '@noslop/sqlite/test-utils/seed-newer-store';
 import {
   GITHUB_API_URL,
   STUB_APP_LOGIN,
@@ -31,12 +31,12 @@ import {
 } from '@noslop/testing';
 import { HttpResponse, http, passthrough } from 'msw';
 import cliPackage from '../package.json' with { type: 'json' };
-import type { CLIContext } from './cli-context';
-import { createCLIContext } from './create-cli-context';
-import type { GitHubConnectionLoader } from './create-github-connection-loader';
-import { createGitHubConnectionLoader } from './create-github-connection-loader';
-import { createJSONReporter } from './create-json-reporter';
-import { readDeferralPolicy } from './read-deferral-policy';
+import { readDeferralPolicy } from './config/read-deferral-policy';
+import type { CLIContext } from './context/cli-context';
+import { createCLIContext } from './context/create-cli-context';
+import type { GitHubConnectionLoader } from './context/create-github-connection-loader';
+import { createGitHubConnectionLoader } from './context/create-github-connection-loader';
+import { createJSONReporter } from './review/create-json-reporter';
 import { runCLI } from './run-cli';
 import { sendResult } from './send-result';
 import { verify } from './verify';
@@ -389,6 +389,48 @@ test('it prints a summary for a person without --json', async () => {
   expect(ctx.stdout.join('')).toStartWith(`noslop reviewed ${repo.commits[1]?.slice(0, 12)} at`);
 });
 
+test('it reviews a change with no --base from where it leaves main', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/a.ts': 'export const a = 1;\n' } },
+    { message: 'Change a', files: { 'src/a.ts': 'export const a = 2;\n' }, parent: 0 },
+  ]);
+
+  const stub = buildStubAdapter({ light: [{ findings: { correctness: [] } }] });
+
+  const code = await runCLI(['review', '--json'], ctx.buildContext(repo.path, stub.adapter));
+
+  const result = reviewResultSchema.parse(JSON.parse(ctx.stdout.join('')));
+
+  expect({ code, base: result.base, head: result.head, stderr: ctx.stderr }).toStrictEqual({
+    code: 0,
+    base: repo.commits[0] ?? '',
+    head: repo.commits[1] ?? '',
+    stderr: [],
+  });
+});
+
+test('it refuses a review with no --base in a repo with no origin/HEAD, main or master', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/a.ts': 'export const a = 1;\n' } },
+  ]);
+
+  await createRunner().run(['git', 'branch', '-m', 'main', 'trunk'], { cwd: repo.path });
+
+  const stub = buildStubAdapter({});
+
+  const code = await runCLI(['review', '--json'], ctx.buildContext(repo.path, stub.adapter));
+
+  expect({ code, stdout: ctx.stdout, stderr: ctx.stderr }).toStrictEqual({
+    code: 1,
+    stdout: [],
+    stderr: ['noslop: noslop cannot find the branch the change starts from; pass --base\n'],
+  });
+});
+
 test('it records the review in the store and answers a store query', async () => {
   const ctx = await setupTest();
 
@@ -445,6 +487,65 @@ test('it records the review in the store and answers a store query', async () =>
   expect(rows).toMatchObject([{ title: 'Keep a at 1', path: 'src/a.ts', severity: 'P2' }]);
 });
 
+test('it prints a store query as a count line and a key=value line per row without --json', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    {
+      message: 'base',
+      files: {
+        'review.json': '{ "report": ["sqlite"] }\n',
+        'src/a.ts': 'export const a = 1;\n',
+      },
+    },
+    { message: 'Change a', files: { 'src/a.ts': 'export const a = 2;\n' } },
+  ]);
+
+  const stub = buildStubAdapter({
+    light: [
+      {
+        findings: {
+          correctness: [
+            {
+              title: 'Keep a at 1',
+              body: 'Every caller reads a as 1.',
+              anchor: { path: 'src/a.ts', startLine: 1, endLine: 1 },
+              secondLocation: null,
+              severity: 'P2',
+              criterion: 'wrong-behaviour-edge-path',
+              rule: null,
+              ruleQuote: null,
+              verdict: 'CONFIRMED',
+              unverifiedFact: null,
+              missingChange: false,
+              fix: null,
+            },
+          ],
+        },
+      },
+    ],
+  });
+
+  const context = ctx.buildContext(repo.path, stub.adapter);
+
+  await runCLI(
+    ['review', '--base', repo.commits[0] ?? '', '--head', repo.commits[1] ?? '', '--json'],
+    context,
+  );
+
+  ctx.stdout.length = 0;
+
+  const code = await runCLI(['store', 'query', 'yield-by-lens'], context);
+
+  expect({ code, stdout: ctx.stdout, stderr: ctx.stderr }).toStrictEqual({
+    code: 0,
+    stdout: [
+      'yield-by-lens: 1 rows\nlens=correctness  findings=1  fixed=0  notADefect=0  open=1  yield=0  noise=0\n',
+    ],
+    stderr: [],
+  });
+});
+
 test('it fails a review before any lens call when the store schema is newer than this noslop', async () => {
   const ctx = await setupTest();
 
@@ -461,17 +562,10 @@ test('it fails a review before any lens call when the store schema is newer than
 
   const storePath = join(ctx.directory, 'data', 'store.sqlite');
 
-  const first = await loadStore(storePath);
-
-  await first.destroy();
-
-  const database = new Database(storePath, { strict: true });
-
-  database.run(
-    `INSERT INTO kysely_migration (name, timestamp) VALUES ('9999-a-later-schema', '2026-10-18T09:00:00.000Z')`,
-  );
-
-  database.close();
+  await seedNewerStore(storePath, {
+    name: '9999-a-later-schema',
+    timestamp: '2026-10-18T09:00:00.000Z',
+  });
 
   const stub = buildStubAdapter({ light: [{ findings: {} }] });
 
@@ -11141,37 +11235,40 @@ test('it resumes an eval, keeping the cases the out folder holds and replaying t
     { message: 'head', files: { 'src/a.ts': 'export const a = 2;\n' } },
   ]);
 
-  for (const id of ['case-a', 'case-b']) {
-    await Bun.write(
-      join(ctx.directory, 'corpus', id, 'case.json'),
-      JSON.stringify({
-        id,
-        repo: repo.path,
-        base: repo.commits[0],
-        head: repo.commits[1],
-        title: 'Change a',
-        body: '',
-        findings: [],
-        escapes: [],
-      }),
-    );
-  }
+  await Bun.write(
+    join(ctx.directory, 'corpus', 'case-a', 'case.json'),
+    JSON.stringify({
+      id: 'case-a',
+      repo: repo.path,
+      base: repo.commits[0],
+      head: repo.commits[1],
+      title: 'Change a',
+      body: '',
+      findings: [],
+      escapes: [],
+    }),
+  );
+
+  await runCLI(
+    ['eval', '--corpus', join(ctx.directory, 'corpus'), '--out', join(ctx.directory, 'out')],
+    ctx.buildContext(
+      ctx.directory,
+      buildStubAdapter({ light: [{ findings: { correctness: [] } }] }).adapter,
+    ),
+  );
 
   await Bun.write(
-    join(ctx.directory, 'out', 'runs.json'),
-    JSON.stringify([
-      {
-        caseID: 'case-a',
-        review: {
-          findings: [],
-          failed: false,
-          tokens: { input: 1, cachedInput: 0, cacheWrite: 0, output: 1 },
-          durationMs: 1,
-          calls: 1,
-          depth: 'light',
-        },
-      },
-    ]),
+    join(ctx.directory, 'corpus', 'case-b', 'case.json'),
+    JSON.stringify({
+      id: 'case-b',
+      repo: repo.path,
+      base: repo.commits[0],
+      head: repo.commits[1],
+      title: 'Change a',
+      body: '',
+      findings: [],
+      escapes: [],
+    }),
   );
 
   const stub = buildStubAdapter({ light: [{ findings: { correctness: [] } }] });
@@ -11960,6 +12057,182 @@ test('it refuses a --depth that names no depth', async () => {
 
   expect(code).toBe(1);
   expect(ctx.stderr.join('')).toInclude('--depth takes light, standard or deep, not deepest');
+});
+
+test('it compares the 2 recorded runs that --noise-floor names, over the cases of the corpus', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/a.ts': 'export const a = 1;\n' } },
+    { message: 'head', files: { 'src/a.ts': 'export const a = 2;\n' } },
+  ]);
+
+  await Bun.write(
+    join(ctx.directory, 'corpus', 'case-a', 'case.json'),
+    JSON.stringify({
+      id: 'case-a',
+      repo: repo.path,
+      base: repo.commits[0],
+      head: repo.commits[1],
+      title: 'Change a',
+      body: '',
+      findings: [],
+      escapes: [],
+    }),
+  );
+
+  await Bun.write(
+    join(ctx.directory, 'recorded', 'case-a', 'case.json'),
+    JSON.stringify({
+      id: 'case-a',
+      repo: repo.path,
+      base: repo.commits[0],
+      head: repo.commits[1],
+      title: 'Change a',
+      body: '',
+      findings: [],
+      escapes: [],
+    }),
+  );
+
+  await Bun.write(
+    join(ctx.directory, 'recorded', 'case-z', 'case.json'),
+    JSON.stringify({
+      id: 'case-z',
+      repo: repo.path,
+      base: repo.commits[0],
+      head: repo.commits[1],
+      title: 'Change z',
+      body: '',
+      findings: [],
+      escapes: [],
+    }),
+  );
+
+  const keepA = {
+    title: 'Keep a at 1',
+    body: 'Every caller reads a as 1.',
+    anchor: { path: 'src/a.ts', startLine: 1, endLine: 1 },
+    secondLocation: null,
+    severity: 'P2',
+    criterion: 'wrong-behaviour-edge-path',
+    rule: null,
+    ruleQuote: null,
+    verdict: 'CONFIRMED',
+    unverifiedFact: null,
+    missingChange: false,
+    fix: null,
+  } as const;
+
+  const testA = {
+    ...keepA,
+    title: 'Check the new value in a test',
+    body: 'No test reads the new value.',
+    criterion: 'untested-change',
+  } as const;
+
+  await runCLI(
+    ['eval', '--corpus', join(ctx.directory, 'recorded'), '--out', join(ctx.directory, 'first')],
+    ctx.buildContext(
+      ctx.directory,
+      buildStubAdapter({
+        light: [{ findings: { correctness: [keepA] } }, { findings: { correctness: [keepA] } }],
+      }).adapter,
+    ),
+  );
+
+  await runCLI(
+    ['eval', '--corpus', join(ctx.directory, 'recorded'), '--out', join(ctx.directory, 'second')],
+    ctx.buildContext(
+      ctx.directory,
+      buildStubAdapter({
+        light: [
+          { findings: { correctness: [keepA, testA] } },
+          { findings: { correctness: [keepA, testA] } },
+        ],
+      }).adapter,
+    ),
+  );
+
+  ctx.stdout.length = 0;
+
+  const code = await runCLI(
+    [
+      'eval',
+      '--corpus',
+      join(ctx.directory, 'corpus'),
+      '--out',
+      join(ctx.directory, 'first'),
+      '--resume',
+      '--noise-floor',
+      `${join(ctx.directory, 'first', 'runs.json')},${join(ctx.directory, 'second', 'runs.json')}`,
+      '--json',
+    ],
+    ctx.buildContext(ctx.directory, buildStubAdapter({}).adapter),
+  );
+
+  const summary: unknown = JSON.parse(ctx.stdout.join(''));
+
+  expect({ code, summary, stderr: ctx.stderr }).toStrictEqual({
+    code: 0,
+    summary: expect.objectContaining({
+      noiseFloor: { cases: 1, findingsFirst: 1, findingsSecond: 2, matched: 1, agreement: 0.5 },
+    }),
+    stderr: [],
+  });
+});
+
+test('it refuses a --noise-floor that names 1 recorded run', async () => {
+  const ctx = await setupTest();
+
+  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    { message: 'base', files: { 'src/a.ts': 'export const a = 1;\n' } },
+    { message: 'head', files: { 'src/a.ts': 'export const a = 2;\n' } },
+  ]);
+
+  await Bun.write(
+    join(ctx.directory, 'corpus', 'case-a', 'case.json'),
+    JSON.stringify({
+      id: 'case-a',
+      repo: repo.path,
+      base: repo.commits[0],
+      head: repo.commits[1],
+      title: 'Change a',
+      body: '',
+      findings: [],
+      escapes: [],
+    }),
+  );
+
+  const code = await runCLI(
+    [
+      'eval',
+      '--corpus',
+      join(ctx.directory, 'corpus'),
+      '--noise-floor',
+      join(ctx.directory, 'first.json'),
+    ],
+    ctx.buildContext(ctx.directory, buildStubAdapter({}).adapter),
+  );
+
+  expect({ code, stdout: ctx.stdout, stderr: ctx.stderr }).toStrictEqual({
+    code: 1,
+    stdout: [],
+    stderr: ['noslop: --noise-floor takes 2 recorded runs, joined by a comma\n'],
+  });
+});
+
+test('it exits 1 and asks for a command when it runs with none', async () => {
+  const ctx = await setupTest();
+  const code = await runCLI([], ctx.buildContext(ctx.directory, buildStubAdapter({}).adapter));
+
+  expect({ code, stdout: ctx.stdout, stderr: ctx.stderr }).toStrictEqual({
+    code: 1,
+    stdout: [],
+    stderr: [
+      'noslop: name a command: review, findings, verify, post, check, config, eval or store\n',
+    ],
+  });
 });
 
 test('it puts an unknown option on stderr and keeps stdout empty', async () => {

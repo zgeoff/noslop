@@ -1,16 +1,16 @@
 import { STORE_QUERY_NAMES } from '@noslop/sqlite';
 import { cli, define } from 'gunshi';
 import cliPackage from '../package.json' with { type: 'json' };
-import type { CLIContext } from './cli-context';
-import { runCheckCommand } from './run-check-command';
-import { runConfigCommand } from './run-config-command';
-import { runEvalCommand } from './run-eval-command';
+import { runCheckCommand } from './check-run/run-check-command';
+import { runConfigCommand } from './config/run-config-command';
+import type { CLIContext } from './context/cli-context';
+import { runEvalCommand } from './eval/run-eval-command';
+import { runPostCommand } from './result/run-post-command';
+import { runVerifyCommand } from './result/run-verify-command';
+import { runReviewCommand } from './review/run-review-command';
 import { runFindingsCommand } from './run-findings-command';
-import { runPostCommand } from './run-post-command';
-import { runReviewCommand } from './run-review-command';
-import { runStoreEscapeCommand } from './run-store-escape-command';
-import { runStoreQueryCommand } from './run-store-query-command';
-import { runVerifyCommand } from './run-verify-command';
+import { runStoreEscapeCommand } from './store/run-store-escape-command';
+import { runStoreQueryCommand } from './store/run-store-query-command';
 
 const JSON_ARG = {
   type: 'boolean',

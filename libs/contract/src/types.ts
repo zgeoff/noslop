@@ -1,14 +1,14 @@
 import type { Logger } from '@logtape/logtape';
 import type { z } from 'zod';
-import type { CallOutput } from './build-call-output-schema';
-import type { Criterion } from './criterion';
-import type { Disposition } from './disposition';
-import type { Effort } from './effort';
-import type { Finding } from './finding';
-import type { CallLens } from './lens-id';
-import type { ReporterOptions } from './review-config';
-import type { PullRequestRef, ReviewResult } from './review-result';
-import type { Tokens } from './tokens';
+import type { Effort } from './config/effort';
+import type { CallLens } from './config/lens-id';
+import type { ReporterOptions } from './config/review-config';
+import type { CallOutput } from './findings/build-call-output-schema';
+import type { Criterion } from './findings/criterion';
+import type { Disposition } from './findings/disposition';
+import type { Finding } from './findings/finding';
+import type { PullRequestRef, ReviewResult } from './result/review-result';
+import type { Tokens } from './result/tokens';
 
 export interface CallRequest<Output = CallOutput> {
   callID: string;

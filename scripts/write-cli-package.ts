@@ -28,6 +28,10 @@ const LIBRARY_ENTRIES = {
   './check': 'check',
 } as const;
 
+// TypeScript under node10 resolution skips the exports map and reads `<subpath>.d.ts` at the
+// package root, so an entry whose source is another entry's still ships its own files.
+const ALIAS_ENTRIES: Readonly<Record<string, string>> = { contract: 'index' };
+
 export interface CLIPackageManifest {
   name: string;
   version: string;
@@ -46,7 +50,9 @@ export interface CLIPackageManifest {
 export async function writeCLIPackage(outDir: string): Promise<CLIPackageManifest> {
   const bunVersion = await Bun.file(join(REPO_DIR, '.bun-version')).text();
 
-  const entryNames = Object.values(LIBRARY_ENTRIES);
+  const entryNames = Object.values(LIBRARY_ENTRIES).filter(
+    (name) => ALIAS_ENTRIES[name] === undefined,
+  );
 
   await rm(outDir, { recursive: true, force: true });
   await mkdir(outDir, { recursive: true });
@@ -67,6 +73,7 @@ export async function writeCLIPackage(outDir: string): Promise<CLIPackageManifes
   });
 
   await writeDeclarations(outDir, entryNames);
+  await writeAliasEntries(outDir);
 
   const manifest: CLIPackageManifest = {
     name: cliPackage.name,
@@ -131,6 +138,15 @@ async function writeDeclarations(outDir: string, entryNames: readonly string[]):
       },
     },
   });
+}
+
+async function writeAliasEntries(outDir: string): Promise<void> {
+  for (const [alias, target] of Object.entries(ALIAS_ENTRIES)) {
+    const reexport = `export * from './${target}.js';\n`;
+
+    await Bun.write(join(outDir, `${alias}.js`), reexport);
+    await Bun.write(join(outDir, `${alias}.d.ts`), reexport);
+  }
 }
 
 if (import.meta.main) {
