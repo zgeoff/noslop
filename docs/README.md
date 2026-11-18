@@ -20,6 +20,8 @@ each choice with its reasons.
 - [Development](runbooks/development.md): contributor setup, the checks, and running the CLI from
   source
 - [Running the eval](runbooks/running-the-eval.md): replay a labelled corpus and read its scores
+- [Verifying a change](runbooks/verifying-a-change.md): run the `bun verify` journeys on a sandbox
+  repo, and publish the verdicts the `verify / gate` check reads
 - [Releasing](runbooks/releasing.md): the release steps the release workflow does not do
 
 ## Reference

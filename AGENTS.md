@@ -16,6 +16,7 @@ skills are in `.agents/skills/`, and `.claude/skills` links to that folder.
 | `skill-writing` | writing or editing a skill under `.agents/skills/`                                 |
 | `cold-read`     | checking a skill you wrote or changed, before its PR                               |
 | `deslop`        | editing the prose of a skill you wrote or changed, before its PR                   |
+| `verify`        | handing off a change to a review: run the journey of each feature it changes       |
 
 When you write or edit a skill:
 
@@ -36,6 +37,14 @@ When you write or edit a skill:
   lowercase header of at most 72 characters.
 - Commit subjects use the imperative mood ("add X", never "added X" or a bare noun phrase).
 
+## Verify before you hand off
+
+Before you hand off a pull request, load the `verify` skill, and run the journey of each feature
+your change touches with `bun verify`. Then run `bun verify publish`, which writes the verdicts into
+the pull request's description. The `verify / gate` check fails the pull request until each changed
+feature has a fresh verdict, and `main` requires that check.
+[Verifying a change](docs/runbooks/verifying-a-change.md) lists the credentials a run needs.
+
 ## Repo structure
 
 noslop is one Bun workspace. Every package takes the name `@noslop/<folder>` and is consumed as
@@ -51,12 +60,14 @@ libs/              shared code that belongs to no domain: contract, runner, test
 docs/
   architecture/    what is built, by area, with an overview
   guides/          the steps a user takes, one task each
-  runbooks/        contributor and maintainer procedures: development, the eval, releasing
+  runbooks/        contributor and maintainer procedures: development, the eval, verifying,
+                   releasing
   reference/       generated reference: the JSON Schema of review.json
   decisions/       numbered decision records
   design/          a design for work not yet built; only the owner opens a design
 scripts/           the CLI package build, the config schema writer, the first publish, the release
-                   ship and publish steps
+                   ship and publish steps, the verify CLI in verify/, and the gate step in
+                   verify-gate/
 ```
 
 `bun run schema:config` writes `docs/reference/review.schema.json` from the config schema, and a
