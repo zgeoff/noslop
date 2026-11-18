@@ -1,7 +1,7 @@
 import { join } from 'node:path';
-import { getRunBranches } from './create-sandbox-pull-request.ts';
 import type { SandboxEnv } from './parse-sandbox-env.ts';
 import { readOpenRunState } from './read-open-run-state.ts';
+import { getRunBranches } from './remove-run-branches.ts';
 import type { RunEndpoints } from './run-endpoints.ts';
 import { runGit } from './run-git.ts';
 import { sandboxSeed } from './sandbox-seed.ts';

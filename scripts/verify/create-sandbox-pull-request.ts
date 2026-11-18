@@ -2,9 +2,11 @@ import { mkdir, rm } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { WringerError } from '@wringer/core';
 import { createGitHubConnection } from '../../adapters/github/src/index.ts';
+import type { GitHubConnection } from '../../adapters/github/src/index.ts';
 import type { SandboxEnv } from './parse-sandbox-env.ts';
 import type { Adapter } from './read-run-state.ts';
 import { readRunState } from './read-run-state.ts';
+import { getRunBranches, removeRunBranches } from './remove-run-branches.ts';
 import type { RunEndpoints } from './run-endpoints.ts';
 import { runGit } from './run-git.ts';
 import { sandboxSeed } from './sandbox-seed.ts';
@@ -67,23 +69,11 @@ export async function createSandboxPullRequest(
   await git(['push', '--quiet', 'origin', branches.base, branches.head]);
 
   const connection = await createGitHubConnection(null, sandbox.token);
-
-  const created = await connection.client.request('POST /repos/{owner}/{repo}/pulls', {
-    owner: sandbox.owner,
-    repo: sandbox.repo,
-    title: sandboxSeed.defect.title,
-    body: sandboxSeed.defect.body,
-    head: branches.head,
-    base: branches.base,
-  });
+  const created = await createPullRequest(connection, sandbox, endpoints);
 
   await writeRunState(endpoints, { stage: 'opened', pullRequest: created.data.number, adapter });
 
   return { pullRequest: created.data.number, url: created.data.html_url };
-}
-
-export function getRunBranches(endpoints: RunEndpoints): { base: string; head: string } {
-  return { base: `verify/${endpoints.run}/base`, head: `verify/${endpoints.run}/head` };
 }
 
 async function writeFiles(root: string, files: Readonly<Record<string, string>>): Promise<void> {
@@ -91,5 +81,30 @@ async function writeFiles(root: string, files: Readonly<Record<string, string>>)
     await mkdir(dirname(join(root, path)), { recursive: true });
 
     await Bun.write(join(root, path), text);
+  }
+}
+
+// No run state names the branches until the pull request exists, so a refused pull request
+// removes them here, or `bun verify down` would leave them on the sandbox.
+async function createPullRequest(
+  connection: GitHubConnection,
+  sandbox: SandboxEnv,
+  endpoints: RunEndpoints,
+) {
+  const branches = getRunBranches(endpoints);
+
+  try {
+    return await connection.client.request('POST /repos/{owner}/{repo}/pulls', {
+      owner: sandbox.owner,
+      repo: sandbox.repo,
+      title: sandboxSeed.defect.title,
+      body: sandboxSeed.defect.body,
+      head: branches.head,
+      base: branches.base,
+    });
+  } catch (error) {
+    await removeRunBranches(connection, sandbox, endpoints);
+
+    throw error;
   }
 }
