@@ -8,8 +8,8 @@
   // package, and the chex baseline in node_modules runs diet, so knip sees none of them
   "ignoreDependencies": ["@stylistic/eslint-plugin", "@zgeoff/agent-hooks", "@zgeoff/diet"],
   "workspaces": {
-    // rig loads its config by name
-    ".": { "entry": ["rig.config.ts"] },
+    // rig loads its config by name, and `bun verify up` runs the launch process by its path
+    ".": { "entry": ["rig.config.ts", "scripts/verify/run-sandbox-host.ts"] },
     // a stub CLI runs this script by its path
     "libs/testing": { "entry": ["src/stubs/run-stub-cli.ts"] }
   }

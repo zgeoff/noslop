@@ -10,6 +10,8 @@ minimumReleaseAge = 604800
 
 # first-party packages skip the gate; their third-party dependencies stay behind it
 minimumReleaseAgeExcludes = [
+  "@wringer/core",
+  "@wringer/gunshi",
   "@zgeoff/agent-hooks",
   "@zgeoff/bun-test-extended",
   "@zgeoff/chex",
