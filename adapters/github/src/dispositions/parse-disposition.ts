@@ -21,9 +21,19 @@ export function parseDisposition(reply: string): ParsedDisposition | null {
     return null;
   }
 
-  if (kind.data === 'fixed' && !/^[0-9a-f]{7,40}$/u.test(value)) {
-    return null;
+  if (kind.data === 'fixed') {
+    return parseFixedSha(value);
   }
 
   return { kind: kind.data, value };
+}
+
+function parseFixedSha(value: string): ParsedDisposition | null {
+  const sha = /^(?<sha>[0-9a-f]{7,40})(?!\w)/u.exec(value)?.groups?.['sha'];
+
+  if (sha === undefined) {
+    return null;
+  }
+
+  return { kind: 'fixed', value: sha };
 }
