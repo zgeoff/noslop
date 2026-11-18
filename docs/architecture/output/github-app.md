@@ -152,6 +152,11 @@ deferred #123
 accepted-risk single-tenant deploy; no shared rows
 ```
 
+A `fixed` line is the bare word, or the word, a space and a sha of 7 to 40 lowercase hex characters.
+Text may follow the sha after a space or a punctuation mark, and the disposition keeps the first sha
+alone, so `fixed 1a2b3c4 and 5d6e7f8.` names `1a2b3c4`. Any other text after `fixed`, such as
+`fixed the loop`, makes the line no disposition.
+
 A reply to a comment that folds several findings gives each finding the disposition on its first
 line, or answers each finding on its own line. In the second form, each of the reply's first lines
 holds a finding's id, a space and a disposition, and the first line without an id ends the answers:

@@ -71,11 +71,14 @@ and the reply answers none of the findings on its lines.
 | `deferred`      | an issue       | real, but it waits for a tracked issue | the change did not write the code, and the issue exists |
 | `accepted-risk` | a reason       | real, and you accept it                | the author has admin permission on the repo             |
 
-A `fixed` reply may end at the word, or name a sha of 7 to 40 hex characters as a hint. A fix check
-judges the finding at the head whatever the sha names, so after a rebase or a squash you need not
-reply again. The issue of a `deferred` reply is `#<number>` in the same repo,
-`<owner>/<repo>#<number>`, an issue URL, or a key of another tracker that a pattern in the config's
-`issueKeys` matches, such as `ABC-41` under `^ABC-\d+$`.
+A `fixed` reply may end at the word, or name a sha of 7 to 40 lowercase hex characters as a hint.
+Text after the sha is allowed once a space or a punctuation mark ends the sha, so `fixed 1a2b3c4.`
+and `fixed 1a2b3c4 and 5d6e7f8` both name `1a2b3c4`, the first sha. A `fixed` reply with any other
+text after the word, such as `fixed the loop`, is no disposition. A fix check judges the finding at
+the head whatever the sha names, so after a rebase or a squash you need not reply again. The issue
+of a `deferred` reply is `#<number>` in the same repo, `<owner>/<repo>#<number>`, an issue URL, or a
+key of another tracker that a pattern in the config's `issueKeys` matches, such as `ABC-41` under
+`^ABC-\d+$`.
 
 ## Which kinds a finding can take
 
