@@ -126,13 +126,15 @@ that command alone. A command with neither runs on the registry's first target, 
 | ------- | ----------------------------------------------------- | ---------- |
 | `local` | `bun verify use --target local`, then `bun verify up` | read-write |
 
-`up` starts no server. Each action runs the CLI from your worktree's source, on a pull request the
-journey opens on a sandbox repo. `down` closes a pull request that a journey left open.
-
 Before `up`, set the variables that
 [Verifying a change](../../../docs/runbooks/verifying-a-change.md#set-up-the-credentials) lists, and
-sign in claude and codex. Never write their values into the repo. When the doctor names a variable
-you can't set, skip `done` for every feature, and report the variable.
+sign in claude and codex. Never write their values into the repo. When the doctor fails on one you
+can't set, skip `done` for every feature, and report it.
+
+Here the app is the noslop CLI. `up` starts no server: it makes the run's folder, and
+`data.endpoints` holds its paths. Each action runs the CLI from your worktree's source, against a
+pull request that the journey opens on the sandbox repo. `down` closes a pull request that a journey
+left open.
 
 <!-- /repo -->
 
@@ -149,8 +151,9 @@ for its commands.
 
 <!-- repo: commands -->
 
-- Run a journey's lines in order. Every action works on the run's one open pull request, and
-  `open-pull-request` refuses while one is open, so end each journey with `close-pull-request`.
+- Run a journey's lines in order. Every action works on the run's one open pull request.
+- When a journey line fails, run `bun verify action close-pull-request` before anything else.
+  `open-pull-request` refuses while the run's pull request is open.
 - `review` and `review-fixes-only` call a model, and take a minute or two each.
 - Judge the end state with `check-run` and `findings` alone. The model words its findings anew on
   each run.
@@ -165,8 +168,9 @@ The registry, [`create-verify-registry.ts`](../../../scripts/verify/create-verif
 declares the target, actions, commands, doctor checks and features. It takes each feature's `paths`
 and the `.shared` and `.ignore` lists from
 [`feature-paths.ts`](../../../scripts/verify/feature-paths.ts). Add a new package's glob to each
-feature whose journey runs it. Ignore a file only when noslop never reads it when it reviews: an
-ignore glob beats a feature's glob. CI runs `bun verify lint` and `bun verify gate` on each PR.
+feature whose journey runs it. Add a glob to `sharedPaths` only for a file that every journey runs,
+such as the verify CLI. An ignore glob beats a feature's glob, so never ignore a file that a review
+reads, such as a lens prompt. CI runs `bun verify lint` and `bun verify gate` on each PR.
 
 <!-- /repo -->
 

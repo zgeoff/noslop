@@ -1,20 +1,27 @@
 # review-and-fix
 
-Review a pull request as the App on the claude adapter, answer its findings, push a fix, and see
-`noslop review --fixes-only` confirm the fix and the `noslop` check pass. The journey takes the path
-a user takes on a real pull request: a review, an answer that `noslop check` judges, a `fixed`
-answer, and a fixes-only re-review.
+Run a user's whole path through a pull request on the claude adapter. The noslop GitHub App reviews
+the pull request and posts findings. The author answers them and pushes a fix. Then a fixes-only
+re-review confirms the fix, and the App's `noslop` check run on GitHub turns green.
 
-Start the environment first: `bun verify up`, then `bun verify doctor`, as steps 2 and 3 of the
-verify skill's Check a change say. Run the journey's lines in order. At the first line that exits
-non-zero, run `bun verify action close-pull-request`, and count the feature as failed.
+Start a run first, with steps 2 and 3 of [Check a change](../SKILL.md#check-a-change). When a
+journey line exits non-zero, read the pull request before you close it: `open-pull-request` printed
+its link in `data.url`. Then run `bun verify action close-pull-request`, skip `done`, and report the
+line and its `error.code`.
 
-- `open-pull-request` pushes a change with 2 seeded defects to the sandbox: a stock move that drops
-  its rollback, and an order query that builds SQL from a request value.
-- `answer-findings --threads all-but-first` answers every finding thread but the first. When the
-  review posts one thread, it answers none, and still exits 0.
-- `push-fix` restores the rollback and binds the order status, which fixes both defects. The `fixed`
-  answer goes to the first thread alone; the other threads hold their `not-a-defect` answer.
+What the journey sets up, and why:
+
+- `open-pull-request --adapter claude` pushes a change with 2 seeded defects to the sandbox: a stock
+  move that drops its rollback, and an order query that builds SQL from a request value. Its
+  `review.json` picks claude, so each later review runs claude.
+- `answer-findings --disposition not-a-defect --threads all-but-first` answers each finding thread
+  but the one with the lowest comment ID. noslop accepts a `not-a-defect` answer from the author, so
+  the `check` action, which runs `noslop check`, sets the check run from those answers alone. The
+  one thread left open keeps the check run failing. When the review posts one thread, this line
+  answers none, and still exits 0.
+- `push-fix` restores the rollback and binds the order status, which fixes both defects. Then
+  `answer-findings --disposition fixed --threads first` answers that first thread with the fix's
+  commit.
 
 ## Journey
 
@@ -36,11 +43,17 @@ bun verify action close-pull-request
 
 ## End state
 
-- Every command exits 0.
-- After `review`, `data.findings` is above 0, the `noslop` check run on the head concludes
-  `failure`, and `findings` lists some `open` findings in `data.states`.
-- After `review-fixes-only`, `data.fixChecks` is above 0, the check run concludes `success`, and
-  `findings` lists no `open` finding and some `fixed` ones.
-- When `check-run --conclusion success` fails, the fix check judged the fix not to hold. Read the
-  App's reply on the first thread of the pull request that `open-pull-request` printed in
-  `data.url`, before `close-pull-request` closes it.
+Each command prints a JSON envelope, and the fields below sit in its `data`:
+
+| Command                             | Shows the feature works when                                            |
+| ----------------------------------- | ----------------------------------------------------------------------- |
+| `action review`                     | `findings` is above 0                                                   |
+| `check-run --conclusion failure`    | it exits 0: the check run on the head commit is `failure`               |
+| `findings --open some`              | it exits 0, and `states` counts some `open` findings                    |
+| `action check`                      | it exits 0; the check run stays `failure`                               |
+| `action review-fixes-only`          | `fixChecks` is above 0                                                  |
+| `check-run --conclusion success`    | it exits 0: the check run on the new head is `success`                  |
+| `findings --open none --fixed some` | it exits 0, and `states` counts some `fixed` findings and no `open` one |
+
+When `check-run --conclusion success` fails, the fixes-only re-review judged the fix not to hold.
+Its reply on the first finding thread gives the reason: quote it in your report.
