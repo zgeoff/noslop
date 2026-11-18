@@ -33,7 +33,7 @@
   },
   "type": "module",
   "scripts": {
-    "audit": "bun audit --ignore=GHSA-fc5q-39xc-vjpf --ignore=GHSA-g3hv-75wg-m249",
+    "audit": "bun audit --ignore=GHSA-g3hv-75wg-m249",
     "boundaries": "turbo boundaries",
     "check": "bun run audit && bun run deadcode && bun run format:check && bun run lint:full && bun run typecheck && bun run boundaries && bun run prose && bun run test && bun run check:package-types",
     "deadcode": "bash scripts/run-knip.sh",
