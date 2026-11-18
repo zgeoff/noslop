@@ -3,7 +3,8 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { getLogger } from '@logtape/logtape';
-import { buildMockReviewResult, readTempPrefix } from '@noslop/testing';
+import { buildMockReviewResult } from '@noslop/contract/test-utils/build-mock-review-result';
+import { readTempPrefix } from '@noslop/runner';
 import { createJSONReporter } from './create-json-reporter';
 
 async function setupTest() {

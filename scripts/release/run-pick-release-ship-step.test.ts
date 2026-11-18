@@ -2,7 +2,7 @@ import { expect, mock, onTestFinished, test } from 'bun:test';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { readTempPrefix } from '@noslop/testing';
+import { readTempPrefix } from '@noslop/runner';
 import { runPickReleaseShipStep } from './run-pick-release-ship-step';
 
 async function setupTest() {

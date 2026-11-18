@@ -1,4 +1,4 @@
-import type { Finding } from '@noslop/contract';
+import type { Finding } from '../index';
 
 export function buildMockFinding(overrides: Partial<Finding> = {}): Finding {
   return {

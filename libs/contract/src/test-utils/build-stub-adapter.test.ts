@@ -3,8 +3,8 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { getLogger } from '@logtape/logtape';
-import { buildCallOutputSchema } from '@noslop/contract';
-import { readTempPrefix } from '../temp/read-temp-prefix';
+import { readTempPrefix } from '@noslop/runner';
+import { buildCallOutputSchema } from '../index';
 import { buildStubAdapter } from './build-stub-adapter';
 
 test('it answers each attempt of a call with the next answer under its ID', async () => {

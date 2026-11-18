@@ -10,7 +10,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { readTempPrefix } from '@noslop/testing';
+import { readTempPrefix } from '@noslop/runner';
 import { z } from 'zod';
 
 // A temp git project that holds this repo's hook entries, stub and skill-gate rules, with this

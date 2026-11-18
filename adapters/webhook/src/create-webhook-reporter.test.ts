@@ -1,6 +1,7 @@
 import { expect, mock, test } from 'bun:test';
 import { getLogger } from '@logtape/logtape';
-import { buildMockReviewResult, githubServer } from '@noslop/testing';
+import { buildMockReviewResult } from '@noslop/contract/test-utils/build-mock-review-result';
+import { githubServer } from '@noslop/github/test-utils/github-server';
 import { HttpResponse, http } from 'msw';
 import { createWebhookReporter } from './create-webhook-reporter';
 

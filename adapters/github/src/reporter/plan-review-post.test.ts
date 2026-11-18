@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test';
-import { buildMockFinding, buildMockReviewResult } from '@noslop/testing';
+import { buildMockFinding } from '@noslop/contract/test-utils/build-mock-finding';
+import { buildMockReviewResult } from '@noslop/contract/test-utils/build-mock-review-result';
 import { planReviewPost } from './plan-review-post';
 
 test('it writes the first review of a pull request in full', () => {

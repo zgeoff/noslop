@@ -1,6 +1,8 @@
 import { expect, test } from 'bun:test';
-import { STUB_APP_LOGIN, buildStubAppKey, githubCollections } from '@noslop/testing';
 import { createGitHubConnection } from '../connection/create-github-connection';
+import { buildStubAppKey } from '../test-utils/build-stub-app-key';
+import { githubCollections } from '../test-utils/github-collections';
+import { STUB_APP_LOGIN } from '../test-utils/github-handlers';
 import { readPullRequestState } from './read-pull-request-state';
 
 function setupTest() {

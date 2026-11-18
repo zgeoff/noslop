@@ -7,7 +7,7 @@
       "devDependencies": {
         "@commitlint/cli": "21.2.4",
         "@noslop/contract": "workspace:*",
-        "@noslop/testing": "workspace:*",
+        "@noslop/runner": "workspace:*",
         "@stylistic/eslint-plugin": "5.10.0",
         "@tsconfig/strictest": "2.0.8",
         "@types/bun": "1.4.4",
@@ -39,7 +39,6 @@
       },
       "devDependencies": {
         "@logtape/logtape": "catalog:",
-        "@noslop/testing": "workspace:*",
       },
     },
     "adapters/codex": {
@@ -53,7 +52,6 @@
       },
       "devDependencies": {
         "@logtape/logtape": "catalog:",
-        "@noslop/testing": "workspace:*",
       },
     },
     "adapters/github": {
@@ -68,9 +66,12 @@
         "zod": "catalog:",
       },
       "devDependencies": {
+        "@faker-js/faker": "catalog:",
         "@logtape/logtape": "catalog:",
+        "@msw/data": "catalog:",
+        "@mswjs/interceptors": "catalog:",
         "@noslop/runner": "workspace:*",
-        "@noslop/testing": "workspace:*",
+        "@octokit/types": "catalog:",
         "msw": "catalog:",
       },
     },
@@ -85,7 +86,7 @@
       "devDependencies": {
         "@faker-js/faker": "catalog:",
         "@logtape/logtape": "catalog:",
-        "@noslop/testing": "workspace:*",
+        "@noslop/runner": "workspace:*",
       },
     },
     "adapters/webhook": {
@@ -96,7 +97,7 @@
       },
       "devDependencies": {
         "@logtape/logtape": "catalog:",
-        "@noslop/testing": "workspace:*",
+        "@noslop/github": "workspace:*",
         "msw": "catalog:",
       },
     },
@@ -122,7 +123,6 @@
         "ts-pattern": "catalog:",
       },
       "devDependencies": {
-        "@noslop/testing": "workspace:*",
         "msw": "catalog:",
       },
     },
@@ -133,24 +133,14 @@
         "@logtape/logtape": "catalog:",
         "zod": "catalog:",
       },
+      "devDependencies": {
+        "@noslop/runner": "workspace:*",
+      },
     },
     "libs/runner": {
       "name": "@noslop/runner",
       "version": "0.0.0",
-    },
-    "libs/testing": {
-      "name": "@noslop/testing",
-      "version": "0.0.0",
-      "dependencies": {
-        "@faker-js/faker": "catalog:",
-        "@logtape/logtape": "catalog:",
-        "@msw/data": "catalog:",
-        "@mswjs/interceptors": "catalog:",
-        "@noslop/contract": "workspace:*",
-        "@noslop/runner": "workspace:*",
-        "@octokit/types": "catalog:",
-        "msw": "catalog:",
-        "ts-pattern": "catalog:",
+      "devDependencies": {
         "zod": "catalog:",
       },
     },
@@ -161,7 +151,7 @@
         "@noslop/contract": "workspace:*",
       },
       "devDependencies": {
-        "@noslop/testing": "workspace:*",
+        "@noslop/runner": "workspace:*",
       },
     },
     "modules/eval": {
@@ -173,9 +163,6 @@
         "ts-pattern": "catalog:",
         "zod": "catalog:",
       },
-      "devDependencies": {
-        "@noslop/testing": "workspace:*",
-      },
     },
     "modules/findings": {
       "name": "@noslop/findings",
@@ -186,7 +173,6 @@
       },
       "devDependencies": {
         "@noslop/config": "workspace:*",
-        "@noslop/testing": "workspace:*",
       },
     },
     "modules/lenses": {
@@ -213,7 +199,6 @@
       },
       "devDependencies": {
         "@noslop/config": "workspace:*",
-        "@noslop/testing": "workspace:*",
       },
     },
     "modules/routing": {
@@ -225,7 +210,6 @@
       },
       "devDependencies": {
         "@noslop/config": "workspace:*",
-        "@noslop/testing": "workspace:*",
       },
     },
     "modules/static-stage": {
@@ -240,7 +224,6 @@
       },
       "devDependencies": {
         "@noslop/config": "workspace:*",
-        "@noslop/testing": "workspace:*",
       },
     },
   },
@@ -407,7 +390,6 @@
 
     "@noslop/static-stage": ["@noslop/static-stage@workspace:modules/static-stage"],
 
-    "@noslop/testing": ["@noslop/testing@workspace:libs/testing"],
 
     "@noslop/webhook": ["@noslop/webhook@workspace:adapters/webhook"],
 

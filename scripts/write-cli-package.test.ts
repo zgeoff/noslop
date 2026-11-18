@@ -2,7 +2,7 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdtemp, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { readTempPrefix } from '@noslop/testing';
+import { readTempPrefix } from '@noslop/runner';
 import rootPackage from '../package.json' with { type: 'json' };
 import { writeCLIPackage } from './write-cli-package';
 

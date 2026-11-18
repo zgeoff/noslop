@@ -4,8 +4,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Finding } from '@noslop/contract';
 import { reviewResultSchema } from '@noslop/contract';
-import { createRunner } from '@noslop/runner';
-import { createTestRepo, readTempPrefix } from '@noslop/testing';
+import { createRunner, readTempPrefix } from '@noslop/runner';
+import { createTestRepo } from '@noslop/runner/test-utils/create-test-repo';
 
 async function setupTest() {
   const directory = await mkdtemp(join(tmpdir(), `${readTempPrefix()}noslop-e2e-`));

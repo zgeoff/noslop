@@ -3,7 +3,7 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { readTempPrefix } from '@noslop/testing';
+import { readTempPrefix } from '@noslop/runner';
 import { z } from 'zod';
 import { seedNewerStore } from '../test-utils/seed-newer-store';
 import { loadStore } from './load-store';

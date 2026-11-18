@@ -4,13 +4,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { getLogger } from '@logtape/logtape';
 import { BUILT_IN_DEFAULTS } from '@noslop/config';
-import { createRunner } from '@noslop/runner';
-import {
-  buildCountingRunner,
-  buildStubAdapter,
-  createTestRepo,
-  readTempPrefix,
-} from '@noslop/testing';
+import { buildStubAdapter } from '@noslop/contract/test-utils/build-stub-adapter';
+import { createRunner, readTempPrefix } from '@noslop/runner';
+import { createTestRepo } from '@noslop/runner/test-utils/create-test-repo';
+import { buildCountingRunner } from '../test-utils/build-counting-runner';
 import { runFixesOnlyReview } from './run-fixes-only-review';
 
 async function setupTest() {

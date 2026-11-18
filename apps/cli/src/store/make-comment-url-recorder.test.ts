@@ -3,8 +3,10 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { getLogger } from '@logtape/logtape';
+import { buildMockFinding } from '@noslop/contract/test-utils/build-mock-finding';
+import { buildMockReviewResult } from '@noslop/contract/test-utils/build-mock-review-result';
+import { readTempPrefix } from '@noslop/runner';
 import { loadStore, runStoreQuery, writeReview } from '@noslop/sqlite';
-import { buildMockFinding, buildMockReviewResult, readTempPrefix } from '@noslop/testing';
 import { makeCommentURLRecorder } from './make-comment-url-recorder';
 
 async function setupTest() {

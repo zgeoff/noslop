@@ -3,14 +3,12 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { BUILT_IN_DEFAULTS } from '@noslop/config';
+import { buildMockFinding } from '@noslop/contract/test-utils/build-mock-finding';
+import { buildMockReviewResult } from '@noslop/contract/test-utils/build-mock-review-result';
+import { buildStubAppKey } from '@noslop/github/test-utils/build-stub-app-key';
+import { githubCollections } from '@noslop/github/test-utils/github-collections';
+import { readTempPrefix } from '@noslop/runner';
 import { loadStore, runStoreQuery } from '@noslop/sqlite';
-import {
-  buildMockFinding,
-  buildMockReviewResult,
-  buildStubAppKey,
-  githubCollections,
-  readTempPrefix,
-} from '@noslop/testing';
 import { createCLIContext } from '../context/create-cli-context';
 import { runReporters } from './run-reporters';
 

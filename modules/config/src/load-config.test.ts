@@ -2,7 +2,7 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
-import { readTempPrefix } from '@noslop/testing';
+import { readTempPrefix } from '@noslop/runner';
 import { BUILT_IN_DEFAULTS } from './built-in-defaults';
 import { loadConfig } from './load-config';
 import { MissingConfigFileError } from './missing-config-file-error';

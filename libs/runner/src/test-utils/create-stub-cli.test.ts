@@ -2,8 +2,8 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createRunner } from '@noslop/runner';
-import { readTempPrefix } from '../temp/read-temp-prefix';
+import { createRunner } from '../index';
+import { readTempPrefix } from '../read-temp-prefix';
 import { createStubCLI } from './create-stub-cli';
 
 async function setupTest() {

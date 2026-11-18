@@ -1,4 +1,4 @@
-import type { ChangedFile } from '@noslop/contract';
+import type { ChangedFile } from '../index';
 
 export function buildMockChangedFile(overrides: Partial<ChangedFile> = {}): ChangedFile {
   return {

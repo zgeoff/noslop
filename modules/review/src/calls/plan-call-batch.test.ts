@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test';
+import { buildMockChangedFile } from '@noslop/contract/test-utils/build-mock-changed-file';
+import { buildMockSlices } from '@noslop/contract/test-utils/build-mock-slices';
 import { buildCallPrompt } from '@noslop/lenses';
-import { buildMockChangedFile, buildMockSlices } from '@noslop/testing';
 import { planCallBatch } from './plan-call-batch';
 
 test('it gives each part of a split call an ID that no other call of the review holds', () => {

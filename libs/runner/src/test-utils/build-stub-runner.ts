@@ -1,4 +1,4 @@
-import type { RunOptions, RunResult, Runner } from '@noslop/runner';
+import type { RunOptions, RunResult, Runner } from '../index';
 
 export interface StubAnswer {
   argv: readonly string[];

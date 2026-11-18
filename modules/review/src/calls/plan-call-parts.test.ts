@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test';
+import { buildMockChangedFile } from '@noslop/contract/test-utils/build-mock-changed-file';
+import { buildMockSlices } from '@noslop/contract/test-utils/build-mock-slices';
 import { buildCallPrompt } from '@noslop/lenses';
-import { buildMockChangedFile, buildMockSlices } from '@noslop/testing';
 import type { CallPartsInput } from './plan-call-parts';
 import { planCallParts } from './plan-call-parts';
 

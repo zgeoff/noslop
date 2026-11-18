@@ -47,7 +47,7 @@ apps/              deployables
   cli/             @noslop/cli, the bin `noslop`; composition root for a review
 modules/           config, static-stage, routing, lenses, review, findings, eval
 adapters/          one outside system each: codex, claude, github, sqlite, webhook
-libs/              shared code that belongs to no domain: contract, runner, testing
+libs/              shared code that belongs to no domain: contract, runner
 docs/
   architecture/    what is built, by area, with an overview
   guides/          the steps a user takes, one task each

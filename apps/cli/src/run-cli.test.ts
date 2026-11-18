@@ -5,8 +5,18 @@ import { join } from 'node:path';
 import { configureSync, getLogger, resetSync } from '@logtape/logtape';
 import type { ReviewAdapter } from '@noslop/contract';
 import { findingListSchema, reviewResultSchema } from '@noslop/contract';
+import { buildMockFinding } from '@noslop/contract/test-utils/build-mock-finding';
+import { buildMockReviewResult } from '@noslop/contract/test-utils/build-mock-review-result';
+import { buildStubAdapter } from '@noslop/contract/test-utils/build-stub-adapter';
 import { buildNetChangeKey, createGitHubReporter } from '@noslop/github';
-import { createRunner } from '@noslop/runner';
+import { buildStubAppKey } from '@noslop/github/test-utils/build-stub-app-key';
+import { buildStubPrivateRepo } from '@noslop/github/test-utils/build-stub-private-repo';
+import { createStubRetargetDuringRead } from '@noslop/github/test-utils/create-stub-retarget-during-read';
+import { githubCollections } from '@noslop/github/test-utils/github-collections';
+import { GITHUB_API_URL, STUB_APP_LOGIN } from '@noslop/github/test-utils/github-handlers';
+import { githubServer } from '@noslop/github/test-utils/github-server';
+import { createRunner, readTempPrefix } from '@noslop/runner';
+import { createTestRepo } from '@noslop/runner/test-utils/create-test-repo';
 import {
   createSQLiteReporter,
   loadStore,
@@ -15,20 +25,6 @@ import {
   writeReview,
 } from '@noslop/sqlite';
 import { seedNewerStore } from '@noslop/sqlite/test-utils/seed-newer-store';
-import {
-  GITHUB_API_URL,
-  STUB_APP_LOGIN,
-  buildMockFinding,
-  buildMockReviewResult,
-  buildStubAdapter,
-  buildStubAppKey,
-  buildStubPrivateRepo,
-  createStubRetargetDuringRead,
-  createTestRepo,
-  githubCollections,
-  githubServer,
-  readTempPrefix,
-} from '@noslop/testing';
 import { HttpResponse, http, passthrough } from 'msw';
 import cliPackage from '../package.json' with { type: 'json' };
 import { readDeferralPolicy } from './config/read-deferral-policy';

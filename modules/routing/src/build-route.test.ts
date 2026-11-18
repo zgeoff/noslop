@@ -1,8 +1,10 @@
 import { expect, test } from 'bun:test';
 import { BUILT_IN_DEFAULTS } from '@noslop/config';
 import type { SpecialChange } from '@noslop/contract';
-import { buildMockChangedFile, buildMockRiskSignals, buildMockSlices } from '@noslop/testing';
+import { buildMockChangedFile } from '@noslop/contract/test-utils/build-mock-changed-file';
+import { buildMockSlices } from '@noslop/contract/test-utils/build-mock-slices';
 import { buildRoute } from './build-route';
+import { buildMockRiskSignals } from './test-utils/build-mock-risk-signals';
 
 test('it runs a small code change at Light in one call', () => {
   const file = buildMockChangedFile();

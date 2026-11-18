@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { reviewResultSchema } from '@noslop/contract';
+import { reviewResultSchema } from '../index';
 import { buildMockReviewResult } from './build-mock-review-result';
 
 test('it builds a default review result that the result schema accepts', () => {

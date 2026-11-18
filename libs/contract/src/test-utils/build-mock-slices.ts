@@ -1,4 +1,4 @@
-import type { CommentDensity, Slices } from '@noslop/contract';
+import type { CommentDensity, Slices } from '../index';
 
 export type SlicesOverrides = Partial<Omit<Slices, 'comments'>> & {
   comments?: Partial<CommentDensity>;

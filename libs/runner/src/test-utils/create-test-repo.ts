@@ -1,6 +1,6 @@
 import { mkdir, rm, symlink } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import { buildChildEnv } from '@noslop/runner';
+import { buildChildEnv } from '../build-child-env';
 
 export interface TestCommit {
   message: string;

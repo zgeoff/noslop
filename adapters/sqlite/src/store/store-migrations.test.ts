@@ -3,7 +3,9 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { buildMockFinding, buildMockReviewResult, readTempPrefix } from '@noslop/testing';
+import { buildMockFinding } from '@noslop/contract/test-utils/build-mock-finding';
+import { buildMockReviewResult } from '@noslop/contract/test-utils/build-mock-review-result';
+import { readTempPrefix } from '@noslop/runner';
 import { writeReview } from '../reviews/write-review';
 import { loadStore } from './load-store';
 

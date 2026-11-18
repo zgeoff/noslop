@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./test-utils/*": "./src/test-utils/*.ts"
   },
   "scripts": {
     "typecheck": "tsrs --fast --noEmit"
@@ -18,9 +19,12 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@faker-js/faker": "catalog:",
     "@logtape/logtape": "catalog:",
+    "@msw/data": "catalog:",
+    "@mswjs/interceptors": "catalog:",
     "@noslop/runner": "workspace:*",
-    "@noslop/testing": "workspace:*",
+    "@octokit/types": "catalog:",
     "msw": "catalog:"
   }
 }

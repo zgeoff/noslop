@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { buildMockChangedFile } from '@noslop/testing';
+import { buildMockChangedFile } from '@noslop/contract/test-utils/build-mock-changed-file';
 import { isReleaseChange } from './is-release-change';
 
 test('it treats a top-level version bump and a changelog as a release', () => {

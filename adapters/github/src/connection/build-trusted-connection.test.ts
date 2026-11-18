@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test';
-import { STUB_APP_LOGIN, buildStubAppKey } from '@noslop/testing';
+import { buildStubAppKey } from '../test-utils/build-stub-app-key';
+import { STUB_APP_LOGIN } from '../test-utils/github-handlers';
 import { buildTrustedConnection } from './build-trusted-connection';
 import { createGitHubConnection } from './create-github-connection';
 
