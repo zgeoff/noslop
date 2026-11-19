@@ -1,48 +1,49 @@
-import { expect, mock, test } from 'bun:test';
+import { expect, onTestFinished, test } from 'bun:test';
 import { getLogger } from '@logtape/logtape';
 import { buildMockReviewResult } from '@noslop/contract/test-utils/build-mock-review-result';
-import { githubServer } from '@noslop/github/test-utils/github-server';
-import { HttpResponse, http } from 'msw';
 import { createWebhookReporter } from './create-webhook-reporter';
+import { startStubWebhookReceiver } from './test-utils/start-stub-webhook-receiver';
 
 test('it sends the result as JSON with the secret header from the environment', async () => {
-  const received = mock<(input: unknown) => void>();
+  const receiver = startStubWebhookReceiver({ status: 200 });
 
-  githubServer.use(
-    http.post('https://hooks.example.test/noslop', async (info) => {
-      const body: unknown = await info.request.json();
-
-      received({ secret: info.request.headers.get('x-noslop-secret'), body });
-
-      return HttpResponse.json({ ok: true });
-    }),
-  );
+  onTestFinished(() => receiver.stop());
 
   const result = buildMockReviewResult();
 
   await createWebhookReporter({ env: { NOSLOP_HOOK_SECRET: 's3cret' } }).report(result, {
     logger: getLogger(['test']),
     options: {
-      url: 'https://hooks.example.test/noslop',
+      url: receiver.url,
       secretHeader: 'x-noslop-secret',
       secretEnv: 'NOSLOP_HOOK_SECRET',
     },
   });
 
-  expect(received).toHaveBeenCalledExactlyOnceWith({ secret: 's3cret', body: result });
+  expect(receiver.received).toStrictEqual([
+    {
+      method: 'POST',
+      path: '/noslop',
+      headers: expect.objectContaining({
+        'content-type': 'application/json',
+        'x-noslop-secret': 's3cret',
+      }),
+      body: result,
+    },
+  ]);
 });
 
 test('it fails when the webhook answers with an error status', () => {
-  githubServer.use(
-    http.post('https://hooks.example.test/noslop', () => new HttpResponse(null, { status: 503 })),
-  );
+  const receiver = startStubWebhookReceiver({ status: 503 });
+
+  onTestFinished(() => receiver.stop());
 
   expect(
     createWebhookReporter({ env: {} }).report(buildMockReviewResult(), {
       logger: getLogger(['test']),
-      options: { url: 'https://hooks.example.test/noslop' },
+      options: { url: receiver.url },
     }),
-  ).rejects.toThrowWithMessage(Error, 'the webhook at hooks.example.test answered 503');
+  ).rejects.toThrowWithMessage(Error, `the webhook at ${new URL(receiver.url).host} answered 503`);
 });
 
 test('it refuses to send when the secret variable is not set', () => {

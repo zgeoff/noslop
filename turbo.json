@@ -17,11 +17,9 @@
       "module": {
         "dependencies": { "allow": ["module", "lib"] }
       },
-      // webhook's tests share the stand-in GitHub server that the github adapter exports
       "adapter": {
-        "dependencies": { "allow": ["module", "lib", "stand-in"] }
+        "dependencies": { "allow": ["module", "lib"] }
       },
-      "stand-in": {},
       "lib": {
         "dependencies": { "allow": ["lib"] }
       }

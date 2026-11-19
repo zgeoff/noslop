@@ -31,8 +31,9 @@ noslop builds on this stack:
 - An injected runner keeps process spawning in one place, which tests replace with a stand-in.
 - GitHub's own SDK handles App auth, token refresh and webhook signatures. `@octokit/core` is the
   typed client an installation token drives, and `@octokit/types` types its routes.
-- msw with `@msw/data` stands in for GitHub's API and for a webhook receiver in tests, over an
-  in-memory store the handlers read and write.
+- msw with `@msw/data` stands in for GitHub's API in tests, over an in-memory store the handlers
+  read and write. The webhook adapter's tests post to its own receiver on a loopback port, which the
+  stand-in lets through.
 
 ## Alternatives
 
@@ -64,3 +65,5 @@ noslop builds on this stack:
   in place of the msw 2.15.0 pin.
 - 2026-11-17: dropped Elysia and `@octokit/webhooks` with the App server, since no package imports
   them.
+- 2026-11-19: the webhook adapter's tests use a loopback receiver of its own in place of msw, so the
+  adapter needs no import of the GitHub adapter.

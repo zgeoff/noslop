@@ -25,7 +25,7 @@ import {
   writeReview,
 } from '@noslop/sqlite';
 import { seedNewerStore } from '@noslop/sqlite/test-utils/seed-newer-store';
-import { HttpResponse, http, passthrough } from 'msw';
+import { HttpResponse, http } from 'msw';
 import cliPackage from '../package.json' with { type: 'json' };
 import { readDeferralPolicy } from './config/read-deferral-policy';
 import type { CLIContext } from './context/cli-context';
@@ -12292,8 +12292,6 @@ test('it carries a review from a developer machine through the relay and passes 
   onTestFinished(() => relay.stop(true));
 
   const relayURL = new URL('/noslop', relay.url).href;
-
-  githubServer.use(http.post(relayURL, () => passthrough()));
 
   const folders = {
     XDG_CACHE_HOME: join(ctx.directory, 'cache'),

@@ -1,4 +1,4 @@
 {
   "extends": ["//"],
-  "tags": ["adapter", "stand-in"]
+  "tags": ["adapter"]
 }
