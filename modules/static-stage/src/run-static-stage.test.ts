@@ -13,7 +13,40 @@ async function setupTest() {
 
   onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  return { directory, runner: createRunner() };
+  const runner = createRunner();
+
+  const readInstructionFindings = async (base: string, head: string) => {
+    const repo = await createTestRepo(join(directory, 'repo'), [
+      { message: 'base', files: { 'AGENTS.md': base, 'src/AGENTS.md': '# Source\n' } },
+      { message: 'head', files: { 'src/AGENTS.md': head } },
+    ]);
+
+    const config = BUILT_IN_DEFAULTS;
+
+    const change = await readChange({
+      runner,
+      repoDir: repo.path,
+      base: 'HEAD~1',
+      head: 'HEAD',
+      config,
+    });
+
+    const result = await runStaticStage({
+      runner,
+      repoDir: repo.path,
+      change,
+      config,
+      title: 'docs: rules',
+      body: '',
+      linkedIssue: null,
+      cacheDir: null,
+      pastEscapes: [],
+    });
+
+    return result.findings.map((finding) => [finding.criterion, finding.anchor.startLine]);
+  };
+
+  return { directory, runner, readInstructionFindings };
 }
 
 test('it slices a changed function with its writes, guards and throws', async () => {
@@ -876,6 +909,73 @@ test('it reports a repeated rule and vague wording in an instruction file', asyn
     ['instruction-conflict', 3],
     ['documentation-prose', 4],
   ]);
+});
+
+test('it skips code-block lines and link-only lines when it looks for a repeated rule', async () => {
+  const ctx = await setupTest();
+
+  const shared = [
+    '# Guide',
+    '',
+    '[Native timers and scenario delays](./system-tests.md#native-timers-and-scenario-delays) and',
+    '[Program-fixed paths and global resources](./system-tests.md#program-fixed-paths-and-global-resources).',
+    '',
+    '- See [system tests and their stand-ins](./system-tests.md).',
+    '- See [the complete system test guide][system].',
+    '',
+    '- ```text',
+    '  const ctx = await setupTest();',
+    '  ```',
+    '',
+    '```text',
+    '```still code',
+    'const ctx = await setupTest();',
+    '```',
+    '',
+    '```ts',
+    "import { expect, test } from 'bun:test';",
+    'const ctx = await setupTest();',
+    '```',
+    '',
+    '~~~sh',
+    'const ctx = await setupTest();',
+    '~~~',
+    '',
+  ].join('\n');
+
+  const findings = await ctx.readInstructionFindings(shared, shared.replace('# Guide', '# Source'));
+
+  expect(findings).toStrictEqual([]);
+});
+
+test('it reports a rule sentence repeated beside a link and after a code block', async () => {
+  const ctx = await setupTest();
+
+  const base = [
+    '# Rules',
+    '',
+    '```ts',
+    'const ctx = await setupTest();',
+    '```',
+    '',
+    'Run the full check before every commit to main.',
+    '',
+  ].join('\n');
+
+  const head = [
+    '# Source',
+    '',
+    '```ts',
+    'const ctx = await setupTest();',
+    '```',
+    '',
+    'Run the full check before every commit to main. See [the guide](./guide.md).',
+    '',
+  ].join('\n');
+
+  const findings = await ctx.readInstructionFindings(base, head);
+
+  expect(findings).toStrictEqual([['instruction-conflict', 7]]);
 });
 
 test('it reports an edit to a synced copy, a stray format hunk and a test the body names', async () => {

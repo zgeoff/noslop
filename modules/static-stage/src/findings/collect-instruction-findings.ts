@@ -23,10 +23,11 @@ export function collectInstructionFindings(
     }
 
     const lines = entry.text.split('\n');
+    const sentencesByLine = splitRuleSentencesByLine(entry.text);
 
     const others = instruction.loadedBeside.map((path) => ({
       path,
-      sentences: new Set(splitRuleSentences(texts.get(path) ?? '')),
+      sentences: new Set(splitRuleSentencesByLine(texts.get(path) ?? '').flat()),
     }));
 
     for (const lineNumber of [...entry.lines.added].toSorted((left, right) => left - right)) {
@@ -46,7 +47,7 @@ export function collectInstructionFindings(
         );
       }
 
-      for (const sentence of splitRuleSentences(line)) {
+      for (const sentence of sentencesByLine[lineNumber - 1] ?? []) {
         const twin = others.find((other) => other.sentences.has(sentence));
 
         if (twin !== undefined) {
@@ -67,18 +68,70 @@ export function collectInstructionFindings(
   return findings;
 }
 
+// A fence may follow list markers, as in "- ```text". The rest of the line is its info string.
+const FENCE_LINE = /^\s*(?:(?:[-*+]|\d+[.)])\s+)*(?<fence>`{3,}|~{3,})(?<info>.*)$/u;
+
+// One entry per line of the text: the rule sentences on it, none inside a fenced block.
+function splitRuleSentencesByLine(text: string): string[][] {
+  let openFence: string | null = null;
+
+  return text.split('\n').map((line) => {
+    const groups = FENCE_LINE.exec(line)?.groups;
+    const fence = groups?.['fence'];
+    const info = groups?.['info'] ?? '';
+
+    if (openFence !== null) {
+      // A closing fence uses the opening character, is at least as long, and has no text after it.
+      if (
+        fence?.startsWith(openFence[0] ?? '') === true &&
+        fence.length >= openFence.length &&
+        info.trim() === ''
+      ) {
+        openFence = null;
+      }
+
+      return [];
+    }
+
+    // A backtick fence cannot hold a backtick in its info string; that line is inline code.
+    if (fence !== undefined && !(fence.startsWith('`') && info.includes('`'))) {
+      openFence = fence;
+
+      return [];
+    }
+
+    return splitRuleSentences(line);
+  });
+}
+
 const MIN_RULE_WORDS = 5;
 
 function splitRuleSentences(text: string): string[] {
   return text
     .split('\n')
-    .map((line) => line.replace(/^\s*(?:[-*+]|\d+\.)\s+/u, '').replaceAll(/[*_`]/gu, ''))
+    .map((line) => line.replace(/^\s*(?:[-*+]|\d+\.)\s+/u, ''))
     .flatMap((line) => line.split(/(?<=[.!?])\s+/u))
+    .filter((sentence) => !isLinkOnly(sentence))
     .map((sentence) =>
       sentence
+        .replaceAll(/[*_`]/gu, '')
         .trim()
         .toLowerCase()
         .replace(/[.!?]$/u, ''),
     )
     .filter((sentence) => sentence.split(/\s+/u).length >= MIN_RULE_WORDS);
+}
+
+const MARKDOWN_LINK = /!?\[[^\]]*\](?:\([^)]*\)|\[[^\]]*\])/gu;
+const LINK_FILLER = /\b(?:see|read|load|also|and|or)\b/giu;
+
+// A sentence is link-only when nothing but links (inline or reference style) and filler words (see, read, and) remain.
+function isLinkOnly(sentence: string): boolean {
+  const withoutLinks = sentence.replaceAll(MARKDOWN_LINK, '');
+
+  if (withoutLinks === sentence) {
+    return false;
+  }
+
+  return !/[\p{L}\p{N}]/u.test(withoutLinks.replaceAll(LINK_FILLER, ''));
 }
