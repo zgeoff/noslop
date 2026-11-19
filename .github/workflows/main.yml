@@ -17,11 +17,12 @@ permissions:
 
 jobs:
   checks:
-    # A newer push makes an older run's checks moot. A publish run dispatched
-    # at a release tag has a ref of its own, so a push never cancels it.
+    # Keyed by commit and never cancelled, so every push to main is tested. A
+    # publish run dispatched at a release tag shares the tagged commit's sha, so
+    # its checks wait for that commit's push run rather than cancel it.
     concurrency:
-      group: checks-${{ github.ref }}
-      cancel-in-progress: true
+      group: checks-${{ github.sha }}
+      cancel-in-progress: false
     # GitHub checks the called workflow's job permissions even for its skipped
     # gitleaks job, which asks for pull-requests: write
     permissions:
@@ -66,7 +67,7 @@ jobs:
 
   # Picks whether this run publishes, dispatches a run at its tag, or ships
   # nothing. It runs after a failed or skipped need too, since a tag whose
-  # checks a newer push cancelled still needs its dispatch.
+  # checks failed or were cancelled still needs its dispatch.
   pick-release-ship:
     needs: [checks, release]
     if: ${{ !cancelled() && vars.RELEASE_ENABLED == 'true' }}
