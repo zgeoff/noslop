@@ -85,8 +85,8 @@ Nothing merges a release pull request on its own, so each release waits for a ma
    Expect the version you released.
 
 npm provenance records the commit of the run that publishes. A run publishes only when the tag is on
-its own commit and its checks passed. When another merge landed first, or a newer push cancelled the
-run's checks, the `pick-release-ship` job logs `ship=dispatch`, and the `dispatch-release` job
+its own commit and its checks passed. When another merge landed first, or the run's checks failed or
+were cancelled, the `pick-release-ship` job logs `ship=dispatch`, and the `dispatch-release` job
 starts a `workflow_dispatch` run of `main` at the tag. That run checks the tag and publishes it.
 
 ## Recover a release blocked by a workflow change
