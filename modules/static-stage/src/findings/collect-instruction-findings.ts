@@ -68,24 +68,33 @@ export function collectInstructionFindings(
   return findings;
 }
 
-const FENCE_LINE = /^\s*(?<fence>`{3,}|~{3,})/u;
+// A fence may follow list markers, as in "- ```text". The rest of the line is its info string.
+const FENCE_LINE = /^\s*(?:(?:[-*+]|\d+[.)])\s+)*(?<fence>`{3,}|~{3,})(?<info>.*)$/u;
 
 // One entry per line of the text: the rule sentences on it, none inside a fenced block.
 function splitRuleSentencesByLine(text: string): string[][] {
   let openFence: string | null = null;
 
   return text.split('\n').map((line) => {
-    const fence = FENCE_LINE.exec(line)?.groups?.['fence'];
+    const groups = FENCE_LINE.exec(line)?.groups;
+    const fence = groups?.['fence'];
+    const info = groups?.['info'] ?? '';
 
     if (openFence !== null) {
-      if (fence?.startsWith(openFence[0] ?? '') === true && fence.length >= openFence.length) {
+      // A closing fence uses the opening character, is at least as long, and has no text after it.
+      if (
+        fence?.startsWith(openFence[0] ?? '') === true &&
+        fence.length >= openFence.length &&
+        info.trim() === ''
+      ) {
         openFence = null;
       }
 
       return [];
     }
 
-    if (fence !== undefined) {
+    // A backtick fence cannot hold a backtick in its info string; that line is inline code.
+    if (fence !== undefined && !(fence.startsWith('`') && info.includes('`'))) {
       openFence = fence;
 
       return [];
@@ -113,10 +122,10 @@ function splitRuleSentences(text: string): string[] {
     .filter((sentence) => sentence.split(/\s+/u).length >= MIN_RULE_WORDS);
 }
 
-const MARKDOWN_LINK = /!?\[[^\]]*\]\([^)]*\)/gu;
+const MARKDOWN_LINK = /!?\[[^\]]*\](?:\([^)]*\)|\[[^\]]*\])/gu;
 const LINK_FILLER = /\b(?:see|read|load|also|and|or)\b/giu;
 
-// A sentence is link-only when its text is nothing but links once the links and filler words (see, read, and) are removed.
+// A sentence is link-only when nothing but links (inline or reference style) and filler words (see, read, and) remain.
 function isLinkOnly(sentence: string): boolean {
   const withoutLinks = sentence.replaceAll(MARKDOWN_LINK, '');
 
