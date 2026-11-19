@@ -1,7 +1,9 @@
 import { expect, test } from 'bun:test';
 import { getLogger } from '@logtape/logtape';
-import { STUB_APP_LOGIN, buildStubAppKey, githubCollections } from '@noslop/testing';
 import { createGitHubConnection } from '../connection/create-github-connection';
+import { buildStubAppKey } from '../test-utils/build-stub-app-key';
+import { githubCollections } from '../test-utils/github-collections';
+import { STUB_APP_LOGIN } from '../test-utils/github-handlers';
 import { createGitHubDispositionSource } from './create-github-disposition-source';
 
 function setupTest() {

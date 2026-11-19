@@ -15,7 +15,6 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@logtape/logtape": "catalog:",
-    "@noslop/testing": "workspace:*"
+    "@logtape/logtape": "catalog:"
   }
 }

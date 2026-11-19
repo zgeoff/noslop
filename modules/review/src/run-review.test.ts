@@ -4,9 +4,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { getLogger } from '@logtape/logtape';
 import { BUILT_IN_DEFAULTS } from '@noslop/config';
+import { buildStubAdapter } from '@noslop/contract/test-utils/build-stub-adapter';
 import { buildFindingID } from '@noslop/findings';
-import { createRunner } from '@noslop/runner';
-import { buildStubAdapter, createTestRepo, readTempPrefix } from '@noslop/testing';
+import { createRunner, readTempPrefix } from '@noslop/runner';
+import { createTestRepo } from '@noslop/runner/test-utils/create-test-repo';
 import { runReview } from './run-review';
 
 async function setupTest() {

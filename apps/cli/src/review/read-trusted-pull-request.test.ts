@@ -2,13 +2,11 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import {
-  GITHUB_API_URL,
-  createTestRepo,
-  githubCollections,
-  githubServer,
-  readTempPrefix,
-} from '@noslop/testing';
+import { githubCollections } from '@noslop/github/test-utils/github-collections';
+import { GITHUB_API_URL } from '@noslop/github/test-utils/github-handlers';
+import { githubServer } from '@noslop/github/test-utils/github-server';
+import { readTempPrefix } from '@noslop/runner';
+import { createTestRepo } from '@noslop/runner/test-utils/create-test-repo';
 import { HttpResponse, http } from 'msw';
 import { createCLIContext } from '../context/create-cli-context';
 import { readTrustedPullRequest } from './read-trusted-pull-request';

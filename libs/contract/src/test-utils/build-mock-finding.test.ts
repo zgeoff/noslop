@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { findingSchema } from '@noslop/contract';
+import { findingSchema } from '../index';
 import { buildMockFinding } from './build-mock-finding';
 
 test('it builds a default finding that the finding schema accepts', () => {

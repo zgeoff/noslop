@@ -1,6 +1,6 @@
 import type { ReviewResult } from '@noslop/contract';
 import { CRITERION_SEVERITY } from '@noslop/contract';
-import { buildMockReviewResult } from '@noslop/testing';
+import { buildMockReviewResult } from '@noslop/contract/test-utils/build-mock-review-result';
 import { writeReview } from '../reviews/write-review';
 import type { Store } from '../store/load-store';
 

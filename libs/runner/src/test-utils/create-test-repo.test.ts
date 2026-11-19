@@ -2,9 +2,9 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { buildChildEnv } from '@noslop/runner';
+import { buildChildEnv } from '../index';
+import { readTempPrefix } from '../read-temp-prefix';
 import { createTestRepo } from './create-test-repo';
-import { readTempPrefix } from './temp/read-temp-prefix';
 
 async function setupTest() {
   const directory = await mkdtemp(join(tmpdir(), `${readTempPrefix()}noslop-test-repo-`));

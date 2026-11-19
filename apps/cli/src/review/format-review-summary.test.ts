@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test';
-import { buildMockFinding, buildMockReviewResult } from '@noslop/testing';
+import { buildMockFinding } from '@noslop/contract/test-utils/build-mock-finding';
+import { buildMockReviewResult } from '@noslop/contract/test-utils/build-mock-review-result';
 import { formatReviewSummary } from './format-review-summary';
 
 test('it lists what ran, each finding at its anchor and each failed call', () => {

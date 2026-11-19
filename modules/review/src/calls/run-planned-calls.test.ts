@@ -3,13 +3,11 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { getLogger } from '@logtape/logtape';
+import { buildMockChangedFile } from '@noslop/contract/test-utils/build-mock-changed-file';
+import { buildMockSlices } from '@noslop/contract/test-utils/build-mock-slices';
+import { buildStubAdapter } from '@noslop/contract/test-utils/build-stub-adapter';
 import { buildCallPrompt } from '@noslop/lenses';
-import {
-  buildMockChangedFile,
-  buildMockSlices,
-  buildStubAdapter,
-  readTempPrefix,
-} from '@noslop/testing';
+import { readTempPrefix } from '@noslop/runner';
 import { runPlannedCalls } from './run-planned-calls';
 
 async function setupTest() {

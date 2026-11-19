@@ -2,16 +2,14 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import {
-  buildMockDroppedFinding,
-  buildMockFinding,
-  buildMockReviewResult,
-  readTempPrefix,
-} from '@noslop/testing';
+import { buildMockFinding } from '@noslop/contract/test-utils/build-mock-finding';
+import { buildMockReviewResult } from '@noslop/contract/test-utils/build-mock-review-result';
+import { readTempPrefix } from '@noslop/runner';
 import { writeDispositions } from '../dispositions/write-dispositions';
 import { writeEscape } from '../escapes/write-escape';
 import { updateCommentURLs } from '../reviews/update-comment-urls';
 import { writeReview } from '../reviews/write-review';
+import { buildMockDroppedFinding } from '../test-utils/build-mock-dropped-finding';
 import { buildSeeder } from '../test-utils/build-seeder';
 import { loadStore } from './load-store';
 import { runStoreQuery } from './run-store-query';

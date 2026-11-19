@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { buildMockFinding } from '@noslop/testing';
+import { buildMockFinding } from '@noslop/contract/test-utils/build-mock-finding';
 import { splitDismissedFindings } from './split-dismissed-findings';
 
 test('it drops a finding in the same file under the same criterion a few lines from an answered one', () => {

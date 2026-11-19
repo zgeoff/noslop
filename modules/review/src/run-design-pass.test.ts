@@ -4,7 +4,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { getLogger } from '@logtape/logtape';
 import { BUILT_IN_DEFAULTS } from '@noslop/config';
-import { buildMockChangedFile, buildStubAdapter, readTempPrefix } from '@noslop/testing';
+import { buildMockChangedFile } from '@noslop/contract/test-utils/build-mock-changed-file';
+import { buildStubAdapter } from '@noslop/contract/test-utils/build-stub-adapter';
+import { readTempPrefix } from '@noslop/runner';
 import { runDesignPass } from './run-design-pass';
 
 async function setupTest() {

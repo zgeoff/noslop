@@ -2,8 +2,8 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createRunner } from '@noslop/runner';
-import { createTestRepo, readTempPrefix } from '@noslop/testing';
+import { createRunner, readTempPrefix } from '@noslop/runner';
+import { createTestRepo } from '@noslop/runner/test-utils/create-test-repo';
 import { readFilesAtCommit } from './read-files-at-commit';
 
 async function setupTest() {

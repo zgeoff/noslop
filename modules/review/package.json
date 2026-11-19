@@ -21,7 +21,6 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@noslop/config": "workspace:*",
-    "@noslop/testing": "workspace:*"
+    "@noslop/config": "workspace:*"
   }
 }

@@ -4,9 +4,13 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./test-utils/*": "./src/test-utils/*.ts"
   },
   "scripts": {
     "typecheck": "tsrs --fast --noEmit"
+  },
+  "devDependencies": {
+    "zod": "catalog:"
   }
 }

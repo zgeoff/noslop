@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import { createGitHubConnection } from '@noslop/github';
-import { githubCollections } from '@noslop/testing';
+import { githubCollections } from '@noslop/github/test-utils/github-collections';
 import { loadCommitConfig } from './load-commit-config';
 
 function setupTest() {

@@ -32,7 +32,6 @@
     "ts-pattern": "catalog:"
   },
   "devDependencies": {
-    "@noslop/testing": "workspace:*",
     "msw": "catalog:"
   }
 }

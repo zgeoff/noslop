@@ -4,7 +4,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { getLogger } from '@logtape/logtape';
 import { buildCallOutputSchema } from '@noslop/contract';
-import { buildStubAdapter, readTempPrefix } from '@noslop/testing';
+import { buildStubAdapter } from '@noslop/contract/test-utils/build-stub-adapter';
+import { readTempPrefix } from '@noslop/runner';
 import { buildConfiguredAdapter } from './build-configured-adapter';
 
 async function setupTest() {

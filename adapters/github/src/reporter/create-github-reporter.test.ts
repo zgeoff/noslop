@@ -1,22 +1,19 @@
 import { expect, mock, test } from 'bun:test';
 import { getLogger } from '@logtape/logtape';
 import type { Finding } from '@noslop/contract';
-import {
-  GITHUB_API_URL,
-  STUB_APP_LOGIN,
-  buildMockFinding,
-  buildMockReviewResult,
-  buildStubAppKey,
-  buildStubSleep,
-  githubCollections,
-  githubServer,
-} from '@noslop/testing';
+import { buildMockFinding } from '@noslop/contract/test-utils/build-mock-finding';
+import { buildMockReviewResult } from '@noslop/contract/test-utils/build-mock-review-result';
 import { HttpResponse, http } from 'msw';
 import { runGitHubCheck } from '../check/run-github-check';
 import { createGitHubConnection } from '../connection/create-github-connection';
 import type { DeferralPolicy } from '../dispositions/deferral-policy';
 import { buildNetChangeKey } from '../markers/build-net-change-key';
 import { readPullRequestState } from '../pull-request/read-pull-request-state';
+import { buildStubAppKey } from '../test-utils/build-stub-app-key';
+import { buildStubSleep } from '../test-utils/build-stub-sleep';
+import { githubCollections } from '../test-utils/github-collections';
+import { GITHUB_API_URL, STUB_APP_LOGIN } from '../test-utils/github-handlers';
+import { githubServer } from '../test-utils/github-server';
 import { createGitHubReporter } from './create-github-reporter';
 
 function setupTest() {

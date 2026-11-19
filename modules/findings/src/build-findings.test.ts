@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import { BUILT_IN_DEFAULTS } from '@noslop/config';
-import { buildMockChangedFile } from '@noslop/testing';
+import { buildMockChangedFile } from '@noslop/contract/test-utils/build-mock-changed-file';
 import { buildFindingID } from './build-finding-id';
 import { buildFindings } from './build-findings';
 import { splitDismissedFindings } from './split-dismissed-findings';

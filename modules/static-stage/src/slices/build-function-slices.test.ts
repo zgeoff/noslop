@@ -3,8 +3,8 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { BUILT_IN_DEFAULTS } from '@noslop/config';
-import { createRunner } from '@noslop/runner';
-import { createTestRepo, readTempPrefix } from '@noslop/testing';
+import { createRunner, readTempPrefix } from '@noslop/runner';
+import { createTestRepo } from '@noslop/runner/test-utils/create-test-repo';
 import { readChange } from '../change/read-change';
 import { runStaticStage } from '../run-static-stage';
 

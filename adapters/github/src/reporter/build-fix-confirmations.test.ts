@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { buildMockReviewResult } from '@noslop/testing';
+import { buildMockReviewResult } from '@noslop/contract/test-utils/build-mock-review-result';
 import { buildFixConfirmations } from './build-fix-confirmations';
 
 test('it leaves unjudged a fix of a finding the review no longer reports without a fix call verdict', () => {

@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
-import { githubCollections } from '@noslop/testing';
 import { createGitHubConnection } from '../connection/create-github-connection';
+import { githubCollections } from '../test-utils/github-collections';
 import { createGitHubFileReader } from './create-github-file-reader';
 
 function setupTest() {

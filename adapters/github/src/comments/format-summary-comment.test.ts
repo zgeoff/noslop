@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test';
-import { buildMockFinding, buildMockReviewResult } from '@noslop/testing';
+import { buildMockFinding } from '@noslop/contract/test-utils/build-mock-finding';
+import { buildMockReviewResult } from '@noslop/contract/test-utils/build-mock-review-result';
 import { formatSummaryComment } from './format-summary-comment';
 
 test('it writes the count, risk, table, details and marker of a first review', () => {

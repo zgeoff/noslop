@@ -2,8 +2,9 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdtemp, readdir, rm, utimes } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createRunner } from '@noslop/runner';
-import { buildStubRunner, createStubCLI, readTempPrefix } from '@noslop/testing';
+import { createRunner, readTempPrefix } from '@noslop/runner';
+import { buildStubRunner } from '@noslop/runner/test-utils/build-stub-runner';
+import { createStubCLI } from '@noslop/runner/test-utils/create-stub-cli';
 import { createCodexReviewReviewer } from './create-codex-review-reviewer';
 
 async function setupTest() {

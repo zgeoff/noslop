@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { buildMockReviewResult } from '@noslop/testing';
+import { buildMockReviewResult } from '@noslop/contract/test-utils/build-mock-review-result';
 import { buildReviewedChange } from './build-reviewed-change';
 
 test('it vouches for the head of a lens review', () => {

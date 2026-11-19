@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { buildMockFindingThread } from '@noslop/testing';
+import { buildMockFindingThread } from '../test-utils/build-mock-finding-thread';
 import { collectDismissedFindings } from './collect-dismissed-findings';
 
 test('it lists a finding whose latest typed reply is not-a-defect, past a later free-text reply', () => {

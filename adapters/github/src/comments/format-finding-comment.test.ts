@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { buildMockFinding } from '@noslop/testing';
+import { buildMockFinding } from '@noslop/contract/test-utils/build-mock-finding';
 import { formatFindingComment } from './format-finding-comment';
 
 test('it writes the heading, body, fact, fix, reply options, details and marker of a finding', () => {

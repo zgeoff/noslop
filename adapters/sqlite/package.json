@@ -18,6 +18,6 @@
   "devDependencies": {
     "@faker-js/faker": "catalog:",
     "@logtape/logtape": "catalog:",
-    "@noslop/testing": "workspace:*"
+    "@noslop/runner": "workspace:*"
   }
 }

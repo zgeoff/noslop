@@ -13,6 +13,6 @@
     "@noslop/contract": "workspace:*"
   },
   "devDependencies": {
-    "@noslop/testing": "workspace:*"
+    "@noslop/runner": "workspace:*"
   }
 }

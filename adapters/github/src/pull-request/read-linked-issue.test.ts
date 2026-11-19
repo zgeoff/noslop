@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test';
-import { buildStubAppKey, githubCollections } from '@noslop/testing';
 import { createGitHubConnection } from '../connection/create-github-connection';
+import { buildStubAppKey } from '../test-utils/build-stub-app-key';
+import { githubCollections } from '../test-utils/github-collections';
 import { readLinkedIssue } from './read-linked-issue';
 
 function setupTest() {

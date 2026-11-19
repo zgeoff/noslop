@@ -4,14 +4,12 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { getLogger } from '@logtape/logtape';
+import { buildMockFinding } from '@noslop/contract/test-utils/build-mock-finding';
+import { buildMockReviewResult } from '@noslop/contract/test-utils/build-mock-review-result';
+import { buildStubAppKey } from '@noslop/github/test-utils/build-stub-app-key';
+import { githubCollections } from '@noslop/github/test-utils/github-collections';
+import { readTempPrefix } from '@noslop/runner';
 import { loadStore, runStoreQuery } from '@noslop/sqlite';
-import {
-  buildMockFinding,
-  buildMockReviewResult,
-  buildStubAppKey,
-  githubCollections,
-  readTempPrefix,
-} from '@noslop/testing';
 import { createCLIContext } from './create-cli-context';
 
 async function setupTest() {

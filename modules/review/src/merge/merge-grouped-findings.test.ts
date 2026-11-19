@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { buildMockFinding } from '@noslop/testing';
+import { buildMockFinding } from '@noslop/contract/test-utils/build-mock-finding';
 import { mergeGroupedFindings } from './merge-grouped-findings';
 
 test('it keeps the finding of each group with the highest severity', () => {

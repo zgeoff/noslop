@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { buildMockFinding } from '@noslop/testing';
+import { buildMockFinding } from '@noslop/contract/test-utils/build-mock-finding';
 import { buildFindingPosts } from './build-finding-posts';
 import { formatFindingComment } from './format-finding-comment';
 

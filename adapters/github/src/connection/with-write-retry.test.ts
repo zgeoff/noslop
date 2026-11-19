@@ -1,5 +1,5 @@
 import { expect, mock, test } from 'bun:test';
-import { buildStubSleep } from '@noslop/testing';
+import { buildStubSleep } from '../test-utils/build-stub-sleep';
 import { withWriteRetry } from './with-write-retry';
 
 test('it sends each retry only once the wait before it ends, and fails after the fourth attempt', async () => {

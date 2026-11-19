@@ -4,8 +4,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { configure, getLogger, reset } from '@logtape/logtape';
 import { buildCallOutputSchema } from '@noslop/contract';
-import { createRunner } from '@noslop/runner';
-import { createStubCLI, readTempPrefix } from '@noslop/testing';
+import { createRunner, readTempPrefix } from '@noslop/runner';
+import { createStubCLI } from '@noslop/runner/test-utils/create-stub-cli';
 import { createClaudeAdapter } from './create-claude-adapter';
 
 async function setupTest() {

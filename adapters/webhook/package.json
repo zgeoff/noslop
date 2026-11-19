@@ -13,8 +13,6 @@
     "@noslop/contract": "workspace:*"
   },
   "devDependencies": {
-    "@logtape/logtape": "catalog:",
-    "@noslop/testing": "workspace:*",
-    "msw": "catalog:"
+    "@logtape/logtape": "catalog:"
   }
 }

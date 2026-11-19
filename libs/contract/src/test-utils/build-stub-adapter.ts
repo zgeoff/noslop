@@ -1,6 +1,6 @@
 import { readdir } from 'node:fs/promises';
 import { join, relative, sep } from 'node:path';
-import type { CallOutput, CallRequest, ReviewAdapter } from '@noslop/contract';
+import type { CallOutput, CallRequest, ReviewAdapter } from '../index';
 
 export type StubCallAnswer =
   | CallOutput

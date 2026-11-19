@@ -1,7 +1,7 @@
 import { readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { PID_NAMESPACE_LINK, readPIDNamespace } from '@noslop/testing';
+import { PID_NAMESPACE_LINK, readPIDNamespace } from '@noslop/runner';
 import { collectTempLeftovers } from './collect-temp-leftovers';
 import { pickTempLeftovers } from './pick-temp-leftovers';
 import { probeProcessRuns } from './probe-process-runs';

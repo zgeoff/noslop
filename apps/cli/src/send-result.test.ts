@@ -1,11 +1,9 @@
 import { expect, test } from 'bun:test';
-import {
-  STUB_APP_LOGIN,
-  buildMockFinding,
-  buildMockReviewResult,
-  buildStubAppKey,
-  githubCollections,
-} from '@noslop/testing';
+import { buildMockFinding } from '@noslop/contract/test-utils/build-mock-finding';
+import { buildMockReviewResult } from '@noslop/contract/test-utils/build-mock-review-result';
+import { buildStubAppKey } from '@noslop/github/test-utils/build-stub-app-key';
+import { githubCollections } from '@noslop/github/test-utils/github-collections';
+import { STUB_APP_LOGIN } from '@noslop/github/test-utils/github-handlers';
 import { sendResult } from './send-result';
 
 test('it posts a review result as the App whose keys the environment holds', async () => {

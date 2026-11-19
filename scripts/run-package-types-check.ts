@@ -1,7 +1,7 @@
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { readTempPrefix } from '@noslop/testing';
+import { readTempPrefix } from '@noslop/runner';
 import type { TypesProject } from './build-types-project';
 import { buildTypesProject } from './build-types-project';
 import { formatPackageTypesReport } from './format-package-types-report';

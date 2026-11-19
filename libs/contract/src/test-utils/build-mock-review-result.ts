@@ -1,5 +1,5 @@
-import type { ReviewResult } from '@noslop/contract';
-import { REVIEW_OUTPUT_VERSION } from '@noslop/contract';
+import type { ReviewResult } from '../index';
+import { REVIEW_OUTPUT_VERSION } from '../index';
 
 export function buildMockReviewResult(overrides: Partial<ReviewResult> = {}): ReviewResult {
   return {
