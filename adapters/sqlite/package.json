@@ -8,7 +8,7 @@
     "./test-utils/*": "./src/test-utils/*.ts"
   },
   "scripts": {
-    "typecheck": "tsrs --noEmit"
+    "typecheck": "tsrs --fast --noEmit"
   },
   "dependencies": {
     "@noslop/contract": "workspace:*",

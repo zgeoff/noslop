@@ -14,7 +14,7 @@
     "./check": "./src/check.ts"
   },
   "scripts": {
-    "typecheck": "tsrs --noEmit"
+    "typecheck": "tsrs --fast --noEmit"
   },
   "dependencies": {
     "@logtape/logtape": "catalog:",
