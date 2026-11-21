@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test';
 import { createStubRetargetDuringRead } from './create-stub-retarget-during-read';
 import { githubCollections } from './github-collections';
 import { GITHUB_API_URL } from './github-handlers';
-import { githubServer } from './github-server';
+import { githubNetwork } from './github-network';
 
 test('it moves the pull request to the other base branch on the first file read and still serves the file', async () => {
   await githubCollections.pullRequests.create({ number: 5, baseRef: 'main' });
@@ -15,7 +15,7 @@ test('it moves the pull request to the other base branch on the first file read 
     content: '{}',
   });
 
-  githubServer.use(createStubRetargetDuringRead({ number: 5, baseRef: 'release' }));
+  githubNetwork.use(createStubRetargetDuringRead({ number: 5, baseRef: 'release' }));
 
   const response = await fetch(`${GITHUB_API_URL}/repos/example/app/contents/review.json?ref=main`);
 
@@ -28,7 +28,7 @@ test('it moves the pull request to the other base branch on the first file read 
 test('it moves the base branch once however many reads follow', async () => {
   await githubCollections.pullRequests.create({ number: 5, baseRef: 'main' });
 
-  githubServer.use(createStubRetargetDuringRead({ number: 5, baseRef: 'release' }));
+  githubNetwork.use(createStubRetargetDuringRead({ number: 5, baseRef: 'release' }));
 
   await fetch(`${GITHUB_API_URL}/repos/example/app/contents/review.json?ref=main`);
 

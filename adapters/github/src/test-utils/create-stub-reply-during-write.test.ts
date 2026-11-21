@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test';
 import { createStubReplyDuringWrite } from './create-stub-reply-during-write';
 import { githubCollections } from './github-collections';
 import { GITHUB_API_URL } from './github-handlers';
-import { githubServer } from './github-server';
+import { githubNetwork } from './github-network';
 
 test('it adds the reply on the first edit of an issue comment and still applies the edit', async () => {
   const comment = await githubCollections.issueComments.create({
@@ -12,7 +12,7 @@ test('it adds the reply on the first edit of an issue comment and still applies 
     body: 'before',
   });
 
-  githubServer.use(
+  githubNetwork.use(
     createStubReplyDuringWrite({
       owner: 'example',
       repo: 'app',
@@ -47,7 +47,7 @@ test('it adds the reply once however many edits follow', async () => {
     body: 'before',
   });
 
-  githubServer.use(
+  githubNetwork.use(
     createStubReplyDuringWrite({
       owner: 'example',
       repo: 'app',

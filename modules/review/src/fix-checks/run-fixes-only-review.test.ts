@@ -6,7 +6,7 @@ import { getLogger } from '@logtape/logtape';
 import { BUILT_IN_DEFAULTS } from '@noslop/config';
 import { buildStubAdapter } from '@noslop/contract/test-utils/build-stub-adapter';
 import { createRunner, readTempPrefix } from '@noslop/runner';
-import { createTestRepo } from '@noslop/runner/test-utils/create-test-repo';
+import { createFixtureRepo } from '@noslop/runner/test-utils/create-fixture-repo';
 import { buildCountingRunner } from '../test-utils/build-counting-runner';
 import { runFixesOnlyReview } from './run-fixes-only-review';
 
@@ -21,7 +21,7 @@ async function setupTest() {
 test('it lists the verdict of each fix check and raises no finding', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const separator = "";\n' } },
     {
       message: 'Reject an empty separator',
@@ -75,7 +75,7 @@ test('it lists the verdict of each fix check and raises no finding', async () =>
 test('it confirms the fix of a finding about the body from the edited body, with no new commit', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
     {
       message: 'Split the header line',
@@ -129,7 +129,7 @@ test('it confirms the fix of a finding about the body from the edited body, with
 test('it keeps a finding about the body not fixed while the body still holds the claim', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
     {
       message: 'Split the header line',
@@ -183,7 +183,7 @@ test('it keeps a finding about the body not fixed while the body still holds the
 test("it gives the call the whole numbered file at the head and the pull request's net diff when the finding names no head", async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -246,7 +246,7 @@ test("it gives the call the whole numbered file at the head and the pull request
 test('it judges a fixed answer whose commit a rebase left off the branch at the head', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'README.md': '# App\n' } },
     { message: 'Describe the app', files: { 'README.md': '# App, which scans\n' } },
     {
@@ -315,7 +315,7 @@ test('it judges a fixed answer whose commit a rebase left off the branch at the 
 test('it judges a fixed answer whose commit a squash of the layer below replaced at the head, from the traced lines', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'README.md': '# App\n' } },
     { message: 'Add the scanner', files: { 'src/scan.ts': 'export const separator = "";\n' } },
     {
@@ -389,7 +389,7 @@ test('it judges a fixed answer whose commit a squash of the layer below replaced
 test('it judges a bare fixed answer, which names no commit, at the head', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const separator = "";\n' } },
     {
       message: 'Reject an empty separator',
@@ -441,7 +441,7 @@ test('it judges a bare fixed answer, which names no commit, at the head', async 
 test("it traces the finding's line past the lines a later commit adds above it", async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'README.md': '# App\n' } },
     {
       message: 'Add the scanner',
@@ -500,7 +500,7 @@ test("it traces the finding's line past the lines a later commit adds above it",
 test('it gives the call the whole file at the head when a later commit rewrote the finding line', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'README.md': '# App\n' } },
     {
       message: 'Add the scanner',
@@ -554,7 +554,7 @@ test('it gives the call the whole file at the head when a later commit rewrote t
 test('it gives the call the whole file at the head when the repo holds no commit of the head that posted the finding', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'README.md': '# App\n' } },
     {
       message: 'Add the scanner',
@@ -604,7 +604,7 @@ test('it gives the call the whole file at the head when the repo holds no commit
 test("it judges a fix whose commit only adds a test in another file from that test's diff", async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const separator = ":";\n' } },
     {
       message: 'Test the separator through the entry point',
@@ -656,7 +656,7 @@ test("it judges a fix whose commit only adds a test in another file from that te
 test('it gives the call the net diff where a later commit moved the code and the test of the fix to other files', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const separator = "";\n' } },
     {
       message: 'Reject an empty separator',
@@ -727,7 +727,7 @@ test('it gives the call the net diff where a later commit moved the code and the
 test('it asks nothing about a fix whose file at the head passes the file limit, names the file as too large and rules no verdict', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -789,7 +789,7 @@ test('it asks nothing about a fix whose file at the head passes the file limit, 
 test('it asks nothing about a fix whose diff passes the file limit and names the file as too large', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const separator = "";\n' } },
     {
       message: 'Reject an empty separator',
@@ -837,7 +837,7 @@ test('it asks nothing about a fix whose diff passes the file limit and names the
 test("it reads the finding file's diff alone by its literal path, though the path reads as a glob", async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: { 'src/[a].ts': 'export const separator = "";\n', 'src/a.ts': 'alpha\n' },
@@ -895,7 +895,7 @@ test("it reads the finding file's diff alone by its literal path, though the pat
 test("it gives the call the finding file's diff alone when the whole diff passes the file limit", async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: { 'src/scan.ts': 'export const separator = "";\n', 'data/words.txt': 'alpha\n' },
@@ -956,7 +956,7 @@ test("it gives the call the finding file's diff alone when the whole diff passes
 test('it gives the call the diff of a fix in a file whose name git quotes', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const separator = ":";\n' } },
     {
       message: 'Test the separator in the café locale',
@@ -1004,7 +1004,7 @@ test('it gives the call the diff of a fix in a file whose name git quotes', asyn
 test("it traces a finding in a file whose name is a glob through that one file's change", async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'README.md': '# App\n' } },
     {
       message: 'Add the readers',
@@ -1061,7 +1061,7 @@ test("it traces a finding in a file whose name is a glob through that one file's
 test('it lists no verdict and records the failed call when the call fails', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const separator = "";\n' } },
     {
       message: 'Reject an empty separator',
@@ -1115,7 +1115,7 @@ test('it lists no verdict and records the failed call when the call fails', asyn
 test('it confirms the fix of a static finding that the static stage no longer reports at the head, with no call', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const split = (line: string) => line;\n' } },
     {
       message: 'Test the scanner',
@@ -1182,7 +1182,7 @@ test('it confirms the fix of a static finding that the static stage no longer re
 test('it rejects the fix of a static finding that the static stage still reports at the head', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const split = (line: string) => line;\n' } },
     {
       message: 'Test the scanner',
@@ -1246,7 +1246,7 @@ test('it rejects the fix of a static finding that the static stage still reports
 test('it judges 2 static findings with one title by their places when a fix removes only the first', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const split = (line: string) => line;\n' } },
     {
       message: 'Test the scanner',
@@ -1323,7 +1323,7 @@ test('it judges 2 static findings with one title by their places when a fix remo
 test('it rejects the fix of a static finding whose fix rewrites the anchored line and leaves the test unasserted', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const split = (line: string) => line;\n' } },
     {
       message: 'Test the scanner',
@@ -1385,7 +1385,7 @@ test('it rejects the fix of a static finding whose fix rewrites the anchored lin
 test('it confirms the fix of a static finding whose fix deletes the test while another finding with its title remains', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const split = (line: string) => line;\n' } },
     {
       message: 'Test the scanner',
@@ -1447,7 +1447,7 @@ test('it confirms the fix of a static finding whose fix deletes the test while a
 test('it runs with no fixed answer to check over a commit that no lens read, and makes no call', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const separator = "";\n' } },
     {
       message: 'Reject an empty separator',
@@ -1490,7 +1490,7 @@ test('it runs with no fixed answer to check over a commit that no lens read, and
 test('it runs with no fixed answer to check and no commit since the last review', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const separator = "";\n' } },
     {
       message: 'Reject an empty separator',
@@ -1526,14 +1526,19 @@ test('it runs with no fixed answer to check and no commit since the last review'
 test('it runs the fix call of a fixed answer over a merge of a branch the base does not hold', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const separator = "";\n' } },
     {
       message: 'Reject an empty separator',
       files: { 'src/scan.ts': 'export const separator = ":";\n' },
     },
     { message: 'Add a tab', files: { 'src/tab.ts': 'export const tab = "\\t";\n' }, parent: 0 },
-    { message: 'Merge the tab branch', files: {}, parent: 1, merged: 2 },
+    {
+      message: 'Merge the tab branch',
+      files: { 'src/tab.ts': 'export const tab = "\\t";\n' },
+      parent: 1,
+      merged: 2,
+    },
   ]);
 
   const stub = buildStubAdapter({
@@ -1580,14 +1585,19 @@ test('it runs the fix call of a fixed answer over a merge of a branch the base d
 test('it runs the fix call of a fixed answer when a merge of the base came after the review', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const separator = "";\n' } },
     {
       message: 'Reject an empty separator',
       files: { 'src/scan.ts': 'export const separator = ":";\n' },
     },
     { message: 'Add a tab', files: { 'src/tab.ts': 'export const tab = "\\t";\n' }, parent: 0 },
-    { message: 'Merge main', files: {}, parent: 1, merged: 2 },
+    {
+      message: 'Merge main',
+      files: { 'src/tab.ts': 'export const tab = "\\t";\n' },
+      parent: 1,
+      merged: 2,
+    },
   ]);
 
   const stub = buildStubAdapter({
@@ -1638,7 +1648,7 @@ test('it runs the fix call of a fixed answer when a merge of the base came after
 test('it makes no call and raises no finding over a merge that resolved a conflict, with no fixed answer to check', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: { 'src/options.ts': 'export const options = { retries: 1, timeoutMs: 1000 };\n' },
@@ -1694,7 +1704,7 @@ test('it makes no call and raises no finding over a merge that resolved a confli
 test('it confirms a fix whose commit changes only a helper, from that helper read whole, though the net diff passes the file limit', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -1776,7 +1786,7 @@ test('it confirms a fix whose commit changes only a helper, from that helper rea
 test("it confirms a fix whose commit removes the finding's file and moves the fixed code to a new file", async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'README.md': '# Header scanner\n' } },
     {
       message: 'Split the header line',
@@ -1850,7 +1860,7 @@ test("it confirms a fix whose commit removes the finding's file and moves the fi
 test('it keeps a fix not fixed when its commit changes no code the defect runs through', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'README.md': '# Header scanner\n' } },
     {
       message: 'Split the header line',
@@ -1912,7 +1922,7 @@ test('it keeps a fix not fixed when its commit changes no code the defect runs t
 test('it keeps the call within the call limit for a large fix commit and names the parts it leaves out', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -1991,7 +2001,7 @@ test('it keeps the call within the call limit for a large fix commit and names t
 test("it reads the pull request's net diff when the answer names a commit the base already holds", async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'README.md': '# Header scanner\n' } },
     {
       message: 'Scan the header line on the base',
@@ -2046,7 +2056,7 @@ test("it reads the pull request's net diff when the answer names a commit the ba
 test("it reads the pull request's net diff when the answer names a commit the repo lacks", async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const separator = "";\n' } },
     {
       message: 'Reject an empty separator',
@@ -2097,7 +2107,7 @@ test("it reads the pull request's net diff when the answer names a commit the re
 test("it asks nothing about a fix whose commit's diff of the finding's file passes the file limit", async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const separator = "";\n' } },
     {
       message: 'Reject an empty separator and list the known headers',
@@ -2146,7 +2156,7 @@ test("it asks nothing about a fix whose commit's diff of the finding's file pass
 test('it judges a fix whose commit touches 300 files within the call limit', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -2226,7 +2236,7 @@ test('it judges a fix whose commit touches 300 files within the call limit', asy
 test('it gives the call the helper as the head holds it when a later commit undoes the fix', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -2302,7 +2312,7 @@ test('it gives the call the helper as the head holds it when a later commit undo
 test('it names a file the fix commit added and a later commit removed as absent at the head', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -2370,7 +2380,7 @@ test('it names a file the fix commit added and a later commit removed as absent 
 test('it runs at most 8 git processes at once across answers that name large fix commits and answers that name none', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const separator = "";\n' } },
     ...['alpha', 'beta', 'gamma'].map((name) => ({
       message: `Record the ${name} header fixtures`,
@@ -2428,7 +2438,7 @@ test('it runs at most 8 git processes at once across answers that name large fix
 test('it judges the answers to a finding and its later repeat in one call, and gives both its verdict', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -2498,7 +2508,7 @@ test('it judges the answers to a finding and its later repeat in one call, and g
 test('it judges the answers to a finding and its repeat in one call when one names the fix by a short sha', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -2563,7 +2573,7 @@ test('it judges the answers to a finding and its repeat in one call when one nam
 test('it judges a line finding and its repeat in one call when both lines trace to one line at the head', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -2631,7 +2641,7 @@ test('it judges a line finding and its repeat in one call when both lines trace 
 test('it judges 2 findings with one title at 2 places in one file in calls of their own', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -2703,7 +2713,7 @@ test('it judges 2 findings with one title at 2 places in one file in calls of th
 test('it judges the answers to 2 findings of one review in calls of their own', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -2771,7 +2781,7 @@ test('it judges the answers to 2 findings of one review in calls of their own', 
 test('it judges a later finding in a call of its own when it repeats an older finding but not the repeat its own review posted', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -2854,7 +2864,7 @@ test('it judges a later finding in a call of its own when it repeats an older fi
 test('it judges the answers to 2 different findings in one file in calls of their own', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {

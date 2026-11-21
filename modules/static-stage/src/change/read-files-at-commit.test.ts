@@ -3,7 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createRunner, readTempPrefix } from '@noslop/runner';
-import { createTestRepo } from '@noslop/runner/test-utils/create-test-repo';
+import { createFixtureRepo } from '@noslop/runner/test-utils/create-fixture-repo';
 import { readFilesAtCommit } from './read-files-at-commit';
 
 async function setupTest() {
@@ -17,7 +17,7 @@ async function setupTest() {
 test('it reads each file at the commit and leaves out a path the commit lacks', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: { 'src/a.ts': 'export const a = 1;\n\n', 'src/é b.ts': 'export const b = "é";\n' },

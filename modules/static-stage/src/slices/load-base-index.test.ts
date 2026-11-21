@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { BUILT_IN_DEFAULTS } from '@noslop/config';
 import { createRunner, readTempPrefix } from '@noslop/runner';
-import { createTestRepo } from '@noslop/runner/test-utils/create-test-repo';
+import { createFixtureRepo } from '@noslop/runner/test-utils/create-fixture-repo';
 import { loadBaseIndex } from './load-base-index';
 
 async function setupTest() {
@@ -18,7 +18,7 @@ async function setupTest() {
 test('it gives 2 loads of one base at once the same index and leaves one cache file', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {

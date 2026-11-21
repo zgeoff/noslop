@@ -3,7 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createRunner, readTempPrefix } from '@noslop/runner';
-import { createTestRepo } from '@noslop/runner/test-utils/create-test-repo';
+import { createFixtureRepo } from '@noslop/runner/test-utils/create-fixture-repo';
 import { readHeadFiles } from './read-head-files';
 
 async function setupTest() {
@@ -17,7 +17,7 @@ async function setupTest() {
 test('it reads every file at the head, in nested folders too', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'a.ts': 'export const a = 1;\n' } },
     { message: 'head', files: { 'src/client/picker.ts': 'export const picker = 1;\n' } },
   ]);
@@ -62,7 +62,7 @@ test('it reads no files when the clone is missing', async () => {
 test('it reads no files when the clone lacks the head', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'a.ts': 'export const a = 1;\n' } },
   ]);
 

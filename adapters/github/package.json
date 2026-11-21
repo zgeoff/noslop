@@ -25,6 +25,7 @@
     "@mswjs/interceptors": "catalog:",
     "@noslop/runner": "workspace:*",
     "@octokit/types": "catalog:",
+    "@zgeoff/testing": "catalog:",
     "msw": "catalog:"
   }
 }

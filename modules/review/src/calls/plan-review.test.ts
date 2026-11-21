@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { BUILT_IN_DEFAULTS } from '@noslop/config';
 import { createRunner, readTempPrefix } from '@noslop/runner';
-import { createTestRepo } from '@noslop/runner/test-utils/create-test-repo';
+import { createFixtureRepo } from '@noslop/runner/test-utils/create-fixture-repo';
 import { planReview } from './plan-review';
 
 async function setupTest() {
@@ -22,7 +22,7 @@ test('it counts no merge pass in the most calls when the config turns it off', a
     ['a', 'b', 'c', 'd', 'e'].map((name) => [`src/auth/${name}.ts`, `export const ${name} = 2;\n`]),
   );
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: Object.fromEntries(Object.keys(files).map((path) => [path, 'export const x = 1;\n'])),
@@ -54,7 +54,7 @@ test('it counts no merge pass in the most calls when the config turns it off', a
 test('it plans the depth and the calls of a change with no model call', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/auth/session.ts': 'export const ttl = 60;\n' } },
     { message: 'head', files: { 'src/auth/session.ts': 'export const ttl = 6000;\n' } },
   ]);
