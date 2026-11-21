@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { BUILT_IN_DEFAULTS } from '@noslop/config';
 import { createRunner, readTempPrefix } from '@noslop/runner';
-import { createTestRepo } from '@noslop/runner/test-utils/create-test-repo';
+import { createFixtureRepo } from '@noslop/runner/test-utils/create-fixture-repo';
 import { readChange } from '../change/read-change';
 import { runStaticStage } from '../run-static-stage';
 
@@ -28,7 +28,7 @@ async function setupTest() {
   ].join('\n');
 
   const sliceThrows = async (base: string, head: string) => {
-    const repo = await createTestRepo(join(directory, 'repo'), [
+    const repo = await createFixtureRepo([
       { message: 'base', files: { 'src/save.ts': base } },
       { message: 'head', files: { 'src/save.ts': head } },
     ]);

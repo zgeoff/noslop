@@ -18,8 +18,14 @@ minimumReleaseAgeExcludes = [
   "@zgeoff/oxlint-config",
   "@zgeoff/rig",
   "@zgeoff/std",
+  "@zgeoff/testing",
 ]
 
 [test]
-# registers the jest-extended matchers, and starts the stand-in GitHub API with its resets
-preload = ["@zgeoff/bun-test-extended", "./adapters/github/src/test-utils/start-github-stand-in.ts"]
+# registers the jest-extended matchers and the kit's hooks, and starts the stand-in GitHub API on the
+# test network
+preload = [
+  "@zgeoff/bun-test-extended",
+  "@zgeoff/testing/preload",
+  "./adapters/github/src/test-utils/github-network.ts",
+]

@@ -11,13 +11,6 @@
     "noEmit": true,
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
-    "moduleDetection": "force",
-    // @mswjs/interceptors ships its fetch/web interceptor only in its browser build, whose
-    // Interceptor class TypeScript holds apart from the node build's for its #private field
-    "paths": {
-      "@mswjs/interceptors": [
-        "./adapters/github/node_modules/@mswjs/interceptors/lib/browser/index.d.ts"
-      ]
-    }
+    "moduleDetection": "force"
   }
 }

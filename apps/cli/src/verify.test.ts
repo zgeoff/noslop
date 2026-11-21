@@ -6,21 +6,17 @@ import { loadConfig } from '@noslop/config';
 import { buildMockReviewResult } from '@noslop/contract/test-utils/build-mock-review-result';
 import { buildStubAppKey } from '@noslop/github/test-utils/build-stub-app-key';
 import { githubCollections } from '@noslop/github/test-utils/github-collections';
-import { githubServer } from '@noslop/github/test-utils/github-server';
+import { watchGitHubRequests } from '@noslop/github/test-utils/watch-github-requests';
 import { readTempPrefix } from '@noslop/runner';
 import { verify } from './verify';
 
 test('it reads the pull request as the App whose keys the environment holds', async () => {
   const seen = mock<(request: string) => void>();
 
-  githubServer.events.on('request:start', (event) => {
+  watchGitHubRequests((request) => {
     seen(
-      `${event.request.method} ${new URL(event.request.url).pathname} ${event.request.headers.get('authorization')}`,
+      `${request.method} ${new URL(request.url).pathname} ${request.headers.get('authorization')}`,
     );
-  });
-
-  onTestFinished(() => {
-    githubServer.events.removeAllListeners('request:start');
   });
 
   await githubCollections.pullRequests.create({

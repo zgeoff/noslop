@@ -3,7 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createRunner, readTempPrefix } from '@noslop/runner';
-import { createTestRepo } from '@noslop/runner/test-utils/create-test-repo';
+import { createFixtureRepo } from '@noslop/runner/test-utils/create-fixture-repo';
 import { buildNetChangeKey } from './build-net-change-key';
 
 async function setupTest() {
@@ -70,7 +70,7 @@ test('it keeps the key of a file across a clean rebase and a conflict-free merge
 
   const lines = Array.from({ length: 20 }, (_, index) => `export const value${index} = ${index};`);
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/values.ts': `${lines.join('\n')}\n` } },
     {
       message: 'Raise value 15',
@@ -87,7 +87,14 @@ test('it keeps the key of a file across a clean rebase and a conflict-free merge
         'src/values.ts': `// values\n// in order\n${lines.with(15, 'export const value15 = 150;').join('\n')}\n`,
       },
     },
-    { message: 'Merge the base', parent: 1, merged: 2, files: {} },
+    {
+      message: 'Merge the base',
+      parent: 1,
+      merged: 2,
+      files: {
+        'src/values.ts': `// values\n// in order\n${lines.with(15, 'export const value15 = 150;').join('\n')}\n`,
+      },
+    },
   ]);
 
   const readPatch = async (base: number, head: number) => {

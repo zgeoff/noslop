@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createRunner, readTempPrefix } from '@noslop/runner';
 import { buildStubRunner } from '@noslop/runner/test-utils/build-stub-runner';
-import { createStubCLI } from '@noslop/runner/test-utils/create-stub-cli';
+import { createStubModelCLI } from '@noslop/runner/test-utils/create-stub-model-cli';
 import { createCodexReviewReviewer } from './create-codex-review-reviewer';
 
 async function setupTest() {
@@ -167,7 +167,7 @@ test('it reads the token use of a review from the session of the thread it start
 
   await utimes(childFile, later, later);
 
-  const stub = await createStubCLI(ctx.directory, {
+  const stub = createStubModelCLI(ctx.directory, {
     outputFlag: '-o',
     lastMessage:
       '- [P2] Subtract in place of the sum — /work/case-1/add.ts:2-2\n  The sum turns into a difference.',
@@ -214,7 +214,7 @@ test('it reads the token use of a review from the session of the thread it start
 test('it rejects a finished review that names no thread', async () => {
   const ctx = await setupTest();
 
-  const stub = await createStubCLI(ctx.directory, {
+  const stub = createStubModelCLI(ctx.directory, {
     outputFlag: '-o',
     lastMessage: 'No findings.',
     stdout: '',
@@ -289,7 +289,7 @@ test('it removes the session files of its own review and never another run', asy
   await utimes(join(day, 'rollout-child.jsonl'), later, later);
   await utimes(join(day, 'rollout-other.jsonl'), later, later);
 
-  const stub = await createStubCLI(ctx.directory, {
+  const stub = createStubModelCLI(ctx.directory, {
     outputFlag: '-o',
     lastMessage: 'No findings.',
     stdout: '{"type":"thread.started","thread_id":"t_parent"}\n',

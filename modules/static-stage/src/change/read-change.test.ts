@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { BUILT_IN_DEFAULTS } from '@noslop/config';
 import { createRunner, readTempPrefix } from '@noslop/runner';
-import { createTestRepo } from '@noslop/runner/test-utils/create-test-repo';
+import { createFixtureRepo } from '@noslop/runner/test-utils/create-fixture-repo';
 import { readChange } from './read-change';
 
 async function setupTest() {
@@ -18,7 +18,7 @@ async function setupTest() {
 test('it reads the changed files between 2 commits with their line counts', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/a.ts': 'export const a = 1;\nexport const b = 2;\n' } },
     {
       message: 'head',
@@ -53,7 +53,7 @@ test('it reads the changed files between 2 commits with their line counts', asyn
 test('it reads a script with a shebang and no extension as code', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'README.md': '# Tools\n' } },
     {
       message: 'head',
@@ -81,7 +81,7 @@ test('it reads a script with a shebang and no extension as code', async () => {
 test('it reads a shebang script as code when the hunks miss its first line or delete it', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -115,7 +115,7 @@ test('it reads a shebang script as code when the hunks miss its first line or de
 test('it leaves out lockfiles and other generated files', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/a.ts': 'export const a = 1;\n' } },
     {
       message: 'head',
@@ -138,7 +138,7 @@ test('it leaves out lockfiles and other generated files', async () => {
 test('it keeps the path of an empty new file, a path with a space and a quoted path', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/a b.ts': 'export const a = 1;\n' } },
     {
       message: 'head',
@@ -168,7 +168,7 @@ test('it keeps the path of an empty new file, a path with a space and a quoted p
 test('it keeps to the files the pull request changes since its merge base after a merge from the base', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: { 'src/total.ts': 'export const total = 0;\n', 'docs/guide.md': '# Guide\n' },
@@ -177,7 +177,10 @@ test('it keeps to the files the pull request changes since its merge base after 
     { message: 'Expand the guide', files: { 'docs/guide.md': '# Guide\n\nRead me.\n' }, parent: 0 },
     {
       message: 'Merge main and count two',
-      files: { 'src/total.ts': 'export const total = 2;\n' },
+      files: {
+        'src/total.ts': 'export const total = 2;\n',
+        'docs/guide.md': '# Guide\n\nRead me.\n',
+      },
       parent: 1,
       merged: 2,
     },
@@ -200,7 +203,7 @@ test('it keeps to the files the pull request changes since its merge base after 
 test('it keeps only the files the paths name, a rename from a named path among them, and lists no other', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -243,7 +246,7 @@ test('it keeps only the files the paths name, a rename from a named path among t
 test('it keeps a rename whose old path the pull request deletes when only its new path is the base branch file', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -286,7 +289,7 @@ test('it keeps the deletion of a path the pull request renames across 2 commits'
 
   const content = 'export const count = 1;\nexport const size = 2;\nexport const total = 3;\n';
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/old.ts': content } },
     { message: 'Copy the counts', files: { 'src/new.ts': content } },
     { message: 'Drop the old counts', files: { 'src/old.ts': null } },
@@ -311,7 +314,7 @@ test('it lists every path the whole pull request changes, with both paths of a r
 
   const content = 'export const count = 1;\nexport const size = 2;\nexport const total = 3;\n';
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: { 'src/old.ts': content, 'src/gone.ts': 'export const gone = 1;\n' },
@@ -343,7 +346,7 @@ test('it lists every path the whole pull request changes, with both paths of a r
 test('it lists the files only the base branch changes apart after a merge from the base', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: { 'src/total.ts': 'export const total = 0;\n', 'docs/guide.md': '# Guide\n' },
@@ -352,7 +355,10 @@ test('it lists the files only the base branch changes apart after a merge from t
     { message: 'Expand the guide', files: { 'docs/guide.md': '# Guide\n\nRead me.\n' }, parent: 0 },
     {
       message: 'Merge main and count two',
-      files: { 'src/total.ts': 'export const total = 2;\n' },
+      files: {
+        'src/total.ts': 'export const total = 2;\n',
+        'docs/guide.md': '# Guide\n\nRead me.\n',
+      },
       parent: 1,
       merged: 2,
     },
@@ -377,7 +383,7 @@ test('it keeps both hunks of a file that the pull request and the base branch ea
 
   const lines = Array.from({ length: 20 }, (_, index) => `export const n${index} = ${index};`);
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/numbers.ts': `${lines.join('\n')}\n` } },
     {
       message: 'Change the first number',
@@ -427,7 +433,7 @@ test('it keeps both hunks of a file that the pull request and the base branch ea
 test('it reads every file between 2 commits when no merge base limits the change', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: { 'src/total.ts': 'export const total = 0;\n', 'docs/guide.md': '# Guide\n' },
@@ -436,7 +442,10 @@ test('it reads every file between 2 commits when no merge base limits the change
     { message: 'Expand the guide', files: { 'docs/guide.md': '# Guide\n\nRead me.\n' }, parent: 0 },
     {
       message: 'Merge main and count two',
-      files: { 'src/total.ts': 'export const total = 2;\n' },
+      files: {
+        'src/total.ts': 'export const total = 2;\n',
+        'docs/guide.md': '# Guide\n\nRead me.\n',
+      },
       parent: 1,
       merged: 2,
     },
@@ -456,7 +465,7 @@ test('it reads every file between 2 commits when no merge base limits the change
 test('it rejects a ref that names no commit', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/a.ts': 'export const a = 1;\n' } },
   ]);
 

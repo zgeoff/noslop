@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import type { Finding } from '@noslop/contract';
 import { reviewResultSchema } from '@noslop/contract';
 import { createRunner, readTempPrefix } from '@noslop/runner';
-import { createTestRepo } from '@noslop/runner/test-utils/create-test-repo';
+import { createFixtureRepo } from '@noslop/runner/test-utils/create-fixture-repo';
 
 async function setupTest() {
   const directory = await mkdtemp(join(tmpdir(), `${readTempPrefix()}noslop-e2e-`));
@@ -21,7 +21,7 @@ test('it reports a dropped rollback and an injection sink at anchors in the diff
   // the model-api lane fails when no adapter is named, so a run without one never passes unseen
   expect(ctx.adapter).toBeOneOf(['codex', 'claude']);
 
-  const repo = await createTestRepo(join(ctx.directory, 'shop'), [
+  const repo = await createFixtureRepo([
     {
       message: 'Add the stock and order queries',
       files: {
@@ -142,7 +142,7 @@ test('it reports a row a test inserts outside a seed under the quoted seeding ru
   // the model-api lane fails when no adapter is named, so a run without one never passes unseen
   expect(ctx.adapter).toBeOneOf(['codex', 'claude']);
 
-  const repo = await createTestRepo(join(ctx.directory, 'library'), [
+  const repo = await createFixtureRepo([
     {
       message: 'Add the books module and the loans module',
       files: {

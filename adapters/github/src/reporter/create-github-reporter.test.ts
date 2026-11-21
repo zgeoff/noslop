@@ -13,7 +13,7 @@ import { buildStubAppKey } from '../test-utils/build-stub-app-key';
 import { buildStubSleep } from '../test-utils/build-stub-sleep';
 import { githubCollections } from '../test-utils/github-collections';
 import { GITHUB_API_URL, STUB_APP_LOGIN } from '../test-utils/github-handlers';
-import { githubServer } from '../test-utils/github-server';
+import { githubNetwork } from '../test-utils/github-network';
 import { createGitHubReporter } from './create-github-reporter';
 
 function setupTest() {
@@ -1365,7 +1365,7 @@ test('it runs a queued post of a pull request after the post before it fails at 
     headSha: 'b'.repeat(40),
   });
 
-  githubServer.use(
+  githubNetwork.use(
     ...Array.from({ length: 4 }, () =>
       http.post(
         `${GITHUB_API_URL}/repos/:owner/:repo/issues/:number/comments`,
@@ -1416,7 +1416,7 @@ test('it keeps a later summary when an earlier review that failed at the summary
     headSha: 'b'.repeat(40),
   });
 
-  githubServer.use(
+  githubNetwork.use(
     ...Array.from({ length: 4 }, () =>
       http.post(
         `${GITHUB_API_URL}/repos/:owner/:repo/issues/:number/comments`,
@@ -2433,7 +2433,7 @@ test('it lists no issue when every recorded finding is a finding of the review',
     lines: [1],
   });
 
-  githubServer.use(
+  githubNetwork.use(
     http.get(
       `${GITHUB_API_URL}/repos/:owner/:repo/issues`,
       () => new HttpResponse(null, { status: 500 }),
@@ -2944,7 +2944,7 @@ test('it posts the summary and the check run when GitHub answers the first summa
     headSha: 'b'.repeat(40),
   });
 
-  githubServer.use(
+  githubNetwork.use(
     http.post(
       `${GITHUB_API_URL}/repos/:owner/:repo/issues/:number/comments`,
       () => new HttpResponse(JSON.stringify({ message: 'Server Error' }), { status: 500 }),
@@ -2985,7 +2985,7 @@ test('it fails the post and names the summary comment when GitHub answers 500 on
     () => new HttpResponse(JSON.stringify({ message: 'Server Error' }), { status: 500 }),
   );
 
-  githubServer.use(
+  githubNetwork.use(
     http.post(`${GITHUB_API_URL}/repos/:owner/:repo/issues/:number/comments`, answer),
   );
 
@@ -3024,7 +3024,7 @@ test('it sends the summary again after the retry-after wait when GitHub answers 
     headSha: 'b'.repeat(40),
   });
 
-  githubServer.use(
+  githubNetwork.use(
     http.post(
       `${GITHUB_API_URL}/repos/:owner/:repo/issues/:number/comments`,
       () =>
@@ -3067,7 +3067,7 @@ test('it sends a summary post that GitHub refuses with a permission 403 once, wi
     HttpResponse.json({ message: 'Resource not accessible by integration' }, { status: 403 }),
   );
 
-  githubServer.use(
+  githubNetwork.use(
     http.post(`${GITHUB_API_URL}/repos/:owner/:repo/issues/:number/comments`, refuse),
   );
 
@@ -3110,7 +3110,7 @@ test('it edits the summary when GitHub answers the first edit of a later review 
     { logger: ctx.logger, options: {} },
   );
 
-  githubServer.use(
+  githubNetwork.use(
     http.patch(
       `${GITHUB_API_URL}/repos/:owner/:repo/issues/comments/:commentID`,
       () => new HttpResponse(null, { status: 502 }),
@@ -3145,7 +3145,7 @@ test('it sets the check run when GitHub answers the first check run post with 50
     headSha: 'b'.repeat(40),
   });
 
-  githubServer.use(
+  githubNetwork.use(
     http.post(
       `${GITHUB_API_URL}/repos/:owner/:repo/check-runs`,
       () => new HttpResponse(null, { status: 500 }),
@@ -3179,7 +3179,7 @@ test('it fails the post and names the check run when GitHub answers 500 on every
     headSha: 'b'.repeat(40),
   });
 
-  githubServer.use(
+  githubNetwork.use(
     http.post(
       `${GITHUB_API_URL}/repos/:owner/:repo/check-runs`,
       () => new HttpResponse(null, { status: 500 }),
@@ -3253,7 +3253,7 @@ test("it strikes a fixed finding's comment when GitHub answers the first edit wi
     inReplyToID: thread?.id ?? null,
   });
 
-  githubServer.use(
+  githubNetwork.use(
     http.patch(
       `${GITHUB_API_URL}/repos/:owner/:repo/pulls/comments/:commentID`,
       () => new HttpResponse(null, { status: 503 }),
@@ -3325,7 +3325,7 @@ test('it posts 150 findings of one class as one comment and posts the check thro
     }),
   );
 
-  githubServer.use(
+  githubNetwork.use(
     http.post(
       `${GITHUB_API_URL}/repos/:owner/:repo/pulls/:number/reviews`,
       () =>

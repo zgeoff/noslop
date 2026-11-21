@@ -4,9 +4,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { githubCollections } from '@noslop/github/test-utils/github-collections';
 import { GITHUB_API_URL } from '@noslop/github/test-utils/github-handlers';
-import { githubServer } from '@noslop/github/test-utils/github-server';
+import { githubNetwork } from '@noslop/github/test-utils/github-network';
 import { readTempPrefix } from '@noslop/runner';
-import { createTestRepo } from '@noslop/runner/test-utils/create-test-repo';
+import { createFixtureRepo } from '@noslop/runner/test-utils/create-fixture-repo';
 import { HttpResponse, http } from 'msw';
 import { createCLIContext } from '../context/create-cli-context';
 import { readTrustedPullRequest } from './read-trusted-pull-request';
@@ -22,7 +22,7 @@ async function setupTest() {
 test('it loads the config from the tip of the base branch when the base commit of the pull request lags it', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
     {
       message: 'Add one',
@@ -62,7 +62,7 @@ test('it loads the config from the tip of the base branch when the base commit o
 test('it reads the config again from the new base branch when the pull request is retargeted between the reads', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
     {
       message: 'Name the App',
@@ -90,7 +90,7 @@ test('it reads the config again from the new base branch when the pull request i
     sha: repo.commits[0] ?? '',
   });
 
-  githubServer.use(
+  githubNetwork.use(
     http.get(
       `${GITHUB_API_URL}/repos/example/app/pulls/9`,
       () =>
@@ -119,7 +119,7 @@ test('it reads the config again from the new base branch when the pull request i
 test('it gives up when the pull request is retargeted between the reads each time', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
     {
       message: 'Add one',
@@ -144,7 +144,7 @@ test('it gives up when the pull request is retargeted between the reads each tim
 
   const refs = ['main', 'release', 'main', 'release', 'main', 'release'];
 
-  githubServer.use(
+  githubNetwork.use(
     ...refs.map((ref) =>
       http.get(
         `${GITHUB_API_URL}/repos/example/app/pulls/9`,

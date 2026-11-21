@@ -3,7 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createRunner, readTempPrefix } from '@noslop/runner';
-import { createTestRepo } from '@noslop/runner/test-utils/create-test-repo';
+import { createFixtureRepo } from '@noslop/runner/test-utils/create-fixture-repo';
 import type { Case } from '../corpus/case';
 import type { CaseReview } from '../types';
 import { runEval } from './run-eval';
@@ -19,7 +19,7 @@ async function setupTest() {
 test('it reviews each case in a detached worktree of its head and removes the worktree', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'a.ts': 'export const a = 1;\n' } },
     { message: 'head', files: { 'a.ts': 'export const a = 2;\n' } },
   ]);
@@ -65,7 +65,7 @@ test('it reviews each case in a detached worktree of its head and removes the wo
 test('it replays cases at once and keeps their order when a later case ends first', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'a.ts': 'export const a = 1;\n' } },
     { message: 'head', files: { 'a.ts': 'export const a = 2;\n' } },
   ]);
@@ -135,7 +135,7 @@ test('it replays cases at once and keeps their order when a later case ends firs
 test('it hands a reviewer that checks out the head itself the repo and adds no worktree', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'a.ts': 'export const a = 1;\n' } },
     { message: 'head', files: { 'a.ts': 'export const a = 2;\n' } },
   ]);
@@ -208,7 +208,7 @@ test('it records a failed review and reports it when the repo does not exist', a
 test('it records a failed review when the head is not in the repo', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'a.ts': 'export const a = 1;\n' } },
   ]);
 
@@ -249,7 +249,7 @@ test('it records a failed review when the head is not in the repo', async () => 
 test('it records a failed review and removes the worktree when the reviewer throws', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'a.ts': 'export const a = 1;\n' } },
     { message: 'head', files: { 'a.ts': 'export const a = 2;\n' } },
   ]);
@@ -295,7 +295,7 @@ test('it records a failed review and removes the worktree when the reviewer thro
 test('it records a failed review when a reviewer that checks out the head itself throws', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'a.ts': 'export const a = 1;\n' } },
     { message: 'head', files: { 'a.ts': 'export const a = 2;\n' } },
   ]);

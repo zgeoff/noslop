@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { BUILT_IN_DEFAULTS } from '@noslop/config';
 import { createRunner, readTempPrefix } from '@noslop/runner';
-import { createTestRepo } from '@noslop/runner/test-utils/create-test-repo';
+import { createFixtureRepo } from '@noslop/runner/test-utils/create-fixture-repo';
 import { readChange } from './change/read-change';
 import { runStaticStage } from './run-static-stage';
 
@@ -16,7 +16,7 @@ async function setupTest() {
   const runner = createRunner();
 
   const readInstructionFindings = async (base: string, head: string) => {
-    const repo = await createTestRepo(join(directory, 'repo'), [
+    const repo = await createFixtureRepo([
       { message: 'base', files: { 'AGENTS.md': base, 'src/AGENTS.md': '# Source\n' } },
       { message: 'head', files: { 'src/AGENTS.md': head } },
     ]);
@@ -52,7 +52,7 @@ async function setupTest() {
 test('it slices a changed function with its writes, guards and throws', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/save.ts': 'export const a = 1;\n' } },
     {
       message: 'head',
@@ -138,7 +138,7 @@ test('it slices a changed function with its writes, guards and throws', async ()
 test('it reports a new test with no assertion and a test that repeats another', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -211,7 +211,7 @@ test('it reports a new test with no assertion and a test that repeats another', 
 test('it reports a type test on a key the type lacks', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/a.ts': 'export const a = 1;\n' } },
     {
       message: 'head',
@@ -263,7 +263,7 @@ test('it reports a type test on a key the type lacks', async () => {
 test('it reports a new access check whose tests hold no table of refused inputs', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/access.ts': 'export const a = 1;\n' } },
     {
       message: 'head',
@@ -314,7 +314,7 @@ test('it reports a new access check whose tests hold no table of refused inputs'
 test('it reports an access check whose body changes when its tests hold no table of refused inputs', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -373,7 +373,7 @@ test('it reports an access check whose body changes when its tests hold no table
 test('it reports no missing table for a renamed access check whose body stays the same', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -417,7 +417,7 @@ test('it reports no missing table for a renamed access check whose body stays th
 test('it reports no missing table for a renamed one-line access check whose body stays the same', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -460,7 +460,7 @@ test('it reports no missing table for a renamed one-line access check whose body
 test('it reports no missing table for an access check when only the line above it changes', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -518,7 +518,7 @@ test('it reports no missing table for an access check when only the line above i
 test('it reports no missing table for a deny guard when only the line above it changes', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -578,7 +578,7 @@ test('it reports no missing table for a deny guard when only the line above it c
 test('it reports the changed one of 2 access checks that share a line', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -628,7 +628,7 @@ test('it reports the changed one of 2 access checks that share a line', async ()
 test('it reports the changed one of 2 deny guards on a line that test one condition', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -691,7 +691,7 @@ test('it reports the changed one of 2 deny guards on a line that test one condit
 test('it reports an access check whose body changes only in the spaces of a string', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -742,7 +742,7 @@ test('it reports an access check whose body changes only in the spaces of a stri
 test('it reports a new access check whose body repeats an existing function that decides nothing', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -801,7 +801,7 @@ test('it reports a new access check whose body repeats an existing function that
 test('it reports a copy of an existing access check under a new name', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -859,7 +859,7 @@ test('it reports a copy of an existing access check under a new name', async () 
 test('it reports a repeated rule and vague wording in an instruction file', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -981,7 +981,7 @@ test('it reports a rule sentence repeated beside a link and after a code block',
 test('it reports an edit to a synced copy, a stray format hunk and a test the body names', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -1032,7 +1032,7 @@ test('it reports an edit to a synced copy, a stray format hunk and a test the bo
 test('it reports no stray format hunk for a hunk that moves a block of code', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -1093,7 +1093,7 @@ test('it reports no stray format hunk for a hunk that moves a block of code', as
 test('it reports a stray format hunk that splits one statement over several lines', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -1155,7 +1155,7 @@ test('it reports a stray format hunk that splits one statement over several line
 test('it reports a stray format hunk that splits a statement and drops a blank line', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -1216,7 +1216,7 @@ test('it reports a stray format hunk that splits a statement and drops a blank l
 test('it anchors a stray format hunk of two reflows from the first added line to the last', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -1277,7 +1277,7 @@ test('it anchors a stray format hunk of two reflows from the first added line to
 test('it reports no stray format hunk when the linked issue asks for a reformat', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -1323,7 +1323,7 @@ test('it reports no stray format hunk when the linked issue asks for a reformat'
 test('it treats a change to synced copies alone as a sync and reports no synced edit', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'vendor/shared.ts': 'export const shared = 1;\n' } },
     { message: 'head', files: { 'vendor/shared.ts': 'export const shared = 2;\n' } },
   ]);
@@ -1356,7 +1356,7 @@ test('it treats a change to synced copies alone as a sync and reports no synced 
 test('it reports no synced edit in a pull request a sync author opened beside other files', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -1407,7 +1407,7 @@ test('it reports no synced edit in a pull request a sync author opened beside ot
 test('it reports the synced edit in a pull request an author outside the sync authors opened', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -1459,7 +1459,7 @@ test('it reports the synced edit in a pull request an author outside the sync au
 test('it reports no synced edit when a synced caller only moves the ref of its workflow call', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -1520,7 +1520,7 @@ test('it reports no synced edit when a synced caller only moves the ref of its w
 test('it reports no synced edit when a synced caller only moves a single-quoted ref', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -1581,7 +1581,7 @@ test('it reports no synced edit when a synced caller only moves a single-quoted 
 test('it reports no synced edit when a synced caller moves the ref of a call that keeps its comment', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -1642,7 +1642,7 @@ test('it reports no synced edit when a synced caller moves the ref of a call tha
 test('it reports a synced edit when a synced caller changes the comment on its workflow call', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -1703,7 +1703,7 @@ test('it reports a synced edit when a synced caller changes the comment on its w
 test('it reports a synced edit when a synced caller that fails to parse only moves the ref of its workflow call', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -1762,7 +1762,7 @@ test('it reports a synced edit when a synced caller that fails to parse only mov
 test('it reports a synced edit when a synced caller moves a ref written inside a block scalar', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -1825,7 +1825,7 @@ test('it reports a synced edit when a synced caller moves a ref written inside a
 test('it reports a synced edit when a synced caller moves the ref of a step', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -1884,7 +1884,7 @@ test('it reports a synced edit when a synced caller moves the ref of a step', as
 test('it reports a synced edit when a synced file outside the workflow folder only moves the ref of a call', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -1945,7 +1945,7 @@ test('it reports a synced edit when a synced file outside the workflow folder on
 test('it reports a synced edit when a synced doc only moves the ref of a call in its example', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -2006,7 +2006,7 @@ test('it reports a synced edit when a synced doc only moves the ref of a call in
 test('it reports no synced edit when a synced caller only moves a quoted ref that holds a #', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -2067,7 +2067,7 @@ test('it reports no synced edit when a synced caller only moves a quoted ref tha
 test('it reports no synced edit when a synced caller only moves a bare ref that holds a #', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -2128,7 +2128,7 @@ test('it reports no synced edit when a synced caller only moves a bare ref that 
 test('it reports a synced edit when a synced caller changes more than the ref of its workflow call', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -2189,7 +2189,7 @@ test('it reports a synced edit when a synced caller changes more than the ref of
 test('it reports a synced edit when a synced caller changes the workflow its call names', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -2250,7 +2250,7 @@ test('it reports a synced edit when a synced caller changes the workflow its cal
 test('it reports a synced edit when a synced file only moves the ref of an action', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -2311,7 +2311,7 @@ test('it reports a synced edit when a synced file only moves the ref of an actio
 test('it reports no missing test that the pull request body names when a merge from the base branch brings it in', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/main.ts': 'export const main = 1;\n' } },
     { message: 'Raise the value', files: { 'src/main.ts': 'export const main = 2;\n' } },
     {
@@ -2331,7 +2331,18 @@ test('it reports no missing test that the pull request body names when a merge f
     },
     {
       message: 'Merge main and raise the value again',
-      files: { 'src/main.ts': 'export const main = 3;\n' },
+      files: {
+        'src/main.ts': 'export const main = 3;\n',
+        'src/main.test.ts': [
+          "import { expect, test } from 'bun:test';",
+          "import { main } from './main';",
+          '',
+          "test('it exports a value', () => {",
+          '  expect(main).toBeNumber();',
+          '});',
+          '',
+        ].join('\n'),
+      },
       parent: 1,
       merged: 2,
     },
@@ -2364,7 +2375,7 @@ test('it reports no missing test that the pull request body names when a merge f
 test('it reports no missing test that the pull request body names with a ./ prefix', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/main.ts': 'export const main = 1;\n' } },
     {
       message: 'Test the value',
@@ -2408,7 +2419,7 @@ test('it reports no missing test that the pull request body names with a ./ pref
 test('it reports no missing test for route files whose names hold a $, a +, an @ or a group the change adds', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'web/src/routes/orders.ts': 'export const orders = 1;\n' } },
     {
       message: 'Test the order routes',
@@ -2470,7 +2481,7 @@ test('it reports no missing test for route files whose names hold a $, a +, an @
 test('it reports a missing route test whose name holds a $ by its whole name', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'web/src/routes/orders.ts': 'export const orders = 1;\n' } },
     {
       message: 'Raise the count',
@@ -2509,7 +2520,7 @@ test('it reports a missing route test whose name holds a $ by its whole name', a
 test('it reads a test name inside parentheses without them and reports only the one the change lacks', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/main.ts': 'export const main = 1;\n' } },
     {
       message: 'Test the value',
@@ -2555,7 +2566,7 @@ test('it reads a test name inside parentheses without them and reports only the 
 test('it reports no missing test for a glob that the pull request body names', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/main.ts': 'export const main = 1;\n' } },
     { message: 'Raise the value', files: { 'src/main.ts': 'export const main = 2;\n' } },
   ]);
@@ -2586,7 +2597,7 @@ test('it reports no missing test for a glob that the pull request body names', a
 test('it reports no missing test for a fixture whose name only starts like a test file', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/main.ts': 'export const main = 1;\n' } },
     { message: 'Raise the value', files: { 'src/main.ts': 'export const main = 2;\n' } },
   ]);
@@ -2627,7 +2638,7 @@ test('it reports no missing test that an earlier commit of the pull request rena
     '',
   ].join('\n');
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: { 'src/main.ts': 'export const main = 1;\n', 'src/old.test.ts': testText },
@@ -2666,7 +2677,7 @@ test('it reports no missing test that an earlier commit of the pull request rena
 test('it reports no missing test for a test file at the head that the body only says passes', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -2718,7 +2729,7 @@ test.each([
   async (body) => {
     const ctx = await setupTest();
 
-    const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    const repo = await createFixtureRepo([
       {
         message: 'base',
         files: {
@@ -2766,7 +2777,7 @@ test.each([
 test('it reports no missing test for a test file the pull request deletes', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -2814,7 +2825,7 @@ test('it reports no missing test for a test file the pull request deletes', asyn
 test('it reports no missing test that the pull request adds before a merge from the base branch', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/main.ts': 'export const main = 1;\n' } },
     {
       message: 'Test the value',
@@ -2833,7 +2844,10 @@ test('it reports no missing test that the pull request adds before a merge from 
     { message: 'Add a helper', files: { 'src/other.ts': 'export const other = 1;\n' }, parent: 0 },
     {
       message: 'Merge main and raise the value',
-      files: { 'src/main.ts': 'export const main = 2;\n' },
+      files: {
+        'src/main.ts': 'export const main = 2;\n',
+        'src/other.ts': 'export const other = 1;\n',
+      },
       parent: 1,
       merged: 2,
     },
@@ -2866,7 +2880,7 @@ test('it reports no missing test that the pull request adds before a merge from 
 test('it reports a missing test that the pull request body names when no commit of the pull request adds it', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/main.ts': 'export const main = 1;\n' } },
     {
       message: 'Test the value',
@@ -2885,7 +2899,10 @@ test('it reports a missing test that the pull request body names when no commit 
     { message: 'Add a helper', files: { 'src/other.ts': 'export const other = 1;\n' }, parent: 0 },
     {
       message: 'Merge main and raise the value',
-      files: { 'src/main.ts': 'export const main = 2;\n' },
+      files: {
+        'src/main.ts': 'export const main = 2;\n',
+        'src/other.ts': 'export const other = 1;\n',
+      },
       parent: 1,
       merged: 2,
     },
@@ -2920,7 +2937,7 @@ test('it reports a missing test that the pull request body names when no commit 
 test('it reports a synced edit when a synced caller is renamed and only moves the ref of its workflow call', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -2986,7 +3003,7 @@ test('it reports a synced edit when a synced caller is renamed and only moves th
 test('it reports a version bump a workspace range refuses and a missing bump', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -3046,7 +3063,7 @@ test('it reports a version bump a workspace range refuses and a missing bump', a
 test('it reports a schema bound above the published limit', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/input.ts': 'export const a = 1;\n' } },
     {
       message: 'head',
@@ -3093,7 +3110,7 @@ test('it reports a schema bound above the published limit', async () => {
 test('it shortlists a base function that a new function repeats', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -3143,7 +3160,7 @@ test('it shortlists a base function that a new function repeats', async () => {
 test('it lists each disable comment the change adds for a cast rule, one entry per comment', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/a.ts': 'export const a = 1;\n' } },
     {
       message: 'head',
@@ -3209,7 +3226,7 @@ test('it lists each disable comment the change adds for a cast rule, one entry p
 test('it lists an any type the change adds', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -3266,7 +3283,7 @@ test('it lists an any type the change adds', async () => {
 test('it lists each JSON.parse call the change adds', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -3333,7 +3350,7 @@ test('it lists each JSON.parse call the change adds', async () => {
 test('it lists one any value for 2 JSON.parse calls on one added line', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/a.ts': 'export const a = 1;\n' } },
     {
       message: 'head',
@@ -3382,7 +3399,7 @@ test('it lists one any value for 2 JSON.parse calls on one added line', async ()
 test('it lists no any value for a JSON.parse call the change kept or a typed json reader', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -3453,7 +3470,7 @@ test('it lists no any value for a JSON.parse call the change kept or a typed jso
 test('it lists no type claim for as const, satisfies, another rule or a disable comment the change did not add', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -3526,7 +3543,7 @@ test('it lists no type claim for as const, satisfies, another rule or a disable 
 test('it keeps an access check in the security slice when only its body changes', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -3583,7 +3600,7 @@ test('it keeps an access check in the security slice when only its body changes'
 test('it reports no finding for an inherited key, a string change or an unchanged version', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -3657,7 +3674,7 @@ test('it reports no finding for an inherited key, a string change or an unchange
 test('it anchors a bound on its own line of a chain that spans lines', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -3720,7 +3737,7 @@ test('it anchors a bound on its own line of a chain that spans lines', async () 
 test('it records an edge for a changed interface member and for the exports of a deleted file', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -3773,7 +3790,7 @@ test('it records an edge for a changed interface member and for the exports of a
 test('it lists each script the change adds that no package script and no workflow names', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -3825,7 +3842,7 @@ test('it lists each script the change adds that no package script and no workflo
 test('it leaves out a new script that a package script names from its own folder', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -3870,7 +3887,7 @@ test('it leaves out a new script that a package script names from its own folder
 test('it leaves out a new script that an unchanged workflow names', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -3921,7 +3938,7 @@ test('it leaves out a new script that an unchanged workflow names', async () => 
 test('it leaves out a new script that a workflow names from its package folder', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -3974,7 +3991,7 @@ test('it leaves out a new script that a workflow names from its package folder',
 test('it lists a new script that a package script names only inside a longer path', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -4018,7 +4035,7 @@ test('it lists a new script that a package script names only inside a longer pat
 test('it lists the injection sinks, request-path calls and sensitive header reads the change adds', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/handle.ts': 'export const a = 1;\n' } },
     {
       message: 'head',
@@ -4105,7 +4122,7 @@ test('it lists the injection sinks, request-path calls and sensitive header read
 test('it lists no injection sink for a call built from literals alone', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/handle.ts': 'export const a = 1;\n' } },
     {
       message: 'head',
@@ -4154,7 +4171,7 @@ test('it lists no injection sink for a call built from literals alone', async ()
 test('it records a schema edge for a changed bound, with consumers in the repo and outside it', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -4231,7 +4248,7 @@ test('it records a schema edge for a changed bound, with consumers in the repo a
 test('it reports a version bump outside the range of a consumer in another repo', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -4296,7 +4313,7 @@ test('it reports a version bump outside the range of a consumer in another repo'
 test('it counts a file in a nested package under that package, apart from the root package', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -4343,7 +4360,7 @@ test('it counts a file in a nested package under that package, apart from the ro
 test('it lists the events a changed function emits beside its writes', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/save.ts': 'export const a = 1;\n' } },
     {
       message: 'head',
@@ -4398,7 +4415,7 @@ test('it lists the events a changed function emits beside its writes', async () 
 test('it orders the reuse shortlist by score, then by path and name', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -4479,7 +4496,7 @@ test('it orders the reuse shortlist by score, then by path and name', async () =
 test('it reports no missing table for an access check that a test file of another name imports and tables', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/access.ts': 'export const a = 1;\n' } },
     {
       message: 'head',
@@ -4526,7 +4543,7 @@ test('it reports no missing table for an access check that a test file of anothe
 test('it reports a missing version bump for the nearest package that owns a changed file', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {

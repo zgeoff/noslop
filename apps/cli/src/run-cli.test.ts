@@ -14,9 +14,13 @@ import { buildStubPrivateRepo } from '@noslop/github/test-utils/build-stub-priva
 import { createStubRetargetDuringRead } from '@noslop/github/test-utils/create-stub-retarget-during-read';
 import { githubCollections } from '@noslop/github/test-utils/github-collections';
 import { GITHUB_API_URL, STUB_APP_LOGIN } from '@noslop/github/test-utils/github-handlers';
-import { githubServer } from '@noslop/github/test-utils/github-server';
+import { githubNetwork } from '@noslop/github/test-utils/github-network';
+import { watchGitHubRequests } from '@noslop/github/test-utils/watch-github-requests';
 import { createRunner, readTempPrefix } from '@noslop/runner';
-import { createTestRepo } from '@noslop/runner/test-utils/create-test-repo';
+import {
+  createFixtureRepo,
+  createFixtureRepoAt,
+} from '@noslop/runner/test-utils/create-fixture-repo';
 import {
   createSQLiteReporter,
   loadStore,
@@ -90,7 +94,7 @@ async function setupTest() {
 test('it reviews the change between 2 commits and prints the result as JSON', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
     {
       message: 'Add the total\n\nSums the items.',
@@ -165,7 +169,7 @@ test('it reviews the change between 2 commits and prints the result as JSON', as
 test('it titles the review with the head subject and gives the calls every commit message', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/a.ts': 'export const a = 1;\n' } },
     { message: 'Start the change\n\nFirst step.', files: { 'src/a.ts': 'export const a = 2;\n' } },
     { message: 'Finish the change', files: { 'src/a.ts': 'export const a = 3;\n' } },
@@ -189,7 +193,7 @@ test('it titles the review with the head subject and gives the calls every commi
 test('it reviews a local change that edits review.json under the config of its base', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -219,7 +223,7 @@ test('it reviews a local change that edits review.json under the config of its b
 test('it reviews a pull request that edits review.json under the config of its base', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -262,7 +266,7 @@ test('it reviews a pull request that edits review.json under the config of its b
 test('it reports no synced edit in a pull request that an account the config names as a sync author opened', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -306,15 +310,16 @@ test('it reports no synced edit in a pull request that an account the config nam
 test("it follows the base commit's symlinks to its config files", async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
         'config/review.json': '{ "extends": "./shared/base.json" }\n',
         'settings/base.json': '{ "lenses": { "correctness": { "model": "base-model" } } }\n',
         'src/a.ts': 'export const a = 1;\n',
+        'review.json': { symlink: 'config/review.json' },
+        shared: { symlink: 'settings' },
       },
-      links: { 'review.json': 'config/review.json', shared: 'settings' },
     },
     {
       message: 'Change the model',
@@ -338,7 +343,7 @@ test("it follows the base commit's symlinks to its config files", async () => {
 test('it reads a config file whose name starts with 2 dots from the base commit', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -369,7 +374,7 @@ test('it reads a config file whose name starts with 2 dots from the base commit'
 test('it prints a summary for a person without --json', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'docs/guide.md': '# Guide\n' } },
     { message: 'Edit the guide', files: { 'docs/guide.md': '# Guide\n\nRun the tool.\n' } },
   ]);
@@ -388,10 +393,19 @@ test('it prints a summary for a person without --json', async () => {
 test('it reviews a change with no --base from where it leaves main', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/a.ts': 'export const a = 1;\n' } },
-    { message: 'Change a', files: { 'src/a.ts': 'export const a = 2;\n' }, parent: 0 },
+    { message: 'Change a', files: { 'src/a.ts': 'export const a = 2;\n' } },
   ]);
+
+  // the change sits on a detached HEAD, off the tip of main
+  await createRunner().run(['git', 'checkout', '-q', '--detach', repo.commits[1] ?? ''], {
+    cwd: repo.path,
+  });
+
+  await createRunner().run(['git', 'branch', '-f', 'main', repo.commits[0] ?? ''], {
+    cwd: repo.path,
+  });
 
   const stub = buildStubAdapter({ light: [{ findings: { correctness: [] } }] });
 
@@ -410,7 +424,7 @@ test('it reviews a change with no --base from where it leaves main', async () =>
 test('it refuses a review with no --base in a repo with no origin/HEAD, main or master', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/a.ts': 'export const a = 1;\n' } },
   ]);
 
@@ -430,7 +444,7 @@ test('it refuses a review with no --base in a repo with no origin/HEAD, main or 
 test('it records the review in the store and answers a store query', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -486,7 +500,7 @@ test('it records the review in the store and answers a store query', async () =>
 test('it prints a store query as a count line and a key=value line per row without --json', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -545,7 +559,7 @@ test('it prints a store query as a count line and a key=value line per row witho
 test('it fails a review before any lens call when the store schema is newer than this noslop', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -582,7 +596,7 @@ test('it fails a review before any lens call when the store schema is newer than
 test('it prints the merged config with the source of each key', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'review.json': '{ "adapter": "claude" }\n' } },
   ]);
 
@@ -604,7 +618,7 @@ test('it prints the merged config with the source of each key', async () => {
 test('it prints every source of a top-level key whose nested keys come from several layers', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'review.json': '{ "mergePass": { "effort": "high" } }\n' } },
   ]);
 
@@ -621,7 +635,7 @@ test('it prints every source of a top-level key whose nested keys come from seve
 test('it prints the config as JSON with only its config, sources, chain, missing rules and hash', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'review.json': '{ "adapter": "claude" }\n' } },
   ]);
 
@@ -639,7 +653,7 @@ test('it prints the config as JSON with only its config, sources, chain, missing
 test('it names each repo: rules file that the repo does not hold', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'review.json': '{ "rules": ["repo:skills/tests/SKILL.md"] }\n' } },
   ]);
 
@@ -673,7 +687,7 @@ test('it warns once in a review about a missing reference that 2 rules files nam
     resetSync();
   });
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -730,7 +744,7 @@ test('it gives no warning in a review about a reference that the synced rules fi
     resetSync();
   });
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -898,7 +912,7 @@ test('it lists the findings of the repo, pull request and time the flags name, f
 test('it reviews a pull request from GitHub and posts its findings and the check', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
     {
       message: 'Add the total',
@@ -992,7 +1006,7 @@ test('it passes a finding in a synced file the change added that is deferred to 
     designPass: { enabled: false },
   });
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -1142,7 +1156,7 @@ test('it keeps the link to each posted finding comment in the store the config n
 
   const storePath = join(ctx.directory, 'custom', 'findings.sqlite');
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -1239,7 +1253,7 @@ test('it lists a finding whose review failed its post as open after a later revi
 
   const storePath = join(ctx.directory, 'custom', 'findings.sqlite');
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -1322,7 +1336,7 @@ test('it lists a finding whose review failed its post as open after a later revi
     createReporter: installed.createReporter,
   };
 
-  githubServer.use(
+  githubNetwork.use(
     http.post(
       `${GITHUB_API_URL}/repos/:owner/:repo/pulls/:number/reviews`,
       () => new HttpResponse(null, { status: 502 }),
@@ -1403,7 +1417,7 @@ test.each([
 
     const storePath = join(ctx.directory, 'custom', 'findings.sqlite');
 
-    const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    const repo = await createFixtureRepo([
       {
         message: 'base',
         files: {
@@ -1486,7 +1500,7 @@ test.each([
       createReporter: installed.createReporter,
     };
 
-    githubServer.use(
+    githubNetwork.use(
       http.post(
         `${GITHUB_API_URL}/repos/:owner/:repo/pulls/:number/reviews`,
         () => new HttpResponse(null, { status: 502 }),
@@ -1564,7 +1578,7 @@ test('it lists a fixed answer to a finding whose review failed its post as fixed
 
   const storePath = join(ctx.directory, 'custom', 'findings.sqlite');
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -1653,7 +1667,7 @@ test('it lists a fixed answer to a finding whose review failed its post as fixed
     createReporter: installed.createReporter,
   };
 
-  githubServer.use(
+  githubNetwork.use(
     http.post(
       `${GITHUB_API_URL}/repos/:owner/:repo/pulls/:number/reviews`,
       () => new HttpResponse(null, { status: 502 }),
@@ -1746,7 +1760,7 @@ test('it lists a fixed answer to a finding whose review failed its post as fixed
 test('it creates no store when a review posts to GitHub with no sqlite reporter', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
     {
       message: 'Add the total',
@@ -1831,7 +1845,7 @@ test('it creates no store when a review posts to GitHub with no sqlite reporter'
 test('it gives the calls the issue that the pull request body closes', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
     {
       message: 'Add one',
@@ -1874,7 +1888,7 @@ test('it gives the calls the issue that the pull request body closes', async () 
 test('it fires the intent lens on a local change with the text of the issue file', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
     {
       message: 'Add one',
@@ -1918,7 +1932,7 @@ test('it fires the intent lens on a local change with the text of the issue file
 test('it gives the calls the issue file in place of the issue the pull request body closes', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
     {
       message: 'Add one',
@@ -1976,7 +1990,7 @@ test('it gives the calls the issue file in place of the issue the pull request b
 test('it fails the review when the issue file does not exist', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
     {
       message: 'Add one',
@@ -1999,7 +2013,7 @@ test('it fails the review when the issue file does not exist', async () => {
 test('it sends the lenses only the file that a 1-line commit changed since the last review', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -2097,7 +2111,7 @@ test('it sends the lenses only the file that a 1-line commit changed since the l
 test('it sends the lenses a file whose patch changed since the last lens review after a fixes-only run moved the key', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
     {
       message: 'Add one',
@@ -2179,7 +2193,7 @@ test('it sends the lenses a file whose patch changed since the last lens review 
 test('it reads a pull request of a private repo with GH_TOKEN and no App keys', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
     {
       message: 'Add one',
@@ -2187,7 +2201,7 @@ test('it reads a pull request of a private repo with GH_TOKEN and no App keys', 
     },
   ]);
 
-  githubServer.use(buildStubPrivateRepo({ owner: 'example', repo: 'app', token: 'ghp_reader' }));
+  githubNetwork.use(buildStubPrivateRepo({ owner: 'example', repo: 'app', token: 'ghp_reader' }));
 
   await githubCollections.pullRequests.create({
     owner: 'example',
@@ -2222,7 +2236,7 @@ test('it reads a pull request of a private repo with GH_TOKEN and no App keys', 
 test('it fails to read a pull request of a private repo with no token', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
     {
       message: 'Add one',
@@ -2230,7 +2244,7 @@ test('it fails to read a pull request of a private repo with no token', async ()
     },
   ]);
 
-  githubServer.use(buildStubPrivateRepo({ owner: 'example', repo: 'app', token: 'ghp_reader' }));
+  githubNetwork.use(buildStubPrivateRepo({ owner: 'example', repo: 'app', token: 'ghp_reader' }));
 
   await githubCollections.pullRequests.create({
     owner: 'example',
@@ -2252,7 +2266,7 @@ test('it fails to read a pull request of a private repo with no token', async ()
 test('it reads a summary by the App the config names as an earlier review, with a token', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -2310,7 +2324,7 @@ test('it reads a summary by the App the config names as an earlier review, with 
 test('it runs a first review of a pull request when a summary comes from another login than the App the config names', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -2369,7 +2383,7 @@ test('it runs a first review of a pull request when a summary comes from another
 test('it drops a finding answered not-a-defect in a thread of the App the config names, with a token', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -2460,7 +2474,7 @@ test('it drops a finding answered not-a-defect in a thread of the App the config
 test('it refuses an App slug in the config that differs from the App of the keys', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -2497,7 +2511,7 @@ test('it refuses an App slug in the config that differs from the App of the keys
 test('it reviews only the files the pull request changes after it merges its base branch', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -2522,6 +2536,8 @@ test('it reviews only the files the pull request changes after it merges its bas
       files: {
         'AGENTS.md':
           '# Agents\n\nRun the tests before every push with bun test.\n\nConsider a lint run after each edit.\n',
+        'skills/notes/SKILL.md':
+          '# Notes\n\nKeep each note short.\n\nPrefer one note for each open question.\n',
       },
       parent: 1,
       merged: 2,
@@ -2566,7 +2582,7 @@ test('it reviews only the files the pull request changes after it merges its bas
 test('it confirms no fix through a merge from the base branch that brings in a source file over the file limit', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -2585,7 +2601,10 @@ test('it confirms no fix through a merge from the base branch that brings in a s
     },
     {
       message: 'Merge main and add one',
-      files: { 'src/total.ts': 'export const zero = 0;\nexport const one = zero + 1;\n' },
+      files: {
+        'src/total.ts': 'export const zero = 0;\nexport const one = zero + 1;\n',
+        'src/table.ts': `export const table = ['${'x'.repeat(300_000)}'];\n`,
+      },
       parent: 1,
       merged: 2,
     },
@@ -2682,7 +2701,7 @@ test('it confirms no fix through a merge from the base branch that brings in a s
 test('it confirms a fix through a merge from the base branch that brings in a lockfile over the file limit', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: { 'src/total.ts': 'export const zero = 0;\n', 'bun.lock': '{}\n' },
@@ -2698,7 +2717,10 @@ test('it confirms a fix through a merge from the base branch that brings in a lo
     },
     {
       message: 'Merge main and add one',
-      files: { 'src/total.ts': 'export const zero = 0;\nexport const one = zero + 1;\n' },
+      files: {
+        'src/total.ts': 'export const zero = 0;\nexport const one = zero + 1;\n',
+        'bun.lock': `{"packages":"${'x'.repeat(300_000)}"}\n`,
+      },
       parent: 1,
       merged: 2,
     },
@@ -2795,7 +2817,7 @@ test('it confirms a fix through a merge from the base branch that brings in a lo
 test('it confirms no fix of a finding a re-review no longer reports when no fix call judges it', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
     {
       message: 'Add the total',
@@ -2881,7 +2903,7 @@ test('it confirms no fix of a finding a re-review no longer reports when no fix 
 test('it reviews the whole pull request from its merge base under --full', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
     {
       message: 'Add one',
@@ -2931,7 +2953,7 @@ test('it reviews the whole pull request from its merge base under --full', async
 test('it raises no finding again on a new head that matches a finding answered not-a-defect', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
     {
       message: 'Add one',
@@ -3076,7 +3098,7 @@ test('it raises no finding again on a new head that matches a finding answered n
 test('it confirms no fix of a finding answered not-a-defect when the review that read the fix dropped a match of it', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
     {
       message: 'Add one',
@@ -3211,7 +3233,7 @@ test('it confirms no fix of a finding answered not-a-defect when the review that
 test('it reviews the whole pull request again at a head a complete review covered under --full', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
     {
       message: 'Add one',
@@ -3257,7 +3279,7 @@ test('it reviews the whole pull request again at a head a complete review covere
 test('it reviews no file and refuses nothing at the head that a review with no failed call covered', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
     {
       message: 'Add one',
@@ -3302,7 +3324,7 @@ test('it reviews no file and refuses nothing at the head that a review with no f
 test('it reviews nothing new and refuses nothing after a rebase that changes no file content', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
     { message: 'Describe the app', parent: 0, files: { 'README.md': '# app\n' } },
     {
@@ -3377,7 +3399,7 @@ test('it reviews nothing new and refuses nothing after a rebase that changes no 
 test('it runs no design pass on a review after a failed review that followed a completed one', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
     {
       message: 'Add one',
@@ -3417,7 +3439,7 @@ test('it runs no design pass on a review after a failed review that followed a c
 test('it reviews the head again after the review that covered it had a failed call', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
     {
       message: 'Add one',
@@ -3464,7 +3486,7 @@ test('it reviews the head again after the review that covered it had a failed ca
 test('it tells the calls not to judge the description when it reviews only the files whose patch changed', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/parse.ts': 'export const parse = 0;\n' } },
     {
       message: 'Add the printer and the cache',
@@ -3571,7 +3593,7 @@ test('it tells the calls not to judge the description when it reviews only the f
 test('it runs the design pass on the first review of a pull request', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/parse.ts': 'export const parse = 0;\n' } },
     { message: 'Fix the parser', files: { 'src/parse.ts': 'export const parse = 1;\n' } },
   ]);
@@ -3602,7 +3624,7 @@ test('it runs the design pass on the first review of a pull request', async () =
 test('it runs the design pass on the first review over its findings, the whole diff and the body, and no linked issue', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/parse.ts': 'export const parse = 0;\n' } },
     {
       message: 'Add the scanner',
@@ -3689,7 +3711,7 @@ test('it runs the design pass on the first review over its findings, the whole d
 test("it confirms a design finding's fix through its fix call on a later review, which runs no design call", async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
     {
       message: 'Add the scanner',
@@ -3795,7 +3817,7 @@ test("it judges a design finding's fix with a fix call when the config turns the
 
   const config = '{ "designPass": { "enabled": false, "effort": "medium" } }\n';
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: { 'review.json': config, 'src/scan.ts': 'export const zero = 0;\n' },
@@ -3906,7 +3928,7 @@ test("it judges a design finding's fix with a fix call when the config turns the
 test('it confirms the fix of a design finding when the design call reports it no more and its fix call judges it fixed', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
     {
       message: 'Add the scanner',
@@ -4006,7 +4028,7 @@ test('it confirms the fix of a design finding when the design call reports it no
 test('it keeps a description finding when it reviews the whole pull request', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/parse.ts': 'export const parse = 0;\n' } },
     { message: 'Fix the parser', files: { 'src/parse.ts': 'export const parse = 1;\n' } },
   ]);
@@ -4069,7 +4091,7 @@ test('it keeps a description finding when it reviews the whole pull request', as
 test('it refuses --full without --pr', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
   ]);
 
@@ -4088,7 +4110,7 @@ test('it refuses --full without --pr', async () => {
 test('it refuses --fixes-only without --pr', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
   ]);
 
@@ -4107,7 +4129,7 @@ test('it refuses --fixes-only without --pr', async () => {
 test('it refuses --fixes-only beside --full', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/total.ts': 'export const zero = 0;\n' } },
   ]);
 
@@ -4126,7 +4148,7 @@ test('it refuses --fixes-only beside --full', async () => {
 test('it runs --fixes-only on a pull request that no review covered yet with no call, and passes the check with no finding', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
     {
       message: 'Add the scanner',
@@ -4161,7 +4183,7 @@ test('it runs --fixes-only on a pull request that no review covered yet with no 
 test('it confirms a fixed reply under --fixes-only and posts nothing new', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
     {
       message: 'Add the scanner',
@@ -4264,7 +4286,7 @@ test('it confirms a fixed reply under --fixes-only and posts nothing new', async
 test('it confirms a fixed reply under --fixes-only in a thread of the App the config names, with a token', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -4368,7 +4390,7 @@ test('it confirms a fixed reply under --fixes-only in a thread of the App the co
 test('it confirms a fixed reply under --fixes-only from the merge base when a rebase took the reviewed head off the branch', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
     { message: 'Describe the app', parent: 0, files: { 'README.md': '# app\n' } },
     {
@@ -4481,7 +4503,7 @@ test('it confirms a fixed reply under --fixes-only from the merge base when a re
 test('it runs the fix call under --fixes-only when a rebase changed the patch of a file that no fix commit changes', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
     { message: 'Describe the app', parent: 0, files: { 'README.md': '# app\n' } },
     {
@@ -4603,7 +4625,7 @@ test('it runs the fix call under --fixes-only when a rebase changed the patch of
 test('it runs the fix call of a bare fixed reply under --fixes-only on a stacked pull request rebased past a squash of the layer below', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
     { message: 'Add the reader', files: { 'src/read.ts': 'export const read = 1;\n' } },
     {
@@ -4699,7 +4721,7 @@ test('it runs the fix call of a bare fixed reply under --fixes-only on a stacked
 test('it runs --fixes-only with no fixed answer after a rebase when the summary holds no key, and keeps the summary on its head', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
     { message: 'Describe the app', parent: 0, files: { 'README.md': '# app\n' } },
     {
@@ -4756,7 +4778,7 @@ test('it runs --fixes-only with no fixed answer after a rebase when the summary 
 test('it confirms a fixed reply under --fixes-only that names a fix commit the rebase rewrote', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
     { message: 'Describe the app', parent: 0, files: { 'README.md': '# app\n' } },
     {
@@ -4899,7 +4921,7 @@ test('it confirms a fixed reply under --fixes-only that names a fix commit the r
 test('it keeps the review of a fixes-only run at a clean rebase of its head, so the check passes with no run', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
     { message: 'Describe the app', parent: 0, files: { 'README.md': '# app\n' } },
     {
@@ -5024,7 +5046,7 @@ test('it keeps the review of a fixes-only run at a clean rebase of its head, so 
 test('it keeps the review of a fixes-only run at a conflict-free merge of the base, so the check passes with no run', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
     {
       message: 'Add the scanner',
@@ -5039,7 +5061,12 @@ test('it keeps the review of a fixes-only run at a conflict-free merge of the ba
       parent: 0,
       files: { 'src/parse.ts': 'export const parse = 1;\n' },
     },
-    { message: 'Merge the base', parent: 2, merged: 3, files: {} },
+    {
+      message: 'Merge the base',
+      parent: 2,
+      merged: 3,
+      files: { 'src/parse.ts': 'export const parse = 1;\n' },
+    },
   ]);
 
   await githubCollections.pullRequests.create({
@@ -5145,7 +5172,7 @@ test('it keeps the review of a fixes-only run at a conflict-free merge of the ba
 test('it passes the check with no open finding at a new head whose late push changed the patch of a reviewed file', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
     {
       message: 'Add the scanner',
@@ -5268,7 +5295,7 @@ test('it passes the check with no open finding at a new head whose late push cha
 test('it makes no call and posts no finding over a merge whose resolution drops a change under --fixes-only', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: { 'src/options.ts': 'export const options = { retries: 1, timeoutMs: 1000 };\n' },
@@ -5353,7 +5380,7 @@ test('it makes no call and posts no finding over a merge whose resolution drops 
 test('it rejects a fixed reply under --fixes-only when the call finds the fix does not fix the finding, and fails the check', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
     {
       message: 'Add the scanner',
@@ -5462,7 +5489,7 @@ test('it rejects a fixed reply under --fixes-only when the call finds the fix do
 test('it passes the check under --fixes-only with no call when the only open finding, once rejected as fixed, is answered not-a-defect', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/route.ts': 'export const routes = [];\n' } },
     {
       message: 'Split the route words by hand',
@@ -5558,7 +5585,7 @@ test('it passes the check under --fixes-only with no call when the only open fin
 test('it confirms a fixed reply to a static finding under --fixes-only when its fix removes the problem, and posts nothing new', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const split = (line: string) => line;\n' } },
     {
       message: 'Test the scanner',
@@ -5665,7 +5692,7 @@ test('it confirms a fixed reply to a static finding under --fixes-only when its 
 test('it confirms a fixed reply to a synced-copy finding under --fixes-only on a pull request that a sync author opened', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -5780,7 +5807,7 @@ test('it confirms a fixed reply to a synced-copy finding under --fixes-only on a
 test('it rejects a fixed reply to a static finding under --fixes-only when the static check still reports it, and fails the check', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const split = (line: string) => line;\n' } },
     {
       message: 'Test the scanner',
@@ -5899,7 +5926,7 @@ test('it rejects a fixed reply to a static finding under --fixes-only when a reb
   const unasserted = "\ntest('it splits on the separator', () => {\n  split('a:b');\n});\n";
   const longer = "\ntest('it splits on the separator', () => {\n  split('a:b:c');\n});\n";
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -6022,7 +6049,7 @@ test('it rejects a fixed reply to a static finding under --fixes-only when a reb
 test('it rejects a fixed reply to a format-only finding under --fixes-only by the linked issue, when the fix leaves the hunk', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -6146,7 +6173,7 @@ test('it rejects a fixed reply to a format-only finding under --fixes-only by th
 test('it makes one call per fixed reply under --fixes-only, no lens call, and judges each fix in a file on its own', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
     {
       message: 'Add the scanner',
@@ -6308,7 +6335,7 @@ test('it makes one call per fixed reply under --fixes-only, no lens call, and ju
 test('it makes one fix call per fixed reply under --fixes-only on a pull request past the file limit after a merge of the base, and lists no small file as too large', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -6333,7 +6360,7 @@ test('it makes one fix call per fixed reply under --fixes-only on a pull request
       },
     },
     { message: 'Describe the app', files: { 'README.md': '# app\n' }, parent: 0 },
-    { message: 'Merge main', files: {}, parent: 2, merged: 3 },
+    { message: 'Merge main', files: { 'README.md': '# app\n' }, parent: 2, merged: 3 },
   ]);
 
   const head = repo.commits[4] ?? '';
@@ -6444,7 +6471,7 @@ test('it makes one fix call per fixed reply under --fixes-only on a pull request
 test('it confirms no fixed reply posted after a --fixes-only review that never checked it', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
     {
       message: 'Add the scanner',
@@ -6564,7 +6591,7 @@ test('it confirms no fixed reply posted after a --fixes-only review that never c
 test('it keeps a fixed reply posted after 2 --fixes-only reviews open until a --fixes-only review checks it', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
     {
       message: 'Add the scanner',
@@ -6751,7 +6778,7 @@ test('it keeps a fixed reply posted after 2 --fixes-only reviews open until a --
 test('it runs --fixes-only with no fixed answer to check, keeps the summary on its head, and passes the check at the new head with no open finding', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
     {
       message: 'Add the scanner',
@@ -6865,7 +6892,7 @@ test('it runs --fixes-only with no fixed answer to check, keeps the summary on i
 test('it confirms a fixed reply posted after a --fixes-only run that found no fixed answer, so the check passes', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
     {
       message: 'Add the scanner',
@@ -6967,7 +6994,7 @@ test('it confirms a fixed reply posted after a --fixes-only run that found no fi
 test('it confirms a fixed reply posted after a clean rebase under --fixes-only, from the merge base', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
     { message: 'Describe the app', parent: 0, files: { 'README.md': '# app\n' } },
     {
@@ -7128,7 +7155,7 @@ test('it confirms a fixed reply posted after a clean rebase under --fixes-only, 
 test('it confirms a fixed reply at a rewritten sha under --fixes-only when a lens round before the rebase read the fix', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/plan.ts': 'export const lanes = [];\n' } },
     { message: 'Describe the app', parent: 0, files: { 'README.md': '# app\n' } },
     {
@@ -7292,7 +7319,7 @@ test('it confirms a fixed reply at a rewritten sha under --fixes-only when a len
 test('it confirms a fixed reply at a rewritten sha under --fixes-only after 2 rebases and a carry', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/cache.ts': 'export const key = "lock";\n' } },
     { message: 'Describe the app', parent: 0, files: { 'README.md': '# app\n' } },
     { message: 'Describe the checks', files: { 'README.md': '# app\n\nChecks.\n' } },
@@ -7436,7 +7463,7 @@ test('it confirms a fixed reply at a rewritten sha under --fixes-only after 2 re
 test('it confirms a fixed reply at a rewritten sha under --fixes-only after 2 carries, beside a dismissed static finding', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/gate.ts': 'export const paths = [];\n' } },
     { message: 'Describe the app', parent: 0, files: { 'README.md': '# app\n' } },
     { message: 'Describe the gate', files: { 'README.md': '# app\n\nGate.\n' } },
@@ -7610,7 +7637,7 @@ test('it confirms a fixed reply at a rewritten sha under --fixes-only after 2 ca
 test('it judges a --fixes-only fix from the last lens review and passes the check after an earlier fix check failed', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
     {
       message: 'Add the scanner',
@@ -7716,7 +7743,7 @@ test('it judges a --fixes-only fix from the last lens review and passes the chec
 test('it runs --fixes-only after a lens review whose call failed and no lens review before it, and keeps the failed call in the summary', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
     {
       message: 'Add the scanner',
@@ -7765,7 +7792,7 @@ test('it runs --fixes-only after a lens review whose call failed and no lens rev
 test('it moves the summary head to the head a --fixes-only review read, so the check reads the current head', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
     {
       message: 'Add the scanner',
@@ -7871,7 +7898,7 @@ test('it moves the summary head to the head a --fixes-only review read, so the c
 test('it judges a bare fixed reply under --fixes-only at the head, strikes the finding and passes the check', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
     {
       message: 'Add the scanner',
@@ -7973,7 +8000,7 @@ test('it judges a bare fixed reply under --fixes-only at the head, strikes the f
 test('it makes a fix call for an open fixed reply on a normal review and strikes the finding it confirms', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
     {
       message: 'Add the scanner',
@@ -8073,7 +8100,7 @@ test('it makes a fix call for an open fixed reply on a normal review and strikes
 test('it makes only the fix call on a review that reads no file and strikes the finding it confirms', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
     { message: 'Describe the app', parent: 0, files: { 'README.md': '# app\n' } },
     {
@@ -8201,7 +8228,7 @@ test('it refuses to list the findings of a repo that is not owner/name', async (
 test('it lists no finding and exits 1 when a finding comment of the App holds a marker it cannot read', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
   ]);
 
@@ -8242,7 +8269,7 @@ test('it lists no finding and exits 1 when a finding comment of the App holds a 
 test('it lists each finding of a pull request with its state and the author of its answer', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
   ]);
 
@@ -8371,7 +8398,7 @@ test('it lists each finding of a pull request with its state and the author of i
 test('it lists an accepted-risk finding as open when its author has no admin permission', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
   ]);
 
@@ -8462,7 +8489,7 @@ test('it lists an accepted-risk finding as open when its author has no admin per
 test('it lists a finding deferred to a tracker key as deferred when a pattern of the base config matches the key, and as open when none does or the answer is a GitHub issue that does not exist', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
   ]);
 
@@ -8562,7 +8589,7 @@ test('it exits 1 and sets no check run when the pull request moves to another ba
     body: `<!-- noslop:summary {"head":"${'b'.repeat(40)}","reported":[],"failedCalls":0} -->`,
   });
 
-  githubServer.use(createStubRetargetDuringRead({ number: 9, baseRef: 'release' }));
+  githubNetwork.use(createStubRetargetDuringRead({ number: 9, baseRef: 'release' }));
 
   const code = await runCLI(
     ['check', '--pr', '9', '--repo', 'example/app'],
@@ -8584,7 +8611,7 @@ test('it exits 1 and sets no check run when the pull request moves to another ba
 test('it lists a deferred finding as open while its issue does not exist', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
   ]);
 
@@ -8669,7 +8696,7 @@ test('it lists a deferred finding as open while its issue does not exist', async
 test('it lists a deferred finding as open when the change wrote its code', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
   ]);
 
@@ -8754,7 +8781,7 @@ test('it lists a deferred finding as open when the change wrote its code', async
 test('it lists a deferred P1, security or risk-class finding as open', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
   ]);
 
@@ -8862,7 +8889,7 @@ test('it lists a deferred P1, security or risk-class finding as open', async () 
 test('it lists a fixed finding as open while the latest review still reports it', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
   ]);
 
@@ -8948,7 +8975,7 @@ test('it lists a fixed finding as open while the latest review still reports it'
 test('it lists a fixed finding as open with its reason while no fix check has read its commit', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
     { message: 'split on a separator', files: { 'src/scan.ts': 'export const one = 1;\n' } },
     { message: 'reject an empty separator', files: { 'src/scan.ts': 'export const two = 2;\n' } },
@@ -9063,7 +9090,7 @@ test('it lists a fixed finding as open with its reason while no fix check has re
 test('it lists a fixed finding as fixed once a fix call confirmed its commit, while the summary keeps an older head', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
     { message: 'split on a separator', files: { 'src/scan.ts': 'export const one = 1;\n' } },
     { message: 'reject an empty separator', files: { 'src/scan.ts': 'export const two = 2;\n' } },
@@ -9150,7 +9177,7 @@ test('it lists a fixed finding as fixed once a fix call confirmed its commit, wh
 test('it lists a fixed finding whose fix check skipped its code as too large as open and unjudged, with the reason', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -9268,7 +9295,7 @@ test('it lists a fixed finding whose fix check skipped its code as too large as 
 test('it prints an unjudged fixed finding with its reason in the text list', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
   ]);
 
@@ -9481,7 +9508,7 @@ test('it verifies a pull request review against its head and the config of its b
   const taste = 'Name each total for what it sums.\n';
   const parent = '{ "lenses": { "correctness": { "model": "shared-model" } } }\n';
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -9566,15 +9593,15 @@ test('it verifies a pull request review whose repo: rules file sits under a syml
   const config = '{ "rules": ["repo:.claude/skills/style/SKILL.md"] }\n';
   const style = 'Name each total for what it sums.\n';
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
         'review.json': config,
         '.agents/skills/style/SKILL.md': style,
         'src/a.ts': 'export const a = 1;\n',
+        '.claude/skills': { symlink: '../.agents/skills' },
       },
-      links: { '.claude/skills': '../.agents/skills' },
     },
     { message: 'Change a', files: { 'src/a.ts': 'export const a = 2;\n' } },
   ]);
@@ -9667,11 +9694,14 @@ test.each([
       'Name each total for what it sums.\n',
     );
 
-    const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+    const repo = await createFixtureRepoAt(join(ctx.directory, 'repo'), [
       {
         message: 'base',
-        files: { 'review.json': config, 'src/a.ts': 'export const a = 1;\n' },
-        links: { '.claude/skills': '../../outside/skills' },
+        files: {
+          'review.json': config,
+          'src/a.ts': 'export const a = 1;\n',
+          '.claude/skills': { symlink: '../../outside/skills' },
+        },
       },
       { message: 'Change a', files: { 'src/a.ts': 'export const a = 2;\n' } },
     ]);
@@ -9732,7 +9762,7 @@ test.each([
 test('it refuses a result whose head is no longer the head of the pull request', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'review.json': '{}\n', 'src/a.ts': 'export const a = 1;\n' } },
     { message: 'Change a', files: { 'src/a.ts': 'export const a = 2;\n' } },
   ]);
@@ -9789,7 +9819,7 @@ test('it refuses a result whose head is no longer the head of the pull request',
 test('it refuses a result when the config on the base branch changed after the review', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'review.json': '{}\n', 'src/a.ts': 'export const a = 1;\n' } },
     { message: 'Change a', files: { 'src/a.ts': 'export const a = 2;\n' } },
   ]);
@@ -9841,7 +9871,7 @@ test('it refuses a result when the config on the base branch changed after the r
 test('it reviews a pull request under the config at the tip of its base branch when the base commit of the pull request lags it', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -9890,7 +9920,7 @@ test('it verifies the result of a review whose pull request has a base commit be
 
   const stricter = '{ "lenses": { "correctness": { "model": "stricter-model" } } }\n';
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'review.json': '{}\n', 'src/a.ts': 'export const a = 1;\n' } },
     { message: 'Change a', files: { 'src/a.ts': 'export const a = 2;\n' } },
     { message: 'Use a stricter model', parent: 0, files: { 'review.json': stricter } },
@@ -9949,7 +9979,7 @@ test('it refuses a result when a config change lands on the base branch after th
 
   const stricter = '{ "lenses": { "correctness": { "model": "stricter-model" } } }\n';
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'review.json': '{}\n', 'src/a.ts': 'export const a = 1;\n' } },
     { message: 'Change a', files: { 'src/a.ts': 'export const a = 2;\n' } },
     { message: 'Use a stricter model', parent: 0, files: { 'review.json': stricter } },
@@ -10010,7 +10040,7 @@ test('it verifies a new review after a config change lands on the base branch', 
 
   const stricter = '{ "lenses": { "correctness": { "model": "stricter-model" } } }\n';
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'review.json': '{}\n', 'src/a.ts': 'export const a = 1;\n' } },
     { message: 'Change a', files: { 'src/a.ts': 'export const a = 2;\n' } },
     { message: 'Use a stricter model', parent: 0, files: { 'review.json': stricter } },
@@ -10076,7 +10106,7 @@ test('it refuses a result when the parent config the base branch extends changed
 
   const config = '{ "extends": "github:example/shared" }\n';
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'review.json': config, 'src/a.ts': 'export const a = 1;\n' } },
     { message: 'Change a', files: { 'src/a.ts': 'export const a = 2;\n' } },
   ]);
@@ -10145,7 +10175,7 @@ test('it verifies a result against the config of the base branch the pull reques
   const release = '{ "lenses": { "correctness": { "model": "release-model" } } }\n';
   const main = '{ "lenses": { "correctness": { "model": "main-model" } } }\n';
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'review.json': release, 'src/a.ts': 'export const a = 1;\n' } },
     { message: 'Change a', files: { 'src/a.ts': 'export const a = 2;\n' } },
   ]);
@@ -10257,7 +10287,7 @@ test('it refuses a result whose config names a rules file outside the repo and n
 
   await Bun.write(join(ctx.directory, 'shared', 'taste.md'), 'Name each total for what it sums.\n');
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepoAt(join(ctx.directory, 'repo'), [
     { message: 'base', files: { 'review.json': config, 'src/a.ts': 'export const a = 1;\n' } },
     { message: 'Change a', files: { 'src/a.ts': 'export const a = 2;\n' } },
   ]);
@@ -10296,12 +10326,8 @@ test('it refuses a result whose config names a rules file outside the repo and n
 
   const requested = mock<(path: string) => void>();
 
-  githubServer.events.on('request:start', (event) => {
-    requested(decodeURIComponent(new URL(event.request.url).pathname));
-  });
-
-  onTestFinished(() => {
-    githubServer.events.removeAllListeners('request:start');
+  watchGitHubRequests((request) => {
+    requested(decodeURIComponent(new URL(request.url).pathname));
   });
 
   const code = await runCLI(
@@ -10324,12 +10350,8 @@ test('it refuses a result that breaks the result contract before it asks GitHub 
 
   const requested = mock<(url: string) => void>();
 
-  githubServer.events.on('request:start', (event) => {
-    requested(event.request.url);
-  });
-
-  onTestFinished(() => {
-    githubServer.events.removeAllListeners('request:start');
+  watchGitHubRequests((request) => {
+    requested(request.url);
   });
 
   const code = await runCLI(
@@ -10365,7 +10387,7 @@ test('it refuses to verify a result that reviews no pull request', async () => {
 test('it posts a verified review result to its pull request as the App', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: { 'review.json': '{}\n', 'src/total.ts': 'export const zero = 0;\n' },
@@ -10756,14 +10778,10 @@ test('it fails a read-only check with exit 1 under the job token, and writes not
 
   const requested = mock<(request: string) => void>();
 
-  githubServer.events.on('request:start', (event) => {
+  watchGitHubRequests((request) => {
     requested(
-      `${event.request.method} ${new URL(event.request.url).pathname} ${event.request.headers.get('authorization')}`,
+      `${request.method} ${new URL(request.url).pathname} ${request.headers.get('authorization')}`,
     );
-  });
-
-  onTestFinished(() => {
-    githubServer.events.removeAllListeners('request:start');
   });
 
   const code = await runCLI(
@@ -10794,7 +10812,7 @@ test('it fails a read-only check with exit 1 under the job token, and writes not
 test('it fails the check on a fixed finding whose commit no fix check has read, and names the commit', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/scan.ts': 'export const zero = 0;\n' } },
     { message: 'split on a separator', files: { 'src/scan.ts': 'export const one = 1;\n' } },
     { message: 'reject an empty separator', files: { 'src/scan.ts': 'export const two = 2;\n' } },
@@ -10950,12 +10968,8 @@ test('it keeps a check read-only when the environment also holds the App keys', 
 
   const requested = mock<(request: string) => void>();
 
-  githubServer.events.on('request:start', (event) => {
-    requested(`${event.request.method} ${new URL(event.request.url).pathname}`);
-  });
-
-  onTestFinished(() => {
-    githubServer.events.removeAllListeners('request:start');
+  watchGitHubRequests((request) => {
+    requested(`${request.method} ${new URL(request.url).pathname}`);
   });
 
   const code = await runCLI(
@@ -11015,12 +11029,8 @@ test('it passes a read-only check with exit 0 under the job token, and writes no
 
   const requested = mock<(request: string) => void>();
 
-  githubServer.events.on('request:start', (event) => {
-    requested(`${event.request.method} ${new URL(event.request.url).pathname}`);
-  });
-
-  onTestFinished(() => {
-    githubServer.events.removeAllListeners('request:start');
+  watchGitHubRequests((request) => {
+    requested(`${request.method} ${new URL(request.url).pathname}`);
   });
 
   const code = await runCLI(
@@ -11197,12 +11207,8 @@ test('it refuses a check without --read-only when the environment holds no App k
 
   const requested = mock<(url: string) => void>();
 
-  githubServer.events.on('request:start', (event) => {
-    requested(event.request.url);
-  });
-
-  onTestFinished(() => {
-    githubServer.events.removeAllListeners('request:start');
+  watchGitHubRequests((request) => {
+    requested(request.url);
   });
 
   const code = await runCLI(
@@ -11226,7 +11232,7 @@ test('it refuses a check without --read-only when the environment holds no App k
 test('it resumes an eval, keeping the cases the out folder holds and replaying the rest', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/a.ts': 'export const a = 1;\n' } },
     { message: 'head', files: { 'src/a.ts': 'export const a = 2;\n' } },
   ]);
@@ -11291,7 +11297,7 @@ test('it resumes an eval, keeping the cases the out folder holds and replaying t
 test("it reads the repo: rules of an eval case from the case's repo and records the rule a finding cites", async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -11382,7 +11388,7 @@ test("it reads the repo: rules of an eval case from the case's repo and records 
 test('it records in the eval run a taste finding whose quote the rules file does not hold', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -11477,7 +11483,7 @@ test('it records in the eval run a taste finding whose quote the rules file does
 test('it replays an eval case with a last reviewed head as a re-review of the push alone', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/parse.ts': 'export const parse = 0;\n' } },
     {
       message: 'Add the printer',
@@ -11536,7 +11542,7 @@ test('it replays an eval case with a last reviewed head as a re-review of the pu
 test('it replays an eval case with no last reviewed head as a review of the whole change', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/parse.ts': 'export const parse = 0;\n' } },
     { message: 'Fix the parser', files: { 'src/parse.ts': 'export const parse = 1;\n' } },
   ]);
@@ -11576,7 +11582,7 @@ test('it replays an eval case with no last reviewed head as a review of the whol
 test('it replays an eval case that holds answered fixes as fix checks and reports each verdict', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: {
@@ -11660,7 +11666,7 @@ test('it replays an eval case that holds answered fixes as fix checks and report
 test('it replays the depth of each case with no model call under --static', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/a.ts': 'export const a = 1;\n' } },
     { message: 'head', files: { 'src/a.ts': 'export const a = 2;\n' } },
   ]);
@@ -11715,7 +11721,7 @@ test('it replays the depth of each case with no model call under --static', asyn
 test('it plans a re-review case under --static from its last reviewed head', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/parse.ts': 'export const parse = 0;\n' } },
     {
       message: 'Add the session check',
@@ -11774,7 +11780,7 @@ test('it plans a re-review case under --static from its last reviewed head', asy
 test('it plans a re-review case under --static from the files the change makes after a merge from its base', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/parse.ts': 'export const parse = 0;\n' } },
     { message: 'Count the tokens', files: { 'src/parse.ts': 'export const parse = 1;\n' } },
     {
@@ -11787,7 +11793,11 @@ test('it plans a re-review case under --static from the files the change makes a
     },
     {
       message: 'Merge main and fix the parser',
-      files: { 'src/parse.ts': 'export const parse = 2;\n' },
+      files: {
+        'src/parse.ts': 'export const parse = 2;\n',
+        'src/auth/session.ts':
+          'export function isSignedIn(token: string): boolean {\n  return token !== "";\n}\n',
+      },
       parent: 1,
       merged: 2,
     },
@@ -11832,7 +11842,7 @@ test('it plans a re-review case under --static from the files the change makes a
 test('it replays a re-review case over the files the change makes after a merge from its base', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/parse.ts': 'export const parse = 0;\n' } },
     { message: 'Count the tokens', files: { 'src/parse.ts': 'export const parse = 1;\n' } },
     {
@@ -11845,7 +11855,11 @@ test('it replays a re-review case over the files the change makes after a merge 
     },
     {
       message: 'Merge main and fix the parser',
-      files: { 'src/parse.ts': 'export const parse = 2;\n' },
+      files: {
+        'src/parse.ts': 'export const parse = 2;\n',
+        'src/auth/session.ts':
+          'export function isSignedIn(token: string): boolean {\n  return token !== "";\n}\n',
+      },
       parent: 1,
       merged: 2,
     },
@@ -11887,7 +11901,7 @@ test('it replays a re-review case over the files the change makes after a merge 
 test('it plans the intent call under --static for a case with a linked issue', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/a.ts': 'export const a = 1;\n' } },
     { message: 'head', files: { 'src/a.ts': 'export const a = 2;\n' } },
   ]);
@@ -11931,7 +11945,7 @@ test('it plans the intent call under --static for a case with a linked issue', a
 test('it records the lens of a failed call and leaves its silence unscored', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/a.ts': 'export const a = 1;\n' } },
     { message: 'head', files: { 'src/a.ts': 'export const a = 2;\n' } },
   ]);
@@ -11990,7 +12004,7 @@ test('it records the lens of a failed call and leaves its silence unscored', asy
 test('it plans every case at the depth that --depth names', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/a.ts': 'export const a = 1;\n' } },
     { message: 'head', files: { 'src/a.ts': 'export const a = 2;\n' } },
   ]);
@@ -12058,7 +12072,7 @@ test('it refuses a --depth that names no depth', async () => {
 test('it compares the 2 recorded runs that --noise-floor names, over the cases of the corpus', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/a.ts': 'export const a = 1;\n' } },
     { message: 'head', files: { 'src/a.ts': 'export const a = 2;\n' } },
   ]);
@@ -12181,7 +12195,7 @@ test('it compares the 2 recorded runs that --noise-floor names, over the cases o
 test('it refuses a --noise-floor that names 1 recorded run', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     { message: 'base', files: { 'src/a.ts': 'export const a = 1;\n' } },
     { message: 'head', files: { 'src/a.ts': 'export const a = 2;\n' } },
   ]);
@@ -12247,7 +12261,7 @@ test('it puts an unknown option on stderr and keeps stdout empty', async () => {
 test('it reads the repo config when it runs from a subfolder', async () => {
   const ctx = await setupTest();
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: { 'review.json': '{ "adapter": "claude" }\n', 'src/a.ts': 'export const a = 1;\n' },
@@ -12304,7 +12318,7 @@ test('it carries a review from a developer machine through the relay and passes 
     },
   })}\n`;
 
-  const repo = await createTestRepo(join(ctx.directory, 'repo'), [
+  const repo = await createFixtureRepo([
     {
       message: 'base',
       files: { 'review.json': config, 'src/total.ts': 'export const zero = 0;\n' },
