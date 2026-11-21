@@ -2,11 +2,14 @@
 
 ## [0.4.31](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.30...@noslop/cli@0.4.31) (2026-11-21)
 
-
 ### Bug Fixes
 
-* **github:** accept text after the sha of a fixed reply ([#345](https://github.com/zgeoff/noslop/issues/345)) ([f57f3ab](https://github.com/zgeoff/noslop/commit/f57f3abb5ca2996d00740817da3acf4de700bd5c))
-* **instructions:** skip code-block and link-only lines in the repeated-rule check ([#371](https://github.com/zgeoff/noslop/issues/371)) ([caf8ce5](https://github.com/zgeoff/noslop/commit/caf8ce5ecf3076030ac91c48eb0ddb207cc6496a))
+- **github:** accept text after the sha of a fixed reply
+  ([#345](https://github.com/zgeoff/noslop/issues/345))
+  ([f57f3ab](https://github.com/zgeoff/noslop/commit/f57f3abb5ca2996d00740817da3acf4de700bd5c))
+- **instructions:** skip code-block and link-only lines in the repeated-rule check
+  ([#371](https://github.com/zgeoff/noslop/issues/371))
+  ([caf8ce5](https://github.com/zgeoff/noslop/commit/caf8ce5ecf3076030ac91c48eb0ddb207cc6496a))
 
 ## [0.4.30](https://github.com/zgeoff/noslop/compare/@noslop/cli@0.4.29...@noslop/cli@0.4.30) (2026-11-17)
 
