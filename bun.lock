@@ -13,7 +13,7 @@
         "@types/bun": "1.4.4",
         "@zgeoff/agent-hooks": "0.3.0",
         "@zgeoff/bun-test-extended": "0.2.4",
-        "@zgeoff/chex": "0.3.14",
+        "@zgeoff/chex": "0.4.3",
         "@zgeoff/diet": "0.2.4",
         "@zgeoff/format-codemod": "0.3.6",
         "@zgeoff/oxlint-config": "0.11.1",
@@ -736,7 +736,7 @@
 
     "@zgeoff/bun-test-extended": ["@zgeoff/bun-test-extended@0.2.4", "", { "dependencies": { "jest-extended": "7.0.0", "jest-matcher-utils": "30.5.2" } }, "sha512-pjHhfUFSQVOG97CPobmUJ3v1xbigRe5DOD+7VDoe5IIYvAOMkctmkHznj4EKKnZSpQp0b3/jqvYuzIFrpeaZMw=="],
 
-    "@zgeoff/chex": ["@zgeoff/chex@0.3.14", "", { "dependencies": { "@zgeoff/std": "0.4.4", "oxc-parser": "0.158.0", "ts-pattern": "5.9.2" }, "bin": { "chex": "src/cli.ts" } }, "sha512-3/6TzltFP9dwkpznlkqHLT+YuhIAP9RVdqIg9RtdhXTNAU1UuzfImksbuocryDjJNEst8Ms5NYHKgqBkmF5hMQ=="],
+    "@zgeoff/chex": ["@zgeoff/chex@0.4.3", "", { "dependencies": { "@zgeoff/std": "0.4.5", "oxc-parser": "0.158.0", "ts-pattern": "5.9.2" }, "bin": { "chex": "src/cli.ts" } }, "sha512-0NIv+A8C1fR17T+dQcianMDCSwxN85n8E6SFt/+MKi7n2VFQkmJ2/sXYTAoMTcJvezEsvDqTpc6I1hf9QtCmNg=="],
 
     "@zgeoff/diet": ["@zgeoff/diet@0.2.4", "", { "bin": { "diet": "diet.sh" } }, "sha512-oDl09xwVR828YW72lQjwpwqsHwBcJ/zpIWuScMllO2tw7RVBerNOUuYx5Hk6A74TjeAjk0Jrh/g3jJWJ7E2OuA=="],
 
@@ -746,7 +746,7 @@
 
     "@zgeoff/rig": ["@zgeoff/rig@0.2.6", "", { "dependencies": { "@zgeoff/diet": "0.2.3", "@zgeoff/std": "0.4.4", "gunshi": "1.0.0-rc.1", "ts-pattern": "5.9.2", "zod": "4.6.7" }, "bin": { "rig": "src/cli.ts" } }, "sha512-pV/SNB7OV+w8KoI2ZPwTRYAi4xHyuZQGhGty51mzYFd+FL/9AXKMHBJPXBALxu6gcjh4icnYuTnJrHbv2jj62Q=="],
 
-    "@zgeoff/std": ["@zgeoff/std@0.4.4", "", {}, "sha512-AlT4lgjyC0ZhLUxxG0Sg9pxQG/+MIziC7BA9k29QDNt/ubGvB1+RCpTr/LaYkjFxiZnKG42psa4f2cp5BHGyzQ=="],
+    "@zgeoff/std": ["@zgeoff/std@0.4.5", "", {}, "sha512-Z2rD5v0OVXRZTa3Jh2I8zmx9znzvnAa/bC5Ai0NidPh+pfJGfDLmQIVZhshbGXPu/S/9SFdP/chDw+N5Pk/lzg=="],
 
     "acorn": ["acorn@8.19.0", "", { "bin": { "acorn": "bin/acorn" } }, "sha512-oJlA3XiRm7Cyk6qFD2Jn8ak9B7jSy0qy00ADO3+8dpT0LSjFihQYv4C02LFCSYJV3Q37xYwwRy5m+IpIiUzqWw=="],
 
@@ -1135,6 +1135,8 @@
     "@zgeoff/format-codemod/gunshi": ["gunshi@1.0.0-rc.1", "", {}, "sha512-/nSFKVrJHKg9O4ppBl+lOSLDQWmvJ5fG3ldVsdJX8KMtUV2uYwlx/a8OaOWuvniuV28bZDjsB8p6YFtDxSlMcw=="],
 
     "@zgeoff/rig/@zgeoff/diet": ["@zgeoff/diet@0.2.3", "", { "bin": { "diet": "diet.sh" } }, "sha512-/UHiaa0sMLCNtvpr/puCJFRX9OpKJ020OF4STNyc1ncTVGAdPOeSt0TcTeVuU2fqDkl9pHeLgP7dW2MrXoc8Cg=="],
+
+    "@zgeoff/rig/@zgeoff/std": ["@zgeoff/std@0.4.4", "", {}, "sha512-AlT4lgjyC0ZhLUxxG0Sg9pxQG/+MIziC7BA9k29QDNt/ubGvB1+RCpTr/LaYkjFxiZnKG42psa4f2cp5BHGyzQ=="],
 
     "@zgeoff/rig/gunshi": ["gunshi@1.0.0-rc.1", "", {}, "sha512-/nSFKVrJHKg9O4ppBl+lOSLDQWmvJ5fG3ldVsdJX8KMtUV2uYwlx/a8OaOWuvniuV28bZDjsB8p6YFtDxSlMcw=="],
 
