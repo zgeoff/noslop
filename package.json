@@ -61,7 +61,7 @@
     "@stylistic/eslint-plugin": "5.10.0",
     "@tsconfig/strictest": "2.0.8",
     "@types/bun": "1.4.4",
-    "@zgeoff/agent-hooks": "0.2.14",
+    "@zgeoff/agent-hooks": "0.3.0",
     "@zgeoff/bun-test-extended": "0.2.4",
     "@zgeoff/chex": "0.3.14",
     "@zgeoff/diet": "0.2.4",
