@@ -64,7 +64,7 @@
     "@zgeoff/agent-hooks": "0.2.14",
     "@zgeoff/bun-test-extended": "0.2.4",
     "@zgeoff/chex": "0.3.14",
-    "@zgeoff/diet": "0.2.3",
+    "@zgeoff/diet": "0.2.4",
     "@zgeoff/format-codemod": "0.3.6",
     "@zgeoff/oxlint-config": "0.10.10",
     "@zgeoff/rig": "0.2.6",
