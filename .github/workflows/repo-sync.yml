@@ -43,7 +43,7 @@ jobs:
       checks: read
       statuses: read
       actions: read
-    uses: zgeoff/tools/.github/workflows/repo-sync.yml@b8a2b5b46b6685b7c9143c3f6345a54c2de31ddd # main
+    uses: zgeoff/tools/.github/workflows/repo-sync.yml@23ffbe02834a1b7b00033a522b5514d41d657814 # main
     with:
       ref: ${{ github.event.client_payload.sha }}
       # pre-push-baseline keeps the scripts this repo still runs when tools retires the entry.
