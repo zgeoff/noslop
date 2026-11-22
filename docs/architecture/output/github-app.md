@@ -102,9 +102,9 @@ The reporter sends the summary write, each edit of a finding comment, and the ch
 server error too, after a wait that doubles each time and starts at the spacing GitHub asks for
 between writes. A write that creates a finding comment or a reply gets no retry on a server error,
 because a write that GitHub saved before it failed would post a second one. Once the waits run out,
-the post fails with an error that names the write, so the review reports a failed reporter. The
-reporter waits that spacing between the comments it creates one at a time, so a burst of them meets
-no secondary limit.
+the post fails with an error that says which write failed, so the review reports a failed reporter.
+The reporter waits that spacing between the comments it creates one at a time, so a burst of them
+meets no secondary limit.
 
 ## State in markers
 
@@ -132,8 +132,8 @@ whose marker noslop cannot read fails the check, so a damaged marker never drops
 gate.
 
 A review on a developer's machine runs without the App's keys. The connection then reads GitHub with
-`GH_TOKEN`, or with `GITHUB_TOKEN` when `GH_TOKEN` is unset, and anonymously when neither is set, so
-the token decides which private repos the review reaches. Such a connection learns the App's login
+`GH_TOKEN`, or with `GITHUB_TOKEN` when `GH_TOKEN` is unset, and anonymously when neither is set.
+The token decides which private repos the review reaches. Such a connection learns the App's login
 from the `github.app` key of the config instead: it trusts a comment by `<slug>[bot]`, so a
 developer's review runs as a delta, drops a finding answered `not-a-defect`, and confirms a fix, as
 the App's review does. A review of a pull request loads that config from the base branch before it
@@ -173,11 +173,11 @@ c58e2b7a1f0d4936 not-a-defect the loop starts at the first item
 The caller sorts the list before the loop runs.
 ```
 
-A finding that the lines leave out takes no disposition from that reply. When one of the lines holds
-no disposition, the whole reply holds none. An issue comment that holds a single line of this form
-answers every finding of the comment that holds the line's id, because an issue comment with one id
-and one disposition is the form a finding outside the diff takes. Two or more lines answer each
-finding on its own.
+In a reply of two or more lines, a finding that the lines leave out takes no disposition from that
+reply. When one of the lines holds no disposition, the whole reply holds none. An issue comment that
+holds a single line of this form answers every finding of the comment that holds the line's id,
+because an issue comment with one id and one disposition is the form a finding outside the diff
+takes. Two or more lines answer each finding on its own.
 
 A reply in any other form is no disposition. Each time noslop sets the check, it answers each such
 reply once with the accepted forms, and the forms marker stops a later run answering it again. Each
@@ -200,8 +200,8 @@ kind is valid under its own rule:
   base branch moves while it reads them, so a retarget never lends one branch's patterns to another.
 - `accepted-risk <reason>` is valid when the author has admin permission on the repo.
 
-A finding in code the change wrote therefore takes `fixed`, `not-a-defect` or `accepted-risk`,
-because the pull request fixes the code it wrote rather than deferring it to a later one.
+A finding in code the change wrote takes `fixed`, `not-a-defect` or `accepted-risk`, because the
+pull request fixes the code it wrote, so `deferred` is never valid for it.
 
 ## The check run
 

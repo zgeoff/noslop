@@ -10,11 +10,11 @@ For each finding of a model lens whose latest answer is `fixed`, the run makes o
 that judges the finding at the pull request's head. A fix the summary already holds as confirmed,
 and a fix past the file limit, get no call, as the sections below say.
 [A repeated finding](#a-repeated-finding) shares the call of the finding it repeats. A finding of
-the static stage gets [its static check](#static-findings) in place of the call.
-[Dispositions](./github-app.md#dispositions) lists the answers an author can give.
+the static stage gets [its static check](#static-findings) in place of the call. See
+[Dispositions](./github-app.md#dispositions) for the answers an author can give.
 
-A sha after `fixed` points the call at [the fix commit](#the-fix-commit). The call never needs a sha
-to reach a verdict, so the run makes the call for these answers as well:
+A sha after `fixed` points the call at [the fix commit](#the-fix-commit). The call reaches a verdict
+without a sha, so the run makes it for these answers too:
 
 - a bare `fixed`;
 - a `fixed` whose sha a rebase or a squash took off the branch.
@@ -37,9 +37,9 @@ trace fails, because a later commit rewrote the line, the finding names no line,
 no commit of the head that posted it, the call reads the whole file at the head. Code that the diff
 deletes counts as moved only when the diff adds code in another file that does what the deleted code
 did, even reshaped. When the whole net diff passes the config's file limit, the call reads the diff
-of the finding's file alone, so a small file of a large pull request still gets its call. A fix
-whose own code or diff passes the file limit gets no call and no verdict, because a cut diff can
-hide the fix.
+of the finding's file alone, so a small file of a large pull request still gets its call. A fix gets
+no call and no verdict when the code around the finding, meaning the traced lines or the whole file,
+passes the file limit, or when its diff does, because a cut diff can hide the fix.
 
 A fix with no verdict, from that file limit or from a failed call, is unjudged. The result lists it
 with the reason, and the summary shows it as not judged, never as not fixed. Its answer stays
@@ -60,10 +60,10 @@ review's head. When no summary marker exists, the second condition fails, and th
 merge base as the head and its own failed calls as the count.
 
 A `fixed` reply posted after an earlier fixes-only run gets a call too, so the next run, at the same
-head or a later one, checks it. A fix the summary already holds as confirmed gets no call. The run's
-range starts at the merge base, because each call judges the pull request's net change since the
-merge base, never only the commits since an earlier run. A call whose net diff passes the file limit
-reads less of it, as the file limit above and [the fix commit](#the-fix-commit) say.
+head or a later one, checks it. A fix the summary already holds as confirmed gets no call. Each call
+judges the pull request's net change since the merge base, never only the commits since an earlier
+run, so the run's range starts there. A call whose net diff passes the file limit reads less of it,
+as the file limit above and [the fix commit](#the-fix-commit) say.
 
 The result lists each verdict in its fix checks, so the `github` reporter reads the same verdicts
 whether the CLI or `noslop post` sends it. A yes confirms the fix under
@@ -102,7 +102,7 @@ because 2 answers that each repeat a third can still name 2 defects.
 The call reads the code around the first finding's line, and its prompt lists each repeat under the
 first finding, with its title and comment. When the call fails, or the fix goes over the file limit,
 each finding of the group stays unjudged. Each static finding gets a
-[static check](#static-findings) of its own, never a shared call.
+[static check](#static-findings) of its own and shares no call.
 
 ## The fix commit
 

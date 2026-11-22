@@ -1,12 +1,12 @@
 # The findings store
 
-The findings store is one SQLite file that records every review noslop runs, with each call and each
-finding of the review, beside the dispositions people gave and the escapes. An escape is a defect
-that a review missed, recorded from the issue that reported it. The `sqlite` reporter writes a
-review into the store, and the store's named queries turn the rows into measures per lens: yield,
-noise, recall, and cost. Other tools read the store only through `noslop store query <name> --json`
-and keep no copy, so its tables can change without breaking a reader.
-[0012](../../decisions/0012-the-findings-store.md) records the decision, and
+The findings store is one SQLite file that records every review whose run lists the `sqlite`
+reporter, with each call and each finding of the review, beside the dispositions people gave and the
+escapes. An escape is a defect that a review missed, recorded from the issue that reported it. The
+`sqlite` reporter writes a review into the store, and the store's named queries turn the rows into
+measures per lens: yield, noise, recall, and cost. Other tools read the store only through
+`noslop store query <name> --json` and keep no copy, so its tables can change without breaking a
+reader. [0012](../../decisions/0012-the-findings-store.md) records the decision, and
 [0015](../../decisions/0015-reporters.md) makes the store a reporter.
 
 See [reporters](../output/reporters.md) for when the `sqlite` reporter runs, and

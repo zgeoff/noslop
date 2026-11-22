@@ -3,9 +3,9 @@
 Every finding noslop posts on a pull request needs an answer before the `noslop` check passes. You
 answer a finding with a reply whose first line is a disposition: a kind, then a space and a value,
 which a bare `fixed` leaves out. noslop judges each disposition against its rule, and the check
-passes once every finding holds a valid one. [The GitHub App](../architecture/output/github-app.md)
-owns those rules and the check, and [0009](../decisions/0009-the-merge-loop.md) records why the
-merge works this way.
+passes once every finding holds a valid one. Read
+[the GitHub App](../architecture/output/github-app.md) for those rules and the check, and
+[0009](../decisions/0009-the-merge-loop.md) for why the merge works this way.
 
 ## Write the reply
 
@@ -119,10 +119,9 @@ the reply before the push that carries the fix:
 4. Expect the finding's comment to show its heading struck through, and the check to stop listing
    the finding.
 
-The fix may sit in any file of the pull request, such as a test beside the finding's file, so you
-never need to touch the finding's file only to name it. The fix check reads the pull request's title
-and body as they stand, so for a finding about the description, edit the description and reply
-`fixed`.
+The fix may sit in any file of the pull request, such as a test beside the finding's file. You need
+not touch the finding's file to name it. The fix check reads the pull request's title and body as
+they stand, so for a finding about the description, edit the description and reply `fixed`.
 
 noslop lists one of these reasons in the check run when no fix check has judged your reply yet,
 because the last review ran before you posted the reply or pushed the fix:
@@ -145,5 +144,5 @@ the check from the findings and their dispositions alone.
 Each check run belongs to one commit. After a push or a rebase, the new head has no `noslop` check
 run until the next review or `noslop check` sets one. That check reads only the findings and their
 dispositions, so it can pass at a commit that no review has read yet. A new finding in that commit
-shows when the next review ends. [The check run](../architecture/output/github-app.md#the-check-run)
-lists every condition.
+shows when the next review ends. Read
+[the check run](../architecture/output/github-app.md#the-check-run) for every condition.

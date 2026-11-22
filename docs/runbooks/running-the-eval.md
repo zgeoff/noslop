@@ -3,8 +3,8 @@
 `noslop eval` replays a labelled corpus of past changes through noslop with the config of the repo
 you run it from, and scores each lens against the labels. Run it before and after a change to a
 prompt, the call grouping or a threshold, and compare the two reports. The harness reports counts
-and decides nothing. [The eval harness](../architecture/measurement/eval.md) owns how it replays,
-matches and scores.
+and decides nothing. For how it replays, matches and scores, read
+[the eval harness](../architecture/measurement/eval.md).
 
 ## Build a corpus
 
@@ -40,17 +40,17 @@ repo.
      fix check judged, and keep `findings` and `escapes` empty. Each entry of `fixes` holds these
      fields:
 
-     | Field        | Holds                                                                                   |
-     | ------------ | --------------------------------------------------------------------------------------- |
-     | `id`         | the finding's 16-character id                                                           |
-     | `title`      | the finding's title                                                                     |
-     | `lens`       | the lens that reported the finding                                                      |
-     | `path`       | the file the finding sits in                                                            |
-     | `line`       | the line the review posted the finding on, or `null` for a file-level one               |
-     | `comment`    | the text of the finding's review comment                                                |
-     | `postedHead` | the head commit of the review that posted the finding, or `null`                        |
-     | `commit`     | the sha the author's reply names, short or full, or `null` for a reply of `fixed` alone |
-     | `expected`   | the verdict the fix check should give: `fixed` or `not-fixed`                           |
+     | Field        | Holds                                                                                |
+     | ------------ | ------------------------------------------------------------------------------------ |
+     | `id`         | the finding's 16-character id                                                        |
+     | `title`      | the finding's title                                                                  |
+     | `lens`       | the lens that reported the finding                                                   |
+     | `path`       | the file the finding sits in                                                         |
+     | `line`       | the line the review posted the finding on, or `null` for a file-level one            |
+     | `comment`    | the text of the finding's review comment                                             |
+     | `postedHead` | the head commit of the review that posted the finding, or `null`                     |
+     | `commit`     | the sha in the author's reply, short or full, or `null` for a reply of `fixed` alone |
+     | `expected`   | the verdict the fix check should give: `fixed` or `not-fixed`                        |
 
 Label the findings a reference reviewer made on the change by what happened to each one, so the
 corpus records which findings were real.
@@ -75,9 +75,9 @@ corpus records which findings were real.
    ```
 
    Expect a log line on stderr as each case ends, `case <id>: <count> findings`, which reads
-   `case <id>: failed findings` for a failed case. A labelled path that names no file at the case's
-   head stops the run before any review, with the case and the paths. The run checks the paths of
-   the cases it replays only, so step 3 checks the rest.
+   `case <id>: failed findings` for a failed case. A labelled path that matches no file at the
+   case's head stops the run before any review, with the case and the paths. The run checks the
+   paths of the cases it replays only, so step 3 checks the rest.
 
 3. Replay the whole corpus into a fresh out folder:
 
@@ -125,8 +125,8 @@ Keep `runs.json`. A later eval reads it as a baseline or as half of a noise floo
 ## Read the report
 
 The report opens with `# Eval: <reviewer>` and `<count> cases, <count> failed.`. A failed case
-threw, or every one of its calls failed, so read that count first: a run with many failed cases says
-little about the config.
+threw, or every one of its calls failed, so read that count first: a run with many failed cases is a
+weak test of the config.
 
 The totals table counts, across all cases:
 

@@ -7,10 +7,10 @@ tests. The score is per lens, so each lens's own reports count on their own even
 it with others. One count crosses lenses: a true positive labelled with a lens counts as repeated
 when a finding of any lens matches it. A baseline is a recorded run, such as one of the reference
 reviewer, that the harness scores beside noslop on the same cases. Two recorded runs of one reviewer
-give the noise floor: the run-to-run difference below which a gap between two configs means nothing.
-The harness reports counts and decides nothing; the person reading the report judges a prompt,
-grouping or threshold change by them. [0012](../../decisions/0012-the-findings-store.md) records the
-harness.
+give the noise floor: their agreement on the same cases shows how far one config differs from
+itself, and a gap between two configs smaller than that difference means nothing. The harness
+reports counts and decides nothing; the person reading the report judges a prompt, grouping or
+threshold change by them. [0012](../../decisions/0012-the-findings-store.md) records the harness.
 
 ```mermaid
 flowchart LR

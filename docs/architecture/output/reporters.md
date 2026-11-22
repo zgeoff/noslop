@@ -1,6 +1,6 @@
 # Reporters
 
-A review produces one result, and each reporter sends that result to one destination. The config's
+A review produces one result, and each reporter sends that result to its destination. The config's
 `report` list names the reporters a review runs, and `noslop review --report <ids>` replaces the
 list for one run. Every reporter receives the same result, so the destinations never disagree about
 what a review found. noslop ships four reporters: `json`, `sqlite`, `webhook` and `github`. The
