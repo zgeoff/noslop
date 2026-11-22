@@ -101,7 +101,8 @@ choice for the owner.
 
 ## Public repo
 
-The repo is public, and everything pushed to it stays public. Keep your own environment out of it.
+The repo is public, and everything pushed to it stays public. Keep your own environment out of it,
+so your setup never leaks through your work.
 
 - Leave out home directory paths, host names, private network names, cloud details, and the names of
   the tools and agents you work with.

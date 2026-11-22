@@ -48,9 +48,9 @@ line carries none. A lens anchors each finding to a line number it reads, so the
 back point at the reviewed head.
 
 When a lens reads the rules file and the repo names none, the prompt holds a line to that effect and
-tells the lenses to report no finding that rests on a rule. A lens prompt states no rule of its own,
-and a finding that rests on a rule quotes that file under 0003, so the prompt keeps the model from
-inventing one.
+tells the lenses to report no finding that rests on a rule. A lens prompt states no taste rule of
+its own, and a finding that rests on a rule quotes that file under 0003, so the prompt keeps the
+model from inventing one.
 
 The correctness page has an item that leaves the concerns of other lenses alone. The builder fills
 that item with the concerns of the lenses that the whole review runs, across every call, and drops
