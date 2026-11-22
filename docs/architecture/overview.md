@@ -7,8 +7,9 @@ writes no code. Its writes go only to the places its reporters send the result. 
 posts on a pull request needs an answer before the pull request merges.
 
 A repo needs no config to start, because the built-in defaults turn on every generic lens, and
-routing still fires each lens only as the next section says. A `review.json` adds the user's own
-rules, the patterns of their stack and their risk classes, and it can extend a shared config repo.
+routing still fires each lens only on its trigger (see [How a review runs](#how-a-review-runs)). Add
+a `review.json` for the user's own rules, the patterns of their stack and their risk classes. It can
+extend a shared config repo.
 
 ## How a review runs
 

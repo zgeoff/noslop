@@ -38,12 +38,12 @@ flowchart LR
 6. **Merge pass.** One call on a cheap model reads the assembled findings, with no code, and returns
    the groups of findings that report one defect. In each file a group spans, the review keeps the
    group's finding with the highest severity, so the pass removes a repeat and never a finding that
-   no other finding still reports. One defect reported in two files keeps both, because each anchor
-   shows the reader a place to fix. Lenses word one defect differently, and only a model tells a
-   reworded repeat from two defects whose titles differ by one word. The pass runs when the config
-   turns it on and the review holds at least two model findings. Each adapter's options name its
-   model. When the call fails, the findings stay unmerged and the review is not counted as failed,
-   because a repeat costs the reader less than a lost finding.
+   no other finding still reports. One defect reported in two files keeps both, because the reader
+   needs an anchor in each file to find the place to fix. Lenses word one defect differently, and
+   only a model tells a reworded repeat from two defects whose titles differ by one word. The pass
+   runs when the config turns it on and the review holds at least two model findings. Each adapter's
+   options set its model. When the call fails, the findings stay unmerged and the review is not
+   counted as failed, because a repeat costs the reader less than a lost finding.
 7. **Design pass.** On the first review of a pull request, one call runs
    [the design lens](./lenses.md#the-design-lens), which asks whether a better approach meets the
    task the pull request states. A later review runs no design pass, because it reads only the files
@@ -51,8 +51,8 @@ flowchart LR
    pull request, and the review keeps at most one. The pass runs when the config turns it on. A
    design call that fails is retried once, and a design call that fails again is a failed call of
    the review, as a lens call is, because the review then read no design fix.
-8. **Report.** The CLI prints the result, as JSON or as a summary, and runs each reporter the config
-   lists, or the ones its flag names.
+8. **Report.** The CLI prints the result, as JSON or as a summary, and runs each reporter in the
+   config's list, or the reporters the flag selects.
 
 The calls read a detached git worktree of the head commit, so a model that opens a file sees the
 reviewed code and never the user's working tree. The review creates the worktree only when the route

@@ -79,7 +79,7 @@ every patch id where it was, so the next review reads no file. A push that chang
 moves that file's id. GitHub gives no file mode, so a push that changes only the mode of a file the
 pull request already changes moves no id, and the next review skips that file. noslop accepts that
 gap. Three cases key on the head itself, and that key matches only at that head, so the next review
-reads the whole change:
+of another head reads the whole change:
 
 - GitHub lists fewer files than the pull request changes, past its file-list cap.
 - The patch ids pass the marker's character budget.

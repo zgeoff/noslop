@@ -1,13 +1,14 @@
 # The static stage
 
-The static stage computes, with no model call, every fact about a change that code can compute,
-under [0002](../../decisions/0002-the-pipeline.md). It runs before any model call, so each such fact
-is computed once and every call reads it from the stage. It reads the changed files at the head
-commit, parses each TypeScript or JavaScript file once with oxc, and walks each syntax tree once
-with every collector reading every node. It then cuts the facts down to three outputs: the slices
-that the lenses read, the direct findings it reports itself, and the risk signals that
-[routing](./routing-and-depth.md) reads. A fact the stage computes costs nothing per run and gives
-the same answer every run, so the model calls spend their tokens on judgement.
+The static stage computes, with no model call, the facts about a change that code can read from the
+diff and the files it parses, under [0002](../../decisions/0002-the-pipeline.md). It runs before any
+model call, so each such fact is computed once and every call reads it from the stage. It reads the
+changed files at the head commit, parses each TypeScript or JavaScript file once with oxc, and walks
+each syntax tree once with every collector reading every node. It then cuts the facts down to three
+outputs: the slices that the lenses read, the direct findings it reports itself, and the risk
+signals and the special-change verdict that [routing](./routing-and-depth.md) reads. A fact the
+stage computes costs nothing per run and gives the same answer every run, so the model calls spend
+their tokens on judgement.
 
 ```mermaid
 flowchart LR
@@ -44,7 +45,7 @@ lenses read the kind to decide which hunks a lens sees.
 ## Slices
 
 A slice is the part of the stage's facts that one lens concern reads, such as the new writes or the
-new throws, and the contract package (`@noslop/contract`) holds its shape. The stage keeps a fact
+new throws, and the contract package (`@noslop/contract`) defines its shape. The stage keeps a fact
 only when it touches the change: the functions a changed line falls in, the guards, throws and
 config reads on added lines, every write in a changed function so a lens sees the writes a new one
 sits beside, and the security facts on touched lines. A catch clause counts as a throw on a touched
@@ -76,7 +77,7 @@ entry fires the naming-shape-and-comments lens.
 The script slice lists each code file the change adds under the config's script globs that the repo
 never runs again. A script counts as run when a package.json script at the head commit names its
 path from that package's folder, or a workflow file there names its path from the repo root or a
-package's folder. The match takes the whole path, so a command that names a longer path keeps the
+package's folder. The match needs the whole path, so a command that names a longer path keeps the
 script in the slice. Any entry fires the naming-shape-and-comments lens, which reads the script and
 reports one that ran once only under a rule in the rules file. The stage reads no git hook or task
 runner config, so the lens checks whether one of them runs the script before it reports.

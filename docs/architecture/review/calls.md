@@ -20,13 +20,12 @@ is a config change.
 Routing walks the calls in the order of their IDs and puts each fired lens into the first call that
 lists it. A call holds only the lenses of its list that fired, and a call with no fired lens is left
 out. A fired lens that no call lists runs in a call of its own, so a grouping that leaves a lens out
-never drops it. That call takes the lens's name as its ID, so the config load refuses a call that
-takes a lens's name without listing that lens, because the two calls would share one ID.
+never drops it. That call takes the lens's name as its ID, so the config load refuses a call whose
+ID is a lens's name unless the call lists that lens: the two calls would share one ID.
 
 At Light, grouping puts every fired lens into one call, a lens that no call lists included, because
 a Light change is small enough for one prompt to hold. The model split below can still part that
-call. At Standard and Deep, the calls follow the grouping, one call per group that fired, so a
-review makes as few calls as its fired groups allow.
+call. At Standard and Deep, the calls follow the grouping, one call per group that fired.
 
 One call runs on one model, at every depth. After grouping, a call whose lenses set different models
 splits into one call per model, so a lens whose config sets a model of its own leaves its call, the
@@ -68,8 +67,8 @@ another call of the review holds that ID, so every call record of a review has i
 holds the call's lenses and the slice items on its own files, so a lens in one part never sees the
 hunks of another part. When every file of a call overflows a part on its own, the call runs no part.
 
-Each prompt names every changed file of its call that it leaves out, with the reason: a data file,
-too large, or read by another part of the call, which the prompt words as
+Each prompt carries the changed files of its call that it leaves out, each with its reason: a data
+file, too large, or read by another part of the call, which the prompt words as
 `read by another call of this review`. A lens therefore never reports those hunks as missing. The
 fit measures each part with that list at its longest, so the list never pushes a part past the
 limit. When the input around the files overflows alone, such as a pull request body over the limit,

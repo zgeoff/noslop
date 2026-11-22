@@ -8,15 +8,14 @@ black and white, like the severity criteria of [findings](./findings.md) and the
 [the GitHub App](../output/github-app.md): code applies each one without judgement, and a rule
 accepts some noise to stay consistent. [0006](../../decisions/0006-routing.md) records the triggers
 and the special changes, and [0007](../../decisions/0007-depth-and-models.md) records the Light and
-Deep rules. Routing then plans the calls that carry the fired lenses, which [calls](./calls.md)
-covers.
+Deep rules. Routing then plans the calls that carry the fired lenses; see [calls](./calls.md).
 
 ## Special changes
 
-Routing checks four special changes in order. A sync, a release and a docs-only change route on a
-lens list of their own in place of the triggers, and a direct push routes by the triggers. Routing
-checks them in order, so a change that is both a sync and a release routes as a sync, and each
-change gets the narrowest route that covers it.
+Routing checks four special changes in the order of the table below, and a change takes the first
+route that matches, so a change that is both a sync and a release routes as a sync. A sync, a
+release and a docs-only change route on a lens list of their own in place of the triggers, and a
+direct push routes by the triggers.
 
 | Change      | When                                               | Lenses                         |
 | ----------- | -------------------------------------------------- | ------------------------------ |
@@ -35,14 +34,14 @@ fires lenses by the triggers like any other change, and the result marks it as a
 
 A trigger is the rule that fires a lens, matched against the slices and the changed paths. On a
 change that routes by the triggers, the correctness lens fires whenever the change holds a code or
-test file. Each other lens fires when its trigger matches, and each trigger reads only slices and
-changed paths, so a trigger fires a lens only when its input holds something to look at. A forced
-lens is the exception, as the next paragraph says. Several triggers compare a slice with a threshold
-from the config, such as the number of writes that fires the concurrency lens.
+test file. Each other lens fires when its trigger matches. Each trigger reads only slices and
+changed paths, and fires only when they hold something to look at. A forced lens is the exception,
+as the next paragraph says. Several triggers compare a slice with a threshold from the config, such
+as the number of writes that fires the concurrency lens.
 
-A marked risk class fires every lens it forces on, whatever the triggers say.
-[Your own rules](../config/your-own-rules.md) covers how a risk class is marked. A sync, a release
-or a docs-only change ignores forced lenses, because its lens list is the whole route. A direct push
+A marked risk class fires every lens it forces on, whatever the triggers say. See
+[Your own rules](../config/your-own-rules.md) for how a risk class is marked. A sync, a release or a
+docs-only change ignores forced lenses, because its lens list is the whole route. A direct push
 takes forced lenses like any other change.
 
 Every rule above gives way to the config: a lens that the config turns off never fires. One
@@ -84,10 +83,9 @@ A change is Light only when every one of these holds:
   instructions.
 - No file in it has a past escape.
 
-The Light line limit is a high cutoff above which a change cannot be Light, not a test that only
-small changes pass. The line count leaves out prose and instruction files, and the static stage
-leaves generated files out of the change before routing reads it, so neither kind can push a change
-past Light.
+The Light line limit is a high cutoff: above it, a change cannot be Light. The line count leaves out
+prose and instruction files, and the static stage leaves generated files out of the change before
+routing reads it, so neither kind can push a change past Light.
 
 ## The pass
 
@@ -98,5 +96,5 @@ counts the labelled P1s and escapes that its Light cases hold, so a Light rule t
 shows up on the corpus.
 
 The pass runs every call through the adapter, retrying a failed call once, under
-[adapters](./adapters.md). [Findings](./findings.md) covers how Assemble merges the findings of the
+[adapters](./adapters.md). See [findings](./findings.md) for how Assemble merges the findings of the
 calls.

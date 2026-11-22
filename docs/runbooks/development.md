@@ -1,10 +1,8 @@
 # Development
 
 noslop is one Bun workspace, and every check CI runs also runs on your machine through
-`bun run check`. This runbook sets up a clone, runs the checks and the git hooks, runs the CLI from
-source against another repo, runs the model-api lane, and builds the npm package.
-[0014](../decisions/0014-the-code-layout.md) records the layout of the workspace, and
-[0016](../decisions/0016-the-stack.md) records the libraries it builds on.
+`bun run check`. See [0014](../decisions/0014-the-code-layout.md) for the layout of the workspace
+and [0016](../decisions/0016-the-stack.md) for the libraries it builds on.
 
 ## Set up a clone
 
@@ -23,8 +21,8 @@ source against another repo, runs the model-api lane, and builds the npm package
    ```
 
    Bun installs the exact versions in `bun.lock`, and the `prepare` script installs the git hooks.
-   The root `bunfig.toml` holds the install settings, such as the isolated linker and the minimum
-   release age a new dependency must reach.
+   The install settings, such as the isolated linker and the minimum release age a new dependency
+   must reach, live in the root `bunfig.toml`.
 
 3. Install `gitleaks` on your `PATH`. The pre-commit hook runs it, and a commit fails without it.
 
@@ -40,8 +38,8 @@ Expect each script to pass in turn: audit, dead code, the format check, the type
 typecheck, the dependency boundaries, the prose check, the tests and the package-types check. CI
 runs the same list, less the package-types check, on each pull request and each push to `main`, from
 the `BUN_CHECK_SCRIPTS` repo variable. When you change the variable's list, change the `check`
-script in `package.json` to match in the same pull request, so the two lists stay the same.
-`bun run format` fixes what the format check reports.
+script in `package.json` to match in the same pull request, so the two lists stay the same apart
+from the package-types check. `bun run format` fixes what the format check reports.
 
 Run one package's tests, or one file, with a path:
 
@@ -50,9 +48,9 @@ bun test ./modules/config
 ```
 
 The test preload in `bunfig.toml` registers the extra matchers and starts the stand-in GitHub API,
-so the tests reach no real GitHub. The `testing` skill holds the rules for writing tests.
+so the tests reach no real GitHub. Follow the `testing` skill when you write tests.
 
-Each test names its temp folder with `readTempPrefix()` from `@noslop/runner`, which starts the name
+Name each test's temp folder with `readTempPrefix()` from `@noslop/runner`, which starts the name
 with the test process's PID and PID namespace. Before `bun run test` starts the tests, it removes
 each such folder of the same namespace whose process no longer runs, so a killed run leaves nothing
 behind for the next one. On a system with no PID namespace, such as macOS, the sweep removes
@@ -86,20 +84,20 @@ Expect the same summary an installed `noslop review` prints.
 
 Keep the `--config` flag. Bun reads `bunfig.toml` from the working directory, so without the flag it
 loads the other repo's Bun config, and any preload in it runs inside the CLI's process. The flag
-makes Bun read noslop's own config instead.
-[The App's keys](../architecture/output/github-app.md#the-apps-keys) covers how the CLI keeps the
-App's keys from the reviewed repo's code.
+makes Bun read noslop's own config instead. See
+[The App's keys](../architecture/output/github-app.md#the-apps-keys) for how the CLI keeps the App's
+keys from the reviewed repo's code.
 
 Add `--verbose` to see the debug log on stderr. Every other flag is in `noslop <command> --help`.
 
 ## Run the model-api lane
 
-A flow that crosses several packages in one process is a unit test beside the module that wires
-them, and every test run runs it. The relay flow in the CLI's `run-cli.test.ts` sends a review from
-a developer's context through a local relay, which verifies and posts it, against the stand-in
+Write a flow that crosses several packages in one process as a unit test beside the module that
+wires them; every test run runs it. The relay flow in the CLI's `run-cli.test.ts` sends a review
+from a developer's context through a local relay, which verifies and posts it, against the stand-in
 GitHub API and a stub model.
 
-A journey that calls a live model is a `.model-api.test.ts` file beside the code it drives: it
+Write a journey that calls a live model as a `.model-api.test.ts` file beside the code it drives. It
 belongs to the model-api lane, which the default run leaves out. The review journeys sit beside the
 CLI's review command. Each one builds a small repo with a seeded defect, runs a real review on it
 with a real model CLI, and checks that the findings land at anchors in the diff: one seeds a dropped
@@ -120,8 +118,8 @@ rollback and an injection sink, and one seeds a test that inserts a row outside 
 `bun run build:cli` bundles the CLI and every workspace package it imports into `apps/cli/dist`,
 with a manifest that holds no workspace dependency, and prints
 `built @noslop/cli@<version> in apps/cli/dist`. Use it to check the package that a release
-publishes. [The CLI](../architecture/output/cli.md) covers what the bundle holds, and
-[Releasing](./releasing.md) covers the publish.
+publishes. See [The CLI](../architecture/output/cli.md) for what the bundle holds and
+[Releasing](./releasing.md) for the publish.
 
 `bun run check:package-types` builds and packs the package, installs the tarball in 2 scratch
 projects, and runs tsc on a file that imports each library subpath. One project has no zod of its
