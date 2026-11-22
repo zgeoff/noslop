@@ -2,12 +2,13 @@
 
 A call is one model request that bundles one or more fired lenses. Routing groups the lenses that
 [routing and depth](./routing-and-depth.md) fired into calls by the config's call grouping. Each
-call runs once, and its lenses see every hunk they read, unless the call splits into parts to fit
-the input limit, as [Fitting a call to the input limit](#fitting-a-call-to-the-input-limit)
-describes. A call's effort, model and timeout come from its lenses and its depth, and the adapter
-fills in any that they leave unset. [0008](../../decisions/0008-stacking-lenses-into-calls.md)
-records the default grouping and why each lens stays a separate unit inside a call.
-[Lenses](./lenses.md) covers how a call's prompt is built and how each finding keeps its lens.
+call runs once, and its lenses see every hunk they read, unless the review leaves files out or
+splits the call into parts to fit the input limit, as
+[Fitting a call to the input limit](#fitting-a-call-to-the-input-limit) describes. A call's effort,
+model and timeout come from its lenses and its depth, and the adapter fills in any that they leave
+unset. [0008](../../decisions/0008-stacking-lenses-into-calls.md) records the default grouping and
+why each lens stays a separate unit inside a call. [Lenses](./lenses.md) covers how a call's prompt
+is built and how each finding keeps its lens.
 
 ## Grouping the fired lenses
 
@@ -22,10 +23,10 @@ out. A fired lens that no call lists runs in a call of its own, so a grouping th
 never drops it. That call takes the lens's name as its ID, so the config load refuses a call that
 takes a lens's name without listing that lens, because the two calls would share one ID.
 
-At Light, grouping puts every fired lens into one call, because a Light change is small enough for
-one prompt to hold. The model split below can still part that call. At Standard and Deep, the calls
-follow the grouping, one call per group that fired, so a review makes as few calls as its fired
-groups allow.
+At Light, grouping puts every fired lens into one call, a lens that no call lists included, because
+a Light change is small enough for one prompt to hold. The model split below can still part that
+call. At Standard and Deep, the calls follow the grouping, one call per group that fired, so a
+review makes as few calls as its fired groups allow.
 
 One call runs on one model, at every depth. After grouping, a call whose lenses set different models
 splits into one call per model, so a lens whose config sets a model of its own leaves its call, the
@@ -68,10 +69,11 @@ holds the call's lenses and the slice items on its own files, so a lens in one p
 hunks of another part. When every file of a call overflows a part on its own, the call runs no part.
 
 Each prompt names every changed file of its call that it leaves out, with the reason: a data file,
-too large, or read by another call. A lens therefore never reports those hunks as missing. The fit
-measures each part with that list at its longest, so the list never pushes a part past the limit.
-When the input around the files overflows alone, such as a pull request body over the limit, the
-call runs whole and its failure shows in the review.
+too large, or read by another part of the call, which the prompt words as
+`read by another call of this review`. A lens therefore never reports those hunks as missing. The
+fit measures each part with that list at its longest, so the list never pushes a part past the
+limit. When the input around the files overflows alone, such as a pull request body over the limit,
+the call runs whole and its failure shows in the review.
 
 A file that a call leaves out can still be in another call, because each call reads the hunks and
 slices of its own lenses. The result's not-reviewed list holds each file that no call reads, with

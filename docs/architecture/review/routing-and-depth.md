@@ -33,21 +33,21 @@ fires lenses by the triggers like any other change, and the result marks it as a
 
 ## Firing a lens
 
-A trigger is the rule that fires a lens, matched against the slices and the changed paths. The
-correctness lens fires on every change that holds a code or test file. Each other lens fires when
-its trigger matches, and each trigger reads only slices and changed paths, so a trigger fires a lens
-only when its input holds something to look at. A forced lens is the exception, as the next
-paragraph says. Several triggers compare a slice with a threshold from the config, such as the
-number of writes that fires the concurrency lens.
+A trigger is the rule that fires a lens, matched against the slices and the changed paths. On a
+change that routes by the triggers, the correctness lens fires whenever the change holds a code or
+test file. Each other lens fires when its trigger matches, and each trigger reads only slices and
+changed paths, so a trigger fires a lens only when its input holds something to look at. A forced
+lens is the exception, as the next paragraph says. Several triggers compare a slice with a threshold
+from the config, such as the number of writes that fires the concurrency lens.
 
 A marked risk class fires every lens it forces on, whatever the triggers say.
 [Your own rules](../config/your-own-rules.md) covers how a risk class is marked. A sync, a release
 or a docs-only change ignores forced lenses, because its lens list is the whole route. A direct push
 takes forced lenses like any other change.
 
-A lens that the config turns off never fires. One exception: a lens that a marked risk class forces
-on fires even when the config turns it off, because the risk class is the stronger statement about
-the change.
+Every rule above gives way to the config: a lens that the config turns off never fires. One
+exception: a lens that a marked risk class forces on fires even when the config turns it off,
+because the risk class is the stronger statement about the change.
 
 The fired lenses keep the lens set's own order, so a call's prompt holds its sections in one order
 on every run.

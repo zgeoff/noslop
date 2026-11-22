@@ -1,8 +1,8 @@
 # Your own rules
 
 noslop ships no rule set, under [0001](../../decisions/0001-scope-and-your-own-rules.md). The core
-knows generic defects, and everything that is one codebase's taste or one stack's meaning comes from
-the user's config. A user brings four things:
+covers generic defects, and everything that is one codebase's taste or one stack's meaning comes
+from the user's config. Put these in it:
 
 - a rules file for the taste lenses;
 - stack patterns that tell the static stage what the stack's calls mean;
@@ -22,12 +22,12 @@ structure in it, so a repo's skills serve as its rules unchanged. Its headings o
 as the next paragraph says, so a renamed heading changes a label and never which rules a review
 applies.
 
-A finding that rests on a rule, a taste finding or one of another criterion, names the file it rests
-on and quotes it, at least one full sentence, word for word. Assemble looks for the quote in the
-file, with whitespace collapsed and case kept, and drops a finding whose quote the file does not
-hold. The finding keeps the file's label and the nearest level-2 or level-3 heading above the quote
-as its rule, such as `.claude/skills/testing/SKILL.md: Loops`, so the store counts the yield of each
-section. A heading inside a code block is example text and labels nothing.
+A finding that rests on a rule, a taste finding or one of another criterion, carries the name of the
+file it rests on and a word-for-word quote from it of at least one full sentence. Assemble looks for
+the quote in the file, with whitespace collapsed and case kept, and drops a finding whose quote the
+file does not hold. The finding keeps the file's label and the nearest level-2 or level-3 heading
+above the quote as its rule, such as `.claude/skills/testing/SKILL.md: Loops`, so the store counts
+the yield of each section. A heading inside a code block is example text and labels nothing.
 
 A list entry can name references: files beside it, each with the path globs it applies to. A
 reference reaches a review only when the change touches a path that one of its globs matches, so a
@@ -55,10 +55,10 @@ folder they resolve against.
 ```
 
 A call whose lenses read the rules file carries every file that applies to the change, each under
-its label, and [the lenses](../review/lenses.md) covers which lenses read it.
-[Findings](../review/findings.md) describes how Assemble checks a finding's quote. A repo with no
-rules file gets a prompt that tells the lenses to report no finding that rests on a rule, so the
-lenses check only for defects.
+its label. See [the lenses](../review/lenses.md) for which lenses read it, and
+[Findings](../review/findings.md) for how Assemble checks a finding's quote. A repo with no rules
+file gets a prompt that tells the lenses to report no finding that rests on a rule, so the lenses
+check only for defects.
 
 ## Stack patterns
 
@@ -105,12 +105,12 @@ detectors, and the lenses it forces on. The static stage marks a class when a ch
 one of its globs, or when one of its detectors fires. A detector is a fact the static stage finds: a
 part of the security slice by its name, a changed migration, or a deletion among the writes. The
 built-in defaults hold a generic set of classes, and a repo adds its own beside them, or removes one
-with `null`. A class the repo adds names all three lists, with an empty list where one does not
+with `null`. A class the repo adds sets all three lists, with an empty list where one does not
 apply, because the schema requires each one.
 
 A marked class forces its lenses on, even a lens the config turns off. It makes the change Deep only
 when the change has the configured number of changed lines in the class's own paths. One exception
 to the forced lenses: a sync, a release bump or a docs-only change runs its own narrow lens list,
 and a class forces no lens onto it. A finding anchored in a marked class's paths carries the class's
-name. [Routing and depth](../review/routing-and-depth.md) covers how a class changes the route, and
-[the findings doc](../review/findings.md) covers what the class on a finding does at the merge.
+name. See [Routing and depth](../review/routing-and-depth.md) for how a class changes the route, and
+[the findings doc](../review/findings.md) for what the class on a finding does at the merge.

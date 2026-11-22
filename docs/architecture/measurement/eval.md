@@ -68,11 +68,12 @@ cases, calls, tokens and duration, and in no lens row.
 ## A run
 
 The harness reviews the first cases of the corpus, all of them unless `--limit` caps the count. For
-each case, noslop runs its whole pipeline on the case's clone, from the base to the head, with the
-merged config of the working directory's repo and the adapter that config or `--adapter` names. The
-pipeline checks out the head in a worktree of its own, so the clone's own checkout never moves. A
-case that throws, or whose calls all fail, is recorded as failed, and the run goes on. A `repo:`
-rules path reads from the case's clone, as a live review of that repo reads it.
+each case other than a fix-check case, noslop runs its whole pipeline on the case's clone, from the
+base to the head, with the merged config of the working directory's repo and the adapter that config
+or `--adapter` names. The pipeline checks out the head in a worktree of its own, so the clone's own
+checkout never moves. A case that throws, or whose calls all fail, is recorded as failed, and the
+run goes on. A `repo:` rules path reads from the case's clone, as a live review of that repo reads
+it.
 
 Each case that ends is written at once to `runs.json` in the out folder, which `--out` names or
 which sits under the user's cache folder. A run cut short therefore keeps every case it finished.
@@ -95,7 +96,7 @@ reported finding at most one label. The closest pairs match first, then pairs wh
 and augmenting paths then reassign matches until the window allows no more. Ties break on the
 findings' content, so the result never depends on the order a reviewer listed them in. An escape
 with an anchor matches reported findings the same way. An escape with no anchor can never be caught,
-and it counts only toward the Light rule.
+and in the score it counts only toward the Light rule.
 
 A silence takes no part in that pairing, because one finding can break a silence and match a label
 at once. A finding breaks a silence when its lens is the silence's lens and, for a silence with an

@@ -9,14 +9,14 @@ and keep no copy, so its tables can change without breaking a reader.
 [0012](../../decisions/0012-the-findings-store.md) records the decision, and
 [0015](../../decisions/0015-reporters.md) makes the store a reporter.
 
-[Reporters](../output/reporters.md) covers when the `sqlite` reporter runs, and
-[findings](../review/findings.md) covers what a finding holds and how its id is formed.
+See [reporters](../output/reporters.md) for when the `sqlite` reporter runs, and
+[findings](../review/findings.md) for what a finding holds and how its id is formed.
 
 ## Where the store lives
 
 The store sits at the `path` option of the `sqlite` reporter in the config, or in the noslop folder
-under the user's XDG data folder when the config names none. The query command resolves the path the
-same way from the same config, so it reads the file the reporter writes.
+under the user's XDG data folder when the config sets no path. The query command resolves the path
+the same way from the same config, so it reads the file the reporter writes.
 
 Opening the store creates the file and its folder when they are missing, then applies each migration
 the file lacks, so a newer CLI upgrades an older store the first time it opens it. A migration that
@@ -52,8 +52,8 @@ per escape. A list or an object sits in its column as JSON text, and a boolean a
   only within one repo, so the repo is part of the key. The row keeps the pull request whose thread
   held the reply, and the pull request is part of the key too, because 2 pull requests of one repo
   can report findings that share an id. A row from a store older than that column holds no pull
-  request. A disposition the store holds already, for the same pull request from the same source at
-  the same time, is kept as it is, so reading one thread twice records it once.
+  request. The store keeps a disposition as it is when it already holds one for the same pull
+  request from the same source at the same time, so reading one thread twice records it once.
 - An escape row keeps the issue that reported a defect, the repo and head of the change that caused
   it, the lens that should have caught it, and the location when it is known.
 
@@ -66,16 +66,16 @@ other reporters run either way, so the GitHub check posts whether or not the rec
 reporter tries the write only once. A finding id leaves out the line numbers, so two reviews of one
 change that report one defect share the id, and the queries count the defect once.
 
-Four writers fill the store. The `sqlite` reporter writes each review. The `github` reporter runs
-after it and, when the same run lists `sqlite`, records the link to each finding's comment on every
-row of that finding in the pull request's reviews. In that run it writes the dispositions of every
-reply it reads before it sets the check, on a fixes-only run too. `noslop check` writes the
-dispositions of a pull request each time it sets the check, and `noslop check --read-only` writes
-none. `noslop findings` reads the replies and writes no disposition, so a reply that arrives after
-the last review or check of its pull request reaches the yield and noise counts only when a later
-review or check runs. `noslop store escape` writes an escape from the issue that reports the defect
-and the head of the change that caused it. A review reads the escaped files of its repo back from
-the store as its past-escape signal.
+The `sqlite` reporter writes each review. The `github` reporter runs after it and, when the same run
+lists `sqlite`, records the link to each finding's comment on every row of that finding in the pull
+request's reviews. In that run it writes the dispositions of every reply it reads before it sets the
+check, on a fixes-only run too. `noslop check` writes the dispositions of a pull request each time
+it sets the check, and `noslop check --read-only` writes none. `noslop findings` reads the replies
+and writes no disposition, so a reply that arrives after the last review or check of its pull
+request reaches the yield and noise counts only when a later review or check runs.
+`noslop store escape` writes an escape from the issue that reports the defect and the head of the
+change that caused it. A review reads the escaped files of its repo back from the store as its
+past-escape signal.
 
 ## The queries
 

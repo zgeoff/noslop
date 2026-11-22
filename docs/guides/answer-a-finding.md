@@ -57,8 +57,8 @@ answers, such as when one of them is wrong:
    For a folded issue comment, write a new issue comment on the pull request with the same lines.
    Write two lines or more there, because a single line answers every finding of the comment.
 
-3. Wait for the check to update. In a reply of one line per finding, each finding takes the
-   disposition on its own line, and a finding you leave out stays open.
+3. Wait for the check to update. In a reply of two lines or more, each finding takes the disposition
+   on its own line, and a finding you leave out stays open.
 
 When one of the lines holds no disposition, noslop answers the reply once with the accepted forms,
 and the reply answers none of the findings on its lines.
