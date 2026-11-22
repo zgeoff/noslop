@@ -14,7 +14,7 @@
         "@zgeoff/agent-hooks": "0.3.0",
         "@zgeoff/bun-test-extended": "0.2.4",
         "@zgeoff/chex": "0.4.3",
-        "@zgeoff/diet": "0.2.4",
+        "@zgeoff/diet": "0.3.2",
         "@zgeoff/format-codemod": "0.3.6",
         "@zgeoff/oxlint-config": "0.11.1",
         "@zgeoff/rig": "0.3.0",
@@ -741,7 +741,7 @@
 
     "@zgeoff/chex": ["@zgeoff/chex@0.4.3", "", { "dependencies": { "@zgeoff/std": "0.4.5", "oxc-parser": "0.158.0", "ts-pattern": "5.9.2" }, "bin": { "chex": "src/cli.ts" } }, "sha512-0NIv+A8C1fR17T+dQcianMDCSwxN85n8E6SFt/+MKi7n2VFQkmJ2/sXYTAoMTcJvezEsvDqTpc6I1hf9QtCmNg=="],
 
-    "@zgeoff/diet": ["@zgeoff/diet@0.2.4", "", { "bin": { "diet": "diet.sh" } }, "sha512-oDl09xwVR828YW72lQjwpwqsHwBcJ/zpIWuScMllO2tw7RVBerNOUuYx5Hk6A74TjeAjk0Jrh/g3jJWJ7E2OuA=="],
+    "@zgeoff/diet": ["@zgeoff/diet@0.3.2", "", { "bin": { "diet": "diet.sh" } }, "sha512-WTr8W2oOHfGFSASJgy/8LFHmiW5vRu2jduhsM5ixsMi7gAiTcERG7JhdLcIwksuyGTmOVxlCf7cRP6crAPDOig=="],
 
     "@zgeoff/format-codemod": ["@zgeoff/format-codemod@0.3.6", "", { "dependencies": { "gunshi": "1.0.0-rc.1", "oxc-parser": "0.158.0" }, "bin": { "format-codemod": "dist/cli.js" } }, "sha512-hoa6JerU9JHgikqumdtu23VE8wemOgkTr1zrwBFGnLyBns59bTt7Z3kkV6IBxc07CveYKtPT94IDTWFmFj5qHA=="],
 
@@ -1143,11 +1143,7 @@
 
     "@zgeoff/rig/@zgeoff/diet": ["@zgeoff/diet@0.3.0", "", { "bin": { "diet": "diet.sh" } }, "sha512-CgvLXgWCMMjrWN1foqfoZV7aE3wTAE/Z8NW5Ttf64tfafw6EoE6dhVkBDGtwb3VyxcSpx/WtTOTih9lfWosDtQ=="],
 
-    "@zgeoff/rig/@zgeoff/std": ["@zgeoff/std@0.4.5", "", {}, "sha512-Z2rD5v0OVXRZTa3Jh2I8zmx9znzvnAa/bC5Ai0NidPh+pfJGfDLmQIVZhshbGXPu/S/9SFdP/chDw+N5Pk/lzg=="],
-
     "@zgeoff/rig/gunshi": ["gunshi@1.0.0-rc.1", "", {}, "sha512-/nSFKVrJHKg9O4ppBl+lOSLDQWmvJ5fG3ldVsdJX8KMtUV2uYwlx/a8OaOWuvniuV28bZDjsB8p6YFtDxSlMcw=="],
-
-    "@zgeoff/testing/@zgeoff/std": ["@zgeoff/std@0.4.5", "", {}, "sha512-Z2rD5v0OVXRZTa3Jh2I8zmx9znzvnAa/bC5Ai0NidPh+pfJGfDLmQIVZhshbGXPu/S/9SFdP/chDw+N5Pk/lzg=="],
 
     "cliui/string-width": ["string-width@7.2.0", "", { "dependencies": { "emoji-regex": "^10.3.0", "get-east-asian-width": "^1.0.0", "strip-ansi": "^7.1.0" } }, "sha512-tsaTIkKW9b4N+AEj+SVA+WhJzV7/zMhcSu78mLKWSk7cXMOSHsBKFWUs0fWwq8QyK3MgJBQRX6Gbi4kYbdvGkQ=="],
 
