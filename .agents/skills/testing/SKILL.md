@@ -69,9 +69,9 @@ Here a module is one source file, and the unit is the code a test calls.
 
 - Put a test beside the module or script it tests: `src/record-payment.test.ts`.
 - Look for a shared helper in
-  [`@zgeoff/testing/helpers`](https://github.com/zgeoff/tools/tree/main/packages/testing) first. Put
-  a new one, with its own test, in `src/test-utils/` of the package that owns what it starts, builds
-  or fakes.
+  [`@zgeoff/testing`](https://github.com/zgeoff/tools/tree/main/packages/testing) first. Put a new
+  one, with its own test, in `src/test-utils/` of the package that owns what it starts, builds or
+  fakes.
 - Put any other kind of test, such as an end-to-end test, where
   [Package layout](./references/system-tests.md#package-layout) shows.
 - Without a project-testing skill, take each test's command from
@@ -100,7 +100,7 @@ Here a module is one source file, and the unit is the code a test calls.
   `beforeEach`.
 - In `setupTest()`, wire the unit and what it needs, such as the test's temp folder, the database,
   the clock and the [seeder](./references/seeding.md#buildseeder-and-setuptest). Leave the MSW
-  server to the [test preload](./references/http.md#the-server-and-its-lifecycle).
+  network to the [test preload](./references/http.md#the-test-network).
 - Give `setupTest()` no `if`, and no argument that decides the outcome, such as a record's state.
   The reader must see that in the test.
 - Create each test's data in the test, even when every test needs the same. Set the time in each
@@ -111,7 +111,7 @@ Here a module is one source file, and the unit is the code a test calls.
 - Write one `setupTest()` per file, and never share it. Bind its result to one `const ctx`, never
   destructured.
 
-Both helpers below live in the repo's `src/test-utils/`.
+Both helpers below live in `src/test-utils/`.
 
 ```ts
 async function setupTest() {
@@ -135,7 +135,7 @@ test('it lists the notes of a user with none as empty', async () => {
   later throw still closes it. No `try`/`finally` in a test.
 - Reset state that outlives a test, such as a cache or a changed process setting, as
   [The test preload](./references/cleanup.md#the-test-preload) says. Change an environment variable
-  only with `updateEnv` from `@zgeoff/testing/helpers`.
+  only with `updateEnv` from `@zgeoff/testing`.
 - Keep tests apart with the repo's [test-database helper](./references/database.md) and a temp
   folder per test, never with random IDs: a list query still returns the other test's rows.
 
@@ -160,11 +160,15 @@ directly only where [Seeding](./references/seeding.md) allows.
 
 ## Assertions
 
-- Assert the full contract with `toStrictEqual`, never `toEqual`. Put an asymmetric matcher in it
-  for a field the test doesn't decide, such as a generated ID.
-- Use `toMatchObject` only for an error's code, or for a raw row in the creating module's own test.
-- Assert each result in its own `expect`, such as a call's return value and the stored state you
-  read back. For that read-back, one `toBe` on the changed field is enough.
+- Assert the full result with `toStrictEqual`, never `toEqual`, with an asymmetric matcher for a
+  field the test doesn't decide, such as an ID.
+- Assert less than the full result only for:
+  - an error, as [Errors](#errors) says;
+  - a raw row in the creating module's own test, with `toMatchObject`;
+  - a parsed log line or workflow file, with `toMatchObject` on the fields you check: the rest
+    changes on every run, or belongs to another test;
+  - the read-back state, with one `toBe` on the changed field.
+- Assert the return value and the read-back state in separate `expect` calls.
 - Assert the parts of one result in one `expect`, such as a command's exit code, stdout and stderr.
 - Derive the expected value from the contract, never with the unit's own calculation.
 - Use a [jest-extended matcher](./references/matchers.md) over a hand-written check: it prints the
@@ -197,8 +201,8 @@ directly only where [Seeding](./references/seeding.md) allows.
   3. fake timers, to move time forward in code the repo doesn't own, restored in `onTestFinished`.
 - When you can't pass in a time the code records, assert a range around `Date.now()`, such as
   `toBeWithin`.
-- Wait on a condition with `waitFor` from `@zgeoff/testing/helpers`, never a sleep. When the code
-  has nothing to wait on, add a signal, such as an event.
+- Wait on a condition with `waitFor` from `@zgeoff/testing`, never a sleep. When the code has
+  nothing to wait on, add a signal, such as an event.
 
 ## Boundaries
 
@@ -217,4 +221,5 @@ directly only where [Seeding](./references/seeding.md) allows.
 ## Speed
 
 - Keep each test of `bun run test` under 5 s on CI. Fix a slower one from
-  [Causes and fixes](./references/slow-tests.md#causes-and-fixes), never with a longer timeout.
+  [Causes and fixes](./references/slow-tests.md#causes-and-fixes). Raise a timeout only as
+  [A test over its limit](./references/slow-tests.md#a-test-over-its-limit) allows.

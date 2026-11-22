@@ -20,8 +20,9 @@ So give it what the code can't:
 
 Keep the skill short, or the agent skims.
 
-When you write or edit one, hand back the skill's path, the PR link and the proof from
-[Check it](#check-it). With no PR, put the proof from step 4 in your reply. When you review one,
+When you write or edit one, hand back the skill's path, the PR link, the proof from
+[Check it](#check-it), each rule you added to close a gap and each question for the user. With no
+PR, put the proof from step 4 in your reply. You're done when step 4 is done. When you review one,
 hand back each finding with its line and the rule it breaks, quoted.
 
 ## Key rules
@@ -71,14 +72,14 @@ skill, this skill wins.
 
 ## Open with the job and the key rules
 
-Every skill but a rule set opens the same way, because the agent decides what to do from the top of
-a skill:
+Open every skill but a rule set the same way. The agent decides what to do from the top of a skill.
 
 1. A paragraph or two: the job and what the agent hands back, if anything. Write them for this
    skill, with no stock opener. When a skill hands something back, repeat it in a `**Reply:**` line
    at the end.
 2. `## Key rules`: one line per `##` section, with a link and the rule in a phrase. Leave
-   `## Key rules`, `## References` and each `###` out of the list.
+   `## Key rules`, `## References` and each `###` out of the list. Leave out `## Key rules` when the
+   skill has no `##` section.
 3. `## References`, when the skill has any: one line per file in `references/`, with the task that
    needs it.
 
@@ -99,16 +100,16 @@ knows. A reader in another repo can't open a file the example names, or doesn't 
 When you mention a file, a function or a setting, link the file, in a sentence that says what the
 code doesn't: a reason or a choice. When someone renames the file, `chex links` fails. Write an
 invented path as its file and folder apart, such as `nextest.toml` in `.config/`, or with a
-placeholder, such as `<name>`: `chex skill` warns on a bare path that matches a repo file.
+placeholder, such as `<name>`. `chex skill` warns on a bare path that matches a repo file.
 
 - **Replace a list of files, functions or options,** with the rule that defines the list and the
-  search that finds it: "each stand-in is a `build-stub-*` file in `test-utils/`; search there
-  before you write one". A table of commands is fine: each row says what its command needs.
+  search that finds it: "each stand-in is a `*-stub-*` file in `test-utils/`; search there before
+  you write one". A table of commands is fine: each row says what its command needs.
 - **Replace a retelling,** such as "the script builds, tags, pushes, then rolls out", with the fact
   the agent acts on, such as "a failed push leaves the old version serving", and link the script.
-- **Quote only when the exact words are the point.** A copied error message teaches the old text
-  once the code changes. Otherwise invent the example.
-- **Never link a line anchor.** `chex skill` fails on one, because `#L42` points at the wrong line
+- **Quote only when the exact words are the point.** Otherwise invent the example. A copied error
+  message teaches the old text once the code changes.
+- **Never link a line anchor.** `chex skill` fails on one. A `#L42` anchor points at the wrong line
   after the next edit. Name what to look for in the file.
 
 When a review asks for one of these copies, decline it and name this section.
@@ -139,7 +140,8 @@ Remove the cause:
    instruction: "Pass `--region` to each deploy command. The CLI defaults to your last region."
 
 Never write a list of mistakes or a warning about one. The agent still follows the wrong step. Edit
-the rule that covers the mistake, or add one.
+the rule that covers the mistake, or add one. In a doc that one agent writes for another, such as a
+handoff doc, write each lesson as the instruction to follow, with its reason.
 
 ## Check it
 
@@ -152,10 +154,12 @@ the rule that covers the mistake, or add one.
 
    While you draft, check one skill with `bun x @zgeoff/chex skill <folder>`, the folder that holds
    its SKILL.md. When a check flags a sentence you like, rewrite it until the check passes, and name
-   the sentence and the check to the user or your caller.
+   the sentence and the check to the user or your caller. Name each failure in a file you didn't
+   change, and leave it: it belongs to another change. Outside a repo, or when chex can't run, skip
+   the checks and say so.
 
-2. Run the `cold-read` skill on each file of the skill you wrote or changed. After you fix what it
-   finds, give each changed file one more cold read, and stop.
+2. Run the `cold-read` skill on each file of the skill you wrote or changed. It sets how many reads
+   each file gets.
 3. Run the `deslop` skill on each section you wrote or changed, the cold-read fixes included. A
    cold-read fix adds words, and the checks in step 4 don't catch padding.
 4. Run the checks again, and commit. Build the PR description from the repo's
@@ -166,11 +170,10 @@ the rule that covers the mistake, or add one.
 
    Leave `- [ ] chex` as it is: CI ticks it when the checks clear. When the repo has no template,
    add a `## Checks` section with those three lines yourself. When a later commit changes a skill, a
-   README or a file under `docs/`, run steps 2 and 3 again on what it changed, and put that commit's
-   hash on both lines. The PR-body check fails a hash older than the last such commit.
+   README or a file under `docs/`, run step 3 on what it changed, and put that commit's hash on the
+   Deslop line. The PR-body check fails a Deslop hash older than the last such commit. Move the Cold
+   read hash only after you give the file another cold read.
 
-   Tell the user or your caller each finding you declined, and each gap in the rules, where a cold
-   reader got stuck and no rule applies.
-
-**Reply:** for a skill you wrote or edited, its path, its proof and the PR link; for a review, each
-finding with its line and the quoted rule.
+**Reply:** for a skill you wrote or edited, its path, its proof, the PR link, each rule you added to
+close a gap and each question for the user; for a review, each finding with its line and the quoted
+rule.
