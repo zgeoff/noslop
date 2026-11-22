@@ -1,9 +1,9 @@
 # Your own rules
 
 noslop ships no rule set, under [0001](../../decisions/0001-scope-and-your-own-rules.md). The core
-covers generic defects, and everything that is one codebase's taste or one stack's meaning comes
-from the user's config, apart from the generic standard-library and runtime patterns that the
-built-in defaults hold. Put these in the config:
+covers generic defects, and the built-in defaults hold the generic standard-library and runtime
+patterns. Everything else, meaning one codebase's taste or one stack's meaning, comes from your
+config. Put these in it:
 
 - a rules file for the taste lenses;
 - stack patterns that tell the static stage what the stack's calls mean;
