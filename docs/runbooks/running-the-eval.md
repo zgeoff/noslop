@@ -66,7 +66,7 @@ corpus records which findings were real.
    Expect a report that starts with `# Static depth replay`, then
    `<count> cases, <count> failed to plan.`. A case that fails its schema stops the run with
    `case <folder> is not a valid case:` and the schema errors. The static replay skips the
-   labelled-path check, so a missing path shows only in the next step.
+   labelled-path check, so a missing path shows only in a replay of its case.
 
 2. Replay a few cases to check the setup before a whole run:
 
@@ -76,7 +76,8 @@ corpus records which findings were real.
 
    Expect a log line on stderr as each case ends, `case <id>: <count> findings`, which reads
    `case <id>: failed findings` for a failed case. A labelled path that names no file at the case's
-   head stops the run before any review, with the case and the paths.
+   head stops the run before any review, with the case and the paths. The run checks the paths of
+   the cases it replays only, so step 3 checks the rest.
 
 3. Replay the whole corpus into a fresh out folder:
 

@@ -2,7 +2,7 @@
 
 noslop is one Bun workspace, and every check CI runs also runs on your machine through
 `bun run check`. This runbook sets up a clone, runs the checks and the git hooks, runs the CLI from
-source against another repo, and runs the model-api lane.
+source against another repo, runs the model-api lane, and builds the npm package.
 [0014](../decisions/0014-the-code-layout.md) records the layout of the workspace, and
 [0016](../decisions/0016-the-stack.md) records the libraries it builds on.
 
@@ -39,8 +39,9 @@ bun run check
 Expect each script to pass in turn: audit, dead code, the format check, the type-aware lint,
 typecheck, the dependency boundaries, the prose check, the tests and the package-types check. CI
 runs the same list, less the package-types check, on each pull request and each push to `main`, from
-the `BUN_CHECK_SCRIPTS` repo variable, so a change to the list changes `bun run check` in the same
-commit. `bun run format` fixes what the format check reports.
+the `BUN_CHECK_SCRIPTS` repo variable. When you change the variable's list, change the `check`
+script in `package.json` to match in the same pull request, so the two lists stay the same.
+`bun run format` fixes what the format check reports.
 
 Run one package's tests, or one file, with a path:
 

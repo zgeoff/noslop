@@ -2,12 +2,16 @@
 
 release-please and the `main` workflow release `@noslop/cli` to npm. The workflow's release job
 calls the shared release-please workflow of `zgeoff/tools` at the repo's sync tag, with its merge
-input off. release-please opens a release pull request after a releasable commit lands on `main`.
-The run of that pull request's merge tags the release at once, and once the run's checks pass, the
-workflow publishes the CLI with npm provenance. This runbook holds only the steps they do not do:
-the one-time setup before the first automated release, merging each release pull request, and the
-recoveries a failed release needs. [The CLI](../architecture/output/cli.md) covers what the
-published package holds.
+input off. release-please opens a release pull request after a releasable commit lands on `main`. In
+the common case, the run of that pull request's merge tags the release at once, and once the run's
+checks pass, the workflow publishes the CLI with npm provenance.
+[Merge a release pull request](#merge-a-release-pull-request) covers the run that publishes from a
+dispatch instead, and
+[Recover a release blocked by a workflow change](#recover-a-release-blocked-by-a-workflow-change)
+covers a tag that GitHub refuses. This runbook holds only the steps they do not do: the one-time
+setup before the first automated release, merging each release pull request, and the recoveries a
+failed release needs. [The CLI](../architecture/output/cli.md) covers what the published package
+holds.
 
 ## One-time setup
 

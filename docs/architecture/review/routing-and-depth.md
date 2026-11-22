@@ -2,19 +2,21 @@
 
 Routing decides, for one change, which lenses fire and how hard the review looks. It reads only what
 the [static stage](./static-stage.md) produced: the changed files, the slices, the risk signals and
-the config. No model takes part, so 2 runs on one change fire the same lenses at the same depth. The
-triggers and the depth rules are black and white, like the severity criteria of
-[findings](./findings.md) and the blocking rules of [the GitHub App](../output/github-app.md): code
-applies each one without judgement, and a rule accepts some noise to stay consistent.
-[0006](../../decisions/0006-routing.md) records the triggers and the special changes, and
-[0007](../../decisions/0007-depth-and-models.md) records the Light and Deep rules. Routing then
-plans the calls that carry the fired lenses, which [calls](./calls.md) covers.
+the config, plus whether the caller reviews a push to the default branch. No model takes part, so 2
+runs on one change fire the same lenses at the same depth. The triggers and the depth rules are
+black and white, like the severity criteria of [findings](./findings.md) and the blocking rules of
+[the GitHub App](../output/github-app.md): code applies each one without judgement, and a rule
+accepts some noise to stay consistent. [0006](../../decisions/0006-routing.md) records the triggers
+and the special changes, and [0007](../../decisions/0007-depth-and-models.md) records the Light and
+Deep rules. Routing then plans the calls that carry the fired lenses, which [calls](./calls.md)
+covers.
 
 ## Special changes
 
-A few kinds of change route on a lens list of their own in place of the triggers. Routing checks
-them in order, so a change that is both a sync and a release routes as a sync, and each change gets
-the narrowest route that covers it.
+Routing checks four special changes in order. A sync, a release and a docs-only change route on a
+lens list of their own in place of the triggers, and a direct push routes by the triggers. Routing
+checks them in order, so a change that is both a sync and a release routes as a sync, and each
+change gets the narrowest route that covers it.
 
 | Change      | When                                               | Lenses                         |
 | ----------- | -------------------------------------------------- | ------------------------------ |
@@ -39,8 +41,9 @@ paragraph says. Several triggers compare a slice with a threshold from the confi
 number of writes that fires the concurrency lens.
 
 A marked risk class fires every lens it forces on, whatever the triggers say.
-[Your own rules](../config/your-own-rules.md) covers how a risk class is marked. A special change
-with a lens list of its own ignores forced lenses, because its list is the whole route.
+[Your own rules](../config/your-own-rules.md) covers how a risk class is marked. A sync, a release
+or a docs-only change ignores forced lenses, because its lens list is the whole route. A direct push
+takes forced lenses like any other change.
 
 A lens that the config turns off never fires. One exception: a lens that a marked risk class forces
 on fires even when the config turns it off, because the risk class is the stronger statement about
@@ -76,8 +79,8 @@ A change is Light only when every one of these holds:
   set of writes that would fire the concurrency lens.
 - It changes no infra file, because an infra change deploys or provisions, and its effect reaches
   past what its line count shows.
-- It touches no more packages than the Light limit allows, and no consumer edge.
-- Its code lines are within the Light limit, or it changes only tests, or only prose and
+- It touches no more packages than the Light package limit allows, and no consumer edge.
+- Its code lines are within the Light line limit, or it changes only tests, or only prose and
   instructions.
 - No file in it has a past escape.
 

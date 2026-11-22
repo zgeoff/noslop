@@ -14,9 +14,10 @@ routing.
 Each lens has a Markdown page in the lenses package. A page opens with a header for the people who
 edit it: the trigger, the input and the call. The prompt follows under its `## Prompt` heading, and
 the model reads that text word for word, so an edit to a page is an edit to the prompt. The model
-never sees the header, because the trigger and the input are rules that noslop runs in code. The
-pages follow [0013](../../decisions/0013-prompt-language.md): short numbered rules in plain words,
-each page with what to look for, how to check each candidate, what not to report, and the severity.
+never sees that page header, because the trigger and the input are rules that noslop runs in code.
+The pages follow [0013](../../decisions/0013-prompt-language.md): short numbered rules in plain
+words, each page with what to look for, how to check each candidate, what not to report, and the
+severity.
 
 A shared header page opens every call. It holds the finding rules of
 [0003](../../decisions/0003-what-counts-as-a-finding.md), the verdict rules of
