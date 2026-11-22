@@ -40,8 +40,8 @@ runs no login.
    }
    ```
 
-   [Reporters](../architecture/output/reporters.md) covers the options. The secret stays in each
-   developer's environment, out of the config file. The slug is the name in the App's URL,
+   See [Reporters](../architecture/output/reporters.md) for the options. Keep the secret in each
+   developer's environment and out of the config file. The slug is the name in the App's URL,
    `https://github.com/apps/<app_slug>`. A developer's review trusts only the comments of
    `<app_slug>[bot]`, so it runs as a delta from the App's last summary, drops a finding answered
    `not-a-defect`, and confirms a fix. The App's own reviews refuse a slug that names another App.
@@ -52,8 +52,8 @@ runs no login.
    noslop review --pr <number> --report webhook
    ```
 
-   Expect exit code 0 once the relay answers with a success status. A review without `--pr` covers
-   no pull request, so the relay refuses it.
+   Expect exit code 0 once the relay answers with a success status. Always pass `--pr`: a review
+   without it covers no pull request, so the relay refuses it.
 
 ## Write the relay
 
@@ -97,7 +97,7 @@ Bun.serve({
 
 `verify` refuses a result that reviews a commit other than the pull request's head, and a result
 whose config hash differs from the config on the base branch, so a stale review or one under another
-config never posts. [Verifying a result](../architecture/output/cli.md#verifying-a-result) covers
+config never posts. See [Verifying a result](../architecture/output/cli.md#verifying-a-result) for
 the check. A relay without that code can run the same steps with `noslop verify <file>` and
 `noslop post <file>`.
 
@@ -132,12 +132,12 @@ it could post a review as the App.
 
 3. Make the job required in the branch rules.
 
-The check trusts only the comments of the App that `github.app` names in the config on the base
-branch, so it refuses to run while that config names no App. The job prints the outcome and each
-open finding, and exits 0 only when the check passes. The check passes when every finding holds a
-valid answer, as [answer a finding](./answer-a-finding.md) describes. The check reads only the
-findings and their answers, so it passes at a head that no review read, after a rebase, and after a
-review call failed. To require a review of each new head commit, add the rule in
+The check trusts only the comments of the App in `github.app` in the config on the base branch, so
+it refuses to run while that config sets no `github.app`. The job prints the outcome and each open
+finding, and exits 0 only when the check passes. The check passes when every finding holds a valid
+answer, as [answer a finding](./answer-a-finding.md) describes. The check reads only the findings
+and their answers, so it passes at a head that no review read, after a rebase, and after a review
+call failed. To require a review of each new head commit, add the rule in
 [add your own merge rules](#add-your-own-merge-rules).
 
 Leave the `noslop` check run out of the branch rules. The relay sets it only when it posts, and an

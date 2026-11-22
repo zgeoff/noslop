@@ -28,13 +28,13 @@ bun add -g @noslop/cli
 noslop review
 ```
 
-[Set up a repo](docs/guides/set-up-a-repo.md) goes on to a `review.json` and a review of each pull
-request.
+To go on to a `review.json` and a review of each pull request, follow
+[Set up a repo](docs/guides/set-up-a-repo.md).
 
 ## Supported model CLIs
 
-- **Codex**: the default; each call runs read-only.
-- **Claude Code**: each call runs with the read tools alone.
+- Codex is the default, and each call runs read-only.
+- Claude Code runs each call with the read tools alone.
 
 ## Features
 
@@ -56,11 +56,11 @@ request.
 
 ## Configuration
 
-A repo works with no config. A root `review.json` sets your rules files, stack patterns and risk
-classes, and can extend a shared config; `noslop config` prints the merged result. The
-[reviewer config](docs/architecture/config/review-config.md) covers the merge, and the
-[JSON Schema](docs/reference/review.schema.json) lists every key.
+A repo works with no config. Set your rules files, stack patterns and risk classes in a root
+`review.json`, which can extend a shared config, and run `noslop config` to print the merged result.
+For how the merge works, read the [reviewer config](docs/architecture/config/review-config.md). For
+every key, see the [JSON Schema](docs/reference/review.schema.json).
 
 ## Documentation
 
-The [docs index](docs/README.md) lists the guides, the architecture docs and the decision records.
+Find the guides, the architecture docs and the decision records in the [docs index](docs/README.md).

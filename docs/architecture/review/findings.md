@@ -2,11 +2,11 @@
 
 A finding is one defect that the change introduces or exposes, at one place in the reviewed head,
 and it is the unit every part of noslop passes on: the lenses report findings, Assemble checks and
-merges them, and every reporter writes them out.
-[0003](../../decisions/0003-what-counts-as-a-finding.md) sets what counts as a finding, and
-[0004](../../decisions/0004-severity-and-verdicts.md) sets severity and verdicts. A finding's
-severity follows from the criterion it names, never from the model's own choice, and its ID survives
-a re-review that finds the same defect at a moved line. The contract package (`@noslop/contract`)
+merges them, and every reporter writes them out. Read
+[0003](../../decisions/0003-what-counts-as-a-finding.md) for what counts as a finding, and
+[0004](../../decisions/0004-severity-and-verdicts.md) for severity and verdicts. A finding's
+severity follows from its criterion, never from the model's own choice, and its ID survives a
+re-review that finds the same defect at a moved line. The contract package (`@noslop/contract`)
 holds the finding schema, and the findings module holds Assemble.
 
 ## What a finding cites
@@ -20,16 +20,16 @@ that fact.
 
 ## Model output and the finding
 
-A lens reports a model finding, and Assemble turns it into a finding. The two shapes differ on
-purpose. A model CLI's structured output needs every key present, so the model finding holds null
-for an absent value. Its schema leaves the anchor rules out, so a bad anchor drops one finding in
-Assemble instead of failing the whole call. The finding drops the nulls and adds what only noslop
-knows: the ID, the lens, the call that reported it, whether the change wrote the anchored line, and
-the marked risk class whose paths hold the anchor.
+A lens reports a model finding, and Assemble turns it into a finding. A model CLI's structured
+output needs every key present, so the model finding holds null for an absent value. Its schema
+leaves the anchor rules out, so a bad anchor drops one finding in Assemble and leaves the call
+intact. The finding drops the nulls and adds what only noslop knows: the ID, the lens, the call that
+reported it, whether the change wrote the anchored line, and the marked risk class whose paths hold
+the anchor.
 
 The criterion is one row of the severity table in 0004, and the contract package maps each criterion
 to its severity. Assemble sets the severity from that map, and the finding schema refuses any other
-severity, so a model that names a criterion with a different severity gets the criterion's. The
+severity, so a model that reports a criterion with a different severity gets the criterion's. The
 shared prompt header renders the same map for the model, as [the lenses](./lenses.md) describes, so
 the table the model reads and the check Assemble runs come from one source.
 

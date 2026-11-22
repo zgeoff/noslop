@@ -10,8 +10,10 @@ two ways: a branch rule that requires the check, or a relay. A relay is a servic
 runs, which reads the findings and applies its own rules, as
 [enforce a review with a relay](../../guides/enforce-a-review-with-a-relay.md) describes. Every
 piece of state the App keeps lives in hidden markers inside its own comments, so each run reads the
-pull request's state back from GitHub and noslop keeps no database for it.
-[0009](../../decisions/0009-the-merge-loop.md) records the merge loop.
+pull request's state back from GitHub and needs no database for it. A review that also lists the
+`sqlite` reporter reads the store only to post findings that an earlier post lost, as step 4 of
+[what a review posts](#what-a-review-posts) says. [0009](../../decisions/0009-the-merge-loop.md)
+records the merge loop.
 
 A review reaches the pull request when a caller runs
 `noslop review --pr <number> --repo <owner/name> --report github` with the App's keys in the
@@ -182,11 +184,11 @@ reply once with the accepted forms, and the forms marker stops a later run answe
 kind is valid under its own rule:
 
 - `fixed`, or `fixed <commit>` with the sha as a hint, is valid once a fix check judged the finding
-  fixed at the head, and no later review reports the finding again. A `fixed <commit>` answer whose
-  commit the pull request's head holds and the latest review's head does not stays invalid until a
-  fix check confirms it, and the check names the commit that no fix check has read. A `fixed` answer
-  whose fix the latest fix check could not judge stays invalid, and the check gives the reason the
-  fix check could not judge it.
+  fixed, and no later review reports the finding again. A later push leaves it valid, with one
+  exception: a `fixed <commit>` answer whose commit the pull request's head holds and the latest
+  review's head does not stays invalid until a fix check confirms it, and the check names the commit
+  that no fix check has read. A `fixed` answer whose fix the latest fix check could not judge stays
+  invalid, and the check gives the reason the fix check could not judge it.
 - `not-a-defect <reason>` is valid with any reason.
 - `deferred <issue>` is valid when the change did not write the code, the finding is no P1, security
   or risk-class finding, and the issue exists. The issue is `#<number>` in the same repo,

@@ -47,8 +47,10 @@ The reporters run one at a time in the order the list gives, with one exception:
 to run last runs after every other, wherever the list puts it. `github` is that reporter, because it
 records each finding's comment link on the row that `sqlite` writes in the same run. A reporter that
 throws is logged and recorded as failed, and the next reporter still runs. An id that matches no
-reporter noslop has counts as failed in the same way. A failed reporter leaves the check run alone,
-because the check reads only the findings and their answers, never which reporters ran.
+reporter noslop has counts as failed in the same way. Another reporter's failure leaves the check
+run alone, because the check reads only the findings and their answers, never which reporters ran.
+When `github` fails before it sets the check run, the check run keeps its last state until
+`noslop check` or the next review sets it.
 
 The review command exits 1 when any reporter failed, so a script that runs a review sees the lost
 write even when the review itself passed.

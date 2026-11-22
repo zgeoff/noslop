@@ -41,7 +41,7 @@ draft named, because Claude Code's validator refuses the draft that zod writes i
 The CLI wraps each adapter in the options that the config sets for it: the adapter's model runs
 every call whose lenses set no model, and the adapter's timeout replaces its default. The adapter's
 merge model runs the merge pass, and the defaults give each shipped adapter a cheap one, because the
-pass only groups findings it reads.
+pass only groups the findings it reads.
 
 ## Running a process
 
@@ -116,9 +116,9 @@ recorded run of it gives the baseline that noslop's runs score against and the n
 of its runs.
 
 `codex exec review` runs the review in a subagent thread, and the JSON events it prints count no
-tokens for that thread. The reviewer therefore keeps the session files Codex writes under its home
-folder. It takes the thread from the first JSON event and sums the last token count in the session
-file of each thread that the review started. It then removes the session files of the review's own
-threads, and no other file, so a case leaves the user's Codex history as it found it. That session
-file format belongs to Codex and has no version of its own, so a reviewer that finds no such file
-fails the case rather than count no tokens.
+tokens for that thread. The reviewer keeps the session files Codex writes under its home folder. It
+takes the thread from the first JSON event and sums the last token count in the session file of each
+thread that the review started. It then removes the session files of the review's own threads, and
+no other file, so a case leaves the user's Codex history as it found it. That session file format
+belongs to Codex and has no version of its own, so a reviewer that finds no such file fails the case
+instead of counting zero tokens.

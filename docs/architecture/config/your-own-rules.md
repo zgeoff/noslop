@@ -16,10 +16,11 @@ same four to several repos.
 
 A rules file is a Markdown file of taste rules, named by the config's `rules` key, which names one
 file or a list of them. Each file reaches the taste lenses whole, in a block named by its label, the
-path as the config wrote it, so the model never takes a heading inside the file for the file's name.
-noslop needs no structure in it, so a repo's skills serve as its rules unchanged. Its headings only
-label findings, as the next paragraph says, so a renamed heading changes a label and never which
-rules a review applies.
+path as the config wrote it with any `repo:` prefix dropped and an absolute path cut to its file
+name, so the model never takes a heading inside the file for the file's name. noslop needs no
+structure in it, so a repo's skills serve as its rules unchanged. Its headings only label findings,
+as the next paragraph says, so a renamed heading changes a label and never which rules a review
+applies.
 
 A finding that rests on a rule, a taste finding or one of another criterion, names the file it rests
 on and quotes it, at least one full sentence, word for word. Assemble looks for the quote in the
@@ -112,4 +113,4 @@ when the change has the configured number of changed lines in the class's own pa
 to the forced lenses: a sync, a release bump or a docs-only change runs its own narrow lens list,
 and a class forces no lens onto it. A finding anchored in a marked class's paths carries the class's
 name. [Routing and depth](../review/routing-and-depth.md) covers how a class changes the route, and
-the findings doc covers what the class on a finding does at the merge.
+[the findings doc](../review/findings.md) covers what the class on a finding does at the merge.

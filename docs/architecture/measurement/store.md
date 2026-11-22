@@ -79,9 +79,12 @@ the store as its past-escape signal.
 
 ## The queries
 
-Each finding of a repo has one outcome: the kind of its latest disposition, or open when it has
-none. A review that ends after a `fixed` disposition and still reports the finding reopens it, so a
-fix the next review disproves never counts as yield.
+In `yield-by-lens`, `yield-by-depth` and `open-findings`, each finding id of a repo has one outcome:
+the kind of its latest disposition in the repo, or open when it has none. A review that ends after a
+`fixed` disposition and still reports the finding reopens it, and the outcome of a reopened finding
+is open, so a fix the next review disproves never counts as yield. `findings-by-pr` gives each pull
+request's finding an outcome of its own, under
+[findings by pull request](#findings-by-pull-request).
 
 - `yield-by-lens` gives, per lens, the findings, how many ended `fixed`, `not-a-defect` or open, and
   the share that ended `fixed` (the yield) and `not-a-defect` (the noise).

@@ -22,8 +22,8 @@ running the CLI as a process:
 - `@noslop/cli/check` sets a pull request's check run, as `noslop check` does, or with `readOnly`
   returns the outcome and writes nothing, as [checking read-only](#checking-read-only) describes.
 
-The `verify`, `post` and `check` exports take the App's keys or a token from the caller, never from
-the process environment.
+The `verify`, `post` and `check` exports read the App's keys or a token from an `env` map that the
+caller passes, never from the process environment itself.
 
 Bun builds the exports into a second bundle, which leaves zod out. The package takes zod as a peer
 dependency, from `^4.6.7`, so the caller's own zod is the one copy that the caller's schemas and the
@@ -145,7 +145,8 @@ posts only a review of the current head under the config on the base branch's ti
 [Enforce a review with a relay](../../guides/enforce-a-review-with-a-relay.md) sets one up.
 
 `--no-verify` skips the verification, for a result the caller checked itself. `post` needs the App's
-keys in the environment, and refuses to run with a token or an anonymous GitHub connection.
+keys, from the environment for the command and from the `env` map for the export, and refuses to run
+with a token or an anonymous GitHub connection.
 
 ## Listing the findings
 
