@@ -23,15 +23,15 @@ When you write or edit a skill:
    delivers them there at the `zgeoff/skills` commit that `zgeoff/tools` pins, so install none of
    them yourself.
 2. Do every step in the "Check it" section of `.agents/skills/skill-writing/SKILL.md`.
-3. In the PR description, after the sections of the repo's PR template, add three `##` headings:
-   - "Skill checks": the check output.
-   - "Cold read": each cold-read finding, and how you answered it.
-   - "Deslop": each change deslop made, or "none".
+3. Fill in the `## Checks` section of the repo's PR template as step 4 of "Check it" says. Add no
+   `##` heading of your own, because the PR-body check fails on a heading the template doesn't have.
 
 ## Operations
 
 - Every change reaches `main` through a pull request, and the pull request merges only once CI
-  passes. Work on a branch, push the branch, and open a pull request with the repo's template.
+  passes. Work on a branch, push the branch, and open a pull request with the repo's template. The
+  owner reviews and merges it, so the pull request is done when CI passes and you have answered each
+  review finding. The checks a skill asks for, such as skill-writing's "Check it", come before that.
 - Use [Conventional Commits](https://www.conventionalcommits.org/) for all commit messages, with a
   lowercase header of at most 72 characters.
 - Commit subjects use the imperative mood ("add X", never "added X" or a bare noun phrase).
@@ -54,7 +54,7 @@ docs/
   runbooks/        contributor and maintainer procedures: development, the eval, releasing
   reference/       generated reference: the JSON Schema of review.json
   decisions/       numbered decision records
-  design/          a design for work not yet built; only the owner opens a design
+  design/          a design for work not yet built; only the owner starts a design
 scripts/           the CLI package build, the config schema writer, the first publish, the release
                    ship and publish steps
 ```

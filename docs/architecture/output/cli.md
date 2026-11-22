@@ -4,9 +4,9 @@ The CLI, the bin `noslop` in `@noslop/cli`, is the composition root for a review
 config, builds the adapter and the reporters, runs the pipeline on one change, and hands the result
 to each reporter. It reviews a local branch or a pull request, and its JSON output carries a schema
 version, so other tools pin a CLI version and read one shape. Every review and check that
-[the GitHub App](./github-app.md) posts comes from a run of this CLI.
-[0011](../../decisions/0011-model-adapters.md) records why noslop is a versioned CLI with JSON
-output.
+[the GitHub App](./github-app.md) posts comes from this CLI's code: a run of the CLI, or a call to
+one of its package exports. [0011](../../decisions/0011-model-adapters.md) records why noslop is a
+versioned CLI with JSON output.
 
 The npm package `@noslop/cli` holds a Bun bundle of the CLI and every workspace package it imports,
 the [lens](../review/lenses.md) prompts included, so the workspace packages stay private. The bundle
@@ -62,8 +62,8 @@ published types import nothing but zod.
 `--json`, and `--verbose` lowers the log level to debug. `noslop <command> --help` lists each
 command's flags.
 
-Logs go to stderr, so stdout holds only a command's output. A command exits 0 when it completed. It
-exits 1 in these cases:
+Logs go to stderr, so stdout holds only a command's output. A command exits 1 in each of these
+cases, and 0 otherwise:
 
 - It could not run, such as on a bad flag, a git failure or an adapter the CLI does not have.
 - `review` ran, and a reporter failed.

@@ -7,7 +7,7 @@ with no config: a repo with no `review.json` gets a review from the built-in def
 [0010](../../decisions/0010-the-reviewer-config.md). The contract package (`@noslop/contract`) holds
 the schema of the merged config, and the [generated JSON Schema](../../reference/review.schema.json)
 describes each key. [Your own rules](./your-own-rules.md) covers the parts a user brings: the rules
-file, stack patterns and risk classes.
+file, stack patterns, cast rules and risk classes.
 
 ```json
 {

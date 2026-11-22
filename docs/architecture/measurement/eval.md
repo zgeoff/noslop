@@ -3,12 +3,14 @@
 The eval harness replays a corpus of past changes through noslop with the config under test, and
 scores what noslop reports against the findings a reference reviewer made on those changes, each
 labelled by what happened to it. `noslop eval --corpus <folder>` runs it from a repo whose config it
-tests. The score is per lens, so a lens is measured on its own even when a call carries it with
-others. A baseline is a recorded run, such as one of the reference reviewer, that the harness scores
-beside noslop on the same cases. Two recorded runs of one reviewer give the noise floor: the
-run-to-run difference below which a gap between two configs means nothing. The harness reports
-counts and decides nothing; the person reading the report judges a prompt, grouping or threshold
-change by them. [0012](../../decisions/0012-the-findings-store.md) records the harness.
+tests. The score is per lens, so each lens's own reports count on their own even when a call carries
+it with others. One count crosses lenses: a true positive labelled with a lens counts as repeated
+when a finding of any lens matches it. A baseline is a recorded run, such as one of the reference
+reviewer, that the harness scores beside noslop on the same cases. Two recorded runs of one reviewer
+give the noise floor: the run-to-run difference below which a gap between two configs means nothing.
+The harness reports counts and decides nothing; the person reading the report judges a prompt,
+grouping or threshold change by them. [0012](../../decisions/0012-the-findings-store.md) records the
+harness.
 
 ```mermaid
 flowchart LR

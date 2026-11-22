@@ -20,9 +20,10 @@ runs no lens call. New findings of a re-review come only from the files it reads
 
 A re-review reads the whole change when the keys cannot be matched file by file: when the last
 review had a failed call, when no lens review completed, or when either key is on a head and the
-heads differ. A review of the head that the last review covered reads no file. `--full` reads the
-whole change at any head, under [the CLI](./cli.md). The design pass runs only on the first review
-of a pull request, under [the design lens](../review/lenses.md#the-design-lens).
+heads differ. Otherwise, a review of the head that the last lens review covered reads no file.
+`--full` reads the whole change in every case, even at that head, under [the CLI](./cli.md). The
+design pass runs only on the first review of a pull request, under
+[the design lens](../review/lenses.md#the-design-lens).
 
 A re-review leaves the pull request's description unjudged. Its title and body describe the whole
 pull request, while its diff holds only the files whose patch changed, so a file the body names can

@@ -10,7 +10,8 @@ how the files of an `extends` chain merge.
 ## Write a rules file
 
 Write each rule as Markdown prose, under a level-2 or level-3 heading. noslop reads the file whole
-and reads no structure into it, so a skill or a style guide your agents load works unchanged.
+and needs no structure in it beyond the headings that label findings, so a skill or a style guide
+your agents load works unchanged.
 
 - Write each rule in at least one full sentence. A taste finding quotes your file word for word and
   drops when the quote is not in it, so a rule written as a fragment gives the lens nothing to
@@ -62,7 +63,9 @@ Never swallow an error in a catch block. Rethrow it, or log it with the input th
    }
    ```
 
-A rules file that does not exist fails the load with `the rules file <label> does not exist`.
+A rules file without the `repo:` prefix that does not exist fails the load with
+`the rules file <label> does not exist`. A missing `repo:` file or reference gives no rule and the
+load goes on, as [Extend a shared config repo](#extend-a-shared-config-repo) says.
 
 ## Extend a shared config repo
 

@@ -128,5 +128,5 @@ local review does. With no App credentials in the environment, noslop reads GitH
 then `GITHUB_TOKEN`, and anonymously when neither is set, so a private repo needs a token that can
 read it. It posts nothing. Set `github.app` in `review.json` to the App's slug, and your review
 trusts the App's comments: it covers only the commits since the App's last review. To post as the
-App, set `NOSLOP_GITHUB_APP_ID`, `NOSLOP_GITHUB_APP_PRIVATE_KEY` and
-`NOSLOP_GITHUB_APP_INSTALLATION_ID`, and add `--report github`.
+App, set the App's keys and run the command from step 6 of
+[Review pull requests](#review-pull-requests), with Bun pointed at a config outside the repo.

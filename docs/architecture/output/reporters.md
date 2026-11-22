@@ -4,8 +4,7 @@ A review produces one result, and each reporter sends that result to one destina
 `report` list names the reporters a review runs, and `noslop review --report <ids>` replaces the
 list for one run. Every reporter receives the same result, so the destinations never disagree about
 what a review found. noslop ships four reporters: `json`, `sqlite`, `webhook` and `github`. The
-`github` reporter runs after all the others and sees which of them failed, so the check run it sets
-never passes on a result that another destination failed to record.
+`github` reporter runs after all the others, as [Order and failure](#order-and-failure) says.
 [0015](../../decisions/0015-reporters.md) records the decision.
 
 [The findings store](../measurement/store.md) covers what the `sqlite` reporter writes, and
@@ -20,9 +19,9 @@ call. [Findings](../review/findings.md) covers the finding inside it. The result
 number that changes only with a breaking change to its shape, so a consumer that pins a CLI version
 reads one shape.
 
-A reporter is an adapter that takes the result and a context. The context holds the logger, the
-reporter's own options from the config's `reporters` map, and the ids of the reporters that failed
-before it. The command line composes the reporters, so the review module never imports one.
+A reporter is an adapter that takes the result and a context. The context holds the logger and the
+reporter's own options from the config's `reporters` map. The command line composes the reporters,
+so the review module never imports one.
 
 ## The four reporters
 
@@ -49,7 +48,7 @@ to run last runs after every other, wherever the list puts it. `github` is that 
 records each finding's comment link on the row that `sqlite` writes in the same run. A reporter that
 throws is logged and recorded as failed, and the next reporter still runs. An id that matches no
 reporter noslop has counts as failed in the same way. A failed reporter leaves the check run alone,
-because the check reads only the findings.
+because the check reads only the findings and their answers, never which reporters ran.
 
 The review command exits 1 when any reporter failed, so a script that runs a review sees the lost
 write even when the review itself passed.

@@ -6,7 +6,8 @@ slices it reads, and a prompt section that asks a model for that kind of defect.
 sections of the lenses that fired, joined into one prompt. Each lens reports into its own findings
 list, so every finding keeps the lens that found it. The lenses package owns the prompts and builds
 each call's prompt. Routing decides which lenses fire and which call carries them, and an adapter
-sends the prompt to a model CLI.
+sends the prompt to a model CLI. [The design lens](#the-design-lens) is the one lens outside
+routing.
 
 ## The prompt pages
 
@@ -33,12 +34,13 @@ A call's prompt has 3 parts, in this order:
 3. The input that the call's lenses read.
 
 Each lens declares what it reads beside its section: the kinds of changed file whose hunks it needs,
-the slices it needs, and whether it reads the rules file. Every lens call holds the pull request
-text and the linked issue, because every lens must tell a change made on purpose from a defect. A
-call joins the declarations of its lenses, so the prompt holds each slice once however many of its
-lenses read it. A slice that lists entries keeps only the entries on the files in the call, so a
-lens never reads about a file whose hunks it cannot see. The comment density covers the whole change
-and stays whole.
+the slices it needs, and whether it reads the rules file. Every routed lens call holds the pull
+request text and the linked issue, because every lens must tell a change made on purpose from a
+defect. The design call holds no linked issue, as [The design lens](#the-design-lens) says. A call
+joins the declarations of its lenses, so the prompt holds each slice once however many of its lenses
+read it. A slice that lists entries keeps only the entries on the files in the call, so a lens never
+reads about a file whose hunks it cannot see. The comment density covers the whole change and stays
+whole.
 
 The hunks carry the head line number beside every line that the head commit holds, and a deleted
 line carries none. A lens anchors each finding to a line number it reads, so the anchors that come

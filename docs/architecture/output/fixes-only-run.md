@@ -7,9 +7,10 @@ merges, can cap the reviews of a pull request and use this run past the cap, as
 [enforce a review with a relay](../../guides/enforce-a-review-with-a-relay.md) describes.
 
 For each finding of a model lens whose latest answer is `fixed`, the run makes one small fix call
-that judges the finding at the pull request's head. [A repeated finding](#a-repeated-finding) shares
-the call of the finding it repeats. A finding of the static stage gets
-[its static check](#static-findings) in place of the call.
+that judges the finding at the pull request's head. A fix the summary already holds as confirmed,
+and a fix past the file limit, get no call, as the sections below say.
+[A repeated finding](#a-repeated-finding) shares the call of the finding it repeats. A finding of
+the static stage gets [its static check](#static-findings) in place of the call.
 [Dispositions](./github-app.md#dispositions) lists the answers an author can give.
 
 A sha after `fixed` points the call at [the fix commit](#the-fix-commit). The call never needs a sha
@@ -51,15 +52,17 @@ when both of these hold:
 - a fix call or a static check returned a verdict;
 - the last lens review had no failed call.
 
-Such a run read the whole net diff at its head, so the key it writes matches what its calls read.
-Any other run, such as one with no `fixed` answer to judge, copies the head and the key from the
-summary marker before it. As the count of failed calls, that run writes its own failed calls, plus
-the earlier count when the earlier marker holds no lens review's head. When no summary marker
-exists, the run writes the merge base as the head and its own failed calls as the count.
+Such a run judged the pull request's whole net change at its head, so the key it writes matches the
+head its verdicts cover. Any other run, such as one with no `fixed` answer to judge, copies the head
+and the key from the summary marker before it. As the count of failed calls, that run writes its own
+failed calls, plus the earlier count when the earlier marker holds no lens review's head. When no
+summary marker exists, the run writes the merge base as the head and its own failed calls as the
+count.
 
 A `fixed` reply posted after an earlier fixes-only run gets a call too, so the next run, at the same
 head or a later one, checks it. A fix the summary already holds as confirmed gets no call. The run's
-range starts at the merge base, because each call reads the whole net diff.
+range starts at the merge base, because each call judges the pull request's whole net change, never
+only the commits since an earlier run.
 
 The result lists each verdict in its fix checks, so the `github` reporter reads the same verdicts
 whether the CLI or `noslop post` sends it. A yes confirms the fix under

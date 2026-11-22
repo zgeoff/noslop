@@ -3,10 +3,11 @@
 noslop posts on a pull request as its own GitHub App and sets a check run named `noslop`. For each
 review, the GitHub adapter posts one pull request review with an inline comment per new finding,
 folds a large class of like findings into one comment, writes one summary comment, and sets the
-check run. The check passes when no finding is open: each finding holds a valid disposition, which
-the author gives as a typed reply. noslop never decides the merge. The repo decides it in one of two
-ways: a branch rule that requires the check, or a relay. A relay is a service the repo's org runs,
-which reads the findings and applies its own rules, as
+check run. The check passes when no finding is open, meaning each finding holds a valid disposition
+that the author gives as a typed reply, and noslop can read each finding comment, as
+[the check run](#the-check-run) says. noslop never decides the merge. The repo decides it in one of
+two ways: a branch rule that requires the check, or a relay. A relay is a service the repo's org
+runs, which reads the findings and applies its own rules, as
 [enforce a review with a relay](../../guides/enforce-a-review-with-a-relay.md) describes. Every
 piece of state the App keeps lives in hidden markers inside its own comments, so each run reads the
 pull request's state back from GitHub and noslop keeps no database for it.
@@ -116,7 +117,9 @@ title, file, lines, risk class, authorship, description and fix of each finding 
 so the fix check of a folded finding reads its own description. The summary marker holds the
 reviewed head, the ids that review reported, its count of failed calls, the confirmed fixes, the
 fixes no fix check could judge with each reason, the id of each review result the reporter posted,
-and when the latest of those reviews started. A retried post of an older review, such as one that
+and when the latest of those reviews started. It also holds the
+[net-change keys](./re-review.md#the-net-change-key), and a marker an older release wrote can list
+the findings that release filed as issues. A retried post of an older review, such as one that
 failed at the summary write, leaves the summary in place and only sets the check again. A forms
 marker, on the App's answer to a free-text reply, holds the id of the reply it answered.
 
@@ -213,6 +216,6 @@ current head or green CI checks each of those itself.
 noslop writes the first problem as the check's title, and lists each open finding with its reason in
 the check's text. The `github` reporter sets the check after each review, and
 `noslop check --pr <number> --repo <owner/name>` sets it again from what GitHub holds, with no new
-review. The command exits 0 whatever the check concludes, because a failing check is an answer, not
-an error. Under `--read-only` it sets no check run and exits 1 unless the check passes, as
-[checking read-only](./cli.md#checking-read-only) describes.
+review. Without `--read-only`, the command exits 0 whatever the check concludes, because a failing
+check is an answer, not an error. Under `--read-only` it sets no check run and exits 1 unless the
+check passes, as [checking read-only](./cli.md#checking-read-only) describes.

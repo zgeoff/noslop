@@ -20,11 +20,16 @@ DIY AI code review pipeline. Front loaded static analysis feeding multi-lens rev
 
 ## Install
 
+noslop runs on [Bun](https://bun.sh) and needs a signed-in Codex or Claude Code CLI on your `PATH`.
+Install the CLI, then review the current branch from inside a git repo:
+
 ```bash
 bun add -g @noslop/cli
+noslop review
 ```
 
-noslop runs on [Bun](https://bun.sh) and needs a signed-in Codex or Claude Code CLI on your `PATH`.
+[Set up a repo](docs/guides/set-up-a-repo.md) goes on to a `review.json` and a review of each pull
+request.
 
 ## Supported model CLIs
 

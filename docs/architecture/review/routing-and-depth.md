@@ -33,9 +33,10 @@ fires lenses by the triggers like any other change, and the result marks it as a
 
 A trigger is the rule that fires a lens, matched against the slices and the changed paths. The
 correctness lens fires on every change that holds a code or test file. Each other lens fires when
-its trigger matches, and each trigger reads only slices and changed paths, so a lens fires only when
-its input holds something to look at. Several triggers compare a slice with a threshold from the
-config, such as the number of writes that fires the concurrency lens.
+its trigger matches, and each trigger reads only slices and changed paths, so a trigger fires a lens
+only when its input holds something to look at. A forced lens is the exception, as the next
+paragraph says. Several triggers compare a slice with a threshold from the config, such as the
+number of writes that fires the concurrency lens.
 
 A marked risk class fires every lens it forces on, whatever the triggers say.
 [Your own rules](../config/your-own-rules.md) covers how a risk class is marked. A special change
@@ -64,9 +65,10 @@ A change is Deep when any of these holds:
 - It touches the configured number of packages or more.
 - It carries a breaking marker, or hits a consumer edge in another repo.
 
-A risk class that a detector alone marks, or whose paths the change barely touches, leaves the
-change at Standard. The class still fires the lenses it forces, so the change gets their review at
-Standard effort.
+A marked risk class with fewer changed lines in its own paths than the configured number, such as a
+class that only a detector marks, doesn't make the change Deep by itself. The other Deep rules still
+apply, and the class still fires the lenses it forces, so without another Deep rule the change gets
+their review at Standard effort.
 
 A change is Light only when every one of these holds:
 
@@ -88,9 +90,9 @@ past Light.
 
 The review module runs the planned calls in one pass at every depth, and the depth sets only the
 effort of each call. A review never changes depth: a P1 that a Standard or Light review finds stays
-in its result, and no call runs again. The [eval harness](../measurement/eval.md) counts the
-labelled P1s and escapes that its Light cases hold, so a Light rule that lets P1s through shows up
-on the corpus.
+in its result, and no call runs again at a deeper depth. The [eval harness](../measurement/eval.md)
+counts the labelled P1s and escapes that its Light cases hold, so a Light rule that lets P1s through
+shows up on the corpus.
 
 The pass runs every call through the adapter, retrying a failed call once, under
 [adapters](./adapters.md). [Findings](./findings.md) covers how Assemble merges the findings of the

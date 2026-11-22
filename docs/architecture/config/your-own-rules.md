@@ -2,18 +2,24 @@
 
 noslop ships no rule set, under [0001](../../decisions/0001-scope-and-your-own-rules.md). The core
 knows generic defects, and everything that is one codebase's taste or one stack's meaning comes from
-the user's config. A user brings three things: a rules file for the taste lenses, stack patterns
-that tell the static stage what the stack's calls mean, and risk classes that mark the paths a
-review must take seriously. Each one lives in [the reviewer config](./review-config.md), so a shared
-config repo can hand the same three to several repos.
+the user's config. A user brings four things:
+
+- a rules file for the taste lenses;
+- stack patterns that tell the static stage what the stack's calls mean;
+- cast rules that name the lint rules banning a type assertion;
+- risk classes that mark the paths a review must take seriously.
+
+Each one lives in [the reviewer config](./review-config.md), so a shared config repo can hand the
+same four to several repos.
 
 ## The rules file
 
 A rules file is a Markdown file of taste rules, named by the config's `rules` key, which names one
 file or a list of them. Each file reaches the taste lenses whole, in a block named by its label, the
 path as the config wrote it, so the model never takes a heading inside the file for the file's name.
-noslop reads no structure into it, so a repo's skills serve as its rules unchanged, and a renamed
-heading changes nothing.
+noslop needs no structure in it, so a repo's skills serve as its rules unchanged. Its headings only
+label findings, as the next paragraph says, so a renamed heading changes a label and never which
+rules a review applies.
 
 A finding that rests on a rule, a taste finding or one of another criterion, names the file it rests
 on and quotes it, at least one full sentence, word for word. Assemble looks for the quote in the
@@ -30,8 +36,8 @@ A path that starts with `repo:` resolves against the root of the reviewed repo, 
 that names it. A shared config in its own repo names the synced skills this way. Each repo syncs
 only the skills and references it needs, so a `repo:` file or a reference that the repo lacks holds
 no rule, and the load goes on. The load names each such file once, so a review warns about it once.
-A sync that leaves a reference out of a repo drops the line of its rules file that links it, so the
-load leaves out a missing reference whose path the text of its rules file does not hold. Any other
+It skips the warning for a missing reference whose path the text of its rules file does not hold,
+because a sync that leaves a reference out of a repo also drops the line that links it. Any other
 rules file that does not exist fails the load. A `repo:` path and a reference both stay inside the
 folder they resolve against.
 
@@ -101,8 +107,9 @@ built-in defaults hold a generic set of classes, and a repo adds its own beside 
 with `null`. A class the repo adds names all three lists, with an empty list where one does not
 apply, because the schema requires each one.
 
-A marked class forces its lenses on, even a lens the config turns off, and makes the change Deep.
-One exception: a sync, a release bump or a docs-only change runs its own narrow lens list, and a
-class forces no lens onto it. A finding anchored in a marked class's paths carries the class's name.
-[Routing and depth](../review/routing-and-depth.md) covers how a class changes the route, and the
-findings doc covers what the class on a finding does at the merge.
+A marked class forces its lenses on, even a lens the config turns off. It makes the change Deep only
+when the change has the configured number of changed lines in the class's own paths. One exception
+to the forced lenses: a sync, a release bump or a docs-only change runs its own narrow lens list,
+and a class forces no lens onto it. A finding anchored in a marked class's paths carries the class's
+name. [Routing and depth](../review/routing-and-depth.md) covers how a class changes the route, and
+the findings doc covers what the class on a finding does at the merge.

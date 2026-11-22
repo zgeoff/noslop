@@ -1,9 +1,10 @@
 # Calls
 
 A call is one model request that bundles one or more fired lenses. Routing groups the lenses that
-[routing and depth](./routing-and-depth.md) fired into calls by the config's call grouping, and each
-call runs once on the whole change, so its lenses see every hunk they read. A call's effort, model
-and timeout come from its lenses and its depth.
+[routing and depth](./routing-and-depth.md) fired into calls by the config's call grouping. Each
+call runs once, and its lenses see every hunk they read, unless the call splits into parts to fit
+the input limit, as [Fitting a call to the input limit](#fitting-a-call-to-the-input-limit)
+describes. A call's effort, model and timeout come from its lenses and its depth.
 [0008](../../decisions/0008-stacking-lenses-into-calls.md) records the default grouping and why each
 lens stays a separate unit inside a call. [Lenses](./lenses.md) covers how a call's prompt is built
 and how each finding keeps its lens.
@@ -25,8 +26,9 @@ At Light, every fired lens goes into one call, because a Light change is small e
 to hold. At Standard and Deep, the calls follow the grouping, one call per group that fired, so a
 review makes as few calls as its fired groups allow.
 
-One call runs on one model. A lens whose config sets a model of its own therefore leaves its call
-for a call with the other lenses that set the same model.
+One call runs on one model, at every depth. After grouping, a call whose lenses set different models
+splits into one call per model, so a lens whose config sets a model of its own leaves its call, the
+Light call included.
 
 ## Effort, model and timeout
 
@@ -45,8 +47,10 @@ effort onto its CLI.
 
 ## Fitting a call to the input limit
 
-A model CLI refuses an input past its own length limit, so a call's prompt has to fit under the
-config's prompt limit before it is sent. The review builds each call's prompt in three steps:
+A model CLI refuses an input past its own length limit, so the review fits each call's prompt under
+the config's prompt limit before it sends the call. Only the changed files can be cut or split, so a
+call whose other input overflows alone runs whole, as the end of this section says. The review
+builds each call's prompt in three steps:
 
 1. A changed file that matches the config's data globs goes into no call. Corpora, fixtures and
    other generated data change in bulk, and a lens reads no defect in them line by line.

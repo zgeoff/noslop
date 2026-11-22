@@ -14,19 +14,21 @@ flowchart LR
   git[Files at the pinned commits] --> walk[One walk per file] --> facts[Facts]
   facts --> slices[Slices]
   facts --> direct[Direct findings]
-  slices --> signals[Risk signals]
+  facts --> signals[Risk signals]
+  slices --> signals
 ```
 
 ## Reading the change
 
-Every read goes through git at a pinned commit, so the stage never depends on the state of a working
-tree. The stage reads each changed file at the head, every package manifest at the head, and a set
-of context files: the test files beside each changed source, and every instruction file when an
-instruction file changed. A context file feeds the checks that compare against it, such as a
-duplicate test body or a rule repeated in another instruction file, and a direct finding never
-anchors to one. At the base commit, the stage reads only the changed manifests and the deleted code
-files, because a version bump and an export that leaves with its file are the facts that need the
-base side.
+Every read of the repo's files goes through git at a pinned commit, so the stage never depends on
+the state of a working tree. The linked issue and the consumer manifests come from the caller, as
+[Direct findings](#direct-findings) describes. The stage reads each changed file at the head, every
+package manifest at the head, and a set of context files: the test files beside each changed source,
+and every instruction file when an instruction file changed. A context file feeds the checks that
+compare against it, such as a duplicate test body or a rule repeated in another instruction file,
+and a direct finding never anchors to one. At the base commit, the stage reads only the changed
+manifests and the deleted code files, because a version bump and an export that leaves with its file
+are the facts that need the base side.
 
 Only TypeScript and JavaScript files get a syntax tree. Every other file, code in other languages
 included, yields only the facts a path and a diff show: its kind, its changed lines, and whether it
@@ -76,8 +78,8 @@ never runs again. A script counts as run when a package.json script at the head 
 path from that package's folder, or a workflow file there names its path from the repo root or a
 package's folder. The match takes the whole path, so a command that names a longer path keeps the
 script in the slice. Any entry fires the naming-shape-and-comments lens, which reads the script and
-reports one that ran once only under a rule in the rules file. A git hook or a task runner that runs
-the script is left to the lens, which checks before it reports.
+reports one that ran once only under a rule in the rules file. The stage reads no git hook or task
+runner config, so the lens checks whether one of them runs the script before it reports.
 
 ### The reuse slice and the base index
 
@@ -95,9 +97,9 @@ the patterns rebuilds it.
 ## Direct findings
 
 A direct finding is a finding the stage reports with no model call. The stage reads its defect from
-the code, so it is CONFIRMED and carries the lens `static`, as [findings](./findings.md) describes.
-A check that reports a missing change, such as a missing version bump, anchors to the code that
-needs it. The stage reports:
+the files at the pinned commits, so it is CONFIRMED and carries the lens `static`, as
+[findings](./findings.md) describes. A check that reports a missing change, such as a missing
+version bump, anchors to the code that needs it. The stage reports:
 
 - Defects in tests: a new test with no assertion, a new test whose body repeats another test's, a
   type test on a key its type lacks, an allow-or-deny check whose body the change rewrites and whose

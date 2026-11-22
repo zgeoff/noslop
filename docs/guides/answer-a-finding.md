@@ -1,10 +1,11 @@
 # Answer a finding
 
 Every finding noslop posts on a pull request needs an answer before the `noslop` check passes. You
-answer a finding with a reply whose first line is a disposition: a kind, a space, and a value.
-noslop judges each disposition against its rule, and the check passes once every finding holds a
-valid one. [The GitHub App](../architecture/output/github-app.md) owns those rules and the check,
-and [0009](../decisions/0009-the-merge-loop.md) records why the merge works this way.
+answer a finding with a reply whose first line is a disposition: a kind, then a space and a value,
+which a bare `fixed` leaves out. noslop judges each disposition against its rule, and the check
+passes once every finding holds a valid one. [The GitHub App](../architecture/output/github-app.md)
+owns those rules and the check, and [0009](../decisions/0009-the-merge-loop.md) records why the
+merge works this way.
 
 ## Write the reply
 
@@ -56,20 +57,20 @@ answers, such as when one of them is wrong:
    For a folded issue comment, write a new issue comment on the pull request with the same lines.
    Write two lines or more there, because a single line answers every finding of the comment.
 
-3. Wait for the check to update. Each finding takes the disposition on its own line, and a finding
-   you leave out stays open.
+3. Wait for the check to update. In a reply of one line per finding, each finding takes the
+   disposition on its own line, and a finding you leave out stays open.
 
 When one of the lines holds no disposition, noslop answers the reply once with the accepted forms,
 and the reply answers none of the findings on its lines.
 
 ## The four kinds
 
-| Kind            | Value          | Means                                  | Valid when                                              |
-| --------------- | -------------- | -------------------------------------- | ------------------------------------------------------- |
-| `fixed`         | a sha, or none | the head no longer holds the defect    | a fix check confirms it                                 |
-| `not-a-defect`  | a reason       | the finding is wrong                   | always                                                  |
-| `deferred`      | an issue       | real, but it waits for a tracked issue | the change did not write the code, and the issue exists |
-| `accepted-risk` | a reason       | real, and you accept it                | the author has admin permission on the repo             |
+| Kind            | Value          | Means                                  | Valid when                                                                  |
+| --------------- | -------------- | -------------------------------------- | --------------------------------------------------------------------------- |
+| `fixed`         | a sha, or none | the head no longer holds the defect    | a fix check confirms it                                                     |
+| `not-a-defect`  | a reason       | the finding is wrong                   | always                                                                      |
+| `deferred`      | an issue       | real, but it waits for a tracked issue | the issue exists, under [the limits below](#which-kinds-a-finding-can-take) |
+| `accepted-risk` | a reason       | real, and you accept it                | the author has admin permission on the repo                                 |
 
 A `fixed` reply may end at the word, or name a sha of 7 to 40 lowercase hex characters as a hint.
 Text after the sha is allowed once a space or a punctuation mark ends the sha, so `fixed 1a2b3c4.`

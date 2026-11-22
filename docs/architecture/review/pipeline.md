@@ -4,10 +4,10 @@ A review turns the change between two commits into a list of findings. It reads 
 git, runs the static stage over it, routes the change to the lenses that fire, sends those lenses to
 a model in calls, and assembles what comes back into findings. Every fact a model needs and code can
 compute comes from the static stage first, under [0002](../../decisions/0002-the-pipeline.md), so
-the model calls spend their tokens on judgement. The review module runs these stages; the
-[CLI](../output/cli.md) only supplies the change and hands the result to
-[reporters](../output/reporters.md), such as the one that posts as
-[the GitHub App](../output/github-app.md).
+the model calls spend their tokens on judgement. The [CLI](../output/cli.md) runs the first and last
+stages: it loads the change, and it hands the result to [reporters](../output/reporters.md), such as
+the one that posts as [the GitHub App](../output/github-app.md). The review module runs every stage
+between them.
 
 ```mermaid
 flowchart LR
@@ -33,7 +33,8 @@ flowchart LR
    fails again is recorded as failed, and the review goes on with the rest.
 5. **Assemble.** The findings module turns the raw output of every call, with the static stage's
    direct findings, into [findings](./findings.md): it drops a finding that breaks the finding rules
-   and merges two reports of one defect whose titles hold the same words.
+   and merges two reports of one defect whose anchors overlap in one file and whose titles hold the
+   same words.
 6. **Merge pass.** One call on a cheap model reads the assembled findings, with no code, and returns
    the groups of findings that report one defect. In each file a group spans, the review keeps the
    group's finding with the highest severity, so the pass removes a repeat and never a finding that
@@ -46,10 +47,10 @@ flowchart LR
 7. **Design pass.** On the first review of a pull request, one call runs
    [the design lens](./lenses.md#the-design-lens), which asks whether a better approach meets the
    task the pull request states. A later review runs no design pass, because it reads only the files
-   whose patch changed. Assemble checks the pass's finding against the whole pull request, and the
-   review keeps at most one. The pass runs when the config turns it on. A design call that fails is
-   retried once, and a design call that fails again is a failed call of the review, as a lens call
-   is, because the review then read no design fix.
+   whose patch changed. The pass runs Assemble's finding rules on its own finding, against the whole
+   pull request, and the review keeps at most one. The pass runs when the config turns it on. A
+   design call that fails is retried once, and a design call that fails again is a failed call of
+   the review, as a lens call is, because the review then read no design fix.
 8. **Report.** The CLI prints the result, as JSON or as a summary, and runs each reporter the config
    lists, or the ones its flag names.
 

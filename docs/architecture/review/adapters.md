@@ -3,8 +3,11 @@
 An adapter runs one call on one model CLI and returns its output as JSON that matches the call's
 output schema: the findings of a lens call, or the groups of the merge pass. noslop ships two: one
 for Codex and one for Claude Code. Each adapter starts its CLI read-only in its own code, so a
-review never changes the repo it reads, and keeps the reviewed repo's agent instruction files out of
-the model's context, so the change under review cannot steer its own review. Routing, depth and
+review never changes the repo it reads. Each adapter also stops its CLI from loading the reviewed
+repo's agent instruction files into the model's context at start, so the change under review cannot
+steer its own review that way. A model that opens such a file with its read tools is guarded only by
+noslop's appended instructions, as
+[Instruction files the model opens](#instruction-files-the-model-opens) says. Routing, depth and
 blocking all live in noslop, so swapping the adapter changes none of them.
 [0011](../../decisions/0011-model-adapters.md) records the decision.
 
