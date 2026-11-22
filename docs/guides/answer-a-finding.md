@@ -106,11 +106,11 @@ reason `only a repo admin gives accepted-risk`.
 
 ## Answer with a fix
 
-A `fixed` reply counts once a fix check judges the finding fixed at the pull request's head. For a
-finding of a model lens, the fix check is a fix call: one small model call on the finding. For a
-finding of the static stage, the fix check runs the static stage again over the whole pull request,
-with no model call. A review runs a fix check for each `fixed` reply present when it runs, so post
-the reply before the push that carries the fix:
+A `fixed` reply counts once a fix check judges the finding fixed, and a later push leaves it counted
+unless a later review reports the finding again. For a finding of a model lens, the fix check is a
+fix call: one small model call on the finding. For a finding of the static stage, the fix check runs
+the static stage again over the whole pull request, with no model call. A review runs a fix check
+for each `fixed` reply present when it runs, so post the reply before the push that carries the fix:
 
 1. Commit the fix on the branch.
 2. Reply `fixed`, or `fixed <sha>` with that commit's sha as a hint.

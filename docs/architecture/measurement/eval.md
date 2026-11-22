@@ -3,8 +3,8 @@
 The eval harness replays a corpus of past changes through noslop with the config under test, and
 scores what noslop reports against the findings a reference reviewer made on those changes, each
 labelled by what happened to it. `noslop eval --corpus <folder>` runs it from a repo whose config it
-tests. The score is per lens, so each lens's own reports count on their own even when a call carries
-it with others. One count crosses lenses: a true positive labelled with a lens counts as repeated
+tests. The score is per lens: each lens's reports count on their own, even when a call carries the
+lens with others. One count crosses lenses: a true positive labelled with a lens counts as repeated
 when a finding of any lens matches it. A baseline is a recorded run, such as one of the reference
 reviewer, that the harness scores beside noslop on the same cases. Two recorded runs of one reviewer
 give the noise floor: their agreement on the same cases shows how far one config differs from
@@ -50,7 +50,7 @@ A case may also hold silences, each a lens it expects to report no finding, with
 when the silence holds only near some lines, an anchor. A silence turns a check against a false
 positive into a scored expectation.
 
-Before a run, the harness checks that each labelled path names a file at the case's head, and it
+Before a run, the harness checks that a file exists at each labelled path at the case's head, and it
 stops with the case and the paths when one does not, because a label on a missing file can never
 match. A case whose clone or head it cannot read skips the check, and the replay records that case
 as failed.
@@ -61,22 +61,22 @@ holds `fixes`: the findings an author replied `fixed` to, and for each one the v
 [fix check](../output/fixes-only-run.md) of each finding at the case's head, with the case's base as
 the merge base, as a fixes-only run of a live pull request does. The run records each verdict and
 its reason. A fix check that fails, or that gets no call because the fix goes over the config's file
-limit, records no verdict, and the report shows it as `unjudged`. The report lists each verdict
-beside the one the case expects, in a section of its own. A fix-check case counts in the totals'
-cases, calls, tokens and duration, and in no lens row.
+limit, records no verdict, and the report shows it as `unjudged`. A section of the report of its own
+shows each verdict beside the one the case expects. A fix-check case counts in the totals' cases,
+calls, tokens and duration, and in no lens row.
 
 ## A run
 
 The harness reviews the first cases of the corpus, all of them unless `--limit` caps the count. For
 each case other than a fix-check case, noslop runs its whole pipeline on the case's clone, from the
 base to the head, with the merged config of the working directory's repo and the adapter that config
-or `--adapter` names. The pipeline checks out the head in a worktree of its own, so the clone's own
+or `--adapter` sets. The pipeline checks out the head in a worktree of its own, so the clone's own
 checkout never moves. A case that throws, or whose calls all fail, is recorded as failed, and the
 run goes on. A `repo:` rules path reads from the case's clone, as a live review of that repo reads
 it.
 
-Each case that ends is written at once to `runs.json` in the out folder, which `--out` names or
-which sits under the user's cache folder. A run cut short therefore keeps every case it finished.
+Each case that ends is written at once to `runs.json` in the out folder, which you set with `--out`
+or which sits under the user's cache folder. A run cut short therefore keeps every case it finished.
 Each finding in it keeps its criterion and the rule it cites, so a run can count the findings that
 rest on each rule. A noslop case also keeps each finding Assemble dropped, with the reason and the
 rule and quote it cited, so a run shows whether the quote check drops real findings. It keeps the
@@ -142,12 +142,12 @@ the other misses. A special route still runs no call.
 
 With `--static`, the harness plans each case with the config under test and makes no model call: it
 reads the change, runs the static stage and routes it, which is the part of a review that needs no
-model. Routing and the risk score are deterministic, so the replay runs on a whole corpus with no
-model cost and tells what a change to the risk score's thresholds does before any model run.
+model. Routing and the risk score are deterministic, so you can replay a whole corpus at no model
+cost and see what a change to the risk score's thresholds does before any model run.
 
 The report counts the cases at each depth, the labelled P1 true positives and the escapes those
 cases hold, and the calls each depth plans. It lists every labelled P1 and escape on a case that
 routes to Light, because each one is a defect the Light rule lets through with the least effort. It
 gives each case its planned calls and the most calls its review can make once the passes count: the
-merge pass when the config turns it on. A label's anchor plays no part, so the replay skips the
-check that each labelled path names a file.
+merge pass when the config turns it on. The replay never uses a label's anchor, so it skips the
+check that a file exists at each labelled path.

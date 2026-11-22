@@ -167,8 +167,8 @@ of rules for an answer:
   it cites sit in the paths of a risk class that the [static stage](../review/static-stage.md)
   marked.
 - A re-review or the fixes-only run makes a fix check of each `fixed` answer, under
-  [fix confirmation](./re-review.md#fix-confirmation). A `fixed` answer holds once a fix check
-  confirmed it, and its finding stays `open` while the latest review still reports the finding.
+  [fix confirmation](./re-review.md#fix-confirmation). `noslop check` accepts a `fixed` answer once
+  a fix check confirmed it and the latest review no longer reports the finding.
 - A `fixed <commit>` answer can name a commit that the pull request's head holds and the latest
   review's head does not. That answer stays `open` until a fix check confirms it, because no fix
   check has read the fix.

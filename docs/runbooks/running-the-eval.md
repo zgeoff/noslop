@@ -101,7 +101,7 @@ Keep `runs.json`. A later eval reads it as a baseline or as half of a noise floo
 
 ## Compare against a baseline
 
-1. Score a recorded run beside the new one:
+1. Replay the corpus as in step 3 of [Run it](#run-it), and score a recorded run beside the new one:
 
    ```bash
    noslop eval --corpus <corpus_folder> --baseline <runs_file>
