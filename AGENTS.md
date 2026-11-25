@@ -29,9 +29,7 @@ When you write or edit a skill:
 ## Operations
 
 - Every change reaches `main` through a pull request, and the pull request merges only once CI
-  passes. Work on a branch, push the branch, and open a pull request with the repo's template. The
-  owner reviews and merges it, so the pull request is done when CI passes and you have answered each
-  review finding. The checks a skill asks for, such as skill-writing's "Check it", come before that.
+  passes. Work on a branch, push the branch, and open a pull request with the repo's template.
 - Use [Conventional Commits](https://www.conventionalcommits.org/) for all commit messages, with a
   lowercase header of at most 72 characters.
 - Commit subjects use the imperative mood ("add X", never "added X" or a bare noun phrase).
@@ -54,7 +52,7 @@ docs/
   runbooks/        contributor and maintainer procedures: development, the eval, releasing
   reference/       generated reference: the JSON Schema of review.json
   decisions/       numbered decision records
-  design/          a design for work not yet built; only the owner starts a design
+  design/          a design for work not yet built; only the owner opens a design
 scripts/           the CLI package build, the config schema writer, the first publish, the release
                    ship and publish steps
 ```
