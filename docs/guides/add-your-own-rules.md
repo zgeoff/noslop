@@ -10,11 +10,12 @@ how the files of an `extends` chain merge.
 ## Write a rules file
 
 Write each rule as Markdown prose, under a level-2 or level-3 heading. noslop reads the file whole
-and reads no structure into it, so a skill or a style guide your agents load works unchanged.
+and needs no structure in it beyond the headings that label findings, so a skill or a style guide
+your agents load works unchanged.
 
-- Write each rule in at least one full sentence. A taste finding quotes your file word for word and
-  drops when the quote is not in it, so a rule written as a fragment gives the lens nothing to
-  quote.
+- Write each rule in at least one full sentence. The lens quotes your file word for word in each
+  taste finding, and the finding drops when the quote is not in the file, so a fragment gives the
+  lens nothing to quote.
 - Give each section a heading of its own. A taste finding takes the nearest heading above its quote
   as its rule, such as `rules.md: Error handling`, and the findings store counts the findings of
   each section.
@@ -62,7 +63,9 @@ Never swallow an error in a catch block. Rethrow it, or log it with the input th
    }
    ```
 
-A rules file that does not exist fails the load with `the rules file <label> does not exist`.
+A rules file without the `repo:` prefix that does not exist fails the load with
+`the rules file <label> does not exist`. A missing `repo:` file or reference gives no rule and the
+load goes on, as in [Extend a shared config repo](#extend-a-shared-config-repo).
 
 ## Extend a shared config repo
 
@@ -112,10 +115,10 @@ noslop config
    A remote parent reads as `github:<owner>/<repo>/review.json`.
 2. The `rules` line holds the merged list, each entry with its resolved path and its label. Its
    source in parentheses is the last file that set `rules`.
-3. Each `repo:` file or reference the repo lacks prints its own line:
-   `rules file not in this repo, so no rules from it: <label>`. A missing reference prints no line
-   when the text of its rules file does not hold its path, because the repo was not meant to hold
-   it.
+3. Each `repo:` file the repo lacks, and each missing reference its rules file links, prints its own
+   line: `rules file not in this repo, so no rules from it: <label>`. A missing reference prints no
+   line when the text of its rules file does not hold its path, because the repo was not meant to
+   hold it.
 
 The first line, `config <hash>`, changes when the config or the text of any rules file changes. Two
 reviews with the same hash ran under the same rules, so you can compare their findings in the

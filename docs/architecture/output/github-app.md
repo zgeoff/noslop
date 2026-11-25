@@ -3,14 +3,17 @@
 noslop posts on a pull request as its own GitHub App and sets a check run named `noslop`. For each
 review, the GitHub adapter posts one pull request review with an inline comment per new finding,
 folds a large class of like findings into one comment, writes one summary comment, and sets the
-check run. The check passes when no finding is open: each finding holds a valid disposition, which
-the author gives as a typed reply. noslop never decides the merge. The repo decides it in one of two
-ways: a branch rule that requires the check, or a relay. A relay is a service the repo's org runs,
-which reads the findings and applies its own rules, as
+check run. The check passes when no finding is open, meaning each finding holds a valid disposition
+that the author gives as a typed reply, and noslop can read each finding comment, as
+[the check run](#the-check-run) says. noslop never decides the merge. The repo decides it in one of
+two ways: a branch rule that requires the check, or a relay. A relay is a service the repo's org
+runs, which reads the findings and applies its own rules, as
 [enforce a review with a relay](../../guides/enforce-a-review-with-a-relay.md) describes. Every
 piece of state the App keeps lives in hidden markers inside its own comments, so each run reads the
-pull request's state back from GitHub and noslop keeps no database for it.
-[0009](../../decisions/0009-the-merge-loop.md) records the merge loop.
+pull request's state back from GitHub and needs no database for it. A review that also lists the
+`sqlite` reporter reads the store only to post findings that an earlier post lost, as step 4 of
+[what a review posts](#what-a-review-posts) says. [0009](../../decisions/0009-the-merge-loop.md)
+records the merge loop.
 
 A review reaches the pull request when a caller runs
 `noslop review --pr <number> --repo <owner/name> --report github` with the App's keys in the
@@ -99,9 +102,9 @@ The reporter sends the summary write, each edit of a finding comment, and the ch
 server error too, after a wait that doubles each time and starts at the spacing GitHub asks for
 between writes. A write that creates a finding comment or a reply gets no retry on a server error,
 because a write that GitHub saved before it failed would post a second one. Once the waits run out,
-the post fails with an error that names the write, so the review reports a failed reporter. The
-reporter waits that spacing between the comments it creates one at a time, so a burst of them meets
-no secondary limit.
+the post fails with an error that says which write failed, so the review reports a failed reporter.
+The reporter waits that spacing between the comments it creates one at a time, so a burst of them
+meets no secondary limit.
 
 ## State in markers
 
@@ -116,7 +119,9 @@ title, file, lines, risk class, authorship, description and fix of each finding 
 so the fix check of a folded finding reads its own description. The summary marker holds the
 reviewed head, the ids that review reported, its count of failed calls, the confirmed fixes, the
 fixes no fix check could judge with each reason, the id of each review result the reporter posted,
-and when the latest of those reviews started. A retried post of an older review, such as one that
+and when the latest of those reviews started. It also holds the
+[net-change keys](./re-review.md#the-net-change-key), and a marker an older release wrote can list
+the findings that release filed as issues. A retried post of an older review, such as one that
 failed at the summary write, leaves the summary in place and only sets the check again. A forms
 marker, on the App's answer to a free-text reply, holds the id of the reply it answered.
 
@@ -127,8 +132,8 @@ whose marker noslop cannot read fails the check, so a damaged marker never drops
 gate.
 
 A review on a developer's machine runs without the App's keys. The connection then reads GitHub with
-`GH_TOKEN`, or with `GITHUB_TOKEN` when `GH_TOKEN` is unset, and anonymously when neither is set, so
-the token decides which private repos the review reaches. Such a connection learns the App's login
+`GH_TOKEN`, or with `GITHUB_TOKEN` when `GH_TOKEN` is unset, and anonymously when neither is set.
+The token decides which private repos the review reaches. Such a connection learns the App's login
 from the `github.app` key of the config instead: it trusts a comment by `<slug>[bot]`, so a
 developer's review runs as a delta, drops a finding answered `not-a-defect`, and confirms a fix, as
 the App's review does. A review of a pull request loads that config from the base branch before it
@@ -168,22 +173,22 @@ c58e2b7a1f0d4936 not-a-defect the loop starts at the first item
 The caller sorts the list before the loop runs.
 ```
 
-A finding that the lines leave out takes no disposition from that reply. When one of the lines holds
-no disposition, the whole reply holds none. An issue comment that holds a single line of this form
-answers every finding of the comment that holds the line's id, because an issue comment with one id
-and one disposition is the form a finding outside the diff takes. Two or more lines answer each
-finding on its own.
+In a reply of two or more lines, a finding that the lines leave out takes no disposition from that
+reply. When one of the lines holds no disposition, the whole reply holds none. An issue comment that
+holds a single line of this form answers every finding of the comment that holds the line's id,
+because an issue comment with one id and one disposition is the form a finding outside the diff
+takes. Two or more lines answer each finding on its own.
 
 A reply in any other form is no disposition. Each time noslop sets the check, it answers each such
 reply once with the accepted forms, and the forms marker stops a later run answering it again. Each
 kind is valid under its own rule:
 
 - `fixed`, or `fixed <commit>` with the sha as a hint, is valid once a fix check judged the finding
-  fixed at the head, and no later review reports the finding again. A `fixed <commit>` answer whose
-  commit the pull request's head holds and the latest review's head does not stays invalid until a
-  fix check confirms it, and the check names the commit that no fix check has read. A `fixed` answer
-  whose fix the latest fix check could not judge stays invalid, and the check gives the reason the
-  fix check could not judge it.
+  fixed, and no later review reports the finding again. A later push leaves it valid, with one
+  exception: a `fixed <commit>` answer whose commit the pull request's head holds and the latest
+  review's head does not stays invalid until a fix check confirms it, and the check names the commit
+  that no fix check has read. A `fixed` answer whose fix the latest fix check could not judge stays
+  invalid, and the check gives the reason the fix check could not judge it.
 - `not-a-defect <reason>` is valid with any reason.
 - `deferred <issue>` is valid when the change did not write the code, the finding is no P1, security
   or risk-class finding, and the issue exists. The issue is `#<number>` in the same repo,
@@ -195,8 +200,8 @@ kind is valid under its own rule:
   base branch moves while it reads them, so a retarget never lends one branch's patterns to another.
 - `accepted-risk <reason>` is valid when the author has admin permission on the repo.
 
-A finding in code the change wrote therefore takes `fixed`, `not-a-defect` or `accepted-risk`,
-because the pull request fixes the code it wrote rather than deferring it to a later one.
+A finding in code the change wrote takes `fixed`, `not-a-defect` or `accepted-risk`, because the
+pull request fixes the code it wrote, so `deferred` is never valid for it.
 
 ## The check run
 
@@ -213,6 +218,6 @@ current head or green CI checks each of those itself.
 noslop writes the first problem as the check's title, and lists each open finding with its reason in
 the check's text. The `github` reporter sets the check after each review, and
 `noslop check --pr <number> --repo <owner/name>` sets it again from what GitHub holds, with no new
-review. The command exits 0 whatever the check concludes, because a failing check is an answer, not
-an error. Under `--read-only` it sets no check run and exits 1 unless the check passes, as
-[checking read-only](./cli.md#checking-read-only) describes.
+review. Without `--read-only`, the command exits 0 whatever the check concludes, because a failing
+check is an answer, not an error. Under `--read-only` it sets no check run and exits 1 unless the
+check passes, as [checking read-only](./cli.md#checking-read-only) describes.

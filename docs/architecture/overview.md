@@ -2,12 +2,14 @@
 
 noslop reviews the pull requests that coding agents write. It runs after the repo's lint, computes
 what code can compute in a static stage before any model call, and then sends each review concern,
-called a lens, to the model CLI the user runs. It only reads: a review runs no tests and writes no
-code. Every finding it posts on a pull request needs an answer before the pull request merges.
+called a lens, to the model CLI the user runs. It only reads the repo: a review runs no tests and
+writes no code. Its writes go only to the places its reporters send the result. Every finding it
+posts on a pull request needs an answer before the pull request merges.
 
-A repo needs no config to start, because built-in defaults run every generic lens. A `review.json`
-adds the user's own rules, the patterns of their stack and their risk classes, and it can extend a
-shared config repo.
+A repo needs no config to start, because the built-in defaults turn on every generic lens, and
+routing still fires each lens only on its trigger (see [How a review runs](#how-a-review-runs)). Add
+a `review.json` for the user's own rules, the patterns of their stack and their risk classes. It can
+extend a shared config repo.
 
 ## How a review runs
 

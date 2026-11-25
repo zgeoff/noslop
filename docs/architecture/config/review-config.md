@@ -6,8 +6,8 @@ and validates the merged result, so a review always reads a config with every ke
 with no config: a repo with no `review.json` gets a review from the built-in defaults, under
 [0010](../../decisions/0010-the-reviewer-config.md). The contract package (`@noslop/contract`) holds
 the schema of the merged config, and the [generated JSON Schema](../../reference/review.schema.json)
-describes each key. [Your own rules](./your-own-rules.md) covers the parts a user brings: the rules
-file, stack patterns and risk classes.
+describes each key. For the parts a user brings, which are the rules file, stack patterns, cast
+rules and risk classes, read [Your own rules](./your-own-rules.md).
 
 ```json
 {
@@ -95,11 +95,11 @@ thresholds, a generic set of risk classes and stack patterns, the generic
 [cast rules](./your-own-rules.md#cast-rules), and the path globs for generated, instruction, prose,
 infra and script files. They turn the merge pass and the design pass on, and give each adapter a
 cheap model for the merge pass. They name no rules file, no adapter and no consumers, so a repo with
-no config gets a review that knows nothing about its stack or its taste. The defaults hold no
-project names or stack-specific patterns, under
-[0001](../../decisions/0001-scope-and-your-own-rules.md). When neither the config nor the CLI flag
-names an adapter, the CLI runs the Codex adapter, which [adapters](../review/adapters.md) covers. It
-never looks for which model CLIs are installed, so one config runs one adapter on every machine.
+no config gets a review with no knowledge of its stack or its taste. The defaults hold no project
+names or stack-specific patterns, under [0001](../../decisions/0001-scope-and-your-own-rules.md).
+When neither the config nor the CLI flag names an adapter, the CLI runs the Codex adapter, which
+[adapters](../review/adapters.md) describes. The CLI never looks for which model CLIs are installed,
+so one config runs one adapter on every machine.
 
 ## Per-lens overrides
 

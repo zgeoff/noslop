@@ -2,19 +2,19 @@
 
 You install the `noslop` CLI, review a branch on your own machine, and then, if you want, add a
 `review.json` and have noslop post its review of every pull request as a GitHub App you register. A
-repo needs no config for the first review: the built-in defaults review any change, and
-[the reviewer config](../architecture/config/review-config.md) covers what they hold.
+repo needs no config for the first review: the built-in defaults review any change. See
+[the reviewer config](../architecture/config/review-config.md) for what they hold.
 
 ## Install the CLI
 
-noslop runs on Bun and calls a model CLI for each review, so you need three things on your `PATH`:
+noslop runs on Bun and calls a model CLI for each review, so put these three on your `PATH`:
 
 - Bun, at the version the repo pins in `.bun-version`. The npm package's Bun engine is that exact
   version.
 - `git`, because every review reads the change from a git repo.
 - The Codex CLI (`codex`) or the Claude Code CLI (`claude`), signed in. noslop uses Codex unless
-  your config or the `--adapter` flag names `claude`, and
-  [adapters](../architecture/review/adapters.md) covers how each one runs.
+  your config or the `--adapter` flag sets `claude`. See
+  [adapters](../architecture/review/adapters.md) for how each one runs.
 
 Install the CLI from npm:
 
@@ -23,7 +23,7 @@ bun add -g @noslop/cli
 noslop --version
 ```
 
-The second command prints the version you installed.
+Expect the second command to print the version you installed.
 
 ## Review a local branch
 
@@ -35,8 +35,8 @@ The second command prints the version you installed.
    ```
 
    noslop reviews what the branch changed since it left the default branch, and prints a summary:
-   the depth, the lenses that ran, each finding with its file and lines, and each failed call.
-   [The CLI](../architecture/output/cli.md) covers how it picks the base and the head.
+   the depth, the lenses that ran, each finding with its file and lines, and each failed call. See
+   [The CLI](../architecture/output/cli.md) for how it picks the base and the head.
 
 3. To review a different range, name the commits:
 
@@ -47,8 +47,8 @@ The second command prints the version you installed.
 4. To use Claude Code for one run, add `--adapter claude`.
 
 A bare `noslop review` prints its result and stores nothing. To keep each review in the findings
-store, add `--report sqlite`, and read the store with `noslop store query <name>`.
-[The findings store](../architecture/measurement/store.md) covers what it holds.
+store, add `--report sqlite`, and read the store with `noslop store query <name>`. See
+[the findings store](../architecture/measurement/store.md) for what it holds.
 
 ## Add a review.json
 
@@ -73,16 +73,16 @@ Commit the file, and merge it to the default branch before you rely on it. A rev
 from the commit its change starts from, never from the change, because a pull request must not
 weaken its own review. A pull request that adds or edits `review.json` is reviewed under the old
 config, and the new one applies once it merges. `noslop config` reads your working tree, so run it
-to try a change before you commit it. The keys and their meanings live in
-[the config schema](../reference/review.schema.json), and
-[Add your own rules](./add-your-own-rules.md) covers the rules file and a shared config repo.
+to try a change before you commit it. Find the keys and their meanings in
+[the config schema](../reference/review.schema.json). For the rules file and a shared config repo,
+see [Add your own rules](./add-your-own-rules.md).
 
 ## Review pull requests
 
 noslop posts its findings, a summary comment and a `noslop` check run on a pull request as a GitHub
 App that you register. noslop runs no server: your own automation, such as a CI job or a service
-your org runs, runs the CLI with the App's keys on each push and after each reply.
-[The GitHub App](../architecture/output/github-app.md) covers what the App posts and when the check
+your org runs, runs the CLI with the App's keys on each push and after each reply. See
+[the GitHub App](../architecture/output/github-app.md) for what the App posts and when the check
 passes.
 
 1. Register a GitHub App on your account or organization:
@@ -114,7 +114,7 @@ passes.
 7. Have your automation run that command on each push to the pull request. Each review covers only
    the commits since the last one.
 8. Have it run `noslop check --pr <number> --repo <owner/name>`, started the same way, after each
-   reply to a finding, so the check run shows the new answers with no new review.
+   reply to a finding, so the check run updates with the new answers and no new review.
 9. Make the `noslop` check required in the branch protection of the default branch, so a pull
    request merges only once every finding holds a valid answer.
 
@@ -128,5 +128,5 @@ local review does. With no App credentials in the environment, noslop reads GitH
 then `GITHUB_TOKEN`, and anonymously when neither is set, so a private repo needs a token that can
 read it. It posts nothing. Set `github.app` in `review.json` to the App's slug, and your review
 trusts the App's comments: it covers only the commits since the App's last review. To post as the
-App, set `NOSLOP_GITHUB_APP_ID`, `NOSLOP_GITHUB_APP_PRIVATE_KEY` and
-`NOSLOP_GITHUB_APP_INSTALLATION_ID`, and add `--report github`.
+App, set the App's keys and run the command from step 6 of
+[Review pull requests](#review-pull-requests), with Bun pointed at a config outside the repo.

@@ -3,10 +3,10 @@
 The CLI, the bin `noslop` in `@noslop/cli`, is the composition root for a review: it reads the
 config, builds the adapter and the reporters, runs the pipeline on one change, and hands the result
 to each reporter. It reviews a local branch or a pull request, and its JSON output carries a schema
-version, so other tools pin a CLI version and read one shape. Every review and check that
-[the GitHub App](./github-app.md) posts comes from a run of this CLI.
-[0011](../../decisions/0011-model-adapters.md) records why noslop is a versioned CLI with JSON
-output.
+version, so other tools can pin a CLI version and read one shape. Every review and check that
+[the GitHub App](./github-app.md) posts comes from this CLI's code: a run of the CLI, or a call to
+one of its package exports. [0011](../../decisions/0011-model-adapters.md) records why noslop is a
+versioned CLI with JSON output.
 
 The npm package `@noslop/cli` holds a Bun bundle of the CLI and every workspace package it imports,
 the [lens](../review/lenses.md) prompts included, so the workspace packages stay private. The bundle
@@ -22,8 +22,8 @@ running the CLI as a process:
 - `@noslop/cli/check` sets a pull request's check run, as `noslop check` does, or with `readOnly`
   returns the outcome and writes nothing, as [checking read-only](#checking-read-only) describes.
 
-The `verify`, `post` and `check` exports take the App's keys or a token from the caller, never from
-the process environment.
+The `verify`, `post` and `check` exports read the App's keys or a token from an `env` map that the
+caller passes, never from the process environment itself.
 
 Bun builds the exports into a second bundle, which leaves zod out. The package takes zod as a peer
 dependency, from `^4.6.7`, so the caller's own zod is the one copy that the caller's schemas and the
@@ -62,8 +62,8 @@ published types import nothing but zod.
 `--json`, and `--verbose` lowers the log level to debug. `noslop <command> --help` lists each
 command's flags.
 
-Logs go to stderr, so stdout holds only a command's output. A command exits 0 when it completed. It
-exits 1 in these cases:
+Logs go to stderr, so stdout holds only a command's output. A command exits 1 in each of these
+cases, and 0 otherwise:
 
 - It could not run, such as on a bad flag, a git failure or an adapter the CLI does not have.
 - `review` ran, and a reporter failed.
@@ -82,8 +82,7 @@ Without `--pr`, `review` reviews the repo that holds the working directory, from
 `--head`. The head defaults to `HEAD`. The base defaults to the merge-base of the head with
 `origin/HEAD`, then with `main`, then with `master`, so a branch's review covers what it changed
 since it left the default branch. The title is the head commit's subject, and the body holds every
-commit message of the change, oldest first, so the intent lens reads the whole branch and not only
-its last commit.
+commit message of the change, oldest first, so the intent lens reads the whole branch.
 
 With `--pr`, the CLI reads the pull request from GitHub and takes its title, body, head and base
 from there, so it refuses `--base` and `--head`. The repo comes from `--repo`, or from the origin
@@ -145,7 +144,8 @@ posts only a review of the current head under the config on the base branch's ti
 [Enforce a review with a relay](../../guides/enforce-a-review-with-a-relay.md) sets one up.
 
 `--no-verify` skips the verification, for a result the caller checked itself. `post` needs the App's
-keys in the environment, and refuses to run with a token or an anonymous GitHub connection.
+keys, from the environment for the command and from the `env` map for the export, and refuses to run
+with a token or an anonymous GitHub connection.
 
 ## Listing the findings
 
@@ -167,8 +167,8 @@ of rules for an answer:
   it cites sit in the paths of a risk class that the [static stage](../review/static-stage.md)
   marked.
 - A re-review or the fixes-only run makes a fix check of each `fixed` answer, under
-  [fix confirmation](./re-review.md#fix-confirmation). A `fixed` answer holds once a fix check
-  confirmed it, and its finding stays `open` while the latest review still reports the finding.
+  [fix confirmation](./re-review.md#fix-confirmation). `noslop check` accepts a `fixed` answer once
+  a fix check confirmed it and the latest review no longer reports the finding.
 - A `fixed <commit>` answer can name a commit that the pull request's head holds and the latest
   review's head does not. That answer stays `open` until a fix check confirms it, because no fix
   check has read the fix.
@@ -196,10 +196,10 @@ no App comment in response to a reply that holds no answer, and no answers in th
 runs it with its own token, so the App's keys stay with the relay.
 
 The CLI cannot tell from a token alone which App's comments to trust. So `check --read-only` trusts
-the comments of the App that `github.app` names in the config on the base branch's tip. It loads
-that config as [verifying a result](#verifying-a-result) loads it, and refuses to run when that
-config names no App and the environment holds no App keys. It prints the title and each open
-finding, and exits 1 unless the check passes.
+the comments of the App set in `github.app` in the config on the base branch's tip. It loads that
+config as [verifying a result](#verifying-a-result) loads it, and refuses to run when that config
+sets no App and the environment holds no App keys. It prints the title and each open finding, and
+exits 1 unless the check passes.
 
 Without the flag, `check` sets the check run as the App, and refuses to run with a token or an
 anonymous GitHub connection.

@@ -2,19 +2,20 @@
 
 Routing decides, for one change, which lenses fire and how hard the review looks. It reads only what
 the [static stage](./static-stage.md) produced: the changed files, the slices, the risk signals and
-the config. No model takes part, so 2 runs on one change fire the same lenses at the same depth. The
-triggers and the depth rules are black and white, like the severity criteria of
-[findings](./findings.md) and the blocking rules of [the GitHub App](../output/github-app.md): code
-applies each one without judgement, and a rule accepts some noise to stay consistent.
-[0006](../../decisions/0006-routing.md) records the triggers and the special changes, and
-[0007](../../decisions/0007-depth-and-models.md) records the Light and Deep rules. Routing then
-plans the calls that carry the fired lenses, which [calls](./calls.md) covers.
+the config, plus whether the caller reviews a push to the default branch. No model takes part, so 2
+runs on one change fire the same lenses at the same depth. The triggers and the depth rules are
+black and white, like the severity criteria of [findings](./findings.md) and the blocking rules of
+[the GitHub App](../output/github-app.md): code applies each one without judgement, and a rule
+accepts some noise to stay consistent. [0006](../../decisions/0006-routing.md) records the triggers
+and the special changes, and [0007](../../decisions/0007-depth-and-models.md) records the Light and
+Deep rules. Routing then plans the calls that carry the fired lenses; see [calls](./calls.md).
 
 ## Special changes
 
-A few kinds of change route on a lens list of their own in place of the triggers. Routing checks
-them in order, so a change that is both a sync and a release routes as a sync, and each change gets
-the narrowest route that covers it.
+Routing checks four special changes in the order of the table below, and a change takes the first
+route that matches, so a change that is both a sync and a release routes as a sync. A sync, a
+release and a docs-only change route on a lens list of their own in place of the triggers, and a
+direct push routes by the triggers.
 
 | Change      | When                                               | Lenses                         |
 | ----------- | -------------------------------------------------- | ------------------------------ |
@@ -31,19 +32,21 @@ fires lenses by the triggers like any other change, and the result marks it as a
 
 ## Firing a lens
 
-A trigger is the rule that fires a lens, matched against the slices and the changed paths. The
-correctness lens fires on every change that holds a code or test file. Each other lens fires when
-its trigger matches, and each trigger reads only slices and changed paths, so a lens fires only when
-its input holds something to look at. Several triggers compare a slice with a threshold from the
-config, such as the number of writes that fires the concurrency lens.
+A trigger is the rule that fires a lens, matched against the slices and the changed paths. On a
+change that routes by the triggers, the correctness lens fires whenever the change holds a code or
+test file. Each other lens fires when its trigger matches. Each trigger reads only slices and
+changed paths, and fires only when they hold something to look at. A forced lens is the exception,
+as the next paragraph says. Several triggers compare a slice with a threshold from the config, such
+as the number of writes that fires the concurrency lens.
 
-A marked risk class fires every lens it forces on, whatever the triggers say.
-[Your own rules](../config/your-own-rules.md) covers how a risk class is marked. A special change
-with a lens list of its own ignores forced lenses, because its list is the whole route.
+A marked risk class fires every lens it forces on, whatever the triggers say. See
+[Your own rules](../config/your-own-rules.md) for how a risk class is marked. A sync, a release or a
+docs-only change ignores forced lenses, because its lens list is the whole route. A direct push
+takes forced lenses like any other change.
 
-A lens that the config turns off never fires. One exception: a lens that a marked risk class forces
-on fires even when the config turns it off, because the risk class is the stronger statement about
-the change.
+Every rule above gives way to the config: a lens that the config turns off never fires. One
+exception: a lens that a marked risk class forces on fires even when the config turns it off,
+because the risk class is the stronger statement about the change.
 
 The fired lenses keep the lens set's own order, so a call's prompt holds its sections in one order
 on every run.
@@ -64,9 +67,10 @@ A change is Deep when any of these holds:
 - It touches the configured number of packages or more.
 - It carries a breaking marker, or hits a consumer edge in another repo.
 
-A risk class that a detector alone marks, or whose paths the change barely touches, leaves the
-change at Standard. The class still fires the lenses it forces, so the change gets their review at
-Standard effort.
+A marked risk class with fewer changed lines in its own paths than the configured number, such as a
+class that only a detector marks, doesn't make the change Deep by itself. The other Deep rules still
+apply, and the class still fires the lenses it forces, so without another Deep rule the change gets
+their review at Standard effort.
 
 A change is Light only when every one of these holds:
 
@@ -74,24 +78,23 @@ A change is Light only when every one of these holds:
   set of writes that would fire the concurrency lens.
 - It changes no infra file, because an infra change deploys or provisions, and its effect reaches
   past what its line count shows.
-- It touches no more packages than the Light limit allows, and no consumer edge.
-- Its code lines are within the Light limit, or it changes only tests, or only prose and
+- It touches no more packages than the Light package limit allows, and no consumer edge.
+- Its code lines are within the Light line limit, or it changes only tests, or only prose and
   instructions.
 - No file in it has a past escape.
 
-The Light line limit is a high cutoff above which a change cannot be Light, not a test that only
-small changes pass. The line count leaves out prose and instruction files, and the static stage
-leaves generated files out of the change before routing reads it, so neither kind can push a change
-past Light.
+The Light line limit is a high cutoff: above it, a change cannot be Light. The line count leaves out
+prose and instruction files, and the static stage leaves generated files out of the change before
+routing reads it, so neither kind can push a change past Light.
 
 ## The pass
 
 The review module runs the planned calls in one pass at every depth, and the depth sets only the
 effort of each call. A review never changes depth: a P1 that a Standard or Light review finds stays
-in its result, and no call runs again. The [eval harness](../measurement/eval.md) counts the
-labelled P1s and escapes that its Light cases hold, so a Light rule that lets P1s through shows up
-on the corpus.
+in its result, and no call runs again at a deeper depth. The [eval harness](../measurement/eval.md)
+counts the labelled P1s and escapes that its Light cases hold, so a Light rule that lets P1s through
+shows up on the corpus.
 
 The pass runs every call through the adapter, retrying a failed call once, under
-[adapters](./adapters.md). [Findings](./findings.md) covers how Assemble merges the findings of the
+[adapters](./adapters.md). See [findings](./findings.md) for how Assemble merges the findings of the
 calls.

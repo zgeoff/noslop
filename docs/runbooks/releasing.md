@@ -2,12 +2,16 @@
 
 release-please and the `main` workflow release `@noslop/cli` to npm. The workflow's release job
 calls the shared release-please workflow of `zgeoff/tools` at the repo's sync tag, with its merge
-input off. release-please opens a release pull request after a releasable commit lands on `main`.
-The run of that pull request's merge tags the release at once, and once the run's checks pass, the
-workflow publishes the CLI with npm provenance. This runbook holds only the steps they do not do:
-the one-time setup before the first automated release, merging each release pull request, and the
-recoveries a failed release needs. [The CLI](../architecture/output/cli.md) covers what the
-published package holds.
+input off. release-please opens a release pull request after a releasable commit lands on `main`. In
+the common case, merging that pull request starts a run that tags the release at once and, once its
+checks pass, publishes the CLI with npm provenance.
+[Merge a release pull request](#merge-a-release-pull-request) covers the run that publishes from a
+dispatch instead, and
+[Recover a release blocked by a workflow change](#recover-a-release-blocked-by-a-workflow-change)
+covers a tag that GitHub refuses. This runbook covers only the steps the workflow leaves to a
+maintainer: the one-time setup before the first automated release, merging each release pull
+request, and the recoveries a failed release needs. [The CLI](../architecture/output/cli.md) covers
+what the published package holds.
 
 ## One-time setup
 
@@ -74,8 +78,9 @@ Nothing merges a release pull request on its own, so each release waits for a ma
    pass.
 3. Merge the pull request.
 4. Expect a new `main` workflow run. Its release job tags `@noslop/cli@<version>`, and once its
-   checks pass, its `publish-release` job publishes that version. The log of the publish step ends
-   with `published @noslop/cli@<version>`.
+   checks pass, its `publish-release` job publishes that version, or a dispatched run publishes it,
+   as the paragraph after these steps says. The log of the publish step ends with
+   `published @noslop/cli@<version>`.
 5. Check the registry:
 
    ```bash

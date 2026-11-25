@@ -1,7 +1,7 @@
 # Agent Guidelines
 
-This repo is noslop, a reviewer for pull requests that coding agents write. `docs/decisions/` holds
-the decision records, and `docs/architecture/` describes the code as it is built.
+noslop reviews pull requests that coding agents write. Find the decision records in
+`docs/decisions/` and the description of the code as built in `docs/architecture/`.
 
 ## Required reading
 
@@ -23,10 +23,8 @@ When you write or edit a skill:
    delivers them there at the `zgeoff/skills` commit that `zgeoff/tools` pins, so install none of
    them yourself.
 2. Do every step in the "Check it" section of `.agents/skills/skill-writing/SKILL.md`.
-3. In the PR description, after the sections of the repo's PR template, add three `##` headings:
-   - "Skill checks": the check output.
-   - "Cold read": each cold-read finding, and how you answered it.
-   - "Deslop": each change deslop made, or "none".
+3. Fill in the `## Checks` section of the repo's PR template as step 4 of "Check it" says. Add no
+   `##` heading of your own, because the PR-body check fails on a heading the template doesn't have.
 
 ## Operations
 
@@ -87,19 +85,17 @@ choice for the owner.
 
 ## Working here
 
-- **Choices that need the owner.** The owner decides architecture, framework, library and technology
-  choices, naming, and the review rules. Bring each such choice to the owner with its options, a
-  recommendation and the trade-off. A decision record exists only for what the owner agreed. Close
-  questions that evidence or an existing decision settles, and set configurable defaults for tuning
-  values without asking.
-- **Decision records.** A changed decision is edited in place: the record keeps its number, its
-  header gains an `Updated` date, and a `## Changes` list at its end gives each change's date and a
-  one-line summary. A new record is only for a new decision.
-- **Designs.** When a part of a design under `docs/design/` lands, the change that lands it moves
-  that part to `docs/architecture/`, rewritten to describe the code.
-- **Attribution.** Commit messages carry no attribution lines: no co-author trailers and no
-  generator notes.
-- **Plans.** A plan for work about to be built lives outside `docs/`.
+- Bring each architecture, framework, library or technology choice, each naming choice and each
+  review rule to the owner, with its options, a recommendation and the trade-off. Write a decision
+  record only for what the owner agreed. Close questions that evidence or an existing decision
+  settles, and set configurable defaults for tuning values without asking.
+- Edit a changed decision in place: the record keeps its number, its header gains an `Updated` date,
+  and a `## Changes` list at its end gives each change's date and a one-line summary. Write a new
+  record only for a new decision.
+- When a part of a design under `docs/design/` lands, move that part to `docs/architecture/` in the
+  same change, rewritten to describe the code.
+- Write commit messages with no attribution lines: no co-author trailers and no generator notes.
+- Keep a plan for work about to be built outside `docs/`.
 
 ## Public repo
 

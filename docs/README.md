@@ -1,8 +1,8 @@
 # noslop documentation
 
-The guides take a user through a task, the runbooks take a contributor or maintainer through a
-procedure, the architecture docs describe the code as it is built, and the decision records give
-each choice with its reasons.
+Read a guide to do a task, a runbook to follow a contributor or maintainer procedure, the
+architecture docs to see how the code is built, and the decision records for each choice and its
+reasons.
 
 ## Guides
 
@@ -29,8 +29,8 @@ each choice with its reasons.
 
 ## Architecture
 
-[The overview](architecture/overview.md) gives the whole review path, the areas, and what holds for
-every part.
+Start with [the overview](architecture/overview.md) for the whole review path, the areas, and what
+holds for every part.
 
 - Review
   - [Pipeline](architecture/review/pipeline.md): the stages from a change to a review result
@@ -67,9 +67,9 @@ every part.
 
 ## Decisions
 
-Each record states its decision as it stands, with its reasons and the alternatives it rejected. A
-changed decision is edited in place, and its `Changes` list gives each change. The numbers are
-stable IDs in the order the decisions were made.
+Each record gives its decision as it stands, with its reasons and the alternatives it rejected. When
+a decision changes, edit its record in place and add the change to its `Changes` list. The numbers
+are stable IDs in the order the decisions were made.
 
 - [0001: Scope and your own rules](decisions/0001-scope-and-your-own-rules.md): a reviewer for
   agent-written code that needs little config, with no rule set of its own
