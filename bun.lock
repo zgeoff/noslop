@@ -238,7 +238,7 @@
     "@octokit/app": "16.1.4",
     "@octokit/core": "7.0.8",
     "@octokit/types": "18.0.0",
-    "@zgeoff/testing": "0.4.2",
+    "@zgeoff/testing": "0.4.3",
     "gunshi": "1.0.0-rc.4",
     "kysely": "0.29.8",
     "msw": "3.0.4",
@@ -751,7 +751,7 @@
 
     "@zgeoff/std": ["@zgeoff/std@0.4.5", "", {}, "sha512-Z2rD5v0OVXRZTa3Jh2I8zmx9znzvnAa/bC5Ai0NidPh+pfJGfDLmQIVZhshbGXPu/S/9SFdP/chDw+N5Pk/lzg=="],
 
-    "@zgeoff/testing": ["@zgeoff/testing@0.4.2", "", { "dependencies": { "@zgeoff/std": "0.4.5", "bun-pty": "0.6.0" }, "peerDependencies": { "@mswjs/interceptors": ">=0.45.11 <0.46", "msw": ">=3.0.4 <4" }, "optionalPeers": ["@mswjs/interceptors", "msw"] }, "sha512-kXo90cNuLKJ/K1SJtA+qWQWFeenDvUPyvkDkvTaQVormbpqhy1NgRDrDPopWw3in503oqlxvPNIBA/sg4QAGyg=="],
+    "@zgeoff/testing": ["@zgeoff/testing@0.4.3", "", { "dependencies": { "@zgeoff/std": "0.4.5", "bun-pty": "0.6.0" }, "peerDependencies": { "@mswjs/interceptors": ">=0.45.11 <0.46", "msw": ">=3.0.4 <4" }, "optionalPeers": ["@mswjs/interceptors", "msw"] }, "sha512-hJ8/cuMbxbZJAOwomxZeBOGXygT8GwVpOj19HS76aE+c9qimGSRMN0cB0mJZF87ES5cLIvp1uIAGXDGWJLz87A=="],
 
     "acorn": ["acorn@8.19.0", "", { "bin": { "acorn": "bin/acorn" } }, "sha512-oJlA3XiRm7Cyk6qFD2Jn8ak9B7jSy0qy00ADO3+8dpT0LSjFihQYv4C02LFCSYJV3Q37xYwwRy5m+IpIiUzqWw=="],
 
