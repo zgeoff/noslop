@@ -67,7 +67,7 @@
     "@zgeoff/chex": "0.4.7",
     "@zgeoff/diet": "0.3.3",
     "@zgeoff/format-codemod": "0.3.6",
-    "@zgeoff/oxlint-config": "0.11.3",
+    "@zgeoff/oxlint-config": "0.11.4",
     "@zgeoff/rig": "0.3.2",
     "@zgeoff/testing": "catalog:",
     "knip": "6.44.1",
